@@ -3,6 +3,10 @@
 Personal Fantasy Premier League analytics and decision-support application. See
 [fpl_app_phase_wise_build_plan.md](./fpl_app_phase_wise_build_plan.md) for the full architecture and phased build plan.
 
+## Phase plans
+
+- [Phase 1 — FPL Data Ingestion](./docs/phase-1-plan.md)
+
 ## Stack
 
 - Next.js (static export) + TypeScript + Tailwind CSS + shadcn/ui
