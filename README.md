@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FPL App
 
-## Getting Started
+Personal Fantasy Premier League analytics and decision-support application. See
+[fpl_app_phase_wise_build_plan.md](./fpl_app_phase_wise_build_plan.md) for the full architecture and phased build plan.
 
-First, run the development server:
+## Stack
+
+- Next.js (static export) + TypeScript + Tailwind CSS + shadcn/ui
+- Supabase (Postgres, Auth, Edge Functions, Cron) as the system of record
+- Hosted on GitHub Pages, deployed via GitHub Actions
+
+## Getting started
 
 ```bash
+npm install
+cp .env.example .env.local   # fill in your Supabase project URL + publishable key
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `app/` — Next.js routes
+- `components/` — UI components (shadcn/ui in `components/ui`)
+- `lib/supabase/` — Supabase client
+- `supabase/migrations/` — versioned database schema changes
+- `supabase/functions/` — Edge Functions (data ingestion, predictions, optimization)
+- `.github/workflows/` — CI (`ci.yml`) and GitHub Pages deploy (`deploy.yml`)
 
-## Learn More
+## Deployment
 
-To learn more about Next.js, take a look at the following resources:
+Pushing to `main` triggers `deploy.yml`, which builds the static export and publishes it to GitHub Pages at
+https://dsinha97.github.io/fpl-app/. Repo secrets `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are consumed at build time.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Database changes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Every schema change is a versioned SQL file in `supabase/migrations/`, applied to the Supabase project and committed
+to this repo.
