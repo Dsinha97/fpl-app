@@ -93,6 +93,19 @@ export const HIT_COST = 4;
 export const MAX_FREE_TRANSFERS = 5;
 
 /**
+ * The free transfers you carry into next gameweek.
+ *
+ * One is awarded per gameweek and the bank is capped, so a manager sitting on
+ * five and spending none still has five — not six. Both ends are clamped
+ * because the count is user-entered: a typed 9, or more transfers used than
+ * were available, must not manufacture an allowance the game would not give.
+ */
+export function accrueFreeTransfers(current: number, used: number): number {
+  const remaining = Math.max(0, Math.min(MAX_FREE_TRANSFERS, current) - Math.max(0, used));
+  return Math.min(MAX_FREE_TRANSFERS, remaining + 1);
+}
+
+/**
  * What FPL pays when you sell.
  *
  * Not the live price: FPL gives you the purchase price plus half of any rise,
@@ -327,5 +340,6 @@ function emptyScored(id: number): ScoredPlayer {
 
 export const TRANSFER_MODEL_NOTE =
   "TransferGain is the xP change over the horizon, less the points hit, less the change in squad " +
-  "risk expressed in points. Free-transfer accrual and expiry are not modelled — the count is yours " +
-  "to set. Selling prices follow FPL's rule of purchase price plus half of any rise.";
+  "risk expressed in points. The free-transfer count is yours to set here; what it becomes next " +
+  "gameweek — one more, capped at five — is what the transfer plan above uses to price rolling. " +
+  "Selling prices follow FPL's rule of purchase price plus half of any rise.";

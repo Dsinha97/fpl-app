@@ -62,11 +62,12 @@ lib/            team-state.ts   TeamState, validateSquad, computeProjection, hor
                 lineup.ts       XI / captain / bench-order engine
                 scoring.ts      risk, comparison, replacement finder
                 squad-score.ts  SquadScore over a whole draft (points-equivalent terms)
-                transfers.ts    transfer basket simulation, sell prices, hit cost
+                transfers.ts    transfer basket simulation, sell prices, hit cost, FT accrual
+                transfer-optimizer.ts  roll vs spend vs hit vs wildcard, beam search over baskets
                 player-search.ts  name matching for every search box
                 formation.ts    bestStartingXi · fdr.ts FDR palette · drafts.ts localStorage
                 supabase/client.ts
-components/     pitch-view, pitch, player-card, player-detail, armband, identity,
+components/     pitch-view, pitch, player-card, player-detail, armband, identity, transfer-plan,
                 fixture-schedule, fdr-matrix, draft-timeline, player-status-icons,
                 fdr-badge, brand, theme, nav-links, info-tooltip, ui/ (+ range-slider)
 supabase/       migrations/ (SQL) · functions/ (Deno Edge Functions) · functions/_shared/
@@ -103,6 +104,10 @@ or `tsc --noEmit` breaks on Deno globals.
 
 - Supabase `.select()` needs a single string literal; concatenating with `+` collapses the
   row type to `GenericStringError`.
+- **The API caps every response at 1000 rows** whatever `.limit()` asks for — a bigger limit does not
+  raise the cap, it just truncates and returns 200. Anything larger must be paged with `.range()`
+  until a short page comes back. `player_predictions` over 8 gameweeks is ~3,040 rows; taking the
+  first 1,000 quietly shrinks every number computed from it (see `PAGE_ROWS` in `/transfers`).
 - Edge Functions called from the browser need CORS preflight (`preflight()` in
   `_shared/sync.ts`) — curl never exercises the OPTIONS request.
 - `trailingSlash: true` is required or `/team/` 404s on Pages.
@@ -122,19 +127,22 @@ landing. Not for routine progress.
 Built: sync pipeline, xP engine v1.0.0, dark theme, `/players`, `/fixtures` (Schedule + FDR tabs),
 `/builder` (pitch UI, paginated picker, squad optimiser, lineup engine, replacement finder),
 `/compare`, `/scenarios` (draft manager, SquadScore, comparison, timeline), and `/transfers`
-(basket simulation with hits, sell prices, armband handling). In the revised numbering that covers
-Sprints 5, 6, 7, 8 and 11.
+(basket simulation with hits, sell prices, armband handling, plus the weekly roll/spend/hit/wildcard
+plan). In the revised numbering that covers Sprints 5, 6, 7, 8, 9 and 11.
 
-Next: **Sprint 9 — Transfer Optimizer** (roll vs 1 vs 2 vs hit vs wildcard, and the free-transfer
-banking rules Sprint 8 deliberately left as an input). See [docs/roadmap.md](docs/roadmap.md) for the
-full ordering and the finishing passes outstanding on 6, 7 and 11.
+Next: **Sprint 12 — Chip Strategy Engine**, which needs the prediction window extended past 8
+gameweeks first. See [docs/roadmap.md](docs/roadmap.md) for the full ordering and the finishing
+passes outstanding on 6, 7, 9 and 11.
 
 Blocked, with the reason recorded rather than worked around:
 
 - **Team strength is 0 for all 20 clubs** pre-season → custom FDR and the `TeamAttackStrength` term.
 - **League 314 standings are empty** pre-season → all of Sprint 10 (EO, template, rank gain).
 - **`generate-predictions` runs an 8-gameweek window**, so `xp_total` equals `xp_8` and the Season
-  horizon is really an 8-week horizon. Extending it is a prerequisite for Sprint 12 chip planning.
+  horizon is really an 8-week horizon. Extending it is a prerequisite for Sprint 12 chip planning —
+  and now load-bearing for a *decision*, not just a display: the transfer plan's roll branch cannot
+  see beyond that window, which is why the value of waiting for news is an explicit input rather
+  than something the model claims to know.
 - **`sync-live-gameweek`'s row-writing path has never executed** — no live matches yet.
 - **xP `positionCalibration` is fitted in-sample.** The backtest proves arithmetic consistency, not
   predictive accuracy; refit against real 2026/27 results.

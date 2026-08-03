@@ -22,6 +22,12 @@ import {
   type TransferMove,
 } from "@/lib/transfers";
 import {
+  DEFAULT_DECISION_MARGIN,
+  optimizeTransfers,
+  type XpByEvent,
+} from "@/lib/transfer-optimizer";
+import { signatureOf, TransferPlan } from "@/components/transfer-plan";
+import {
   DEFAULT_RULES,
   HORIZONS,
   horizonLabel,
@@ -63,6 +69,16 @@ const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FW
 const FIXTURE_GWS = 8;
 const CANDIDATES = 8;
 
+/**
+ * Rows per request when reading the per-gameweek predictions.
+ *
+ * The API caps every response at a thousand rows whatever `.limit()` asks for,
+ * and the per-gameweek series is ~380 players x 8 gameweeks. Passing a bigger
+ * limit does not raise the cap — it just truncates silently, which would shrink
+ * every gain the transfer plan reports. So it is paged explicitly.
+ */
+const PAGE_ROWS = 1000;
+
 const money = (tenths: number) => `£${(tenths / 10).toFixed(1)}m`;
 const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
@@ -79,6 +95,14 @@ export default function TransfersPage() {
   const [horizon, setHorizon] = useState<Horizon>(5);
   const [freeTransfers, setFreeTransfers] = useState(1);
   const [moves, setMoves] = useState<TransferMove[]>([]);
+  /** Per-gameweek xP, which is what lets the plan price rolling a transfer. */
+  const [seriesById, setSeriesById] = useState<Map<number, XpByEvent>>(new Map());
+  const [nextEvent, setNextEvent] = useState<number | null>(null);
+  const [wildcard, setWildcard] = useState<{ available: boolean; reason: string | null }>({
+    available: false,
+    reason: null,
+  });
+  const [decisionMargin, setDecisionMargin] = useState(DEFAULT_DECISION_MARGIN);
   /** The squad slot currently being filled, if any. */
   const [pickingFor, setPickingFor] = useState<number | null>(null);
   const [search, setSearch] = useState("");
@@ -104,9 +128,18 @@ export default function TransfersPage() {
           .maybeSingle();
         if (gwError) throw new Error(gwError.message);
         if (!gw) throw new Error("No upcoming gameweek found.");
+        setNextEvent(gw.id);
 
-        const [playersRes, teamsRes, typesRes, settingsRes, xpRes, predsRes, fixturesRes] =
-          await Promise.all([
+        const [
+          playersRes,
+          teamsRes,
+          typesRes,
+          settingsRes,
+          xpRes,
+          predsRes,
+          fixturesRes,
+          chipsRes,
+        ] = await Promise.all([
             supabase
               .from("players")
               .select(
@@ -139,9 +172,60 @@ export default function TransfersPage() {
               .gte("event", gw.id)
               .lte("event", gw.id + FIXTURE_GWS - 1)
               .order("event"),
+            supabase
+              .from("chip_definitions")
+              .select("name, chip_type, start_event, stop_event")
+              .eq("season", gw.season)
+              .eq("name", "wildcard"),
           ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
         if (teamsRes.error) throw new Error(teamsRes.error.message);
+
+        // The real chip windows, not an assumption: the first wildcard does not
+        // open until GW2, so in GW1 the option must be shown as unavailable
+        // rather than offered.
+        const windows = (chipsRes.data ?? []) as {
+          start_event: number | null;
+          stop_event: number | null;
+        }[];
+        const open = windows.some(
+          (w) => (w.start_event ?? 1) <= gw.id && gw.id <= (w.stop_event ?? 38),
+        );
+        const nextOpen = windows
+          .map((w) => w.start_event ?? 1)
+          .filter((start) => start > gw.id)
+          .sort((a, b) => a - b)[0];
+        setWildcard({
+          available: open,
+          reason: open
+            ? null
+            : nextOpen !== undefined
+              ? `No wildcard until GW${nextOpen}`
+              : "No wildcard window covers this gameweek",
+        });
+
+        // Paged deliberately — see PAGE_ROWS.
+        const series = new Map<number, XpByEvent>();
+        for (let from = 0; ; from += PAGE_ROWS) {
+          const { data: page, error: pageError } = await supabase
+            .from("player_predictions")
+            .select("player_id, event, xp")
+            .eq("season", gw.season)
+            .gte("event", gw.id)
+            .lte("event", gw.id + FIXTURE_GWS - 1)
+            .order("player_id")
+            .order("event")
+            .range(from, from + PAGE_ROWS - 1);
+          if (pageError) throw new Error(pageError.message);
+          for (const r of page ?? []) {
+            const id = r.player_id as number;
+            let byEvent = series.get(id);
+            if (!byEvent) series.set(id, (byEvent = new Map()));
+            byEvent.set(r.event as number, Number(r.xp ?? 0));
+          }
+          if ((page?.length ?? 0) < PAGE_ROWS) break;
+        }
+        setSeriesById(series);
 
         const shorts = new Map(
           (teamsRes.data ?? []).map((t) => [t.id as number, t.short_name as string]),
@@ -304,6 +388,50 @@ export default function TransfersPage() {
     availabilityOf,
     rules,
     horizon,
+  ]);
+
+  const seriesOf = useCallback(
+    (id: number): XpByEvent | undefined => seriesById.get(id),
+    [seriesById],
+  );
+
+  const pool = useMemo(() => [...scoredById.values()], [scoredById]);
+
+  /** The weekly decision: roll, spend, take a hit, or wildcard. */
+  const plan = useMemo(() => {
+    if (!team || scoredById.size === 0 || nextEvent === null) return null;
+    if (team.players.length !== rules.squadSize) return null;
+    return optimizeTransfers({
+      team,
+      pool,
+      scoredById,
+      lookup,
+      xpOf,
+      availabilityOf,
+      isPenaltyTaker,
+      seriesOf,
+      rules,
+      horizon,
+      freeTransfers,
+      event: nextEvent,
+      wildcard,
+      decisionMargin,
+    });
+  }, [
+    team,
+    pool,
+    scoredById,
+    lookup,
+    xpOf,
+    availabilityOf,
+    isPenaltyTaker,
+    seriesOf,
+    rules,
+    horizon,
+    freeTransfers,
+    nextEvent,
+    wildcard,
+    decisionMargin,
   ]);
 
   /** Ranked candidates for the slot being filled, plus a free-text search. */
@@ -471,6 +599,31 @@ export default function TransfersPage() {
             authentication — FPL does not publish picks until after the first deadline.
           </p>
         </div>
+      )}
+
+      {team && !loading && nextEvent !== null && team.players.length === rules.squadSize && (
+        <TransferPlan
+          result={plan}
+          horizon={horizon}
+          event={nextEvent}
+          decisionMargin={decisionMargin}
+          onDecisionMarginChange={setDecisionMargin}
+          onLoad={(next) => {
+            setMoves(next);
+            setPickingFor(null);
+            setSearch("");
+            setApplied(null);
+          }}
+          loadedSignature={moves.length > 0 ? signatureOf(moves) : null}
+          loading={plan === null}
+        />
+      )}
+
+      {team && !loading && team.players.length !== rules.squadSize && (
+        <p className="mt-5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+          {team.name} has {team.players.length} of {rules.squadSize} players. The transfer plan needs
+          a complete squad — a partial one has free slots to fill, not transfers to weigh.
+        </p>
       )}
 
       {team && !loading && (

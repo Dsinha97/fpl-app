@@ -79,8 +79,12 @@ function passesRisk(p: OptimizerPlayer, risk: RiskLevel): boolean {
 }
 
 /**
- * Strategy score. All variants start from horizon xP; they differ in how they
- * trade raw points against price and ownership.
+ * What a finished squad is judged on. All variants start from horizon xP; they
+ * differ in how they trade raw points against price and ownership.
+ *
+ * This is the objective the swap and funded-upgrade passes maximise. It is
+ * deliberately *not* the order the greedy fill takes players in — see
+ * `fillScoreOf`.
  */
 function scoreOf(p: OptimizerPlayer, horizon: Horizon, strategy: Strategy): number {
   const xp = p.xp[horizon] ?? 0;
@@ -105,6 +109,34 @@ function scoreOf(p: OptimizerPlayer, horizon: Horizon, strategy: Strategy): numb
   }
 }
 
+/**
+ * The order the greedy fill considers players in.
+ *
+ * Not the objective, and that distinction is the whole point. Maximising total
+ * xP under a fixed budget is a knapsack problem, and greedy by raw value is the
+ * textbook wrong answer to knapsack: "Maximum points" would take the five
+ * highest-scoring players in the game, exhaust the budget, and then be forced to
+ * complete the squad with whatever the reserve floor still permitted — ten near
+ * zero-projection fillers. That is how the strategy came to return *fewer*
+ * expected points than "Value" on the same pool.
+ *
+ * Ordering the fill by points per million is the standard greedy approximation
+ * to knapsack. The swap and funded-upgrade passes then spend whatever budget the
+ * density fill left over, and those passes still maximise raw points — so the
+ * strategy keeps its meaning.
+ *
+ * The other three already price their score: Value *is* a density, Balanced
+ * blends one in, and Differential scales xP by ownership rather than by cost but
+ * never concentrates spend the way raw xP does. Dividing their scores again
+ * would distort what the user asked for, so their fill order is their objective.
+ */
+function fillScoreOf(p: OptimizerPlayer, horizon: Horizon, strategy: Strategy): number {
+  if (strategy !== "max_points") return scoreOf(p, horizon, strategy);
+  const xp = p.xp[horizon] ?? 0;
+  if (xp <= 0) return 0;
+  return xp / Math.max(0.1, p.price / 10);
+}
+
 export function optimizeSquad(input: OptimizeInput): OptimizeResult {
   const { pool, rules, locked, horizon, strategy, risk } = input;
 
@@ -125,11 +157,16 @@ export function optimizeSquad(input: OptimizeInput): OptimizeResult {
 
   const chosen = new Set(picks.map((p) => p.playerId));
 
-  // Eligible candidates, best score first.
+  // Eligible candidates, best objective first — the order the swap and upgrade
+  // passes rely on, since both take the first match they find.
   const eligible = pool
     .filter((p) => !chosen.has(p.id) && passesRisk(p, risk) && p.price > 0)
-    .map((p) => ({ p, score: scoreOf(p, horizon, strategy) }))
+    .map((p) => ({ p, score: scoreOf(p, horizon, strategy), fill: fillScoreOf(p, horizon, strategy) }))
     .sort((a, b) => b.score - a.score);
+
+  // The same candidates in fill order, which for Maximum points is by points per
+  // million rather than by points.
+  const byFillOrder = [...eligible].sort((a, b) => b.fill - a.fill);
 
   // Cheapest eligible price per position, so the budget reserve knows the
   // floor cost of every slot still to be filled. Prefers a player with a real
@@ -193,7 +230,7 @@ export function optimizeSquad(input: OptimizeInput): OptimizeResult {
   // ---------------------------------------------------------- greedy fill
 
   while (picks.length < rules.squadSize) {
-    const next = eligible.find(({ p }) => !chosen.has(p.id) && canTake(p));
+    const next = byFillOrder.find(({ p }) => !chosen.has(p.id) && canTake(p));
     if (!next) break;
     take(next.p);
   }

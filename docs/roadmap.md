@@ -10,7 +10,8 @@ is superseded by this file.
 `update-aug3.md` lists Sprint 4 as "Squad Optimizer". In this repo the squad optimiser shipped in
 Sprint 2, and Sprint 4 delivered the **comparison engine and replacement finder** — which the new
 document numbers as Sprints 6 and 7. Those were therefore already built when this file was written.
-Sprints 5 and 8 have since shipped; the next sprint to start is **9, Transfer Optimizer**.
+Sprints 5, 8 and 9 have since shipped; the next sprint to start is **12, Chip Strategy** (10 is
+blocked pre-season, 11 is built, 13 needs a live match and 14 is authentication).
 
 | Sprint | Theme | Status |
 |---|---|---|
@@ -18,7 +19,7 @@ Sprints 5 and 8 have since shipped; the next sprint to start is **9, Transfer Op
 | 6 | Player Comparison Engine | **Built** — `/compare`, `lib/scoring.ts` |
 | 7 | Replacement Finder | **Built** — builder panel, `findReplacements` |
 | 8 | Transfer Simulator | **Built** — `/transfers`, `lib/transfers.ts` |
-| 9 | Transfer Optimizer (up to 5 banked FTs) | Not started |
+| 9 | Transfer Optimizer (up to 5 banked FTs) | **Built** — `/transfers` plan panel, `lib/transfer-optimizer.ts` |
 | 10 | Ownership Intelligence | Not started — **blocked**, see below |
 | 11 | Captain & Bench Optimizer | **Built** — `lib/lineup.ts` |
 | 12 | Chip Strategy Engine | Not started |
@@ -37,6 +38,9 @@ Small, do them opportunistically rather than as sprints.
   club-limit, availability and minutes filters are applied but not user-adjustable.
 - **Sprint 11 gaps** — the TeamAttack term is dropped until team strength populates
   (`CAPTAIN_MODEL_NOTE`).
+- **Sprint 9 follow-on** — `SquadBalance` and `FutureFlexibility` are computable now that the
+  per-gameweek series is loaded, but `findReplacements` still omits them (`REPLACEMENT_MODEL_NOTE`).
+  Threading the series into the builder's replacement panel is the remaining work.
 
 ## Sprint 5 — Scenario Lab & Draft Management (built)
 
@@ -90,14 +94,21 @@ Decisions worth keeping:
   covers the Sprint 5 gap about importing a generated squad without overwriting.
 - Illegality blocks Apply and names the breach ("4 players from ARS — the limit is 3").
 
-Not modelled: free-transfer **accrual and expiry**. The count is an input (0–5); the banking rules
-belong with Sprint 9, which reasons about future gameweeks.
+Free-transfer **accrual** landed with Sprint 9 (`accrueFreeTransfers`); the count is still an input
+here, since the simulator asks what a basket buys rather than when to play it. Expiry does not exist
+under current rules — transfers bank up to five and stay.
 
 A real-FPL-squad starting point waits on Sprint 14 — `manager_picks` is empty until the first deadline.
 
-## Sprint 9 — Transfer Optimizer
+## Sprint 9 — Transfer Optimizer (built)
 
-Evaluates roll / 1 transfer / 2 transfers / take a hit / wildcard.
+A panel at the top of `/transfers` answering the weekly question — roll, spend one, spend two, take a
+hit, or wildcard — with every option scored by `simulateTransfers`, the same engine the manual basket
+uses. The winner loads into that basket, so the recommendation ends in an action rather than a number.
+
+### Why the spec's formula is not implemented literally
+
+The plan asked for:
 
 ```
 TransferValue = ExpectedGain − TransferCost − Risk
@@ -105,9 +116,70 @@ RollValue     = FutureFlexibility + ExpectedFutureGain
 recommend transfer when TransferValue > RollValue + DecisionMargin
 ```
 
-Must track current FT, **banked FTs up to five** per current FPL rules (Sprint 8 takes the count as an
-input; accrual and expiry land here), and wildcard / free-hit interactions. This is where `SquadBalance` and `FutureFlexibility` — omitted from TeamFit today, see
-`REPLACEMENT_MODEL_NOTE` — become computable.
+Against this app's data **roll can never win**. The projection is frozen: the same eight gameweeks
+are visible now and next week, so whatever the best basket is next week is available today, and doing
+it today collects one extra gameweek of the same gain. A literal implementation recommends
+"transfer" every week, and the tempting repair — raising `FutureFlexibility` until roll sometimes
+wins — is a fudge factor wearing a model's clothes.
+
+So rolling is priced from what is genuinely computable, and the one term that is not is made visible:
+
+| Reason to roll | Treatment |
+|---|---|
+| Banking to two funds a basket you cannot split into two singles | **Computed.** A funding chain — sell two mid-price players to afford one premium — is often unaffordable a leg at a time. |
+| Two free transfers next week avoid a −4 this week | **Computed.** Four points against one gameweek of the gain. |
+| News, injuries and price moves not yet known | **An input, not a model.** `decisionMargin`, default 1 point, shown as its own `+1 news` term in the Roll row and settable to zero to see the arithmetic alone. |
+
+The cost of waiting is exact, not approximated: `projectAtEvent` mirrors `computeProjection` term for
+term against the **per-gameweek** prediction series, so a rolled basket forfeits precisely this
+gameweek's share of its gain. Scaling by `(H−1)/H` instead would misprice a blank or a double.
+
+Two consequences fall out of the arithmetic rather than being special-cased: over a 1 GW horizon a
+rolled transfer gains exactly nothing, and at five banked transfers the branch relabels itself
+"Hold" because there is nothing left to bank.
+
+### Other decisions worth keeping
+
+- **Search is a beam over `findReplacements` candidates, scored by `simulateTransfers`.** One move is
+  ninety candidates; two is forty million. Nothing re-implements the scoring — a recommendation the
+  manual simulator contradicts would be worse than no recommendation, and the panel row and the
+  basket headline are verified to agree to the decimal.
+- **The beam carries funders as well as winners** (`FUNDER_WIDTH`). Selling a premium to fund an
+  upgrade elsewhere scores badly *alone*, so a beam ranked only by gain prunes the first leg before
+  the second can pay for it — the same failure mode as the squad optimiser's reserve floor, and the
+  reason funding chains are reachable at all.
+- **The wildcard window comes from `chip_definitions`.** Wildcard #1 runs GW2–19, so in GW1 the row
+  is shown blocked with "No wildcard until GW2" rather than offered or hidden. A blocked option that
+  vanishes reads as a bug; its reason is information.
+- **The wildcard row does not re-optimise the armband**, so its gain is *understated* — disclosed in
+  `TRANSFER_OPTIMIZER_NOTE`. Understating with disclosure is acceptable; overstating is not.
+- **Free-transfer accrual** is now modelled — `accrueFreeTransfers` in `lib/transfers.ts`, one per
+  gameweek capped at five, clamped at both ends so a user-typed 9 cannot manufacture an allowance.
+- **Confidence is derived**: low when the top two options are within a point or the squad has picks
+  the model declined to predict, high on a clear margin. Worded, never a fabricated percentage.
+
+### Uncovered, with reasons
+
+- **Free hit** — needs a one-week squad that then reverts, which is a different model. Sprint 12.
+- **Multi-gameweek scheduling** — which gameweek to move in across all eight. The later weeks of a
+  frozen projection are its least trustworthy part, so a two-gameweek decision is the honest scope.
+- `SquadBalance` / `FutureFlexibility` in `REPLACEMENT_MODEL_NOTE` are now computable in principle,
+  but wiring the per-gameweek series into the builder's replacement panel is its own change. Left in
+  the finishing-passes list rather than smuggled in here.
+
+### A squad-optimiser bug this sprint exposed
+
+The wildcard branch calls `optimizeSquad(max_points)`, and it produced a squad **worse** than the
+`value` strategy on the same pool — 257.8 xP against 311.6 over five gameweeks. Maximising total xP
+under a budget is a knapsack, and the fill was ordered by raw xP, which is the textbook wrong answer:
+it bought five premiums, exhausted the budget, and completed the squad with ten near-zero fillers
+that the reserve floor happily permitted.
+
+Fill ordering and the objective are now separate concerns (`fillScoreOf` vs `scoreOf`): Maximum
+points fills by points per million — the standard greedy approximation — while the swap and
+funded-upgrade passes still maximise raw points, so the strategy keeps its meaning. It now returns
+331.4 xP at a full £100m spend, and a wildcard on its output correctly proposes zero changes. The
+other three strategies already price their scores and are untouched.
 
 ## Sprint 10 — Ownership Intelligence
 
