@@ -209,12 +209,32 @@ export function blockedReason(
 export interface HorizonXp {
   xp1: number | null;
   xp3: number | null;
-  xp6: number | null;
+  xp5: number | null;
   xp8: number | null;
+  /** Every gameweek the model has projected, not necessarily all 38. */
+  xpSeason: number | null;
 }
 
 /** Gameweek windows the xP engine publishes. */
-export type Horizon = 1 | 3 | 6 | 8;
+export type Horizon = 1 | 3 | 5 | 8 | "season";
+
+export const HORIZONS: Horizon[] = [1, 3, 5, 8, "season"];
+
+export const horizonLabel = (h: Horizon): string => (h === "season" ? "Season" : `${h} GW`);
+
+/**
+ * `generate-predictions` runs an 8-gameweek window, so the season total
+ * currently equals the 8 GW figure exactly. Saying so beats presenting an
+ * identical number under a longer-sounding name.
+ */
+export const SEASON_HORIZON_NOTE =
+  "Season covers every gameweek the model has projected. The prediction engine currently runs an " +
+  "8-gameweek window, so this matches the 8 GW figure until that window is extended for the chip planner.";
+
+/** Gameweeks a horizon spans, for anything that needs a fixture count. */
+export function horizonLength(horizon: Horizon): number {
+  return horizon === "season" ? 38 : horizon;
+}
 
 export interface Projection {
   /** Squad total over the requested horizon, including the captaincy double. */
@@ -233,10 +253,12 @@ export function xpAt(xp: HorizonXp | undefined, horizon: Horizon): number | null
       return xp.xp1;
     case 3:
       return xp.xp3;
-    case 6:
-      return xp.xp6;
+    case 5:
+      return xp.xp5;
     case 8:
       return xp.xp8;
+    case "season":
+      return xp.xpSeason;
   }
 }
 

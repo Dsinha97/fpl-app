@@ -5,11 +5,16 @@ import { supabase } from "@/lib/supabase/client";
 import { FixtureCell } from "@/components/fdr-badge";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
+import { fullName, matchesPlayerQuery } from "@/lib/player-search";
+import { RangeSlider } from "@/components/ui/range-slider";
 
 interface PlayerRow {
   id: number;
   code: number;
   web_name: string;
+  first_name: string | null;
+  second_name: string | null;
+  known_name: string | null;
   team_id: number;
   element_type: number;
   now_cost: number | null;
@@ -40,14 +45,18 @@ interface RunCell {
 interface XpRow {
   player_id: number;
   xp_1: number | null;
-  xp_6: number | null;
+  xp_5: number | null;
 }
 
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
 
-type SortKey = "price" | "ownership" | "points" | "xg" | "xa" | "run" | "xp1" | "xp6" | "value";
+type SortKey = "price" | "ownership" | "points" | "xg" | "xa" | "run" | "xp1" | "xp5" | "value";
 
 const RUN_LENGTH = 5;
+
+/** Slider bounds in FPL's tenths-of-a-million units: £4.0m to £16.0m. */
+const PRICE_MIN = 40;
+const PRICE_MAX = 160;
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -62,7 +71,7 @@ export default function PlayersPage() {
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState<number | 0>(0);
   const [teamFilter, setTeamFilter] = useState<number | 0>(0);
-  const [maxPrice, setMaxPrice] = useState<number>(160);
+  const [priceRange, setPriceRange] = useState<[number, number]>([PRICE_MIN, PRICE_MAX]);
   const [sortKey, setSortKey] = useState<SortKey>("price");
   const [sortDesc, setSortDesc] = useState(true);
 
@@ -84,7 +93,7 @@ export default function PlayersPage() {
             .select(
               // Single string literal: supabase-js parses this at the type level,
               // so concatenation would collapse the row type to an error type.
-              "id, code, web_name, team_id, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order",
+              "id, code, web_name, first_name, second_name, known_name, team_id, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order",
             )
             .eq("season", gw.season)
             .limit(1000),
@@ -146,7 +155,7 @@ export default function PlayersPage() {
 
         const { data: xpRows } = await supabase
           .from("player_xp_horizons")
-          .select("player_id, xp_1, xp_6")
+          .select("player_id, xp_1, xp_5")
           .eq("season", gw.season)
           .limit(1000);
 
@@ -170,13 +179,14 @@ export default function PlayersPage() {
   };
 
   const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = search.trim();
 
     const rows = players.filter((p) => {
-      if (q && !p.web_name.toLowerCase().includes(q)) return false;
+      if (q && !matchesPlayerQuery(p, q)) return false;
       if (position !== 0 && p.element_type !== position) return false;
       if (teamFilter !== 0 && p.team_id !== teamFilter) return false;
-      if ((p.now_cost ?? 0) > maxPrice) return false;
+      const cost = p.now_cost ?? 0;
+      if (cost < priceRange[0] || cost > priceRange[1]) return false;
       return true;
     });
 
@@ -186,11 +196,11 @@ export default function PlayersPage() {
       switch (sortKey) {
         case "xp1":
           return x?.xp_1 ?? -1;
-        case "xp6":
-          return x?.xp_6 ?? -1;
+        case "xp5":
+          return x?.xp_5 ?? -1;
         case "value":
-          // Points per million over the 6-gameweek horizon.
-          return x?.xp_6 && p.now_cost ? (x.xp_6 / (p.now_cost / 10)) : -1;
+          // Points per million over the 5-gameweek horizon.
+          return x?.xp_5 && p.now_cost ? (x.xp_5 / (p.now_cost / 10)) : -1;
         case "price":
           return p.now_cost ?? -1;
         case "ownership":
@@ -210,7 +220,7 @@ export default function PlayersPage() {
     rows.sort((a, b) => (sortDesc ? value(b) - value(a) : value(a) - value(b)));
     return rows.slice(0, 100);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, history, runs, xp, search, position, teamFilter, maxPrice, sortKey, sortDesc]);
+  }, [players, history, runs, xp, search, position, teamFilter, priceRange, sortKey, sortDesc]);
 
   const header = (label: string, key: SortKey) => (
     <th className="px-2 py-2">
@@ -240,7 +250,7 @@ export default function PlayersPage() {
         Player Explorer
       </h1>
       <p className="mt-1 text-sm text-zinc-500">
-        xP = model-projected points (next gameweek, and next 6){" "}
+        xP = model-projected points (next gameweek, and next 5){" "}
         {historySeason ? `· stats from ${historySeason}` : ""} · fixture run = next {RUN_LENGTH}{" "}
         gameweeks, green ring = home · top 100 shown
       </p>
@@ -278,16 +288,26 @@ export default function PlayersPage() {
           ))}
         </select>
         <label className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
-          Max £{(maxPrice / 10).toFixed(1)}m
-          <input
-            type="range"
-            min={40}
-            max={160}
+          <span className="tabular-nums">
+            £{(priceRange[0] / 10).toFixed(1)}m – £{(priceRange[1] / 10).toFixed(1)}m
+          </span>
+          <RangeSlider
+            value={priceRange}
+            onValueChange={setPriceRange}
+            min={PRICE_MIN}
+            max={PRICE_MAX}
             step={5}
-            value={maxPrice}
-            onChange={(e) => setMaxPrice(Number(e.target.value))}
-            className="accent-purple-800 dark:accent-[#00FF87]"
+            minLabel="Minimum price"
+            maxLabel="Maximum price"
           />
+          {(priceRange[0] !== PRICE_MIN || priceRange[1] !== PRICE_MAX) && (
+            <button
+              onClick={() => setPriceRange([PRICE_MIN, PRICE_MAX])}
+              className="text-xs text-zinc-500 underline transition-colors hover:text-purple-700 dark:hover:text-[#00FF87]"
+            >
+              reset
+            </button>
+          )}
         </label>
       </div>
 
@@ -308,7 +328,7 @@ export default function PlayersPage() {
                 <th className="px-2 py-2 uppercase tracking-wide">Pos</th>
                 {header("Price", "price")}
                 {header("xP GW", "xp1")}
-                {header("xP 6", "xp6")}
+                {header("xP 5", "xp5")}
                 {header("xP/£m", "value")}
                 {header("Own %", "ownership")}
                 {header("Pts", "points")}
@@ -349,7 +369,9 @@ export default function PlayersPage() {
                   >
                     <td className="px-3 py-1.5">
                       <span className="flex items-center gap-1.5">
-                        <span className="font-medium">{p.web_name}</span>
+                        <span className="font-medium" title={fullName(p) ?? undefined}>
+                          {p.web_name}
+                        </span>
                         <AvailabilityBadge
                           status={p.status}
                           chanceOfPlaying={p.chance_of_playing_next_round}
@@ -371,11 +393,11 @@ export default function PlayersPage() {
                       {xp.get(p.id)?.xp_1?.toFixed(1) ?? "—"}
                     </td>
                     <td className="px-2 py-1.5 tabular-nums">
-                      {xp.get(p.id)?.xp_6?.toFixed(1) ?? "—"}
+                      {xp.get(p.id)?.xp_5?.toFixed(1) ?? "—"}
                     </td>
                     <td className="px-2 py-1.5 tabular-nums">
                       {(() => {
-                        const x = xp.get(p.id)?.xp_6;
+                        const x = xp.get(p.id)?.xp_5;
                         return x && p.now_cost ? (x / (p.now_cost / 10)).toFixed(2) : "—";
                       })()}
                     </td>

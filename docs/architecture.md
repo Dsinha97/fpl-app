@@ -69,8 +69,13 @@ kickoff times and results. The `change_feed` view unions them for `/changes`.
 
 `player_predictions` stores one row per player per gameweek per model version;
 `prediction_models` records the version and parameters. The `player_xp_horizons` view
-pivots predictions into `xp_1` / `xp_3` / `xp_6` / `xp_8` plus `expected_minutes` and
-`start_probability`, which is the single shape the whole front end consumes.
+pivots predictions into `xp_1` / `xp_3` / `xp_5` / `xp_8` / `xp_total`, which is the single shape the
+whole front end consumes (`expected_minutes` and `start_probability` come from
+`player_predictions` directly, for the next gameweek).
+
+`xp_total` sums every projected gameweek, so it is the Season horizon — but `generate-predictions`
+runs `HORIZON = 8`, which makes `xp_total` **identical to `xp_8`** today. `SEASON_HORIZON_NOTE` says so
+in the UI. Extending that window is the precondition for genuine season-long planning.
 
 RLS: anon `SELECT` on reference and derived tables, writes service-role only.
 
@@ -92,7 +97,8 @@ doubtful captain's projection falls back toward the vice.
   would punish rotation risk twice. Bench order uses a Poisson substitution probability:
   `λ = Σ (1 − playProbability)` over the ten outfield starters, with the reserve keeper
   pinned to slot 0.
-- `scoring.ts` — risk score (rotation / injury / minutes uncertainty / fixture variance),
+- `scoring.ts` — risk score (rotation / injury / minutes uncertainty / fixture variance, weights
+  renormalised over 0.90 because the spec's effective-ownership term has no data source yet),
   `comparePlayers` (normalised across the compared set, so it answers "which of these"),
   and `findReplacements`, which is squad-aware: the outgoing player's price is spendable and
   the club limit ignores him.

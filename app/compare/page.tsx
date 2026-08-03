@@ -8,16 +8,27 @@ import { supabase } from "@/lib/supabase/client";
 import {
   comparePlayers,
   COMPARISON_MODEL_NOTE,
+  RISK_MODEL_NOTE,
   fixtureScore,
   riskScore,
   valuePerMillion,
   type ScoredPlayer,
 } from "@/lib/scoring";
-import type { Horizon } from "@/lib/team-state";
+import {
+  HORIZONS,
+  horizonLabel,
+  horizonLength,
+  SEASON_HORIZON_NOTE,
+  type Horizon,
+} from "@/lib/team-state";
+import { fullName, matchesPlayerQuery } from "@/lib/player-search";
 
 interface PlayerRow {
   id: number;
   web_name: string;
+  first_name: string | null;
+  second_name: string | null;
+  known_name: string | null;
   team_id: number;
   element_type: number;
   now_cost: number | null;
@@ -39,7 +50,7 @@ interface UpcomingFixture {
 }
 
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
-const HORIZONS: Horizon[] = [1, 3, 6, 8];
+
 const MAX_COMPARE = 4;
 const FIXTURE_GWS = 8;
 
@@ -56,7 +67,7 @@ export default function ComparePage() {
   const [error, setError] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<number[]>([]);
-  const [horizon, setHorizon] = useState<Horizon>(6);
+  const [horizon, setHorizon] = useState<Horizon>(5);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -75,14 +86,14 @@ export default function ComparePage() {
           supabase
             .from("players")
             .select(
-              "id, web_name, team_id, element_type, now_cost, selected_by_percent, points_per_game, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order",
+              "id, web_name, first_name, second_name, known_name, team_id, element_type, now_cost, selected_by_percent, points_per_game, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order",
             )
             .eq("season", gw.season)
             .limit(1000),
           supabase.from("teams").select("id, short_name").eq("season", gw.season),
           supabase
             .from("player_xp_horizons")
-            .select("player_id, xp_1, xp_3, xp_6, xp_8")
+            .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_total")
             .eq("season", gw.season)
             .limit(1000),
           supabase
@@ -159,8 +170,9 @@ export default function ComparePage() {
             xp: {
               1: x?.xp_1 ?? null,
               3: x?.xp_3 ?? null,
-              6: x?.xp_6 ?? null,
+              5: x?.xp_5 ?? null,
               8: x?.xp_8 ?? null,
+              season: x?.xp_total ?? null,
             },
             expectedMinutes: pred?.expected_minutes ?? null,
             startProbability: pred?.start_probability ?? null,
@@ -209,10 +221,10 @@ export default function ComparePage() {
   );
 
   const suggestions = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = search.trim();
     if (q.length < 2) return [];
     return players
-      .filter((p) => p.web_name.toLowerCase().includes(q) && !selected.includes(p.id))
+      .filter((p) => matchesPlayerQuery(p, q) && !selected.includes(p.id))
       .slice(0, 8);
   }, [search, players, selected]);
 
@@ -237,7 +249,7 @@ export default function ComparePage() {
       format: (v) => (v === null ? "—" : `£${(v / 10).toFixed(1)}m`),
     },
     {
-      label: `xP · ${horizon} GW`,
+      label: `xP · ${horizonLabel(horizon)}`,
       dir: "high",
       value: (p) => p.xp[horizon],
       format: (v) => (v === null ? "—" : v.toFixed(1)),
@@ -307,17 +319,22 @@ export default function ComparePage() {
             <button
               key={h}
               onClick={() => setHorizon(h)}
+              title={h === "season" ? SEASON_HORIZON_NOTE : undefined}
               className={`rounded-md px-2.5 py-1 transition-colors ${
                 horizon === h
                   ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
                   : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
               }`}
             >
-              {h} GW
+              {horizonLabel(h)}
             </button>
           ))}
         </div>
       </div>
+
+      {horizon === "season" && (
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{SEASON_HORIZON_NOTE}</p>
+      )}
 
       {/* picker */}
       <div className="relative mt-4 max-w-sm">
@@ -340,8 +357,14 @@ export default function ComparePage() {
                   onClick={() => add(p.id)}
                   className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-purple-950/60"
                 >
-                  <span>{p.web_name}</span>
-                  <span className="text-xs text-zinc-500">
+                  <span className="min-w-0 truncate">
+                    {p.web_name}
+                    {/* Full name, so a hit on a hidden field doesn't look like a bug. */}
+                    {fullName(p) && (
+                      <span className="ml-1.5 text-xs text-zinc-500">{fullName(p)}</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-xs text-zinc-500">
                     {teamShort.get(p.team_id)} · {POSITIONS[p.element_type]} · £
                     {((p.now_cost ?? 0) / 10).toFixed(1)}m
                   </span>
@@ -464,7 +487,7 @@ export default function ComparePage() {
                   {chosen.map((p) => (
                     <td key={p.id} className="px-3 py-2">
                       <span className="flex flex-wrap gap-1">
-                        {(upcoming.get(p.teamId) ?? []).slice(0, horizon).map((f) => (
+                        {(upcoming.get(p.teamId) ?? []).slice(0, horizonLength(horizon)).map((f) => (
                           <FixtureCell
                             key={f.event}
                             opponent={f.opponent_short_name}
@@ -521,6 +544,9 @@ export default function ComparePage() {
             </ol>
             <p className="mt-3 text-[11px] leading-relaxed text-zinc-400">
               {COMPARISON_MODEL_NOTE}
+            </p>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
+              {RISK_MODEL_NOTE}
             </p>
           </section>
         </>

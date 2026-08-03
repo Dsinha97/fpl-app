@@ -8,8 +8,10 @@ front end on GitHub Pages, Supabase Postgres + Edge Functions behind it.
 - Live: https://dsinha97.github.io/fpl-app/ · repo `Dsinha97/fpl-app` (public)
 - Supabase project `FPL-App`, ref `fyxyqxpscmqjyjxsyhms`
 - Owner's FPL manager ID **274486**; season being ingested 2026-27 (GW1 deadline 2026-08-21)
-- Roadmap: [docs/updated-plan.md](docs/updated-plan.md) — **supersedes**
-  `fpl_app_phase_wise_build_plan.md`, which is kept only as the original source doc
+- Roadmap: [docs/roadmap.md](docs/roadmap.md) — the authoritative sprint plan. It reconciles the
+  owner's revised feature set (`docs/update-aug3.md`, kept unedited) against what is actually built.
+  `docs/updated-plan.md` is now the **formula and method reference** only; its roadmap table and
+  `fpl_app_phase_wise_build_plan.md` are both superseded
 - Architecture, schema, and Edge Function detail: [docs/architecture.md](docs/architecture.md)
 - xP model method + backtest: [docs/phase-4-model.md](docs/phase-4-model.md)
 
@@ -37,8 +39,9 @@ secrets belong in `.env.local` / GitHub Secrets referenced by name.
 reference fields FPL zeroes between seasons (team attack/defence strength, `players.form`).
 Do not multiply a term by zero and ship a quietly shrunken score. Drop the term,
 renormalise the remaining weights, and surface a note in the UI next to the number.
-Precedent: `CAPTAIN_MODEL_NOTE` in `lib/lineup.ts`, `COMPARISON_MODEL_NOTE` in
-`lib/scoring.ts`, `REPLACEMENT_MODEL_NOTE` for the omitted TeamFit terms.
+Precedent: `CAPTAIN_MODEL_NOTE` in `lib/lineup.ts`, `COMPARISON_MODEL_NOTE` and `RISK_MODEL_NOTE` in
+`lib/scoring.ts`, `REPLACEMENT_MODEL_NOTE` for the omitted TeamFit terms, `SEASON_HORIZON_NOTE` in
+`lib/team-state.ts` for a horizon that is shorter than its name suggests.
 
 **Say what the number means.** Downgrades are labelled as downgrades; empty result sets
 say so ("Nothing available improves on this pick") rather than ranking five worse options.
@@ -54,14 +57,16 @@ URLs with curl — several documented patterns 404.
 ```
 app/            routes: / · /team · /players · /fixtures · /changes · /status
                         /builder (squad builder) · /compare (2–4 player comparison)
-lib/            team-state.ts   TeamState, validateSquad, computeProjection, armbands
+lib/            team-state.ts   TeamState, validateSquad, computeProjection, horizons, armbands
                 optimizer.ts    greedy + swap squad optimiser (strategies, risk gates)
                 lineup.ts       XI / captain / bench-order engine
-                scoring.ts      risk, comparison, replacement finder (Sprint 4)
+                scoring.ts      risk, comparison, replacement finder
+                player-search.ts  name matching for every search box
                 formation.ts    bestStartingXi · fdr.ts FDR palette · drafts.ts localStorage
                 supabase/client.ts
 components/     pitch-view, pitch, player-card, player-detail, armband, identity,
-                player-status-icons, fdr-badge, brand, theme, nav-links, ui/ (shadcn)
+                fixture-schedule, fdr-matrix, player-status-icons, fdr-badge, brand,
+                theme, nav-links, info-tooltip, ui/ (shadcn + range-slider)
 supabase/       migrations/ (SQL) · functions/ (Deno Edge Functions) · functions/_shared/
 docs/           updated-plan.md · architecture.md · phase-4-model.md · phase-1-plan.md
 ```
@@ -74,9 +79,13 @@ or `tsc --noEmit` breaks on Deno globals.
 - Everything squad-shaped consumes the shared `TeamState` (`lib/team-state.ts`). Mutations
   are pure functions returning a new state — `addPlayer`, `removePlayer`, `setCaptain`,
   `setViceCaptain` (which **swaps** rather than vacating the other armband).
-- Horizon (`1 | 3 | 6 | 8`) is a **page-level** control in the builder and drives the
-  projection, picker, optimiser, and comparison. The XI/captain/bench panel is deliberately
-  pinned to the next gameweek — FPL makes you pick one lineup per GW.
+- Horizon (`1 | 3 | 5 | 8 | "season"`, with `HORIZONS`, `horizonLabel` and `horizonLength` in
+  `lib/team-state.ts`) is a **page-level** control in the builder and drives the projection, picker,
+  optimiser, and comparison. The XI/captain/bench panel is deliberately pinned to the next gameweek —
+  FPL makes you pick one lineup per GW. `"season"` is a string, so anything doing arithmetic on a
+  horizon must go through `horizonLength`, never the value itself.
+- Player search goes through `matchesPlayerQuery` (`lib/player-search.ts`), which matches every name
+  field and folds accents. `web_name` alone is not enough — FPL abbreviates it to `E.Anderson`.
 - Dark theme is class-based: `.dark` on `<html>`, set by a no-FOUC boot script in
   `app/layout.tsx`, defaulting to the system preference. Brand purple surfaces
   `#0E0118` page / `#1E0234` card / `#2A0A45` input, purple-900/40 borders,
@@ -99,17 +108,28 @@ or `tsc --noEmit` breaks on Deno globals.
   FPL region codes aren't all ISO — EN/S1/WA/NI map to flagcdn `gb-eng`/`gb-sct`/`gb-wls`/`gb-nir`.
 - Don't touch refs inside an IIFE in JSX; hoist into a `useMemo` or React lints it.
 
+## Notifications
+
+`PushNotification` reaches the owner's phone when Claude Code Remote Control is paired. Use it at
+approval gates and when a long run finishes — a migration awaiting sign-off, a red build, a sprint
+landing. Not for routine progress.
+
 ## Status
 
-Phases 0–4 and Sprints 1–4 of `docs/updated-plan.md` are complete: sync pipeline, xP engine
-v1.0.0, dark theme, `/builder` (pitch UI, paginated picker, squad optimiser, lineup engine,
-replacement finder) and `/compare`.
+Built: sync pipeline, xP engine v1.0.0, dark theme, `/players`, `/fixtures` (Schedule + FDR tabs),
+`/builder` (pitch UI, paginated picker, squad optimiser, lineup engine, replacement finder) and
+`/compare`. In the revised numbering that covers Sprints 6, 7 and 11.
 
-Next: **Sprint 5 — Transfer Decision Engine** (transfer simulator, roll-vs-transfer). It is
-also where `SquadBalance` and `FutureFlexibility`, currently omitted from TeamFit, become
-computable.
+Next: **Sprint 5 — Scenario Lab & Draft Management** (draft manager, comparison, timeline,
+SquadScore). See [docs/roadmap.md](docs/roadmap.md) for the full ordering and the finishing passes
+outstanding on 6, 7 and 11.
 
-Blocked until matches are played: custom FDR and the `TeamAttackStrength` term both need
-team strength fields FPL leaves at 0 pre-season, and the xP `positionCalibration` factors
-must be refitted against real 2026/27 results — the current backtest is in-sample and proves
-arithmetic consistency, not predictive accuracy.
+Blocked, with the reason recorded rather than worked around:
+
+- **Team strength is 0 for all 20 clubs** pre-season → custom FDR and the `TeamAttackStrength` term.
+- **League 314 standings are empty** pre-season → all of Sprint 10 (EO, template, rank gain).
+- **`generate-predictions` runs an 8-gameweek window**, so `xp_total` equals `xp_8` and the Season
+  horizon is really an 8-week horizon. Extending it is a prerequisite for Sprint 12 chip planning.
+- **`sync-live-gameweek`'s row-writing path has never executed** — no live matches yet.
+- **xP `positionCalibration` is fitted in-sample.** The backtest proves arithmetic consistency, not
+  predictive accuracy; refit against real 2026/27 results.

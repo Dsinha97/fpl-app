@@ -38,7 +38,7 @@ export interface PlayerData {
   team_short?: string | null;
   news?: string | null;
   ownership?: number | null;
-  xp6?: number | null;
+  xp5?: number | null;
   expected_minutes?: number | null;
   start_probability?: number | null;
   upcoming?: UpcomingFixture[];

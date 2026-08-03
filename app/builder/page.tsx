@@ -24,6 +24,9 @@ import {
   setViceCaptain,
   validateSquad,
   xpAt,
+  HORIZONS,
+  horizonLabel,
+  SEASON_HORIZON_NOTE,
   type Horizon,
   type HorizonXp,
   type PlayerMeta,
@@ -42,15 +45,20 @@ import {
 import {
   findReplacements,
   REPLACEMENT_MODEL_NOTE,
+  RISK_MODEL_NOTE,
   riskScore,
   type Replacement,
   type ScoredPlayer,
 } from "@/lib/scoring";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
+import { fullName, matchesPlayerQuery } from "@/lib/player-search";
 
 interface PlayerRow {
   id: number;
   web_name: string;
+  first_name: string | null;
+  second_name: string | null;
+  known_name: string | null;
   team_id: number;
   team_code: number | null;
   element_type: number;
@@ -69,7 +77,8 @@ interface XpRow {
   player_id: number;
   xp_1: number | null;
   xp_3: number | null;
-  xp_6: number | null;
+  xp_5: number | null;
+  xp_total: number | null;
   xp_8: number | null;
 }
 
@@ -81,13 +90,13 @@ interface PredictionRow {
 
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
 const PAGE_SIZE = 10;
-const HORIZONS: Horizon[] = [1, 3, 6, 8];
+
 /** How many upcoming gameweeks to show in the player detail panel. */
 const UPCOMING_GWS = 3;
 
 const money = (tenths: number) => `£${(tenths / 10).toFixed(1)}m`;
 
-type SortKey = "xp6" | "xp1" | "price" | "ownership";
+type SortKey = "xp5" | "xp1" | "price" | "ownership";
 
 export default function BuilderPage() {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -111,10 +120,10 @@ export default function BuilderPage() {
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState<number>(0);
   const [teamFilter, setTeamFilter] = useState<number>(0);
-  const [sortKey, setSortKey] = useState<SortKey>("xp6");
+  const [sortKey, setSortKey] = useState<SortKey>("xp5");
   const [page, setPage] = useState(0);
 
-  const [horizon, setHorizon] = useState<Horizon>(6);
+  const [horizon, setHorizon] = useState<Horizon>(5);
   const [strategy, setStrategy] = useState<Strategy>("max_points");
   const [risk, setRisk] = useState<RiskLevel>("medium");
   const [optimizeNote, setOptimizeNote] = useState<string | null>(null);
@@ -138,7 +147,7 @@ export default function BuilderPage() {
             supabase
               .from("players")
               .select(
-                "id, web_name, team_id, team_code, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, points_per_game",
+                "id, web_name, first_name, second_name, known_name, team_id, team_code, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, points_per_game",
               )
               .eq("season", gw.season)
               .limit(1000),
@@ -151,7 +160,7 @@ export default function BuilderPage() {
               .in("key", ["squad_total_spend", "squad_team_limit", "squad_squadsize"]),
             supabase
               .from("player_xp_horizons")
-              .select("player_id, xp_1, xp_3, xp_6, xp_8")
+              .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_total")
               .eq("season", gw.season)
               .limit(1000),
             supabase
@@ -257,7 +266,7 @@ export default function BuilderPage() {
     (id: number): HorizonXp | undefined => {
       const r = xp.get(id);
       if (!r) return undefined;
-      return { xp1: r.xp_1, xp3: r.xp_3, xp6: r.xp_6, xp8: r.xp_8 };
+      return { xp1: r.xp_1, xp3: r.xp_3, xp5: r.xp_5, xp8: r.xp_8, xpSeason: r.xp_total };
     },
     [xp],
   );
@@ -297,7 +306,13 @@ export default function BuilderPage() {
           elementType: p.element_type,
           teamId: p.team_id,
           price: p.now_cost ?? 0,
-          xp: { 1: r?.xp_1 ?? null, 3: r?.xp_3 ?? null, 6: r?.xp_6 ?? null, 8: r?.xp_8 ?? null },
+          xp: {
+            1: r?.xp_1 ?? null,
+            3: r?.xp_3 ?? null,
+            5: r?.xp_5 ?? null,
+            8: r?.xp_8 ?? null,
+            season: r?.xp_total ?? null,
+          },
           ownership: p.selected_by_percent,
           status: p.status,
           chanceNextRound: p.chance_of_playing_next_round,
@@ -372,9 +387,9 @@ export default function BuilderPage() {
   // -------------------------------------------------------- filtering
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = search.trim();
     const rows = players.filter((p) => {
-      if (q && !p.web_name.toLowerCase().includes(q)) return false;
+      if (q && !matchesPlayerQuery(p, q)) return false;
       if (position !== 0 && p.element_type !== position) return false;
       if (teamFilter !== 0 && p.team_id !== teamFilter) return false;
       return true;
@@ -382,8 +397,8 @@ export default function BuilderPage() {
 
     const value = (p: PlayerRow) => {
       switch (sortKey) {
-        case "xp6":
-          return xp.get(p.id)?.xp_6 ?? -1;
+        case "xp5":
+          return xp.get(p.id)?.xp_5 ?? -1;
         case "xp1":
           return xp.get(p.id)?.xp_1 ?? -1;
         case "price":
@@ -439,7 +454,7 @@ export default function BuilderPage() {
         team_short: teamShort.get(row.team_id) ?? null,
         news: row.news,
         ownership: row.selected_by_percent,
-        xp6: xp.get(row.id)?.xp_6 ?? null,
+        xp5: xp.get(row.id)?.xp_5 ?? null,
         expected_minutes: pred?.expected_minutes ?? null,
         start_probability: pred?.start_probability ?? null,
         upcoming: fixtures,
@@ -525,7 +540,13 @@ export default function BuilderPage() {
         price: p.now_cost ?? 0,
         ownership: p.selected_by_percent,
         pointsPerGame: p.points_per_game,
-        xp: { 1: r?.xp_1 ?? null, 3: r?.xp_3 ?? null, 6: r?.xp_6 ?? null, 8: r?.xp_8 ?? null },
+        xp: {
+            1: r?.xp_1 ?? null,
+            3: r?.xp_3 ?? null,
+            5: r?.xp_5 ?? null,
+            8: r?.xp_8 ?? null,
+            season: r?.xp_total ?? null,
+          },
         expectedMinutes: predictions.get(p.id)?.expected_minutes ?? null,
         startProbability: predictions.get(p.id)?.start_probability ?? null,
         availability: availabilityOf(p.id),
@@ -743,13 +764,14 @@ export default function BuilderPage() {
               <button
                 key={h}
                 onClick={() => setHorizon(h)}
+                title={h === "season" ? SEASON_HORIZON_NOTE : undefined}
                 className={`rounded px-1.5 py-0.5 text-xs transition-colors ${
                   horizon === h
                     ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
                     : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/60"
                 }`}
               >
-                {h} GW
+                {horizonLabel(h)}
               </button>
             ))}
           </span>
@@ -825,8 +847,13 @@ export default function BuilderPage() {
           <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
             <div className="flex flex-wrap items-end gap-6">
               <div>
-                <div className="text-xs uppercase tracking-wide text-zinc-500">
-                  Projected · next {horizon} GW{horizon === 1 ? "" : "s"}
+                <div
+                  className="text-xs uppercase tracking-wide text-zinc-500"
+                  title={horizon === "season" ? SEASON_HORIZON_NOTE : undefined}
+                >
+                  {horizon === "season"
+                    ? "Projected · rest of season*"
+                    : `Projected · next ${horizon} GW${horizon === 1 ? "" : "s"}`}
                 </div>
                 <div className="text-4xl font-extrabold tabular-nums text-purple-900 dark:text-[#00FF87]">
                   {projection.total.toFixed(1)}
@@ -872,6 +899,11 @@ export default function BuilderPage() {
                 )}
               </div>
             </div>
+            {horizon === "season" && (
+              <p className="mt-3 border-t border-zinc-100 pt-2 text-[11px] leading-relaxed text-amber-700 dark:border-purple-900/40 dark:text-amber-400">
+                * {SEASON_HORIZON_NOTE}
+              </p>
+            )}
           </div>
 
           <PitchView
@@ -1047,7 +1079,7 @@ export default function BuilderPage() {
             <div className="mt-2 flex items-start justify-between gap-2 text-[11px]">
               <p className="text-zinc-500">
                 {optimizeNote ??
-                  `Optimising over ${horizon} GW${horizon === 1 ? "" : "s"} — “Fill remaining” keeps your picks, “Rebuild” starts empty.`}
+                  `Optimising over ${horizonLabel(horizon)} — “Fill remaining” keeps your picks, “Rebuild” starts empty.`}
               </p>
               {/* One-slot undo: the saved draft is untouched until Save, so
                   this restores exactly what a rebuild replaced. */}
@@ -1072,7 +1104,9 @@ export default function BuilderPage() {
               <div className="flex items-start justify-between gap-2">
                 <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                   Replace {scoredById.get(replaceFor)?.webName}{" "}
-                  <span className="font-normal normal-case text-zinc-400">· {horizon} GW</span>
+                  <span className="font-normal normal-case text-zinc-400">
+                    · {horizonLabel(horizon)}
+                  </span>
                 </h2>
                 <div className="flex shrink-0 items-center gap-2">
                   {replacements.length > 0 && (
@@ -1146,6 +1180,9 @@ export default function BuilderPage() {
               <p className="mt-2 text-[10px] leading-relaxed text-zinc-400">
                 {REPLACEMENT_MODEL_NOTE}
               </p>
+              <p className="mt-1 text-[10px] leading-relaxed text-zinc-400">
+                {RISK_MODEL_NOTE}
+              </p>
             </div>
           )}
 
@@ -1192,7 +1229,7 @@ export default function BuilderPage() {
                 onChange={(e) => changeFilter(setSortKey)(e.target.value as SortKey)}
                 className="rounded-md border border-zinc-300 bg-white px-1.5 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
               >
-                <option value="xp6">xP 6</option>
+                <option value="xp5">xP 5</option>
                 <option value="xp1">xP GW</option>
                 <option value="price">Price</option>
                 <option value="ownership">Owned</option>
@@ -1205,8 +1242,15 @@ export default function BuilderPage() {
                   <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
                     <th className="py-1.5 pl-1">Player</th>
                     <th className="py-1.5">£</th>
-                    <th className="py-1.5">{horizon} GW</th>
-                    <th className="py-1.5">Risk</th>
+                    <th className="py-1.5">{horizonLabel(horizon)}</th>
+                    <th className="py-1.5">
+                      <span
+                        title={RISK_MODEL_NOTE}
+                        className="cursor-help underline decoration-dotted underline-offset-2"
+                      >
+                        Risk
+                      </span>
+                    </th>
                     <th className="py-1.5"></th>
                   </tr>
                 </thead>
@@ -1242,8 +1286,10 @@ export default function BuilderPage() {
                                 size="w-3.5 h-3.5"
                               />
                             </span>
-                            <span className="text-[10px] text-zinc-500">
+                            <span className="block truncate text-[10px] text-zinc-500">
                               {teamShort.get(p.team_id)} · {POSITIONS[p.element_type]}
+                              {/* Full name, so a hit on a hidden field doesn't look like a bug. */}
+                              {fullName(p) ? ` · ${fullName(p)}` : ""}
                             </span>
                           </button>
                         </td>

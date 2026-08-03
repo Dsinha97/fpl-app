@@ -3,7 +3,14 @@
 // All pure. The comparison and replacement engines both rank players, so they
 // share one candidate shape and one risk model.
 
-import type { Horizon, PlayerMeta, SquadRules, TeamState } from "./team-state";
+import {
+  horizonLabel,
+  horizonLength,
+  type Horizon,
+  type PlayerMeta,
+  type SquadRules,
+  type TeamState,
+} from "./team-state";
 
 export interface ScoredPlayer {
   id: number;
@@ -33,23 +40,39 @@ function stdev(xs: number[]): number {
   return Math.sqrt(mean(xs.map((x) => (x - m) ** 2)));
 }
 
-/** How many fixtures a horizon covers, for slicing the FDR run. */
-const fixturesFor = (horizon: Horizon) => horizon;
+/**
+ * How many fixtures a horizon covers, for slicing the FDR run.
+ *
+ * Not the identity function any more: "season" is not a number, and an FDR run
+ * never holds more entries than were fetched anyway, so over-slicing is safe.
+ */
+const fixturesFor = (horizon: Horizon) => horizonLength(horizon);
 
 // ------------------------------------------------------------ risk engine
 //
-// The build plan's weights, and every input exists:
+// The revised plan's weights:
 //
-//   0.35 x Rotation + 0.30 x Injury + 0.20 x Minutes + 0.15 x FixtureVariance
+//   0.30 x Rotation + 0.25 x Injury + 0.20 x Minutes + 0.15 x FixtureVariance
+//   - 0.10 x EffectiveOwnership
+//
+// Effective ownership needs the top-1k template pipeline, which cannot run until
+// a gameweek has been scored — league 314 returns an empty standings array
+// pre-season. So the EO term is dropped and the four remaining weights are
+// renormalised over 0.90, the same treatment Form gets in ComparisonScore.
 //
 // Reported 0-100, lower is better.
 
 export const RISK_WEIGHTS = {
-  rotation: 0.35,
-  injury: 0.3,
-  minutes: 0.2,
-  fixtureVariance: 0.15,
+  rotation: 0.3 / 0.9,
+  injury: 0.25 / 0.9,
+  minutes: 0.2 / 0.9,
+  fixtureVariance: 0.15 / 0.9,
 } as const;
+
+export const RISK_MODEL_NOTE =
+  "Effective ownership is omitted — it needs the top-1k template snapshot, which cannot be built " +
+  "until a gameweek has been scored. The remaining weights are renormalised, so risk here measures " +
+  "how likely a player is to disappoint, not how much of the field owns him.";
 
 /** Widest plausible spread of FDR values, used to normalise the variance term. */
 const MAX_FDR_SD = 1.6;
@@ -245,6 +268,10 @@ export function findReplacements(
   const targetXp = xpFor(target, horizon);
   const targetFixture = fixtureScore(target, horizon);
   const targetRisk = riskScore(target, horizon);
+  const fixtureWeight = Math.max(
+    1,
+    Math.min(fixturesFor(horizon), target.fdrRun.length),
+  );
 
   return pool
     .filter((c) => {
@@ -263,13 +290,15 @@ export function findReplacements(
 
       // Fixture improvement is expressed in points so it is commensurate with
       // the xP gain: a full step of fixture quality is worth roughly a point
-      // per gameweek of the horizon.
-      const teamFit = xpDelta + fixtureDelta * horizon - riskDelta / 20;
+      // per gameweek. Weighted by the fixtures actually known, not by the
+      // horizon's nominal length — Season would otherwise multiply an
+      // eight-fixture signal by 38.
+      const teamFit = xpDelta + fixtureDelta * fixtureWeight - riskDelta / 20;
 
       // State downgrades as downgrades. A −4 xP swap is not a "marginal
       // change", and describing it as one would mislead.
       const rationale: string[] = [];
-      if (xpDelta > 0.5) rationale.push(`+${xpDelta.toFixed(1)} xP over ${horizon} GW`);
+      if (xpDelta > 0.5) rationale.push(`+${xpDelta.toFixed(1)} xP over ${horizonLabel(horizon)}`);
       else if (xpDelta < -0.5) rationale.push(`${xpDelta.toFixed(1)} xP — a downgrade`);
       if (fixtureDelta > 0.08) rationale.push("better fixtures");
       else if (fixtureDelta < -0.08) rationale.push("harder fixtures");

@@ -144,7 +144,7 @@ export function PlayerDetail({
             : "—",
           true,
         )}
-        {stat("xP 6", player.xp6 !== undefined && player.xp6 !== null ? player.xp6.toFixed(1) : "—")}
+        {stat("xP 5", player.xp5 !== undefined && player.xp5 !== null ? player.xp5.toFixed(1) : "—")}
         {stat(
           "Exp. mins",
           player.expected_minutes !== undefined && player.expected_minutes !== null

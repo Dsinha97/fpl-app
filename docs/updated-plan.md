@@ -1,5 +1,10 @@
 # FPL Analytics & Decision Support App
 
+> **Its roadmap is superseded by [roadmap.md](roadmap.md).** The phase table and sprint ordering below
+> were replaced by the revised feature set in [update-aug3.md](update-aug3.md). This document is kept
+> for what it still does best: the formulas, weights, worked examples, and schema sketches in Parts
+> 1–3. Where a formula here disagrees with `roadmap.md`, `roadmap.md` wins.
+
 ## Updated Build Plan (Post Phase 4)
 
 > Current Status:
