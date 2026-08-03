@@ -4,8 +4,9 @@
 // teams, positions, gameweeks, players, chip rules, scoring rules, and game
 // settings. Runs every 30 minutes.
 //
-// Change-detected snapshots (price / status / news / ownership history) are
-// added in step 3 and will hang off the same fetch.
+// After the reference tables are refreshed it calls record_player_snapshots,
+// which appends to the price / status / news / ownership history tables only
+// where a value actually changed.
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { getBootstrap } from "../_shared/fpl.ts";
@@ -273,6 +274,18 @@ Deno.serve(async (req) => {
       })),
       "season,key",
     );
+
+    // ------------------------------------------------------- snapshots
+    // Runs after players are current, so it compares fresh values against the
+    // last recorded observation and writes only genuine changes.
+
+    const { data: snapshots, error: snapshotError } = await db.rpc("record_player_snapshots", {
+      p_season: season,
+    });
+    if (snapshotError) throw new Error(`record_player_snapshots: ${snapshotError.message}`);
+
+    const snapshotCounts = (snapshots ?? {}) as Record<string, number>;
+    Object.assign(counts, snapshotCounts);
 
     const rowsWritten = Object.values(counts).reduce((a, b) => a + b, 0);
     await run.finish("success", { season, rowsWritten, details: counts });

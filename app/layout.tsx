@@ -44,6 +44,12 @@ export default function RootLayout({
               >
                 My Team
               </Link>
+              <Link
+                href="/status"
+                className="transition-colors hover:text-zinc-950 dark:hover:text-zinc-50"
+              >
+                Status
+              </Link>
             </div>
           </nav>
         </header>

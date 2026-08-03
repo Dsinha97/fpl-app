@@ -166,3 +166,64 @@ export async function getEntryPicks(entryId: number, event: number): Promise<Ent
     throw err;
   }
 }
+
+// ------------------------------------------------------------- fixtures
+
+export interface Fixture {
+  id: number;
+  code: number;
+  event: number | null;
+  kickoff_time: string | null;
+  team_h: number;
+  team_a: number;
+  [k: string]: unknown;
+}
+
+export const getFixtures = () => fplFetch<Fixture[]>("/fixtures/");
+
+// ------------------------------------------------------ element summary
+
+export interface ElementSummary {
+  fixtures: Record<string, unknown>[];
+  history: Record<string, unknown>[];
+  history_past: Record<string, unknown>[];
+}
+
+export const getElementSummary = (elementId: number) =>
+  fplFetch<ElementSummary>(`/element-summary/${elementId}/`);
+
+// ------------------------------------------------------------ live data
+
+export interface LiveElement {
+  id: number;
+  stats: Record<string, unknown>;
+  explain: unknown[];
+}
+
+export const getLive = (event: number) =>
+  fplFetch<{ elements: LiveElement[] }>(`/event/${event}/live/`);
+
+// --------------------------------------------------------- concurrency
+/**
+ * Map over items with at most `limit` requests in flight. Used to keep the
+ * 564-call player-history pass fast without hammering the FPL API.
+ */
+export async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const index = cursor++;
+      if (index >= items.length) return;
+      results[index] = await fn(items[index]);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}

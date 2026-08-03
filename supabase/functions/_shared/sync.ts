@@ -12,7 +12,25 @@ export function serviceClient(): SupabaseClient {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-export type SyncStatus = "success" | "partial" | "error";
+export type SyncStatus = "success" | "partial" | "error" | "skipped";
+
+/**
+ * The season currently being ingested. Derived once by sync-bootstrap and
+ * read back from `gameweeks` by every other function, so a season rollover
+ * only needs to be got right in one place.
+ */
+export async function currentSeason(db: SupabaseClient): Promise<string> {
+  const { data, error } = await db
+    .from("gameweeks")
+    .select("season")
+    .order("deadline_time", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(`gameweeks: ${error.message}`);
+  if (!data) throw new Error("no gameweeks in database - run sync-bootstrap first");
+  return data.season;
+}
 
 /**
  * Records one execution of an ingestion function in `sync_runs`, so a broken

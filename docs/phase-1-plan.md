@@ -2,7 +2,7 @@
 
 Detailed build plan for Phase 1 of [the phase-wise build plan](../fpl_app_phase_wise_build_plan.md).
 
-**Status:** planned (Phase 0 complete)
+**Status:** complete — all five steps built, deployed, and verified on 2026-08-02
 **Drafted:** 2026-08-02
 **Goal:** a reliable pipeline that turns the official FPL API into a historical data warehouse in Supabase, so the
 frontend never depends on FPL's response structure directly.
@@ -222,13 +222,21 @@ Concretely, Phase 1 is done when:
 
 ---
 
-## 7. Open decisions
+## 7. Decisions taken
 
-| # | Decision | Recommendation |
+| # | Decision | Outcome |
 | --- | --- | --- |
-| 1 | Heavy sync placement | Edge Function with cursor batching — keeps the architecture unified |
+| 1 | Heavy sync placement | Edge Function with cursor batching. In practice the full 564-player pass completes in a single invocation; the cursor remains for when in-season history grows |
 | 2 | `players` table shape | Typed core columns plus a `raw jsonb` tail |
-| 3 | Ownership snapshot frequency | Daily — sufficient for trend analysis, far cheaper than every 30 min |
+| 3 | Ownership snapshot frequency | Daily, time-gated in `record_player_snapshots` |
+| 4 | Cron authentication | Publishable key rather than storing the secret key in the database — the functions are idempotent and only touch public data |
+| 5 | Live stats storage | Separate `player_live_stats` table. The live endpoint aggregates per player per gameweek and its bonus is provisional, so it cannot share a key with the per-fixture authoritative table |
+
+### Known gap
+
+`sync-live-gameweek` writes zero rows until matches begin: FPL's `/event/{id}/live/` returns an empty
+`elements` array pre-season. Gating, scheduling, and the fetch path are verified; the row-writing path
+is not exercised until the GW1 deadline on 2026-08-21.
 
 ---
 
