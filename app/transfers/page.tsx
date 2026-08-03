@@ -345,6 +345,8 @@ export default function TransfersPage() {
     setMoves((prev) => [...prev.filter((m) => m.outId !== outId), { outId, inId }]);
     setPickingFor(null);
     setSearch("");
+    // Starting a new basket makes the previous apply's confirmation stale.
+    setApplied(null);
   };
 
   const applyAsNewDraft = () => {
@@ -359,6 +361,11 @@ export default function TransfersPage() {
     saveDraft(copy);
     setDrafts(listDrafts());
     setApplied(`Saved as "${copy.name}" — the original draft is untouched.`);
+    // The basket has been spent into the new draft; simulating against the
+    // now-stale, already-applied moves would just restate what was just saved.
+    setMoves([]);
+    setPickingFor(null);
+    setSearch("");
   };
 
   const movesByOut = useMemo(() => new Map(moves.map((m) => [m.outId, m])), [moves]);
@@ -590,6 +597,7 @@ export default function TransfersPage() {
                   </button>
                 </div>
                 <input
+                  type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search for a specific player…"
@@ -662,6 +670,23 @@ export default function TransfersPage() {
                   />
                   <Row label="In the bank" value={money(simulation.before.bank)} />
                 </dl>
+                {/* Lives here rather than in the basket panel below, because
+                    applying clears the basket immediately — the confirmation
+                    would vanish along with it if it stayed there. */}
+                {applied && (
+                  <p
+                    role="status"
+                    className="mt-3 border-t border-zinc-100 pt-2.5 text-xs text-emerald-700 dark:border-purple-900/40 dark:text-emerald-400"
+                  >
+                    {applied}{" "}
+                    <Link
+                      href="/scenarios"
+                      className="underline-offset-2 hover:underline dark:text-[#00FF87]"
+                    >
+                      Compare in Scenario Lab
+                    </Link>
+                  </p>
+                )}
               </div>
             )}
 
@@ -777,28 +802,19 @@ export default function TransfersPage() {
                 </ul>
 
                 <button
-                  onClick={applyAsNewDraft}
-                  disabled={!simulation.legal}
+                  onClick={() => {
+                    if (simulation.legal) applyAsNewDraft();
+                  }}
+                  aria-disabled={!simulation.legal}
                   title={
                     simulation.legal
                       ? "Saves the result as a new draft"
                       : "Fix the problems above first"
                   }
-                  className="mt-3 w-full rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                  className="mt-3 w-full rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
                 >
                   Apply as a new draft
                 </button>
-                {applied && (
-                  <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">
-                    {applied}{" "}
-                    <Link
-                      href="/scenarios"
-                      className="underline-offset-2 hover:underline dark:text-[#00FF87]"
-                    >
-                      Compare in Scenario Lab
-                    </Link>
-                  </p>
-                )}
 
                 <p className="mt-3 text-[10px] leading-relaxed text-zinc-400">
                   {TRANSFER_MODEL_NOTE}

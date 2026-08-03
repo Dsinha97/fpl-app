@@ -258,6 +258,7 @@ export default function PlayersPage() {
       {/* Filters */}
       <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
         <input
+          type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search player…"

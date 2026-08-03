@@ -339,6 +339,7 @@ export default function ComparePage() {
       {/* picker */}
       <div className="relative mt-4 max-w-sm">
         <input
+          type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={

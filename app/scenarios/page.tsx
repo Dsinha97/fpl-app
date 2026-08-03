@@ -85,6 +85,8 @@ export default function ScenariosPage() {
   const [renameValue, setRenameValue] = useState("");
   const [timelineFor, setTimelineFor] = useState<string | null>(null);
   const [history, setHistory] = useState<DraftSnapshot[]>([]);
+  /** Delete is permanent, so it takes a second click to confirm. */
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Drafts live in localStorage, so they can only be read after mount — an
   // effect is the right place despite the set-state-in-effect lint preference.
@@ -549,14 +551,24 @@ export default function ScenariosPage() {
                   </button>
                   <button
                     onClick={() => {
+                      if (confirmDelete !== draft.draftId) {
+                        setConfirmDelete(draft.draftId);
+                        return;
+                      }
                       deleteDraft(draft.draftId);
                       setSelected((prev) => prev.filter((id) => id !== draft.draftId));
                       if (timelineFor === draft.draftId) setTimelineFor(null);
+                      setConfirmDelete(null);
                       refresh();
                     }}
-                    className="rounded border border-zinc-300 px-2 py-1 font-medium text-red-600 transition-colors hover:border-red-500 dark:border-purple-800/60 dark:text-red-400"
+                    onBlur={() => setConfirmDelete(null)}
+                    className={`rounded border px-2 py-1 font-medium transition-colors ${
+                      confirmDelete === draft.draftId
+                        ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                        : "border-zinc-300 text-red-600 hover:border-red-500 dark:border-purple-800/60 dark:text-red-400"
+                    }`}
                   >
-                    Delete
+                    {confirmDelete === draft.draftId ? "Confirm delete?" : "Delete"}
                   </button>
                 </div>
               </article>

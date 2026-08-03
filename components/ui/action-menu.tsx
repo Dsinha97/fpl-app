@@ -47,22 +47,26 @@ export function ActionMenu({
 }: ActionMenuProps) {
   const [confirming, setConfirming] = useState<string | null>(null);
   /**
-   * Controlled open state.
-   *
-   * Left uncontrolled, the trigger's own press handling toggled twice on a real
-   * mouse click — pointerdown opened it and the following click closed it again,
-   * so it only ever appeared to work under synthetic `.click()`. Owning the
-   * state and toggling on click makes one press mean one toggle.
+   * Controlled open state, so a selected item and the confirm step can close
+   * it programmatically, and so the trigger's click reliably opens it: left
+   * uncontrolled, Base UI's default press-then-drag-to-item interaction model
+   * (built for native-style menus) meant a plain click-and-release without
+   * dragging to an item did not reliably leave the menu open.
    */
   const [open, setOpen] = useState(false);
 
   return (
     <span className="inline-flex overflow-hidden rounded-md">
       <button
-        onClick={onPrimary}
-        disabled={primaryDisabled}
+        onClick={() => {
+          if (!primaryDisabled) onPrimary();
+        }}
+        // aria-disabled rather than the disabled attribute: a genuinely
+        // disabled button drops out of the tab order, so a keyboard or
+        // screen-reader user would never reach primaryDisabledReason at all.
+        aria-disabled={primaryDisabled}
         title={primaryDisabled ? primaryDisabledReason : undefined}
-        className="bg-purple-950 px-3 py-1.5 font-medium text-white transition-colors hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+        className="bg-purple-950 px-3 py-1.5 font-medium text-white transition-colors hover:bg-purple-800 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
       >
         {primaryLabel}
       </button>
@@ -89,7 +93,7 @@ export function ActionMenu({
             {/* The transition is not decoration: Base UI keeps the popup
                 mounted until a close animation completes, so without one it
                 stays on screen after closing. */}
-            <Menu.Popup className="min-w-52 origin-[var(--transform-origin)] rounded-md border border-zinc-200 bg-white py-1 shadow-xl outline-none transition-[opacity,scale] duration-100 ease-out data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 dark:border-purple-800/60 dark:bg-[#2A0A45]">
+            <Menu.Popup className="min-w-52 origin-[var(--transform-origin)] rounded-md border border-zinc-200 bg-white py-1 shadow-xl outline-none transition-[opacity,scale] duration-100 ease-out motion-reduce:transition-none data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 dark:border-purple-800/60 dark:bg-[#2A0A45]">
               {items.map((item) => {
                 const isConfirming = confirming === item.label;
                 return (

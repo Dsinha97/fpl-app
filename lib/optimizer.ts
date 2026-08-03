@@ -132,11 +132,26 @@ export function optimizeSquad(input: OptimizeInput): OptimizeResult {
     .sort((a, b) => b.score - a.score);
 
   // Cheapest eligible price per position, so the budget reserve knows the
-  // floor cost of every slot still to be filled.
-  const cheapest = new Map<number, number>();
+  // floor cost of every slot still to be filled. Prefers a player with a real
+  // projection: the true floor for a *sensible* completion is the cheapest
+  // player worth picking, not the cheapest body of any kind. Using the
+  // null-xp floor understates the reserve by the gap between the two, which
+  // compounds across every other pick taken while slots remain — this is what
+  // let the fill starve genuine forwards down to zero-projection fillers even
+  // when real ones were still affordable.
+  const cheapestAny = new Map<number, number>();
+  const cheapestReal = new Map<number, number>();
   for (const { p } of eligible) {
-    const current = cheapest.get(p.elementType);
-    if (current === undefined || p.price < current) cheapest.set(p.elementType, p.price);
+    const anyCur = cheapestAny.get(p.elementType);
+    if (anyCur === undefined || p.price < anyCur) cheapestAny.set(p.elementType, p.price);
+    if (p.xp[horizon] !== null) {
+      const realCur = cheapestReal.get(p.elementType);
+      if (realCur === undefined || p.price < realCur) cheapestReal.set(p.elementType, p.price);
+    }
+  }
+  const cheapest = new Map<number, number>();
+  for (const type of new Set([...cheapestAny.keys(), ...cheapestReal.keys()])) {
+    cheapest.set(type, cheapestReal.get(type) ?? cheapestAny.get(type)!);
   }
 
   const slotsRemaining = () => {
@@ -236,6 +251,108 @@ export function optimizeSquad(input: OptimizeInput): OptimizeResult {
     }
 
     if (!improved) break;
+  }
+
+  // ------------------------------------------------- funded upgrade pass
+  //
+  // The same-position swap above can only replace a pick with something no
+  // more expensive, so once the budget is fully committed it cannot fix an
+  // obviously bad pick that costs even 50p more than what is currently held —
+  // exactly the situation the reserve-floor fix above still leaves on the
+  // table. This searches for a *funding* swap: downgrade some other
+  // non-locked pick to the cheapest real-scoring player in its own position,
+  // and spend the freed cash upgrading the weakest pick. Bounded to the
+  // single worst pick per round, mirroring the pass above.
+  for (let round = 0; round < 3; round++) {
+    const weakest = [...picks]
+      .filter((pick) => !lockedIds.has(pick.playerId))
+      .map((pick) => ({ pick, score: scoreOf(byId.get(pick.playerId)!, horizon, strategy) }))
+      .sort((a, b) => a.score - b.score)[0];
+    if (!weakest) break;
+
+    const weak = byId.get(weakest.pick.playerId)!;
+    let bestPlan: {
+      donor: SquadPick;
+      donorReplacement: OptimizerPlayer;
+      weakReplacement: OptimizerPlayer;
+      netGain: number;
+    } | null = null;
+
+    for (const donor of picks) {
+      if (donor.playerId === weakest.pick.playerId || lockedIds.has(donor.playerId)) continue;
+      const donorMeta = byId.get(donor.playerId);
+      if (!donorMeta) continue;
+
+      const donorCheapest = eligible
+        .filter(
+          ({ p }) =>
+            !chosen.has(p.id) &&
+            p.elementType === donorMeta.elementType &&
+            p.xp[horizon] !== null &&
+            p.price < donor.purchasePrice,
+        )
+        .sort((a, b) => a.p.price - b.p.price)[0];
+      if (!donorCheapest) continue;
+
+      const freed = donor.purchasePrice - donorCheapest.p.price;
+      const budget = rules.totalSpend - spent + weakest.pick.purchasePrice + freed;
+
+      const donorClubAfter =
+        donorCheapest.p.teamId === donorMeta.teamId
+          ? (clubCount.get(donorMeta.teamId) ?? 1)
+          : (clubCount.get(donorCheapest.p.teamId) ?? 0) + 1;
+      if (donorCheapest.p.teamId !== donorMeta.teamId && donorClubAfter > rules.teamLimit) continue;
+
+      const weakReplacement = eligible
+        .filter(({ p }) => {
+          if (chosen.has(p.id) || p.id === donorCheapest.p.id) return false;
+          if (p.elementType !== weak.elementType) return false;
+          if (p.price > budget) return false;
+          const club =
+            p.teamId === weak.teamId
+              ? (clubCount.get(weak.teamId) ?? 1) - 1
+              : (clubCount.get(p.teamId) ?? 0) +
+                (p.teamId === donorCheapest.p.teamId && donorCheapest.p.teamId !== donorMeta.teamId
+                  ? 1
+                  : 0);
+          return club <= rules.teamLimit;
+        })
+        .sort((a, b) => b.score - a.score)[0];
+      if (!weakReplacement || weakReplacement.score <= weakest.score) continue;
+
+      const donorLoss = scoreOf(donorMeta, horizon, strategy) - donorCheapest.score;
+      const netGain = weakReplacement.score - weakest.score - donorLoss;
+      if (netGain > 0 && (!bestPlan || netGain > bestPlan.netGain)) {
+        bestPlan = {
+          donor,
+          donorReplacement: donorCheapest.p,
+          weakReplacement: weakReplacement.p,
+          netGain,
+        };
+      }
+    }
+
+    if (!bestPlan) break;
+
+    // Commit both legs: drop the donor and the weak pick, then take their
+    // replacements. Counters are rebuilt from the remaining picks rather than
+    // netted out by hand, which stays correct regardless of whether the two
+    // removed players shared a position or a club.
+    for (const outId of [bestPlan.donor.playerId, weakest.pick.playerId]) {
+      const idx = picks.findIndex((x) => x.playerId === outId);
+      picks.splice(idx, 1);
+      chosen.delete(outId);
+    }
+    spent = picks.reduce((sum, pick) => sum + pick.purchasePrice, 0);
+    positionCount.clear();
+    clubCount.clear();
+    for (const pick of picks) {
+      const meta = byId.get(pick.playerId)!;
+      positionCount.set(meta.elementType, (positionCount.get(meta.elementType) ?? 0) + 1);
+      clubCount.set(meta.teamId, (clubCount.get(meta.teamId) ?? 0) + 1);
+    }
+    take(bestPlan.donorReplacement);
+    take(bestPlan.weakReplacement);
   }
 
   let totalScore = 0;

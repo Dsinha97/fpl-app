@@ -726,7 +726,7 @@ export default function BuilderPage() {
         </div>
         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-[#2A0A45]">
           <div
-            className={`h-full rounded-full transition-all ${
+            className={`h-full rounded-full transition-[width,background-color] duration-300 motion-reduce:transition-none ${
               validation.overBudget ? "bg-red-500" : "bg-purple-800 dark:bg-[#00FF87]"
             }`}
             style={{ width: `${Math.min(100, (validation.spent / rules.totalSpend) * 100)}%` }}
@@ -812,9 +812,22 @@ export default function BuilderPage() {
           {drafts.length > 0 && (
             <select
               value={team.draftId}
+              aria-label="Squad"
               onChange={(e) => {
                 const found = drafts.find((d) => d.draftId === e.target.value);
-                if (found) switchTeam(found, true);
+                if (!found) return;
+                // Switching drafts discards any unsaved edits to the current
+                // one with no way back — the one navigation this page can't
+                // let happen silently.
+                if (
+                  isDirty &&
+                  !window.confirm(
+                    `Switch to "${found.name}"? Unsaved changes to "${team.name}" will be lost.`,
+                  )
+                ) {
+                  return;
+                }
+                switchTeam(found, true);
               }}
               className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
             >
@@ -883,7 +896,11 @@ export default function BuilderPage() {
               },
             ]}
           />
-          {saved && <span className="text-xs text-zinc-500">{saved}</span>}
+          {saved && (
+            <span role="status" className="text-xs text-zinc-500">
+              {saved}
+            </span>
+          )}
         </div>
       </div>
 
@@ -981,14 +998,16 @@ export default function BuilderPage() {
                   </span>
                 </h2>
                 <button
-                  onClick={applyLineup}
-                  disabled={lineupApplied}
+                  onClick={() => {
+                    if (!lineupApplied) applyLineup();
+                  }}
+                  aria-disabled={lineupApplied}
                   title={
                     lineupApplied
                       ? "XI and armband already match the recommendation"
                       : "Apply the recommended XI, bench order, and armband"
                   }
-                  className="shrink-0 rounded-md bg-purple-950 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                  className="shrink-0 rounded-md bg-purple-950 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-800 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
                 >
                   {lineupApplied ? "Applied" : "Apply XI & armband"}
                 </button>
@@ -1240,14 +1259,17 @@ export default function BuilderPage() {
           >
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <input
+                type="search"
                 value={search}
                 onChange={(e) => changeFilter(setSearch)(e.target.value)}
                 placeholder="Search player…"
+                aria-label="Search player"
                 className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus:border-[#00FF87]"
               />
               <select
                 value={position}
                 onChange={(e) => changeFilter(setPosition)(Number(e.target.value))}
+                aria-label="Filter by position"
                 className="rounded-md border border-zinc-300 bg-white px-1.5 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
               >
                 <option value={0}>All pos</option>
@@ -1260,6 +1282,7 @@ export default function BuilderPage() {
               <select
                 value={teamFilter}
                 onChange={(e) => changeFilter(setTeamFilter)(Number(e.target.value))}
+                aria-label="Filter by team"
                 className="rounded-md border border-zinc-300 bg-white px-1.5 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
               >
                 <option value={0}>All teams</option>
@@ -1274,6 +1297,7 @@ export default function BuilderPage() {
               <select
                 value={sortKey}
                 onChange={(e) => changeFilter(setSortKey)(e.target.value as SortKey)}
+                aria-label="Sort by"
                 className="rounded-md border border-zinc-300 bg-white px-1.5 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
               >
                 <option value="xp5">xP 5</option>
