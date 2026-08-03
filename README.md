@@ -6,6 +6,7 @@ Personal Fantasy Premier League analytics and decision-support application. See
 ## Phase plans
 
 - [Phase 1 — FPL Data Ingestion](./docs/phase-1-plan.md)
+- [Phase 4 — Expected Points (xP) Engine](./docs/phase-4-model.md)
 
 ## Stack
 

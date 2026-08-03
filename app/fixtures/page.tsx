@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { fdrClasses, fdrLabel, fdrTheme } from "@/lib/fdr";
+import { fdrTheme, type FdrRating } from "@/lib/fdr";
+import { FDRBadge, FixtureCell } from "@/components/fdr-badge";
+import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 
 interface FixtureRow {
   event: number;
@@ -120,11 +122,14 @@ export default function FixturesPage() {
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
             Fixture Matrix
+            <InfoTooltip>
+              <FdrLegendContent />
+            </InfoTooltip>
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Official FDR per fixture · sorted easiest run first · H = home, lowercase = away
+            Sorted easiest run first · green ring = home, red ring = away
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
@@ -146,15 +151,22 @@ export default function FixturesPage() {
       </div>
 
       {/* Legend */}
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-        {Object.entries(fdrTheme).map(([fdr, t]) => (
-          <span
-            key={fdr}
-            className={`rounded px-2 py-0.5 font-medium ${t.bgLight} ${t.bgDark} ${t.textLight} ${t.textDark}`}
-          >
-            {fdr} · {t.label}
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
+        <span className="flex flex-wrap items-center gap-1.5">
+          {(Object.keys(fdrTheme) as unknown as FdrRating[]).map((r) => (
+            <FDRBadge key={r} rating={Number(r) as FdrRating} showLabel />
+          ))}
+        </span>
+        <span className="flex items-center gap-3 text-zinc-500">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-green-400 ring-offset-1 ring-offset-white dark:bg-zinc-700 dark:ring-offset-zinc-950" />
+            home
           </span>
-        ))}
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-red-400 ring-offset-1 ring-offset-white dark:bg-zinc-700 dark:ring-offset-zinc-950" />
+            away
+          </span>
+        </span>
       </div>
 
       {error && (
@@ -193,7 +205,7 @@ export default function FixturesPage() {
                   {gwCols.map((g) => {
                     const cellFixtures = cells.get(g) ?? [];
                     return (
-                      <td key={g} className="px-0.5 py-1 text-center">
+                      <td key={g} className="px-1 py-1.5 text-center">
                         {cellFixtures.length === 0 ? (
                           <span
                             className="block rounded bg-zinc-100 px-1 py-1 text-zinc-400 dark:bg-zinc-900 dark:text-zinc-600"
@@ -202,17 +214,17 @@ export default function FixturesPage() {
                             —
                           </span>
                         ) : (
-                          <span className="flex flex-col gap-0.5">
+                          <span className="flex flex-col items-center gap-1">
                             {cellFixtures.map((c, i) => (
-                              <span
+                              <FixtureCell
                                 key={i}
-                                title={`GW${g} · ${team.short_name} ${
-                                  c.home ? "vs" : "@"
-                                } ${c.opp} · FDR ${c.fdr} — ${fdrLabel(c.fdr)}`}
-                                className={`block rounded px-1 py-1 font-semibold ${fdrClasses(c.fdr)}`}
-                              >
-                                {c.home ? c.opp.toUpperCase() : c.opp.toLowerCase()}
-                              </span>
+                                opponent={c.opp}
+                                home={c.home}
+                                fdr={c.fdr}
+                                gw={g}
+                                team={team.short_name}
+                                className="w-full"
+                              />
                             ))}
                           </span>
                         )}

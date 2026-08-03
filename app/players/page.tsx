@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { fdrClasses, fdrLabel } from "@/lib/fdr";
+import { FixtureCell } from "@/components/fdr-badge";
+import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 
 interface PlayerRow {
   id: number;
@@ -33,6 +34,12 @@ interface RunCell {
   fdr: number;
 }
 
+interface XpRow {
+  player_id: number;
+  xp_1: number | null;
+  xp_6: number | null;
+}
+
 const STATUS_LABEL: Record<string, string> = {
   a: "Available",
   d: "Doubtful",
@@ -44,7 +51,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
 
-type SortKey = "price" | "ownership" | "points" | "xg" | "xa" | "run";
+type SortKey = "price" | "ownership" | "points" | "xg" | "xa" | "run" | "xp1" | "xp6" | "value";
 
 const RUN_LENGTH = 5;
 
@@ -53,6 +60,7 @@ export default function PlayersPage() {
   const [history, setHistory] = useState<Map<number, HistoryRow>>(new Map());
   const [teamShort, setTeamShort] = useState<Map<number, string>>(new Map());
   const [runs, setRuns] = useState<Map<number, RunCell[]>>(new Map());
+  const [xp, setXp] = useState<Map<number, XpRow>>(new Map());
   const [historySeason, setHistorySeason] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,9 +148,16 @@ export default function PlayersPage() {
         }
         for (const cells of runMap.values()) cells.sort((a, b) => a.gw - b.gw);
 
+        const { data: xpRows } = await supabase
+          .from("player_xp_horizons")
+          .select("player_id, xp_1, xp_6")
+          .eq("season", gw.season)
+          .limit(1000);
+
         setPlayers((playersRes.data ?? []) as PlayerRow[]);
         setTeamShort(shorts);
         setRuns(runMap);
+        setXp(new Map(((xpRows ?? []) as XpRow[]).map((r) => [r.player_id, r])));
         setHistory(new Map(historyRows.map((h) => [h.player_code, h])));
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -171,7 +186,15 @@ export default function PlayersPage() {
 
     const value = (p: PlayerRow): number => {
       const h = history.get(p.code);
+      const x = xp.get(p.id);
       switch (sortKey) {
+        case "xp1":
+          return x?.xp_1 ?? -1;
+        case "xp6":
+          return x?.xp_6 ?? -1;
+        case "value":
+          // Points per million over the 6-gameweek horizon.
+          return x?.xp_6 && p.now_cost ? (x.xp_6 / (p.now_cost / 10)) : -1;
         case "price":
           return p.now_cost ?? -1;
         case "ownership":
@@ -191,7 +214,7 @@ export default function PlayersPage() {
     rows.sort((a, b) => (sortDesc ? value(b) - value(a) : value(a) - value(b)));
     return rows.slice(0, 100);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, history, runs, search, position, teamFilter, maxPrice, sortKey, sortDesc]);
+  }, [players, history, runs, xp, search, position, teamFilter, maxPrice, sortKey, sortDesc]);
 
   const header = (label: string, key: SortKey) => (
     <th className="px-2 py-2">
@@ -221,8 +244,9 @@ export default function PlayersPage() {
         Player Explorer
       </h1>
       <p className="mt-1 text-sm text-zinc-500">
-        {historySeason ? `Stats from ${historySeason} (last completed season)` : ""} · fixture run
-        = next {RUN_LENGTH} gameweeks · top 100 shown
+        xP = model-projected points (next gameweek, and next 6){" "}
+        {historySeason ? `· stats from ${historySeason}` : ""} · fixture run = next {RUN_LENGTH}{" "}
+        gameweeks, green ring = home · top 100 shown
       </p>
 
       {/* Filters */}
@@ -287,11 +311,35 @@ export default function PlayersPage() {
                 <th className="px-2 py-2 uppercase tracking-wide">Team</th>
                 <th className="px-2 py-2 uppercase tracking-wide">Pos</th>
                 {header("Price", "price")}
+                {header("xP GW", "xp1")}
+                {header("xP 6", "xp6")}
+                {header("xP/£m", "value")}
                 {header("Own %", "ownership")}
                 {header("Pts", "points")}
                 {header("xG", "xg")}
                 {header("xA", "xa")}
-                {header(`Next ${RUN_LENGTH}`, "run")}
+                <th className="px-2 py-2">
+                  <span className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => {
+                        if (sortKey === "run") setSortDesc(!sortDesc);
+                        else {
+                          setSortKey("run");
+                          setSortDesc(true);
+                        }
+                      }}
+                      className={`uppercase tracking-wide transition-colors hover:text-purple-700 dark:hover:text-[#00FF87] ${
+                        sortKey === "run" ? "text-purple-800 dark:text-[#00FF87]" : ""
+                      }`}
+                    >
+                      Next {RUN_LENGTH}
+                      {sortKey === "run" ? (sortDesc ? " ↓" : " ↑") : ""}
+                    </button>
+                    <InfoTooltip align="right">
+                      <FdrLegendContent />
+                    </InfoTooltip>
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -334,6 +382,18 @@ export default function PlayersPage() {
                     <td className="px-2 py-1.5 tabular-nums">
                       £{((p.now_cost ?? 0) / 10).toFixed(1)}m
                     </td>
+                    <td className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                      {xp.get(p.id)?.xp_1?.toFixed(1) ?? "—"}
+                    </td>
+                    <td className="px-2 py-1.5 tabular-nums">
+                      {xp.get(p.id)?.xp_6?.toFixed(1) ?? "—"}
+                    </td>
+                    <td className="px-2 py-1.5 tabular-nums">
+                      {(() => {
+                        const x = xp.get(p.id)?.xp_6;
+                        return x && p.now_cost ? (x / (p.now_cost / 10)).toFixed(2) : "—";
+                      })()}
+                    </td>
                     <td className="px-2 py-1.5 tabular-nums">
                       {p.selected_by_percent !== null ? `${p.selected_by_percent}%` : "—"}
                     </td>
@@ -341,15 +401,16 @@ export default function PlayersPage() {
                     <td className="px-2 py-1.5 tabular-nums">{h?.expected_goals ?? "—"}</td>
                     <td className="px-2 py-1.5 tabular-nums">{h?.expected_assists ?? "—"}</td>
                     <td className="px-2 py-1.5">
-                      <span className="flex gap-0.5">
+                      <span className="flex gap-1.5">
                         {run.map((c, i) => (
-                          <span
+                          <FixtureCell
                             key={i}
-                            title={`GW${c.gw} ${c.home ? "vs" : "@"} ${c.opp} · FDR ${c.fdr} — ${fdrLabel(c.fdr)}`}
-                            className={`rounded px-1 py-0.5 text-[10px] font-semibold ${fdrClasses(c.fdr)}`}
-                          >
-                            {c.home ? c.opp.toUpperCase() : c.opp.toLowerCase()}
-                          </span>
+                            opponent={c.opp}
+                            home={c.home}
+                            fdr={c.fdr}
+                            gw={c.gw}
+                            team={teamShort.get(p.team_id)}
+                          />
                         ))}
                       </span>
                     </td>
@@ -358,7 +419,7 @@ export default function PlayersPage() {
               })}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-3 py-6 text-center text-zinc-500">
+                  <td colSpan={12} className="px-3 py-6 text-center text-zinc-500">
                     No players match the current filters.
                   </td>
                 </tr>
