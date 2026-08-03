@@ -45,7 +45,7 @@ export function InfoTooltip({
         aria-label={label}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-4 w-4 items-center justify-center rounded-full border border-zinc-400 text-[10px] font-bold text-zinc-500 transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-zinc-600 dark:text-zinc-400 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+        className="flex h-4 w-4 items-center justify-center rounded-full border border-zinc-400 text-[10px] font-bold text-zinc-500 transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
       >
         ?
       </button>
@@ -53,7 +53,7 @@ export function InfoTooltip({
       {open && (
         <span
           role="dialog"
-          className={`absolute top-6 z-30 w-72 rounded-lg border border-zinc-200 bg-white p-3 text-left text-xs font-normal leading-relaxed text-zinc-700 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${
+          className={`absolute top-6 z-30 w-72 rounded-lg border border-zinc-200 bg-white p-3 text-left text-xs font-normal leading-relaxed text-zinc-700 shadow-lg dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-300 ${
             align === "right" ? "right-0" : "left-0"
           }`}
         >

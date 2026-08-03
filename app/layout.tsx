@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Monogram, Wordmark } from "@/components/brand";
+import { NavLinks } from "@/components/nav-links";
+import { THEME_BOOT_SCRIPT, ThemeToggle } from "@/components/theme";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,14 +22,6 @@ export const metadata: Metadata = {
     "Fantasy Premier League analytics and decision support: transfers, captaincy, chips, and fixtures.",
 };
 
-const NAV = [
-  { href: "/team", label: "My Team" },
-  { href: "/players", label: "Players" },
-  { href: "/fixtures", label: "Fixtures" },
-  { href: "/changes", label: "Changes" },
-  { href: "/status", label: "Status" },
-] as const;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -37,24 +31,26 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-zinc-50 dark:bg-black">
-        <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+      <head>
+        {/*
+         * Applies the stored (or system) theme before first paint. Without
+         * this a dark-mode user sees a white flash on every navigation, since
+         * a static export has no server to resolve the preference.
+         */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
+      <body className="min-h-full flex flex-col bg-zinc-50 dark:bg-[#0E0118]">
+        <header className="border-b border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
           <nav className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 px-4">
-            <Link href="/" className="flex items-center gap-2.5">
+            <Link href="/" className="flex shrink-0 items-center gap-2.5">
               <Monogram size={30} />
               <Wordmark />
             </Link>
-            <div className="flex gap-4 overflow-x-auto text-sm text-zinc-600 dark:text-zinc-400">
-              {NAV.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="whitespace-nowrap transition-colors hover:text-purple-800 dark:hover:text-[#00FF87]"
-                >
-                  {item.label}
-                </Link>
-              ))}
+            <NavLinks />
+            <div className="ml-auto shrink-0">
+              <ThemeToggle />
             </div>
           </nav>
         </header>

@@ -37,7 +37,7 @@ const FUNCTIONS = [
 
 const STATUS_STYLES: Record<string, string> = {
   success: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
-  skipped: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+  skipped: "bg-zinc-100 text-zinc-600 dark:bg-[#2A0A45] dark:text-zinc-400",
   partial: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   error: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
   running: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
@@ -127,7 +127,7 @@ export default function StatusPage() {
         <button
           onClick={() => void load()}
           disabled={loading}
-          className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+          className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
         >
           {loading ? "Loading…" : "Refresh"}
         </button>
@@ -137,10 +137,10 @@ export default function StatusPage() {
         <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
           Last run per function
         </h2>
-        <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800">
+              <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
                 <th className="px-3 py-2">Function</th>
                 <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2">When</th>
@@ -153,7 +153,7 @@ export default function StatusPage() {
               {runs.map((r) => (
                 <tr
                   key={r.function_name}
-                  className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-zinc-900 dark:text-zinc-200"
+                  className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
                 >
                   <td className="px-3 py-2 font-mono text-xs">{r.function_name}</td>
                   <td className="px-3 py-2">
@@ -206,7 +206,7 @@ export default function StatusPage() {
             ].map((c) => (
               <div
                 key={c.label}
-                className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950"
+                className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]"
               >
                 <div className="text-xs text-zinc-500">{c.label}</div>
                 <div className="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-50">

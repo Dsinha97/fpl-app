@@ -141,7 +141,7 @@ export default function FixturesPage() {
               className={`rounded-md px-2.5 py-1 transition-colors ${
                 horizon === h
                   ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
-                  : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                  : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
               }`}
             >
               {h === 38 ? "All" : `${h} GWs`}
@@ -159,11 +159,11 @@ export default function FixturesPage() {
         </span>
         <span className="flex items-center gap-3 text-zinc-500">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-green-400 ring-offset-1 ring-offset-white dark:bg-zinc-700 dark:ring-offset-zinc-950" />
+            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-green-400 ring-offset-1 ring-offset-white dark:bg-purple-900 dark:ring-offset-[#1E0234]" />
             home
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-red-400 ring-offset-1 ring-offset-white dark:bg-zinc-700 dark:ring-offset-zinc-950" />
+            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-red-400 ring-offset-1 ring-offset-white dark:bg-purple-900 dark:ring-offset-[#1E0234]" />
             away
           </span>
         </span>
@@ -177,11 +177,11 @@ export default function FixturesPage() {
       {loading && <p className="mt-6 text-sm text-zinc-500">Loading fixtures…</p>}
 
       {!loading && !error && (
-        <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
           <table className="w-full border-collapse text-xs">
             <thead>
-              <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-zinc-800">
-                <th className="sticky left-0 z-10 bg-white px-3 py-2 dark:bg-zinc-950">Team</th>
+              <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+                <th className="sticky left-0 z-10 bg-white px-3 py-2 dark:bg-[#1E0234]">Team</th>
                 <th className="px-2 py-2 text-center">Avg</th>
                 {gwCols.map((g) => (
                   <th key={g} className="px-1 py-2 text-center">
@@ -194,9 +194,9 @@ export default function FixturesPage() {
               {rows.map(({ team, cells, avg }) => (
                 <tr
                   key={team.id}
-                  className="border-b border-zinc-100 last:border-0 dark:border-zinc-900"
+                  className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
                 >
-                  <td className="sticky left-0 z-10 bg-white px-3 py-1.5 font-medium text-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
+                  <td className="sticky left-0 z-10 bg-white px-3 py-1.5 font-medium text-zinc-800 dark:bg-[#1E0234] dark:text-zinc-200">
                     {team.short_name}
                   </td>
                   <td className="px-2 py-1.5 text-center tabular-nums text-zinc-500">
@@ -208,7 +208,7 @@ export default function FixturesPage() {
                       <td key={g} className="px-1 py-1.5 text-center">
                         {cellFixtures.length === 0 ? (
                           <span
-                            className="block rounded bg-zinc-100 px-1 py-1 text-zinc-400 dark:bg-zinc-900 dark:text-zinc-600"
+                            className="block rounded bg-zinc-100 px-1 py-1 text-zinc-400 dark:bg-[#2A0A45] dark:text-zinc-600"
                             title={`GW${g}: blank — no fixture`}
                           >
                             —

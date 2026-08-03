@@ -132,7 +132,7 @@ export default function ChangesPage() {
             className={`rounded-md px-2.5 py-1 transition-colors ${
               filter === f.key
                 ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
-                : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
             }`}
           >
             {f.label}
@@ -148,7 +148,7 @@ export default function ChangesPage() {
       {loading && <p className="mt-6 text-sm text-zinc-500">Loading changes…</p>}
 
       {!loading && !error && (
-        <ul className="mt-4 divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-900 dark:border-zinc-800 dark:bg-zinc-950">
+        <ul className="mt-4 divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white dark:divide-purple-900/30 dark:border-purple-900/40 dark:bg-[#1E0234]">
           {visible.map((row, i) => {
             const { icon, text } = describe(row);
             return (

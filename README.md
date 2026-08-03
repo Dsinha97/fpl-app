@@ -1,7 +1,10 @@
 # FPL App
 
-Personal Fantasy Premier League analytics and decision-support application. See
-[fpl_app_phase_wise_build_plan.md](./fpl_app_phase_wise_build_plan.md) for the full architecture and phased build plan.
+Personal Fantasy Premier League analytics and decision-support application.
+[docs/updated-plan.md](./docs/updated-plan.md) is the current roadmap (Team Builder first, FPL
+authentication later, everything centred on a shared `TeamState` object);
+[fpl_app_phase_wise_build_plan.md](./fpl_app_phase_wise_build_plan.md) is the original architecture
+document that phases 0–4 were built from.
 
 ## Phase plans
 

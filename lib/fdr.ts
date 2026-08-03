@@ -76,5 +76,5 @@ export const fdrLabel = (n: number | null | undefined): string => fdrConfig(n).l
 // an easy-green fixture, red ring on a very-hard-red one).
 export const venueRing = (home: boolean): string =>
   home
-    ? "ring-2 ring-offset-1 ring-green-400 ring-offset-white dark:ring-offset-zinc-950"
-    : "ring-2 ring-offset-1 ring-red-400 ring-offset-white dark:ring-offset-zinc-950";
+    ? "ring-2 ring-offset-1 ring-green-400 ring-offset-white dark:ring-offset-[#1E0234]"
+    : "ring-2 ring-offset-1 ring-red-400 ring-offset-white dark:ring-offset-[#1E0234]";

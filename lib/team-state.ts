@@ -1,0 +1,244 @@
+// TeamState — the normalised squad object every downstream feature consumes.
+//
+// The updated build plan makes this the central abstraction: a squad may
+// originate from the manual Team Builder or, later, from an authenticated FPL
+// account, and the optimisers must not care which. Keeping the shape identical
+// in both cases is what lets the transfer, captain, and chip engines run
+// offline against drafts.
+
+export type TeamSource = "draft" | "fpl";
+
+export interface SquadPick {
+  playerId: number;
+  /** Price paid, in FPL tenths. Diverges from the live price once prices move. */
+  purchasePrice: number;
+}
+
+export interface TeamState {
+  source: TeamSource;
+  draftId: string;
+  name: string;
+  gameweek: number | null;
+  players: SquadPick[];
+  captain: number | null;
+  viceCaptain: number | null;
+
+  /** Populated by the Starting XI optimiser in a later sprint. */
+  startingXI: number[];
+  benchOrder: number[];
+  activeChip: string | null;
+
+  /** Tenths, as FPL reports them. */
+  budget: number;
+  freeTransfers: number;
+  strategy: string | null;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Squad legality rules. Read from the database rather than hardcoded — the
+ * build plan is explicit that "all rules should come from a configuration
+ * table", and FPL has changed squad size and budget between seasons.
+ */
+export interface SquadRules {
+  /** Total budget in tenths (game_settings.squad_total_spend). */
+  totalSpend: number;
+  /** Max players from one club (game_settings.squad_team_limit). */
+  teamLimit: number;
+  /** Total squad size (game_settings.squad_squadsize). */
+  squadSize: number;
+  /** element_type id -> required count (element_types.squad_select). */
+  positionQuota: Record<number, number>;
+}
+
+export const DEFAULT_RULES: SquadRules = {
+  totalSpend: 1000,
+  teamLimit: 3,
+  squadSize: 15,
+  positionQuota: { 1: 2, 2: 5, 3: 5, 4: 3 },
+};
+
+export interface PlayerMeta {
+  id: number;
+  elementType: number;
+  teamId: number;
+  nowCost: number;
+  webName: string;
+}
+
+export interface PositionProgress {
+  elementType: number;
+  filled: number;
+  required: number;
+}
+
+export interface ValidationResult {
+  positions: PositionProgress[];
+  /** Team ids that exceed the club limit, with their counts. */
+  clubBreaches: { teamId: number; count: number }[];
+  spent: number;
+  budgetRemaining: number;
+  overBudget: boolean;
+  squadFull: boolean;
+  positionsValid: boolean;
+  clubsValid: boolean;
+  hasCaptain: boolean;
+  hasViceCaptain: boolean;
+  /** A squad that could legally be entered into FPL. */
+  isLegal: boolean;
+}
+
+export function emptyTeamState(rules: SquadRules, name = "New draft"): TeamState {
+  const now = new Date().toISOString();
+  return {
+    source: "draft",
+    draftId: crypto.randomUUID(),
+    name,
+    gameweek: null,
+    players: [],
+    captain: null,
+    viceCaptain: null,
+    startingXI: [],
+    benchOrder: [],
+    activeChip: null,
+    budget: rules.totalSpend,
+    freeTransfers: 1,
+    strategy: null,
+    notes: "",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Full legality check. Pure, so the squad optimiser in the next sprint can
+ * reuse it to score candidate squads without touching React or the network.
+ */
+export function validateSquad(
+  state: TeamState,
+  rules: SquadRules,
+  lookup: (playerId: number) => PlayerMeta | undefined,
+): ValidationResult {
+  const positionCounts = new Map<number, number>();
+  const clubCounts = new Map<number, number>();
+  let spent = 0;
+
+  for (const pick of state.players) {
+    const meta = lookup(pick.playerId);
+    spent += pick.purchasePrice;
+    if (!meta) continue;
+    positionCounts.set(meta.elementType, (positionCounts.get(meta.elementType) ?? 0) + 1);
+    clubCounts.set(meta.teamId, (clubCounts.get(meta.teamId) ?? 0) + 1);
+  }
+
+  const positions: PositionProgress[] = Object.entries(rules.positionQuota)
+    .map(([type, required]) => ({
+      elementType: Number(type),
+      filled: positionCounts.get(Number(type)) ?? 0,
+      required,
+    }))
+    .sort((a, b) => a.elementType - b.elementType);
+
+  const clubBreaches = [...clubCounts.entries()]
+    .filter(([, count]) => count > rules.teamLimit)
+    .map(([teamId, count]) => ({ teamId, count }));
+
+  const budgetRemaining = state.budget - spent;
+  const squadFull = state.players.length === rules.squadSize;
+  const positionsValid = positions.every((p) => p.filled === p.required);
+  const clubsValid = clubBreaches.length === 0;
+  const overBudget = budgetRemaining < 0;
+  const hasCaptain = state.captain !== null;
+  const hasViceCaptain = state.viceCaptain !== null;
+
+  return {
+    positions,
+    clubBreaches,
+    spent,
+    budgetRemaining,
+    overBudget,
+    squadFull,
+    positionsValid,
+    clubsValid,
+    hasCaptain,
+    hasViceCaptain,
+    isLegal:
+      squadFull && positionsValid && clubsValid && !overBudget && hasCaptain && hasViceCaptain,
+  };
+}
+
+/**
+ * Why a given player cannot be added right now, or null if they can be.
+ * Returned as prose because it is surfaced directly as a tooltip.
+ */
+export function blockedReason(
+  state: TeamState,
+  rules: SquadRules,
+  candidate: PlayerMeta,
+  lookup: (playerId: number) => PlayerMeta | undefined,
+): string | null {
+  if (state.players.some((p) => p.playerId === candidate.id)) return "Already in your squad";
+
+  const result = validateSquad(state, rules, lookup);
+
+  if (state.players.length >= rules.squadSize) return `Squad already has ${rules.squadSize} players`;
+
+  const position = result.positions.find((p) => p.elementType === candidate.elementType);
+  if (position && position.filled >= position.required) {
+    return `All ${position.required} slots in this position are filled`;
+  }
+
+  const clubCount = state.players.filter(
+    (p) => lookup(p.playerId)?.teamId === candidate.teamId,
+  ).length;
+  if (clubCount >= rules.teamLimit) {
+    return `Already have ${rules.teamLimit} players from this club`;
+  }
+
+  if (candidate.nowCost > result.budgetRemaining) {
+    return `Costs £${(candidate.nowCost / 10).toFixed(1)}m but only £${(
+      result.budgetRemaining / 10
+    ).toFixed(1)}m is left`;
+  }
+
+  return null;
+}
+
+export function addPlayer(state: TeamState, meta: PlayerMeta): TeamState {
+  return {
+    ...state,
+    players: [...state.players, { playerId: meta.id, purchasePrice: meta.nowCost }],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function removePlayer(state: TeamState, playerId: number): TeamState {
+  return {
+    ...state,
+    players: state.players.filter((p) => p.playerId !== playerId),
+    captain: state.captain === playerId ? null : state.captain,
+    viceCaptain: state.viceCaptain === playerId ? null : state.viceCaptain,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/** Captain and vice-captain must be different players. */
+export function setCaptain(state: TeamState, playerId: number): TeamState {
+  return {
+    ...state,
+    captain: playerId,
+    viceCaptain: state.viceCaptain === playerId ? null : state.viceCaptain,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function setViceCaptain(state: TeamState, playerId: number): TeamState {
+  return {
+    ...state,
+    viceCaptain: playerId,
+    captain: state.captain === playerId ? null : state.captain,
+    updatedAt: new Date().toISOString(),
+  };
+}

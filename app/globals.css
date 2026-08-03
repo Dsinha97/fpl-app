@@ -83,38 +83,45 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/*
+ * Dark theme, derived from the brand assets in public/logo.svg and
+ * public/app-name.svg: a deep purple ground (#0E0118) with the logo badge
+ * colour (#1E0234) as the raised card surface, purple borders, and the FPL
+ * green (#00FF87) as the primary accent. Deliberately not neutral grey —
+ * the wordmark was designed dark-first against purple.
+ */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: #0e0118;
+  --foreground: oklch(0.97 0.01 300);
+  --card: #1e0234;
+  --card-foreground: oklch(0.97 0.01 300);
+  --popover: #1e0234;
+  --popover-foreground: oklch(0.97 0.01 300);
+  --primary: #00ff87;
+  --primary-foreground: oklch(0.18 0.02 280);
+  --secondary: #2a0a45;
+  --secondary-foreground: oklch(0.97 0.01 300);
+  --muted: #2a0a45;
+  --muted-foreground: oklch(0.72 0.04 300);
+  --accent: #3b0764;
+  --accent-foreground: oklch(0.97 0.01 300);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --border: oklch(0.44 0.16 303 / 40%);
+  --input: oklch(0.44 0.16 303 / 50%);
+  --ring: oklch(0.6 0.2 303);
+  --chart-1: #00ff87;
+  --chart-2: oklch(0.7 0.18 300);
+  --chart-3: oklch(0.62 0.17 320);
+  --chart-4: oklch(0.55 0.16 280);
+  --chart-5: oklch(0.48 0.14 260);
+  --sidebar: #1e0234;
+  --sidebar-foreground: oklch(0.97 0.01 300);
+  --sidebar-primary: #00ff87;
+  --sidebar-primary-foreground: oklch(0.18 0.02 280);
+  --sidebar-accent: #3b0764;
+  --sidebar-accent-foreground: oklch(0.97 0.01 300);
+  --sidebar-border: oklch(0.44 0.16 303 / 40%);
+  --sidebar-ring: oklch(0.6 0.2 303);
 }
 
 @layer base {

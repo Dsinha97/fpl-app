@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
+import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 
 // ---------------------------------------------------------------- types
 
@@ -54,6 +55,11 @@ interface PlayerRow {
   web_name: string | null;
   now_cost: number | null;
   status: string | null;
+  news: string | null;
+  chance_of_playing_next_round: number | null;
+  penalties_order: number | null;
+  direct_freekicks_order: number | null;
+  corners_and_indirect_freekicks_order: number | null;
   element_type: number;
   team_id: number;
 }
@@ -170,7 +176,9 @@ export default function TeamPage() {
         if (ids.length > 0) {
           const { data: playerRows } = await supabase
             .from("players")
-            .select("id, web_name, now_cost, status, element_type, team_id")
+            .select(
+              "id, web_name, now_cost, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, element_type, team_id",
+            )
             .eq("season", nextGw.season)
             .in("id", ids);
           for (const p of playerRows ?? []) players.set(p.id, p as PlayerRow);
@@ -233,12 +241,12 @@ export default function TeamPage() {
           onChange={(e) => setInputId(e.target.value)}
           inputMode="numeric"
           placeholder="e.g. 1234567"
-          className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus:border-[#00FF87]"
         />
         <button
           type="submit"
           disabled={loading}
-          className="rounded-md bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
         >
           {loading ? "Syncing…" : savedId ? "Refresh" : "Connect"}
         </button>
@@ -291,10 +299,10 @@ export default function TeamPage() {
             ].map((tile) => (
               <div
                 key={tile.label}
-                className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950"
+                className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]"
               >
                 <div className="text-xs text-zinc-500">{tile.label}</div>
-                <div className="mt-1 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+                <div className="mt-1 text-lg font-semibold text-purple-900 dark:text-[#00FF87]">
                   {tile.value}
                 </div>
               </div>
@@ -314,7 +322,7 @@ export default function TeamPage() {
                   return (
                     <div
                       key={type}
-                      className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950"
+                      className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]"
                     >
                       <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                         {POSITION_LABELS[type]}
@@ -330,19 +338,29 @@ export default function TeamPage() {
                                 bench ? "text-zinc-400" : "text-zinc-800 dark:text-zinc-200"
                               }`}
                             >
-                              <span>
+                              <span className="flex items-center gap-1.5">
                                 {player?.web_name ?? `#${p.element}`}
+                                <AvailabilityBadge
+                                  status={player?.status}
+                                  chanceOfPlaying={player?.chance_of_playing_next_round}
+                                  news={player?.news}
+                                />
+                                <RoleBadges
+                                  penaltyOrder={player?.penalties_order}
+                                  freeKickOrder={player?.direct_freekicks_order}
+                                  cornerOrder={player?.corners_and_indirect_freekicks_order}
+                                />
                                 {p.is_captain && (
-                                  <span className="ml-1.5 rounded bg-zinc-900 px-1 text-xs font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
+                                  <span className="rounded bg-purple-950 px-1 text-xs font-bold text-white dark:bg-[#00FF87] dark:text-slate-950">
                                     C
                                   </span>
                                 )}
                                 {p.is_vice_captain && (
-                                  <span className="ml-1.5 rounded border border-zinc-400 px-1 text-xs font-bold">
+                                  <span className="rounded border border-purple-700 px-1 text-xs font-bold text-purple-800 dark:border-[#00FF87]/60 dark:text-[#00FF87]">
                                     V
                                   </span>
                                 )}
-                                {bench && <span className="ml-1.5 text-xs">(bench)</span>}
+                                {bench && <span className="text-xs">(bench)</span>}
                               </span>
                               <span className="tabular-nums text-zinc-500">
                                 {fmtMoney(player?.now_cost)}
@@ -356,7 +374,7 @@ export default function TeamPage() {
                 })}
               </div>
             ) : (
-              <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950">
+              <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-[#1E0234]">
                 Squad picks are published by FPL after the first deadline
                 {data?.nextGw
                   ? ` — ${data.nextGw.name} locks ${new Date(
@@ -380,10 +398,10 @@ export default function TeamPage() {
               <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
                 This Season
               </h2>
-              <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+              <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800">
+                    <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
                       <th className="px-3 py-2">GW</th>
                       <th className="px-3 py-2">Points</th>
                       <th className="px-3 py-2">Total</th>
@@ -397,7 +415,7 @@ export default function TeamPage() {
                     {data.gwHistory.map((g) => (
                       <tr
                         key={g.event}
-                        className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-zinc-900 dark:text-zinc-200"
+                        className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
                       >
                         <td className="px-3 py-2 tabular-nums">{g.event}</td>
                         <td className="px-3 py-2 tabular-nums">{fmtNum(g.points)}</td>
@@ -420,10 +438,10 @@ export default function TeamPage() {
               <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
                 Past Seasons
               </h2>
-              <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+              <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800">
+                    <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
                       <th className="px-3 py-2">Season</th>
                       <th className="px-3 py-2">Points</th>
                       <th className="px-3 py-2">Rank</th>
@@ -434,7 +452,7 @@ export default function TeamPage() {
                     {data.seasons.map((s) => (
                       <tr
                         key={s.season_name}
-                        className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-zinc-900 dark:text-zinc-200"
+                        className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
                       >
                         <td className="px-3 py-2">{s.season_name}</td>
                         <td className="px-3 py-2 tabular-nums">{fmtNum(s.total_points)}</td>
@@ -465,7 +483,7 @@ export default function TeamPage() {
           <p className="mt-2">
             Enter your Manager ID above — it&apos;s the number in the URL when you view your
             points page on the FPL site: <br />
-            <code className="mt-1 inline-block rounded bg-zinc-100 px-1.5 py-0.5 text-xs dark:bg-zinc-900">
+            <code className="mt-1 inline-block rounded bg-zinc-100 px-1.5 py-0.5 text-xs dark:bg-[#2A0A45]">
               fantasy.premierleague.com/entry/<b>1234567</b>/event/1
             </code>
           </p>
