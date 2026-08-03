@@ -56,19 +56,21 @@ URLs with curl — several documented patterns 404.
 
 ```
 app/            routes: / · /team · /players · /fixtures · /changes · /status
-                        /builder (squad builder) · /compare (2–4 player comparison)
+                        /builder (squad builder) · /scenarios (draft lab) · /compare
 lib/            team-state.ts   TeamState, validateSquad, computeProjection, horizons, armbands
                 optimizer.ts    greedy + swap squad optimiser (strategies, risk gates)
                 lineup.ts       XI / captain / bench-order engine
                 scoring.ts      risk, comparison, replacement finder
+                squad-score.ts  SquadScore over a whole draft (points-equivalent terms)
                 player-search.ts  name matching for every search box
                 formation.ts    bestStartingXi · fdr.ts FDR palette · drafts.ts localStorage
                 supabase/client.ts
 components/     pitch-view, pitch, player-card, player-detail, armband, identity,
-                fixture-schedule, fdr-matrix, player-status-icons, fdr-badge, brand,
-                theme, nav-links, info-tooltip, ui/ (shadcn + range-slider)
+                fixture-schedule, fdr-matrix, draft-timeline, player-status-icons,
+                fdr-badge, brand, theme, nav-links, info-tooltip, ui/ (+ range-slider)
 supabase/       migrations/ (SQL) · functions/ (Deno Edge Functions) · functions/_shared/
-docs/           updated-plan.md · architecture.md · phase-4-model.md · phase-1-plan.md
+docs/           roadmap.md · architecture.md · updated-plan.md (formulas) ·
+                phase-4-model.md · phase-1-plan.md · update-aug3.md (owner source)
 ```
 
 `supabase/functions/**` is Deno and is **excluded from tsconfig and eslint** — it must be,
@@ -117,12 +119,13 @@ landing. Not for routine progress.
 ## Status
 
 Built: sync pipeline, xP engine v1.0.0, dark theme, `/players`, `/fixtures` (Schedule + FDR tabs),
-`/builder` (pitch UI, paginated picker, squad optimiser, lineup engine, replacement finder) and
-`/compare`. In the revised numbering that covers Sprints 6, 7 and 11.
+`/builder` (pitch UI, paginated picker, squad optimiser, lineup engine, replacement finder),
+`/compare`, and `/scenarios` (draft manager, SquadScore, comparison, timeline). In the revised
+numbering that covers Sprints 5, 6, 7 and 11.
 
-Next: **Sprint 5 — Scenario Lab & Draft Management** (draft manager, comparison, timeline,
-SquadScore). See [docs/roadmap.md](docs/roadmap.md) for the full ordering and the finishing passes
-outstanding on 6, 7 and 11.
+Next: **Sprint 8 — Transfer Simulator**, then 9 (transfer optimiser with up to five banked FTs). See
+[docs/roadmap.md](docs/roadmap.md) for the full ordering and the finishing passes outstanding on 6, 7
+and 11.
 
 Blocked, with the reason recorded rather than worked around:
 

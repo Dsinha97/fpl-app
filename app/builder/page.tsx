@@ -233,7 +233,12 @@ export default function BuilderPage() {
 
         const existing = listDrafts();
         setDrafts(existing);
-        setTeam(existing[0] ?? emptyTeamState(loadedRules));
+
+        // Scenario Lab links here with ?draft=<id>; fall back to the most
+        // recently saved draft when the id is absent or stale.
+        const wanted = new URLSearchParams(window.location.search).get("draft");
+        const requested = wanted ? existing.find((d) => d.draftId === wanted) : undefined;
+        setTeam(requested ?? existing[0] ?? emptyTeamState(loadedRules));
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
