@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { InteractivePitch } from "./pitch";
 import { EmptySlot, PlayerCard, type PlayerData } from "./player-card";
-import { bestStartingXi } from "@/lib/formation";
+import { PANEL_MAX_HEIGHT, PANEL_WIDTH, PlayerDetail } from "./player-detail";
+import type { LineupResult } from "@/lib/lineup";
 
 const POSITION_ABBR: Record<number, string> = { 1: "GK", 2: "DEF", 3: "MID", 4: "FWD" };
 
@@ -11,6 +12,8 @@ interface PitchViewProps {
   squad: PlayerData[];
   /** element_type -> required count, from the season's squad rules. */
   quota: Record<number, number>;
+  /** Sprint 3 lineup, when the squad is complete. */
+  lineup: LineupResult | null;
   onSetCaptain: (playerId: number) => void;
   onSetVice: (playerId: number) => void;
   onRemove: (playerId: number) => void;
@@ -18,52 +21,70 @@ interface PitchViewProps {
   header?: React.ReactNode;
 }
 
+interface MenuState {
+  id: number;
+  top: number;
+  left: number;
+}
+
 export function PitchView({
   squad,
   quota,
+  lineup,
   onSetCaptain,
   onSetVice,
   onRemove,
   header,
 }: PitchViewProps) {
-  const [menuFor, setMenuFor] = useState<number | null>(null);
+  const [menu, setMenu] = useState<MenuState | null>(null);
   const wrapper = useRef<HTMLDivElement>(null);
+  /**
+   * Which player's panel was open when the current mousedown began. The
+   * panel's own outside-click handler fires on mousedown and clears the menu
+   * before this click lands, so without remembering it a second click on the
+   * same card would reopen rather than toggle shut.
+   */
+  const closingId = useRef<number | null>(null);
 
-  useEffect(() => {
-    if (menuFor === null) return;
-    const onDown = (e: MouseEvent) => {
-      if (!wrapper.current?.contains(e.target as Node)) setMenuFor(null);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuFor(null);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuFor]);
+  const closeMenu = useCallback(() => {
+    closingId.current = menu?.id ?? null;
+    setMenu(null);
+    // Only suppress the immediately following click.
+    setTimeout(() => {
+      closingId.current = null;
+    }, 0);
+  }, [menu]);
+
+  /** Place the panel beside the clicked card, clamped inside the pitch card. */
+  const openMenu = (player: PlayerData, anchor: HTMLElement) => {
+    if (closingId.current === player.id) return;
+
+    const wrap = wrapper.current;
+    if (!wrap) return;
+
+    const a = anchor.getBoundingClientRect();
+    const w = wrap.getBoundingClientRect();
+
+    const left = Math.max(
+      4,
+      Math.min(a.left - w.left + a.width / 2 - PANEL_WIDTH / 2, w.width - PANEL_WIDTH - 4),
+    );
+
+    // Prefer below the card, flip above when there is not enough room.
+    const below = a.bottom - w.top + 8;
+    const top =
+      below + PANEL_MAX_HEIGHT <= w.height
+        ? below
+        : Math.max(4, a.top - w.top - PANEL_MAX_HEIGHT - 8);
+
+    setMenu({ id: player.id, top, left });
+  };
 
   const squadSize = Object.values(quota).reduce((a, b) => a + b, 0);
-  const complete = squad.length === squadSize;
-
-  // Once the squad is legal, show a provisional best XI so the pitch reads
-  // like a real lineup rather than a pool of fifteen.
-  const xi = useMemo(() => {
-    if (!complete) return null;
-    return bestStartingXi(
-      squad.map((p) => ({
-        playerId: p.id,
-        elementType: p.element_type,
-        xp: p.expected_points ?? 0,
-      })),
-    );
-  }, [squad, complete]);
+  const complete = squad.length === squadSize && lineup !== null;
 
   const byId = useMemo(() => new Map(squad.map((p) => [p.id, p])), [squad]);
-
-  const selected = menuFor !== null ? byId.get(menuFor) : undefined;
+  const selected = menu !== null ? byId.get(menu.id) : undefined;
 
   const rowsIncomplete = [1, 2, 3, 4].map((type) => {
     const filled = squad.filter((p) => p.element_type === type);
@@ -71,14 +92,18 @@ export function PitchView({
     return { type, filled, empties };
   });
 
-  const starters = xi ? xi.starters.map((id) => byId.get(id)!).filter(Boolean) : [];
-  const bench = xi ? xi.bench.map((id) => byId.get(id)!).filter(Boolean) : [];
+  const starters = lineup ? lineup.starters.map((id) => byId.get(id)!).filter(Boolean) : [];
+  const bench = lineup ? lineup.bench.map((id) => byId.get(id)!).filter(Boolean) : [];
 
   const card = (p: PlayerData, benchIndex?: number) => (
     <PlayerCard
       key={p.id}
-      player={p}
-      onSelect={() => setMenuFor(p.id === menuFor ? null : p.id)}
+      player={
+        benchIndex !== undefined && lineup
+          ? { ...p, sub_probability: lineup.subProbability.get(p.id) ?? null }
+          : p
+      }
+      onSelect={openMenu}
       isBenchSlot={benchIndex !== undefined}
       benchIndex={benchIndex}
     />
@@ -91,13 +116,14 @@ export function PitchView({
 
         <div className="mt-3">
           <InteractivePitch>
-            {complete && xi ? (
-              <>
-                <PitchRow players={starters.filter((p) => p.element_type === 1)} render={card} />
-                <PitchRow players={starters.filter((p) => p.element_type === 2)} render={card} />
-                <PitchRow players={starters.filter((p) => p.element_type === 3)} render={card} />
-                <PitchRow players={starters.filter((p) => p.element_type === 4)} render={card} />
-              </>
+            {complete ? (
+              [1, 2, 3, 4].map((type) => (
+                <PitchRow
+                  key={type}
+                  players={starters.filter((p) => p.element_type === type)}
+                  render={card}
+                />
+              ))
             ) : (
               rowsIncomplete.map(({ type, filled, empties }) => (
                 <div
@@ -114,60 +140,46 @@ export function PitchView({
           </InteractivePitch>
         </div>
 
-        {complete && xi && (
+        {complete && lineup && (
           <div className="mt-3 rounded-xl border-2 border-purple-800 bg-purple-950/80 p-3 shadow-xl backdrop-blur-md">
-            <div className="mb-2 flex items-center justify-between text-xs font-bold uppercase tracking-wider text-purple-300">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs font-bold uppercase tracking-wider text-purple-300">
               <span>Bench</span>
               <span className="font-normal normal-case text-purple-400">
-                Auto XI by xP · {xi.formation} · starters {xi.startersXp.toFixed(1)} xP
+                {lineup.formation} · starters {lineup.startersXp.toFixed(1)} xP · bench adds{" "}
+                {lineup.benchExpectedContribution.toFixed(1)} via auto-subs
               </span>
             </div>
-            <div className="flex items-center justify-around gap-1">
-              {bench.map((p, i) => card(p, i))}
+            <div className="flex items-start justify-around gap-1">
+              {bench.map((p, i) => (
+                <span key={p.id} className="flex flex-col items-center gap-1">
+                  {card(p, i)}
+                  <span
+                    className="text-[9px] tabular-nums text-purple-300"
+                    title="Probability this slot is used by an auto-sub"
+                  >
+                    {Math.round((lineup.subProbability.get(p.id) ?? 0) * 100)}% used
+                  </span>
+                </span>
+              ))}
             </div>
           </div>
         )}
       </div>
 
-      {/* Action menu for the tapped player */}
-      {selected && (
-        <div
-          role="dialog"
-          className="absolute left-1/2 top-1/2 z-40 w-56 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white p-3 shadow-xl dark:border-purple-700 dark:bg-[#1E0234]"
-        >
-          <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            {selected.web_name}
-          </p>
-          <div className="mt-2 grid grid-cols-3 gap-1.5 text-xs">
-            <button
-              onClick={() => {
-                onSetCaptain(selected.id);
-                setMenuFor(null);
-              }}
-              className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
-            >
-              Set C
-            </button>
-            <button
-              onClick={() => {
-                onSetVice(selected.id);
-                setMenuFor(null);
-              }}
-              className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
-            >
-              Set VC
-            </button>
-            <button
-              onClick={() => {
-                onRemove(selected.id);
-                setMenuFor(null);
-              }}
-              className="rounded border border-zinc-300 px-2 py-1 font-medium text-red-600 transition-colors hover:border-red-500 dark:border-purple-800/60 dark:text-red-400"
-            >
-              Remove
-            </button>
-          </div>
-        </div>
+      {selected && menu && (
+        <PlayerDetail
+          player={
+            lineup
+              ? { ...selected, sub_probability: lineup.subProbability.get(selected.id) ?? null }
+              : selected
+          }
+          top={menu.top}
+          left={menu.left}
+          onClose={closeMenu}
+          onSetCaptain={onSetCaptain}
+          onSetVice={onSetVice}
+          onRemove={onRemove}
+        />
       )}
     </div>
   );

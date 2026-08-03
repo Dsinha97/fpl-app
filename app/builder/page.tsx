@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { PitchView } from "@/components/pitch-view";
-import type { PlayerData } from "@/components/player-card";
+import type { PlayerData, UpcomingFixture } from "@/components/player-card";
+import {
+  CAPTAIN_MODEL_NOTE,
+  optimiseLineup,
+  type LineupCandidate,
+} from "@/lib/lineup";
 import { cloneDraft, deleteDraft, listDrafts, saveDraft } from "@/lib/drafts";
 import {
   addPlayer,
@@ -56,15 +61,17 @@ interface XpRow {
   xp_8: number | null;
 }
 
-interface NextFixture {
-  opponent_short_name: string;
-  is_home: boolean;
-  fdr: number;
+interface PredictionRow {
+  player_id: number;
+  expected_minutes: number | null;
+  start_probability: number | null;
 }
 
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
 const PAGE_SIZE = 25;
 const HORIZONS: Horizon[] = [1, 3, 6, 8];
+/** How many upcoming gameweeks to show in the player detail panel. */
+const UPCOMING_GWS = 3;
 
 const money = (tenths: number) => `£${(tenths / 10).toFixed(1)}m`;
 
@@ -74,7 +81,8 @@ export default function BuilderPage() {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [teamShort, setTeamShort] = useState<Map<number, string>>(new Map());
   const [xp, setXp] = useState<Map<number, XpRow>>(new Map());
-  const [nextFixtures, setNextFixtures] = useState<Map<number, NextFixture>>(new Map());
+  const [upcoming, setUpcoming] = useState<Map<number, UpcomingFixture[]>>(new Map());
+  const [predictions, setPredictions] = useState<Map<number, PredictionRow>>(new Map());
   const [rules, setRules] = useState<SquadRules>(DEFAULT_RULES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +116,7 @@ export default function BuilderPage() {
         if (gwError) throw new Error(gwError.message);
         if (!gw) throw new Error("No upcoming gameweek found.");
 
-        const [playersRes, teamsRes, typesRes, settingsRes, xpRes, fixturesRes] =
+        const [playersRes, teamsRes, typesRes, settingsRes, xpRes, fixturesRes, predsRes] =
           await Promise.all([
             supabase
               .from("players")
@@ -133,7 +141,15 @@ export default function BuilderPage() {
               .from("fixtures")
               .select("event, team_h, team_a, team_h_difficulty, team_a_difficulty")
               .eq("season", gw.season)
-              .eq("event", gw.id),
+              .gte("event", gw.id)
+              .lte("event", gw.id + UPCOMING_GWS - 1)
+              .order("event"),
+            supabase
+              .from("player_predictions")
+              .select("player_id, expected_minutes, start_probability")
+              .eq("season", gw.season)
+              .eq("event", gw.id)
+              .limit(1000),
           ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
         if (teamsRes.error) throw new Error(teamsRes.error.message);
@@ -157,15 +173,23 @@ export default function BuilderPage() {
           positionQuota: Object.keys(quota).length > 0 ? quota : DEFAULT_RULES.positionQuota,
         };
 
-        // Next gameweek's opponent per club, for the pitch cards.
-        const fixtures = new Map<number, NextFixture>();
+        // Upcoming fixtures per club — the first feeds the pitch card, all
+        // three the detail panel. Ordered by event, so index 0 is next.
+        const fixtures = new Map<number, UpcomingFixture[]>();
+        const push = (teamId: number, f: UpcomingFixture) => {
+          const list = fixtures.get(teamId);
+          if (list) list.push(f);
+          else fixtures.set(teamId, [f]);
+        };
         for (const f of fixturesRes.data ?? []) {
-          fixtures.set(f.team_h as number, {
+          push(f.team_h as number, {
+            event: f.event as number,
             opponent_short_name: shorts.get(f.team_a as number) ?? "?",
             is_home: true,
             fdr: (f.team_h_difficulty as number | null) ?? 3,
           });
-          fixtures.set(f.team_a as number, {
+          push(f.team_a as number, {
+            event: f.event as number,
             opponent_short_name: shorts.get(f.team_h as number) ?? "?",
             is_home: false,
             fdr: (f.team_a_difficulty as number | null) ?? 3,
@@ -175,7 +199,10 @@ export default function BuilderPage() {
         setPlayers((playersRes.data ?? []) as PlayerRow[]);
         setTeamShort(shorts);
         setXp(new Map(((xpRes.data ?? []) as XpRow[]).map((r) => [r.player_id, r])));
-        setNextFixtures(fixtures);
+        setUpcoming(fixtures);
+        setPredictions(
+          new Map(((predsRes.data ?? []) as PredictionRow[]).map((r) => [r.player_id, r])),
+        );
         setRules(loadedRules);
 
         const existing = listDrafts();
@@ -348,6 +375,8 @@ export default function BuilderPage() {
       team.players.flatMap((pick) => {
         const row = rowById.get(pick.playerId);
         if (!row) return [];
+        const fixtures = upcoming.get(row.team_id) ?? [];
+        const pred = predictions.get(row.id);
         const card: PlayerData = {
           id: row.id,
           web_name: row.web_name,
@@ -362,12 +391,75 @@ export default function BuilderPage() {
           is_penalty_taker: row.penalties_order === 1,
           is_freekick_taker: row.direct_freekicks_order === 1,
           is_corner_taker: row.corners_and_indirect_freekicks_order === 1,
-          next_fixture: nextFixtures.get(row.team_id) ?? null,
+          next_fixture: fixtures[0]
+            ? {
+                opponent_short_name: fixtures[0].opponent_short_name,
+                is_home: fixtures[0].is_home,
+                fdr: fixtures[0].fdr,
+              }
+            : null,
+
+          team_short: teamShort.get(row.team_id) ?? null,
+          news: row.news,
+          ownership: row.selected_by_percent,
+          xp6: xp.get(row.id)?.xp_6 ?? null,
+          expected_minutes: pred?.expected_minutes ?? null,
+          start_probability: pred?.start_probability ?? null,
+          upcoming: fixtures,
         };
         return [card];
       }),
-    [team.players, team.captain, team.viceCaptain, rowById, xp, nextFixtures],
+    [
+      team.players,
+      team.captain,
+      team.viceCaptain,
+      rowById,
+      xp,
+      upcoming,
+      predictions,
+      teamShort,
+    ],
   );
+
+  // ------------------------------------------------------ Sprint 3 lineup
+
+  const lineup = useMemo(() => {
+    if (team.players.length !== rules.squadSize) return null;
+
+    const candidates: LineupCandidate[] = team.players.flatMap((pick) => {
+      const row = rowById.get(pick.playerId);
+      if (!row) return [];
+      const next = (upcoming.get(row.team_id) ?? [])[0];
+      const pred = predictions.get(row.id);
+      return [
+        {
+          playerId: row.id,
+          elementType: row.element_type,
+          webName: row.web_name,
+          xp: xp.get(row.id)?.xp_1 ?? null,
+          expectedMinutes: pred?.expected_minutes ?? null,
+          startProbability: pred?.start_probability ?? null,
+          availability: availabilityOf(row.id),
+          fdr: next?.fdr ?? null,
+          opponent: next?.opponent_short_name ?? null,
+          isPenaltyTaker: row.penalties_order === 1,
+        },
+      ];
+    });
+
+    return optimiseLineup(candidates);
+  }, [team.players, rules.squadSize, rowById, xp, upcoming, predictions, availabilityOf]);
+
+  const applyLineup = () => {
+    if (!lineup) return;
+    persist({
+      ...team,
+      startingXI: lineup.starters,
+      benchOrder: lineup.bench,
+      captain: lineup.captain?.playerId ?? team.captain,
+      viceCaptain: lineup.vice?.playerId ?? team.viceCaptain,
+    });
+  };
 
   // ------------------------------------------------------------- view
 
@@ -564,7 +656,11 @@ export default function BuilderPage() {
                 </div>
               </div>
               <div className="ml-auto text-right text-xs text-zinc-500">
-                {projection.captainBonus1 > 0 ? (
+                {/* Keyed on whether a captain is set, not on the bonus being
+                    positive — captaining a player the model declined to
+                    project gives a 0.0 bonus, which is informative rather
+                    than a sign that nobody wears the armband. */}
+                {team.captain !== null ? (
                   <p>
                     <span className="font-semibold text-purple-800 dark:text-[#00FF87]">
                       +{projection.captainBonus1.toFixed(1)}
@@ -587,6 +683,7 @@ export default function BuilderPage() {
           <PitchView
             squad={squadCards}
             quota={rules.positionQuota}
+            lineup={lineup}
             header={pitchHeader}
             onSetCaptain={(id) => persist(setCaptain(team, id))}
             onSetVice={(id) => persist(setViceCaptain(team, id))}
@@ -596,6 +693,92 @@ export default function BuilderPage() {
 
         {/* ========================================== selector column */}
         <section className="space-y-4">
+          {/* Sprint 3: lineup + armband recommendation */}
+          {lineup && (
+            <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Gameweek lineup
+                </h2>
+                <button
+                  onClick={applyLineup}
+                  className="rounded-md bg-purple-950 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-800 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                >
+                  Apply XI &amp; armband
+                </button>
+              </div>
+
+              {/* team projection */}
+              <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+                {[
+                  ["Formation", lineup.formation],
+                  ["Starting XI", `${lineup.startersXp.toFixed(1)} xP`],
+                  ["Bench (raw)", `${lineup.benchXp.toFixed(1)} xP`],
+                  ["Bench via auto-subs", `${lineup.benchExpectedContribution.toFixed(1)} xP`],
+                  ["Armband bonus", `${projection.captainBonus1.toFixed(1)} xP`],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex justify-between gap-2">
+                    <dt className="text-zinc-500">{label}</dt>
+                    <dd className="font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+                <div className="col-span-2 mt-1 flex justify-between gap-2 border-t border-zinc-100 pt-1.5 dark:border-purple-900/40">
+                  <dt className="font-medium text-zinc-600 dark:text-zinc-300">
+                    Overall projection
+                  </dt>
+                  <dd className="font-bold tabular-nums text-purple-900 dark:text-[#00FF87]">
+                    {(
+                      lineup.startersXp +
+                      lineup.benchExpectedContribution +
+                      projection.captainBonus1
+                    ).toFixed(1)}{" "}
+                    xP
+                  </dd>
+                </div>
+              </dl>
+
+              {/* captain */}
+              {lineup.captain && (
+                <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-purple-900/40">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs uppercase tracking-wide text-zinc-500">
+                      Recommended captain
+                    </span>
+                    <span
+                      className="text-xs font-semibold tabular-nums text-zinc-600 dark:text-zinc-300"
+                      title="Minutes certainty x availability x margin over the runner-up"
+                    >
+                      {Math.round(lineup.captain.confidence * 100)}% confidence
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-base font-bold text-purple-900 dark:text-[#00FF87]">
+                    {lineup.captain.webName}
+                    {lineup.vice && (
+                      <span className="ml-2 text-xs font-medium text-zinc-500">
+                        VC {lineup.vice.webName}
+                      </span>
+                    )}
+                  </p>
+                  <ul className="mt-1.5 space-y-0.5 text-[11px] text-zinc-600 dark:text-zinc-400">
+                    {lineup.captain.reasons.map((r) => (
+                      <li key={r}>✓ {r}</li>
+                    ))}
+                    {lineup.captain.caveats.map((c) => (
+                      <li key={c} className="text-amber-700 dark:text-amber-400">
+                        ! {c}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[10px] leading-relaxed text-zinc-400">
+                    {CAPTAIN_MODEL_NOTE}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* optimizer */}
           <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">

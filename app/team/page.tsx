@@ -4,6 +4,10 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
+import { CountryFlag, flagCode, SeasonsBadge, TeamCrest } from "@/components/identity";
+
+/** Separator between identity badges in the profile line. */
+const Dot = () => <span className="text-zinc-300 dark:text-purple-700">•</span>;
 
 // ---------------------------------------------------------------- types
 
@@ -13,6 +17,7 @@ interface ManagerRow {
   first_name: string | null;
   last_name: string | null;
   region_name: string | null;
+  region_iso: string | null;
   favourite_team: number | null;
   years_active: number | null;
   summary_overall_points: number | null;
@@ -77,6 +82,7 @@ interface TeamData {
   picks: PickRow[];
   players: Map<number, PlayerRow>;
   teamNames: Map<number, string>;
+  teamMeta: Map<number, { code: number | null; short: string }>;
   nextGw: NextGw | null;
 }
 
@@ -170,6 +176,7 @@ export default function TeamPage() {
       // 4. Resolve player and team names for the squad + favourite team.
       const players = new Map<number, PlayerRow>();
       const teamNames = new Map<number, string>();
+      const teamMeta = new Map<number, { code: number | null; short: string }>();
 
       if (nextGw) {
         const ids = picks.map((p) => p.element);
@@ -186,9 +193,12 @@ export default function TeamPage() {
 
         const { data: teamRows } = await supabase
           .from("teams")
-          .select("id, name")
+          .select("id, name, code, short_name")
           .eq("season", nextGw.season);
-        for (const t of teamRows ?? []) teamNames.set(t.id, t.name);
+        for (const t of teamRows ?? []) {
+          teamNames.set(t.id, t.name);
+          teamMeta.set(t.id, { code: t.code ?? null, short: t.short_name });
+        }
       }
 
       setData({
@@ -198,6 +208,7 @@ export default function TeamPage() {
         picks,
         players,
         teamNames,
+        teamMeta,
         nextGw,
       });
       setSavedId(entryId);
@@ -268,14 +279,61 @@ export default function TeamPage() {
             <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
               {m.team_name ?? `Entry ${m.entry_id}`}
             </h1>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              {[m.first_name, m.last_name].filter(Boolean).join(" ")}
-              {m.region_name ? ` · ${m.region_name}` : ""}
-              {m.favourite_team && data?.teamNames.get(m.favourite_team)
-                ? ` · Supports ${data.teamNames.get(m.favourite_team)}`
-                : ""}
-              {m.years_active ? ` · ${m.years_active} seasons of FPL` : ""}
-            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+              <span className="font-semibold text-zinc-900 dark:text-white">
+                {[m.first_name, m.last_name].filter(Boolean).join(" ")}
+              </span>
+
+              {m.region_name && flagCode(m.region_iso) && (
+                <>
+                  <Dot />
+                  <span
+                    className="flex items-center gap-1.5"
+                    title={m.region_name}
+                  >
+                    <CountryFlag
+                      regionIso={m.region_iso}
+                      countryName={m.region_name}
+                      className="h-4 w-6"
+                    />
+                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-purple-300">
+                      {m.region_name}
+                    </span>
+                  </span>
+                </>
+              )}
+
+              {m.favourite_team !== null && data?.teamNames.get(m.favourite_team) && (
+                <>
+                  <Dot />
+                  <span
+                    className="flex items-center gap-1.5"
+                    title={`Supports ${data.teamNames.get(m.favourite_team)}`}
+                  >
+                    <TeamCrest
+                      teamCode={data.teamMeta.get(m.favourite_team)?.code ?? null}
+                      shortName={data.teamMeta.get(m.favourite_team)?.short ?? null}
+                      className="h-6 w-5"
+                    />
+                    <span className="text-xs font-semibold text-zinc-600 dark:text-purple-300">
+                      {data.teamNames.get(m.favourite_team)}
+                    </span>
+                  </span>
+                </>
+              )}
+
+              {m.years_active !== null && m.years_active > 0 && (
+                <>
+                  <Dot />
+                  <span className="flex items-center gap-1.5">
+                    <SeasonsBadge seasons={m.years_active} className="h-6 w-6" />
+                    <span className="text-xs font-semibold text-zinc-600 dark:text-purple-300">
+                      {m.years_active} season{m.years_active === 1 ? "" : "s"}
+                    </span>
+                  </span>
+                </>
+              )}
+            </div>
           </section>
 
           {/* --------------------------------------------------- tiles */}

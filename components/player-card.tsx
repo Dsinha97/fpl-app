@@ -6,6 +6,13 @@ import { FDRBadge } from "./fdr-badge";
 import { StatusBadge } from "./player-status-icons";
 import { asRating } from "@/lib/fdr";
 
+export interface UpcomingFixture {
+  event: number;
+  opponent_short_name: string;
+  is_home: boolean;
+  fdr: number;
+}
+
 export interface PlayerData {
   id: number;
   web_name: string;
@@ -26,11 +33,23 @@ export interface PlayerData {
     is_home: boolean;
     fdr: number;
   } | null;
+
+  // --- detail-panel extras (not rendered on the card itself) -----------
+  team_short?: string | null;
+  news?: string | null;
+  ownership?: number | null;
+  xp6?: number | null;
+  expected_minutes?: number | null;
+  start_probability?: number | null;
+  upcoming?: UpcomingFixture[];
+  /** Probability this bench slot is used by an auto-sub, when benched. */
+  sub_probability?: number | null;
 }
 
 interface PlayerCardProps {
   player: PlayerData;
-  onSelect?: (player: PlayerData) => void;
+  /** Receives the clicked element so the caller can anchor a popover to it. */
+  onSelect?: (player: PlayerData, anchor: HTMLElement) => void;
   isBenchSlot?: boolean;
   benchIndex?: number;
 }
@@ -78,10 +97,12 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
       player.chance_of_playing_next_round !== undefined &&
       player.chance_of_playing_next_round < 100);
 
+  const hasXp = player.expected_points !== undefined && player.expected_points !== null;
+
   return (
     <button
       type="button"
-      onClick={() => onSelect?.(player)}
+      onClick={(e) => onSelect?.(player, e.currentTarget)}
       title={player.web_name}
       className="group relative flex w-16 cursor-pointer select-none flex-col items-center justify-center transition-transform duration-150 hover:scale-105 sm:w-20"
     >
@@ -142,13 +163,21 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
         <span className="block truncate text-[10px] font-bold text-white">{player.web_name}</span>
       </span>
 
-      {/* xP / price + next fixture */}
+      {/* xP + next fixture. Always xP, never price — mixing the two units in
+          one column made a no-projection player look like a cheap one. */}
       <span className="flex w-full items-center justify-between rounded-b-md border-x border-b border-purple-700/80 bg-purple-900/90 px-1 py-0.5 text-[9px] text-purple-200 shadow-md dark:bg-slate-900/95">
-        <span className="font-semibold text-emerald-400">
-          {player.expected_points !== undefined && player.expected_points !== null
-            ? `${player.expected_points.toFixed(1)}`
-            : `£${(player.now_cost / 10).toFixed(1)}`}
-        </span>
+        {hasXp ? (
+          <span className="font-semibold text-emerald-400">
+            {player.expected_points!.toFixed(1)}
+          </span>
+        ) : (
+          <span
+            className="font-semibold text-purple-400"
+            title="No xP projection — not enough prior-season minutes to model"
+          >
+            —
+          </span>
+        )}
         {player.next_fixture && (
           <FDRBadge
             rating={asRating(player.next_fixture.fdr)}
