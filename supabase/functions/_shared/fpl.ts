@@ -110,3 +110,59 @@ export interface Bootstrap {
 }
 
 export const getBootstrap = () => fplFetch<Bootstrap>("/bootstrap-static/");
+
+// -------------------------------------------------------- manager entry
+
+export interface Entry {
+  id: number;
+  name: string;
+  player_first_name: string | null;
+  player_last_name: string | null;
+  entered_events: number[];
+  [k: string]: unknown;
+}
+
+export interface EntryHistory {
+  current: Record<string, unknown>[];
+  past: {
+    season_name: string;
+    total_points: number;
+    rank: number;
+    rank_percentage?: string;
+    [k: string]: unknown;
+  }[];
+  chips: { name: string; time: string; event: number }[];
+}
+
+export interface EntryPicks {
+  active_chip: string | null;
+  entry_history: Record<string, unknown>;
+  picks: {
+    element: number;
+    position: number;
+    multiplier: number;
+    is_captain: boolean;
+    is_vice_captain: boolean;
+    [k: string]: unknown;
+  }[];
+}
+
+export type EntryTransfer = Record<string, unknown>;
+
+export const getEntry = (entryId: number) => fplFetch<Entry>(`/entry/${entryId}/`);
+
+export const getEntryHistory = (entryId: number) =>
+  fplFetch<EntryHistory>(`/entry/${entryId}/history/`);
+
+export const getEntryTransfers = (entryId: number) =>
+  fplFetch<EntryTransfer[]>(`/entry/${entryId}/transfers/`);
+
+/** Returns null when picks are not yet published for the event (404). */
+export async function getEntryPicks(entryId: number, event: number): Promise<EntryPicks | null> {
+  try {
+    return await fplFetch<EntryPicks>(`/entry/${entryId}/event/${event}/picks/`);
+  } catch (err) {
+    if (err instanceof FplHttpError && err.status === 404) return null;
+    throw err;
+  }
+}

@@ -10,7 +10,7 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { getBootstrap } from "../_shared/fpl.ts";
 import { deriveSeason } from "../_shared/season.ts";
-import { jsonResponse, serviceClient, SyncRun } from "../_shared/sync.ts";
+import { jsonResponse, preflight, serviceClient, SyncRun } from "../_shared/sync.ts";
 import { bool, chunk, date, int, num, str, ts } from "../_shared/coerce.ts";
 
 const FUNCTION_NAME = "sync-bootstrap";
@@ -30,7 +30,10 @@ async function upsert(
   return rows.length;
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  const cors = preflight(req);
+  if (cors) return cors;
+
   const db = serviceClient();
   const run = await SyncRun.start(db, FUNCTION_NAME);
   const counts: Record<string, number> = {};

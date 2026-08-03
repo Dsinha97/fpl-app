@@ -67,8 +67,22 @@ export class SyncRun {
   }
 }
 
+// Browser calls arrive via supabase-js with a CORS preflight; without these
+// headers the frontend cannot invoke any function.
+export const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+};
+
+/** Standard OPTIONS handling; returns null for non-preflight requests. */
+export function preflight(req: Request): Response | null {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  return null;
+}
+
 export const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body, null, 2), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...corsHeaders },
   });
