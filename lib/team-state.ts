@@ -206,6 +206,76 @@ export function blockedReason(
   return null;
 }
 
+export interface HorizonXp {
+  xp1: number | null;
+  xp3: number | null;
+  xp6: number | null;
+  xp8: number | null;
+}
+
+export interface Projection {
+  /** Squad totals including the captaincy double. */
+  x1: number;
+  x6: number;
+  /** The extra points the armband contributes, per horizon. */
+  captainBonus1: number;
+  captainBonus6: number;
+  /** Picks the xP model declined to predict (no prior-season minutes). */
+  missing: number;
+}
+
+/**
+ * Squad projection with the captaincy double folded in.
+ *
+ * FPL doubles the captain's score, so the armband is worth one extra copy of
+ * his xP. If he does not play the armband falls to the vice-captain, so the
+ * expected value of the doubled slot is weighted by the captain's chance of
+ * playing:
+ *
+ *     bonus = xP(captain) x pCap  +  xP(vice) x (1 - pCap)
+ *
+ * That makes both selections move the number — a nailed-on captain is worth
+ * more than a doubtful one, and a strong vice partially insures a risky pick.
+ */
+export function computeProjection(
+  picks: SquadPick[],
+  xpOf: (playerId: number) => HorizonXp | undefined,
+  availabilityOf: (playerId: number) => number,
+  captain: number | null,
+  vice: number | null,
+): Projection {
+  let x1 = 0;
+  let x6 = 0;
+  let missing = 0;
+
+  for (const pick of picks) {
+    const xp = xpOf(pick.playerId);
+    if (!xp || xp.xp1 === null) missing++;
+    x1 += xp?.xp1 ?? 0;
+    x6 += xp?.xp6 ?? 0;
+  }
+
+  let captainBonus1 = 0;
+  let captainBonus6 = 0;
+
+  if (captain !== null) {
+    const capXp = xpOf(captain);
+    const viceXp = vice !== null ? xpOf(vice) : undefined;
+    const pCap = availabilityOf(captain);
+
+    captainBonus1 = (capXp?.xp1 ?? 0) * pCap + (viceXp?.xp1 ?? 0) * (1 - pCap);
+    captainBonus6 = (capXp?.xp6 ?? 0) * pCap + (viceXp?.xp6 ?? 0) * (1 - pCap);
+  }
+
+  return {
+    x1: x1 + captainBonus1,
+    x6: x6 + captainBonus6,
+    captainBonus1,
+    captainBonus6,
+    missing,
+  };
+}
+
 export function addPlayer(state: TeamState, meta: PlayerMeta): TeamState {
   return {
     ...state,

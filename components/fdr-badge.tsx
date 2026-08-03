@@ -4,18 +4,21 @@ interface FDRBadgeProps {
   rating: FdrRating;
   showLabel?: boolean;
   className?: string;
+  /** Replaces the numeric rating — used on pitch cards to show "MCI (H)". */
+  children?: React.ReactNode;
 }
 
-/** The rating itself as a chip — used in legends and keys. */
-export function FDRBadge({ rating, showLabel = false, className = "" }: FDRBadgeProps) {
+/** A difficulty-coloured chip: the rating by default, or arbitrary content. */
+export function FDRBadge({ rating, showLabel = false, className = "", children }: FDRBadgeProps) {
   const fdr = fdrTheme[rating] ?? fdrTheme[3];
 
   return (
     <span
+      title={`FDR ${rating} — ${fdr.label}`}
       className={`inline-flex items-center justify-center rounded px-2 py-0.5 text-xs font-bold shadow-sm transition-colors ${fdr.bgClass} ${fdr.textClass} ${className}`}
     >
-      {rating}
-      {showLabel && <span className="ml-1 font-semibold">{fdr.label}</span>}
+      {children ?? rating}
+      {showLabel && !children && <span className="ml-1 font-semibold">{fdr.label}</span>}
     </span>
   );
 }

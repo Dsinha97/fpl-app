@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
   basePath,
   images: {
     unoptimized: true,
+    // Player kit graphics are served straight from FPL's CDN.
+    remotePatterns: [
+      { protocol: "https", hostname: "fantasy.premierleague.com", pathname: "/dist/img/**" },
+    ],
   },
 };
 
