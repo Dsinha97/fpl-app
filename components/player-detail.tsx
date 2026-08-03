@@ -34,6 +34,22 @@ interface PlayerDetailProps {
   onSetCaptain: (playerId: number) => void;
   onSetVice: (playerId: number) => void;
   onRemove: (playerId: number) => void;
+  /**
+   * When the panel is opened from the player picker rather than the pitch, the
+   * player may not be in the squad — the actions become Add and Find
+   * replacement instead of the armband controls.
+   */
+  owned?: boolean;
+  onAdd?: (playerId: number) => void;
+  addDisabledReason?: string | null;
+  onFindReplacement?: (playerId: number) => void;
+  /**
+   * Position against the viewport rather than the nearest positioned ancestor.
+   * The player picker is a narrow, short column — anchoring inside it would put
+   * the panel on top of the very row that was clicked — so it floats alongside
+   * instead.
+   */
+  fixed?: boolean;
 }
 
 export function PlayerDetail({
@@ -44,6 +60,11 @@ export function PlayerDetail({
   onSetCaptain,
   onSetVice,
   onRemove,
+  owned = true,
+  onAdd,
+  addDisabledReason = null,
+  onFindReplacement,
+  fixed = false,
 }: PlayerDetailProps) {
   const panel = useRef<HTMLDivElement>(null);
 
@@ -88,7 +109,9 @@ export function PlayerDetail({
       role="dialog"
       aria-label={`${player.web_name} details`}
       style={{ top, left, width: PANEL_WIDTH, maxHeight: PANEL_MAX_HEIGHT }}
-      className="absolute z-40 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-3 shadow-2xl dark:border-purple-700 dark:bg-[#1E0234]"
+      className={`z-40 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-3 shadow-2xl dark:border-purple-700 dark:bg-[#1E0234] ${
+        fixed ? "fixed" : "absolute"
+      }`}
     >
       {/* header */}
       <div className="flex items-start gap-2">
@@ -215,7 +238,26 @@ export function PlayerDetail({
         </p>
       )}
 
-      {/* actions */}
+      {/* actions — pool player: add, or find a swap for an owned one */}
+      {!owned && onAdd && (
+        <div className="mt-3 flex gap-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
+          <button
+            onClick={() => onAdd(player.id)}
+            disabled={addDisabledReason !== null}
+            title={addDisabledReason ?? `Add ${player.web_name} to your squad`}
+            className="flex-1 rounded bg-purple-950 px-2 py-1 font-medium text-white transition-colors hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+          >
+            Add to squad
+          </button>
+        </div>
+      )}
+      {!owned && addDisabledReason && (
+        <p className="mt-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+          {addDisabledReason}
+        </p>
+      )}
+
+      {owned && (
       <div className="mt-3 grid grid-cols-3 gap-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
         <button
           onClick={() => {
@@ -247,6 +289,16 @@ export function PlayerDetail({
           Remove
         </button>
       </div>
+      )}
+
+      {owned && onFindReplacement && (
+        <button
+          onClick={() => onFindReplacement(player.id)}
+          className="mt-1.5 w-full rounded border border-zinc-300 px-2 py-1 text-xs font-medium transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+        >
+          Find replacement
+        </button>
+      )}
     </div>
   );
 }

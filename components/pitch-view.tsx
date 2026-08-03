@@ -17,6 +17,7 @@ interface PitchViewProps {
   onSetCaptain: (playerId: number) => void;
   onSetVice: (playerId: number) => void;
   onRemove: (playerId: number) => void;
+  onFindReplacement?: (playerId: number) => void;
   /** Rendered inside the pitch card, above the field. */
   header?: React.ReactNode;
 }
@@ -34,6 +35,7 @@ export function PitchView({
   onSetCaptain,
   onSetVice,
   onRemove,
+  onFindReplacement,
   header,
 }: PitchViewProps) {
   const [menu, setMenu] = useState<MenuState | null>(null);
@@ -179,6 +181,7 @@ export function PitchView({
           onSetCaptain={onSetCaptain}
           onSetVice={onSetVice}
           onRemove={onRemove}
+          onFindReplacement={onFindReplacement}
         />
       )}
     </div>

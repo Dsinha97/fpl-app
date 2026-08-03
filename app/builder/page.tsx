@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { PitchView } from "@/components/pitch-view";
 import type { PlayerData, UpcomingFixture } from "@/components/player-card";
+import { PANEL_MAX_HEIGHT, PANEL_WIDTH, PlayerDetail } from "@/components/player-detail";
 import {
   CAPTAIN_MODEL_NOTE,
   optimiseLineup,
@@ -21,6 +23,8 @@ import {
   setCaptain,
   setViceCaptain,
   validateSquad,
+  xpAt,
+  type Horizon,
   type HorizonXp,
   type PlayerMeta,
   type SquadRules,
@@ -31,11 +35,18 @@ import {
   RISK_LABELS,
   STRATEGY_LABELS,
   suggestArmband,
-  type Horizon,
   type OptimizerPlayer,
   type RiskLevel,
   type Strategy,
 } from "@/lib/optimizer";
+import {
+  findReplacements,
+  REPLACEMENT_MODEL_NOTE,
+  riskScore,
+  type Replacement,
+  type ScoredPlayer,
+} from "@/lib/scoring";
+import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 
 interface PlayerRow {
   id: number;
@@ -51,6 +62,7 @@ interface PlayerRow {
   penalties_order: number | null;
   direct_freekicks_order: number | null;
   corners_and_indirect_freekicks_order: number | null;
+  points_per_game: number | null;
 }
 
 interface XpRow {
@@ -68,7 +80,7 @@ interface PredictionRow {
 }
 
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 const HORIZONS: Horizon[] = [1, 3, 6, 8];
 /** How many upcoming gameweeks to show in the player detail panel. */
 const UPCOMING_GWS = 3;
@@ -90,6 +102,11 @@ export default function BuilderPage() {
   const [team, setTeam] = useState<TeamState>(() => emptyTeamState(DEFAULT_RULES));
   const [drafts, setDrafts] = useState<TeamState[]>([]);
   const [saved, setSaved] = useState<string | null>(null);
+  /**
+   * One-slot undo for destructive optimiser runs. The saved draft on disk is
+   * only rewritten on Save, so restoring this returns exactly what was there.
+   */
+  const [previousTeam, setPreviousTeam] = useState<TeamState | null>(null);
 
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState<number>(0);
@@ -121,7 +138,7 @@ export default function BuilderPage() {
             supabase
               .from("players")
               .select(
-                "id, web_name, team_id, team_code, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order",
+                "id, web_name, team_id, team_code, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, points_per_game",
               )
               .eq("season", gw.season)
               .limit(1000),
@@ -259,8 +276,15 @@ export default function BuilderPage() {
 
   const validation = useMemo(() => validateSquad(team, rules, lookup), [team, rules, lookup]);
 
+  /** Projection at the selected horizon, plus next-GW for the lineup panel. */
   const projection = useMemo(
-    () => computeProjection(team.players, xpOf, availabilityOf, team.captain, team.viceCaptain),
+    () =>
+      computeProjection(team.players, xpOf, availabilityOf, team.captain, team.viceCaptain, horizon),
+    [team.players, team.captain, team.viceCaptain, xpOf, availabilityOf, horizon],
+  );
+
+  const projectionGw = useMemo(
+    () => computeProjection(team.players, xpOf, availabilityOf, team.captain, team.viceCaptain, 1),
     [team.players, team.captain, team.viceCaptain, xpOf, availabilityOf],
   );
 
@@ -289,16 +313,28 @@ export default function BuilderPage() {
     setSaved(null);
   };
 
+  /** Switching or creating a draft invalidates the undo slot. */
+  const switchTeam = (next: TeamState) => {
+    setTeam(next);
+    setSaved(null);
+    setPreviousTeam(null);
+    setOptimizeNote(null);
+  };
+
   const onSave = () => {
     const stored = saveDraft(team);
     setTeam(stored);
     setDrafts(listDrafts());
     setSaved(`Saved ${new Date(stored.updatedAt).toLocaleTimeString()}`);
+    setPreviousTeam(null);
   };
 
   const runOptimizer = (clearFirst: boolean) => {
+    // Snapshot before touching anything, so a rebuild is always reversible.
+    setPreviousTeam(team);
+
     const base = clearFirst
-      ? { ...team, players: [], captain: null, viceCaptain: null }
+      ? { ...team, players: [], captain: null, viceCaptain: null, startingXI: [], benchOrder: [] }
       : team;
 
     const result = optimizeSquad({
@@ -312,6 +348,7 @@ export default function BuilderPage() {
 
     if (result.error) {
       setOptimizeNote(result.error);
+      setPreviousTeam(null);
       return;
     }
 
@@ -369,56 +406,55 @@ export default function BuilderPage() {
     setPage(0);
   };
 
-  // Squad in the shape the pitch wants.
+  /**
+   * Any pool player in the shape the pitch card and detail panel want. Shared
+   * so the picker and the pitch show identical information.
+   */
+  const toPlayerData = useCallback(
+    (row: PlayerRow): PlayerData => {
+      const fixtures = upcoming.get(row.team_id) ?? [];
+      const pred = predictions.get(row.id);
+      return {
+        id: row.id,
+        web_name: row.web_name,
+        team_code: row.team_code,
+        element_type: row.element_type,
+        now_cost: row.now_cost ?? 0,
+        expected_points: xpAt(xpOf(row.id), horizon),
+        status: row.status,
+        chance_of_playing_next_round: row.chance_of_playing_next_round,
+        is_captain: team.captain === row.id,
+        is_vice_captain: team.viceCaptain === row.id,
+        is_penalty_taker: row.penalties_order === 1,
+        is_freekick_taker: row.direct_freekicks_order === 1,
+        is_corner_taker: row.corners_and_indirect_freekicks_order === 1,
+        next_fixture: fixtures[0]
+          ? {
+              opponent_short_name: fixtures[0].opponent_short_name,
+              is_home: fixtures[0].is_home,
+              fdr: fixtures[0].fdr,
+            }
+          : null,
+
+        team_short: teamShort.get(row.team_id) ?? null,
+        news: row.news,
+        ownership: row.selected_by_percent,
+        xp6: xp.get(row.id)?.xp_6 ?? null,
+        expected_minutes: pred?.expected_minutes ?? null,
+        start_probability: pred?.start_probability ?? null,
+        upcoming: fixtures,
+      };
+    },
+    [upcoming, predictions, xpOf, xp, horizon, team.captain, team.viceCaptain, teamShort],
+  );
+
   const squadCards = useMemo<PlayerData[]>(
     () =>
       team.players.flatMap((pick) => {
         const row = rowById.get(pick.playerId);
-        if (!row) return [];
-        const fixtures = upcoming.get(row.team_id) ?? [];
-        const pred = predictions.get(row.id);
-        const card: PlayerData = {
-          id: row.id,
-          web_name: row.web_name,
-          team_code: row.team_code,
-          element_type: row.element_type,
-          now_cost: row.now_cost ?? 0,
-          expected_points: xp.get(row.id)?.xp_1 ?? null,
-          status: row.status,
-          chance_of_playing_next_round: row.chance_of_playing_next_round,
-          is_captain: team.captain === row.id,
-          is_vice_captain: team.viceCaptain === row.id,
-          is_penalty_taker: row.penalties_order === 1,
-          is_freekick_taker: row.direct_freekicks_order === 1,
-          is_corner_taker: row.corners_and_indirect_freekicks_order === 1,
-          next_fixture: fixtures[0]
-            ? {
-                opponent_short_name: fixtures[0].opponent_short_name,
-                is_home: fixtures[0].is_home,
-                fdr: fixtures[0].fdr,
-              }
-            : null,
-
-          team_short: teamShort.get(row.team_id) ?? null,
-          news: row.news,
-          ownership: row.selected_by_percent,
-          xp6: xp.get(row.id)?.xp_6 ?? null,
-          expected_minutes: pred?.expected_minutes ?? null,
-          start_probability: pred?.start_probability ?? null,
-          upcoming: fixtures,
-        };
-        return [card];
+        return row ? [toPlayerData(row)] : [];
       }),
-    [
-      team.players,
-      team.captain,
-      team.viceCaptain,
-      rowById,
-      xp,
-      upcoming,
-      predictions,
-      teamShort,
-    ],
+    [team.players, rowById, toPlayerData],
   );
 
   // ------------------------------------------------------ Sprint 3 lineup
@@ -461,6 +497,122 @@ export default function BuilderPage() {
     });
   };
 
+  /** Whether the stored lineup already equals the recommendation. */
+  const lineupApplied = useMemo(() => {
+    if (!lineup) return false;
+    const same = (a: number[], b: number[]) =>
+      a.length === b.length && a.every((v, i) => v === b[i]);
+    return (
+      same(team.startingXI, lineup.starters) &&
+      same(team.benchOrder, lineup.bench) &&
+      team.captain === (lineup.captain?.playerId ?? null) &&
+      team.viceCaptain === (lineup.vice?.playerId ?? null)
+    );
+  }, [team.startingXI, team.benchOrder, team.captain, team.viceCaptain, lineup]);
+
+  // ------------------------------------------------- Sprint 4 candidates
+
+  const scoredById = useMemo(() => {
+    const m = new Map<number, ScoredPlayer>();
+    for (const p of players) {
+      const r = xp.get(p.id);
+      m.set(p.id, {
+        id: p.id,
+        webName: p.web_name,
+        elementType: p.element_type,
+        teamId: p.team_id,
+        teamShort: teamShort.get(p.team_id) ?? null,
+        price: p.now_cost ?? 0,
+        ownership: p.selected_by_percent,
+        pointsPerGame: p.points_per_game,
+        xp: { 1: r?.xp_1 ?? null, 3: r?.xp_3 ?? null, 6: r?.xp_6 ?? null, 8: r?.xp_8 ?? null },
+        expectedMinutes: predictions.get(p.id)?.expected_minutes ?? null,
+        startProbability: predictions.get(p.id)?.start_probability ?? null,
+        availability: availabilityOf(p.id),
+        fdrRun: (upcoming.get(p.team_id) ?? []).map((f) => f.fdr),
+      });
+    }
+    return m;
+  }, [players, xp, teamShort, predictions, upcoming, availabilityOf]);
+
+  const [replaceFor, setReplaceFor] = useState<number | null>(null);
+
+  /** Detail panel for a picker row, anchored to that row. */
+  const [pickerDetail, setPickerDetail] = useState<{
+    id: number;
+    top: number;
+    left: number;
+  } | null>(null);
+  const pickerCard = useRef<HTMLDivElement>(null);
+  const closingPicker = useRef<number | null>(null);
+
+  const closePickerDetail = useCallback(() => {
+    closingPicker.current = pickerDetail?.id ?? null;
+    setPickerDetail(null);
+    setTimeout(() => {
+      closingPicker.current = null;
+    }, 0);
+  }, [pickerDetail]);
+
+  /**
+   * Float the panel to the left of the picker column, level with the clicked
+   * row. Viewport coordinates, so it never covers the list it came from.
+   */
+  const openPickerDetail = (row: PlayerRow, anchor: HTMLElement) => {
+    if (closingPicker.current === row.id) return;
+    const wrap = pickerCard.current;
+    if (!wrap) return;
+
+    const a = anchor.getBoundingClientRect();
+    const w = wrap.getBoundingClientRect();
+
+    // Prefer the gutter to the left; fall back to the right on narrow screens.
+    const leftGutter = w.left - PANEL_WIDTH - 8;
+    const left = leftGutter >= 8 ? leftGutter : Math.max(8, w.right - PANEL_WIDTH - 8);
+
+    const top = Math.max(
+      8,
+      Math.min(a.top - 24, window.innerHeight - PANEL_MAX_HEIGHT - 8),
+    );
+
+    setPickerDetail({ id: row.id, top, left });
+  };
+
+  const replacements = useMemo<Replacement[]>(() => {
+    if (replaceFor === null) return [];
+    const target = scoredById.get(replaceFor);
+    if (!target) return [];
+    return findReplacements(
+      target,
+      [...scoredById.values()],
+      team,
+      rules,
+      lookup,
+      horizon,
+    );
+  }, [replaceFor, scoredById, team, rules, lookup, horizon]);
+
+  /** Everything the picker's detail panel needs, resolved outside of render. */
+  const pickerPanel = useMemo(() => {
+    if (!pickerDetail) return null;
+    const row = rowById.get(pickerDetail.id);
+    const meta = metaById.get(pickerDetail.id);
+    if (!row || !meta) return null;
+    return {
+      player: toPlayerData(row),
+      top: pickerDetail.top,
+      left: pickerDetail.left,
+      owned: team.players.some((p) => p.playerId === pickerDetail.id),
+      addDisabledReason: blockedReason(team, rules, meta, lookup),
+    };
+  }, [pickerDetail, rowById, metaById, toPlayerData, team, rules, lookup]);
+
+  /** Swap in one action so the squad is never transiently illegal. */
+  const doSwap = (outId: number, incoming: PlayerMeta) => {
+    persist(addPlayer(removePlayer(team, outId), incoming));
+    setReplaceFor(null);
+  };
+
   // ------------------------------------------------------------- view
 
   if (loading) {
@@ -483,6 +635,8 @@ export default function BuilderPage() {
 
   const captainName =
     team.captain !== null ? (rowById.get(team.captain)?.web_name ?? "—") : null;
+  const viceName =
+    team.viceCaptain !== null ? (rowById.get(team.viceCaptain)?.web_name ?? "—") : null;
 
   const chip = (ok: boolean, label: string) => (
     <span
@@ -526,32 +680,43 @@ export default function BuilderPage() {
         </div>
       </div>
 
-      {/* Validity chips */}
-      <div className="flex flex-wrap gap-1">
-        {validation.positions.map((p) =>
-          chip(p.filled === p.required, `${POSITIONS[p.elementType]} ${p.filled}/${p.required}`),
-        )}
-        {chip(!validation.overBudget, "Budget")}
-        {chip(
-          validation.clubsValid,
-          validation.clubBreaches.length > 0
-            ? `Club limit: ${validation.clubBreaches
-                .map((b) => `${teamShort.get(b.teamId) ?? b.teamId} ${b.count}`)
-                .join(", ")}`
-            : `≤${rules.teamLimit}/club`,
-        )}
-        {chip(validation.hasCaptain, "Captain")}
-        {chip(validation.hasViceCaptain, "Vice")}
-        <span
-          className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${
-            validation.isLegal
-              ? "bg-emerald-600 text-white dark:bg-[#00FF87] dark:text-slate-950"
-              : "bg-zinc-200 text-zinc-600 dark:bg-purple-900/60 dark:text-zinc-300"
-          }`}
-        >
-          {validation.isLegal ? "Legal squad" : "Incomplete"}
-        </span>
-      </div>
+      {/* Requirements. Collapsed once everything passes — the detail only
+          matters while something is still missing. */}
+      <details open={!validation.isLegal} className="group">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-[11px]">
+          <span
+            className={`rounded px-1.5 py-0.5 font-semibold ${
+              validation.isLegal
+                ? "bg-emerald-600 text-white dark:bg-[#00FF87] dark:text-slate-950"
+                : "bg-zinc-200 text-zinc-600 dark:bg-purple-900/60 dark:text-zinc-300"
+            }`}
+          >
+            {validation.isLegal ? "✓ Legal squad" : "Incomplete squad"}
+          </span>
+          <span className="text-zinc-500">
+            {team.players.length}/{rules.squadSize} · {money(validation.budgetRemaining)} left
+          </span>
+          <span className="ml-auto text-zinc-400 group-open:hidden">show requirements ▾</span>
+          <span className="ml-auto hidden text-zinc-400 group-open:inline">hide ▴</span>
+        </summary>
+
+        <div className="mt-2 flex flex-wrap gap-1">
+          {validation.positions.map((p) =>
+            chip(p.filled === p.required, `${POSITIONS[p.elementType]} ${p.filled}/${p.required}`),
+          )}
+          {chip(!validation.overBudget, "Budget")}
+          {chip(
+            validation.clubsValid,
+            validation.clubBreaches.length > 0
+              ? `Club limit: ${validation.clubBreaches
+                  .map((b) => `${teamShort.get(b.teamId) ?? b.teamId} ${b.count}`)
+                  .join(", ")}`
+              : `≤${rules.teamLimit}/club`,
+          )}
+          {chip(validation.hasCaptain, "Captain")}
+          {chip(validation.hasViceCaptain, "Vice")}
+        </div>
+      </details>
     </div>
   );
 
@@ -570,12 +735,31 @@ export default function BuilderPage() {
 
         {/* drafts bar */}
         <div className="flex flex-wrap items-center gap-2 text-sm">
+          {/* Page-level horizon: drives the projection, the picker, and the
+              optimiser. The XI/captain panel stays on the next gameweek. */}
+          <span className="flex items-center gap-1 rounded-md border border-zinc-300 px-1.5 py-1 dark:border-purple-800/50">
+            <span className="text-xs text-zinc-500">Horizon</span>
+            {HORIZONS.map((h) => (
+              <button
+                key={h}
+                onClick={() => setHorizon(h)}
+                className={`rounded px-1.5 py-0.5 text-xs transition-colors ${
+                  horizon === h
+                    ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
+                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/60"
+                }`}
+              >
+                {h} GW
+              </button>
+            ))}
+          </span>
+
           {drafts.length > 0 && (
             <select
               value={team.draftId}
               onChange={(e) => {
                 const found = drafts.find((d) => d.draftId === e.target.value);
-                if (found) persist(found);
+                if (found) switchTeam(found);
               }}
               className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
             >
@@ -602,7 +786,7 @@ export default function BuilderPage() {
             Save
           </button>
           {[
-            { label: "New", fn: () => persist(emptyTeamState(rules)) },
+            { label: "New", fn: () => switchTeam(emptyTeamState(rules)) },
             {
               label: "Clone",
               fn: () => {
@@ -618,8 +802,7 @@ export default function BuilderPage() {
                 deleteDraft(team.draftId);
                 const rest = listDrafts();
                 setDrafts(rest);
-                setTeam(rest[0] ?? emptyTeamState(rules));
-                setSaved(null);
+                switchTeam(rest[0] ?? emptyTeamState(rules));
               },
             },
           ].map((b) => (
@@ -643,32 +826,43 @@ export default function BuilderPage() {
             <div className="flex flex-wrap items-end gap-6">
               <div>
                 <div className="text-xs uppercase tracking-wide text-zinc-500">
-                  Projected · next GW
+                  Projected · next {horizon} GW{horizon === 1 ? "" : "s"}
                 </div>
                 <div className="text-4xl font-extrabold tabular-nums text-purple-900 dark:text-[#00FF87]">
-                  {projection.x1.toFixed(1)}
+                  {projection.total.toFixed(1)}
                 </div>
               </div>
-              <div>
-                <div className="text-xs uppercase tracking-wide text-zinc-500">Next 6 GWs</div>
-                <div className="text-3xl font-bold tabular-nums text-purple-800 dark:text-[#00FF87]/80">
-                  {projection.x6.toFixed(1)}
+              {horizon !== 1 && (
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">Next GW</div>
+                  <div className="text-3xl font-bold tabular-nums text-purple-800 dark:text-[#00FF87]/80">
+                    {projectionGw.total.toFixed(1)}
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="ml-auto text-right text-xs text-zinc-500">
                 {/* Keyed on whether a captain is set, not on the bonus being
                     positive — captaining a player the model declined to
                     project gives a 0.0 bonus, which is informative rather
                     than a sign that nobody wears the armband. */}
                 {team.captain !== null ? (
-                  <p>
-                    <span className="font-semibold text-purple-800 dark:text-[#00FF87]">
-                      +{projection.captainBonus1.toFixed(1)}
-                    </span>{" "}
-                    armband bonus{captainName ? ` · C ${captainName}` : ""}
-                  </p>
+                  <div className="flex items-center justify-end gap-2">
+                    <CaptainBadge className="h-6 w-6" />
+                    <span>
+                      <span className="font-semibold text-purple-800 dark:text-[#00FF87]">
+                        +{projection.captainBonus.toFixed(1)}
+                      </span>{" "}
+                      armband bonus{captainName ? ` · ${captainName}` : ""}
+                    </span>
+                  </div>
                 ) : (
                   <p>Pick a captain to add the armband bonus</p>
+                )}
+                {viceName && (
+                  <div className="mt-1 flex items-center justify-end gap-2">
+                    <ViceCaptainBadge className="h-5 w-5" />
+                    <span>{viceName}</span>
+                  </div>
                 )}
                 {projection.missing > 0 && (
                   <p className="mt-1 text-amber-700 dark:text-amber-400">
@@ -688,6 +882,7 @@ export default function BuilderPage() {
             onSetCaptain={(id) => persist(setCaptain(team, id))}
             onSetVice={(id) => persist(setViceCaptain(team, id))}
             onRemove={(id) => persist(removePlayer(team, id))}
+            onFindReplacement={(id) => setReplaceFor(id)}
           />
         </section>
 
@@ -696,15 +891,27 @@ export default function BuilderPage() {
           {/* Sprint 3: lineup + armband recommendation */}
           {lineup && (
             <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                   Gameweek lineup
+                  {/* Fixed to the next gameweek regardless of the page
+                      horizon: FPL makes you pick one XI and one armband per
+                      gameweek, so a multi-week "best XI" has no meaning. */}
+                  <span className="ml-1.5 rounded bg-zinc-100 px-1 py-0.5 text-[10px] font-semibold normal-case text-zinc-500 dark:bg-purple-950/60 dark:text-purple-300">
+                    Next GW
+                  </span>
                 </h2>
                 <button
                   onClick={applyLineup}
-                  className="rounded-md bg-purple-950 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-800 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                  disabled={lineupApplied}
+                  title={
+                    lineupApplied
+                      ? "XI and armband already match the recommendation"
+                      : "Apply the recommended XI, bench order, and armband"
+                  }
+                  className="shrink-0 rounded-md bg-purple-950 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
                 >
-                  Apply XI &amp; armband
+                  {lineupApplied ? "Applied" : "Apply XI & armband"}
                 </button>
               </div>
 
@@ -715,7 +922,7 @@ export default function BuilderPage() {
                   ["Starting XI", `${lineup.startersXp.toFixed(1)} xP`],
                   ["Bench (raw)", `${lineup.benchXp.toFixed(1)} xP`],
                   ["Bench via auto-subs", `${lineup.benchExpectedContribution.toFixed(1)} xP`],
-                  ["Armband bonus", `${projection.captainBonus1.toFixed(1)} xP`],
+                  ["Armband bonus", `${projectionGw.captainBonus.toFixed(1)} xP`],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-2">
                     <dt className="text-zinc-500">{label}</dt>
@@ -732,7 +939,7 @@ export default function BuilderPage() {
                     {(
                       lineup.startersXp +
                       lineup.benchExpectedContribution +
-                      projection.captainBonus1
+                      projectionGw.captainBonus
                     ).toFixed(1)}{" "}
                     xP
                   </dd>
@@ -753,14 +960,22 @@ export default function BuilderPage() {
                       {Math.round(lineup.captain.confidence * 100)}% confidence
                     </span>
                   </div>
-                  <p className="mt-0.5 text-base font-bold text-purple-900 dark:text-[#00FF87]">
-                    {lineup.captain.webName}
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="flex items-center gap-1.5">
+                      <CaptainBadge className="h-6 w-6" />
+                      <span className="text-base font-bold text-purple-900 dark:text-[#00FF87]">
+                        {lineup.captain.webName}
+                      </span>
+                    </span>
                     {lineup.vice && (
-                      <span className="ml-2 text-xs font-medium text-zinc-500">
-                        VC {lineup.vice.webName}
+                      <span className="flex items-center gap-1.5">
+                        <ViceCaptainBadge className="h-5 w-5" />
+                        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                          {lineup.vice.webName}
+                        </span>
                       </span>
                     )}
-                  </p>
+                  </div>
                   <ul className="mt-1.5 space-y-0.5 text-[11px] text-zinc-600 dark:text-zinc-400">
                     {lineup.captain.reasons.map((r) => (
                       <li key={r}>✓ {r}</li>
@@ -784,21 +999,7 @@ export default function BuilderPage() {
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               Optimise squad
             </h2>
-            <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-              <label className="flex flex-col gap-1">
-                <span className="text-zinc-500">Horizon</span>
-                <select
-                  value={horizon}
-                  onChange={(e) => setHorizon(Number(e.target.value) as Horizon)}
-                  className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
-                >
-                  {HORIZONS.map((h) => (
-                    <option key={h} value={h}>
-                      {h} GW
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
               <label className="flex flex-col gap-1">
                 <span className="text-zinc-500">Strategy</span>
                 <select
@@ -843,14 +1044,116 @@ export default function BuilderPage() {
                 Rebuild
               </button>
             </div>
-            <p className="mt-2 text-[11px] text-zinc-500">
-              {optimizeNote ??
-                "Existing picks are kept — “Fill remaining” optimises around them, “Rebuild” starts from an empty squad."}
-            </p>
+            <div className="mt-2 flex items-start justify-between gap-2 text-[11px]">
+              <p className="text-zinc-500">
+                {optimizeNote ??
+                  `Optimising over ${horizon} GW${horizon === 1 ? "" : "s"} — “Fill remaining” keeps your picks, “Rebuild” starts empty.`}
+              </p>
+              {/* One-slot undo: the saved draft is untouched until Save, so
+                  this restores exactly what a rebuild replaced. */}
+              {previousTeam && (
+                <button
+                  onClick={() => {
+                    setTeam(previousTeam);
+                    setPreviousTeam(null);
+                    setOptimizeNote("Reverted to the previous squad");
+                  }}
+                  className="shrink-0 rounded border border-zinc-300 px-2 py-0.5 font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+                >
+                  ↩ Revert
+                </button>
+              )}
+            </div>
           </div>
 
+          {/* replacement finder */}
+          {replaceFor !== null && (
+            <div className="rounded-xl border border-purple-300 bg-white p-4 dark:border-[#00FF87]/40 dark:bg-[#1E0234]">
+              <div className="flex items-start justify-between gap-2">
+                <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Replace {scoredById.get(replaceFor)?.webName}{" "}
+                  <span className="font-normal normal-case text-zinc-400">· {horizon} GW</span>
+                </h2>
+                <div className="flex shrink-0 items-center gap-2">
+                  {replacements.length > 0 && (
+                    <Link
+                      href={`/compare?ids=${[replaceFor, ...replacements.slice(0, 3).map((r) => r.player.id)].join(",")}`}
+                      className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                    >
+                      Compare all
+                    </Link>
+                  )}
+                  <button
+                    onClick={() => setReplaceFor(null)}
+                    aria-label="Close"
+                    className="flex h-5 w-5 items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 dark:hover:bg-purple-950/60"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+
+              {replacements.length === 0 ? (
+                <p className="mt-2 text-xs text-zinc-500">
+                  No legal, affordable candidate is available for this slot.
+                </p>
+              ) : (
+                <>
+                  {/* Don't let a ranked list imply these are upgrades when the
+                      best of them is still worse than what you have. */}
+                  {replacements[0].teamFit <= 0 && (
+                    <p className="mt-2 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                      Nothing available improves on this pick — the closest alternatives are shown
+                      below.
+                    </p>
+                  )}
+                  <ul className="mt-2 space-y-1.5">
+                    {replacements.map((r) => (
+                      <li
+                        key={r.player.id}
+                        className="flex items-start justify-between gap-2 rounded-md border border-zinc-200 px-2 py-1.5 text-xs dark:border-purple-900/40"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                            {r.player.webName}
+                            <span className="ml-1.5 font-normal text-zinc-500">
+                              {r.player.teamShort} · £{(r.player.price / 10).toFixed(1)}m
+                            </span>
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-zinc-500">
+                            {r.rationale.join(" · ")}
+                          </p>
+                          <p className="mt-0.5 text-[10px] tabular-nums text-zinc-400">
+                            xP {r.xpDelta >= 0 ? "+" : ""}
+                            {r.xpDelta.toFixed(1)} · risk {r.riskDelta >= 0 ? "+" : ""}
+                            {r.riskDelta} · fit {r.teamFit.toFixed(1)}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const meta = metaById.get(r.player.id);
+                            if (meta) doSwap(replaceFor, meta);
+                          }}
+                          className="shrink-0 rounded bg-purple-950 px-2 py-1 font-medium text-white transition-colors hover:bg-purple-800 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                        >
+                          Swap
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <p className="mt-2 text-[10px] leading-relaxed text-zinc-400">
+                {REPLACEMENT_MODEL_NOTE}
+              </p>
+            </div>
+          )}
+
           {/* player search */}
-          <div className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <div
+            ref={pickerCard}
+            className="relative rounded-xl border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]"
+          >
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <input
                 value={search}
@@ -902,8 +1205,8 @@ export default function BuilderPage() {
                   <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
                     <th className="py-1.5 pl-1">Player</th>
                     <th className="py-1.5">£</th>
-                    <th className="py-1.5">GW</th>
-                    <th className="py-1.5">6</th>
+                    <th className="py-1.5">{horizon} GW</th>
+                    <th className="py-1.5">Risk</th>
                     <th className="py-1.5"></th>
                   </tr>
                 </thead>
@@ -917,31 +1220,41 @@ export default function BuilderPage() {
                         className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
                       >
                         <td className="py-1 pl-1">
-                          <span className="flex items-center gap-1">
-                            <span className="truncate font-medium">{p.web_name}</span>
-                            <AvailabilityBadge
-                              status={p.status}
-                              chanceOfPlaying={p.chance_of_playing_next_round}
-                              news={p.news}
-                              size="w-3.5 h-3.5"
-                            />
-                            <RoleBadges
-                              penaltyOrder={p.penalties_order}
-                              freeKickOrder={p.direct_freekicks_order}
-                              cornerOrder={p.corners_and_indirect_freekicks_order}
-                              size="w-3.5 h-3.5"
-                            />
-                          </span>
-                          <span className="text-[10px] text-zinc-500">
-                            {teamShort.get(p.team_id)} · {POSITIONS[p.element_type]}
-                          </span>
+                          <button
+                            onClick={(e) => openPickerDetail(p, e.currentTarget)}
+                            className="block max-w-full text-left"
+                            title={`Details for ${p.web_name}`}
+                          >
+                            <span className="flex items-center gap-1">
+                              <span className="truncate font-medium underline-offset-2 hover:underline">
+                                {p.web_name}
+                              </span>
+                              <AvailabilityBadge
+                                status={p.status}
+                                chanceOfPlaying={p.chance_of_playing_next_round}
+                                news={p.news}
+                                size="w-3.5 h-3.5"
+                              />
+                              <RoleBadges
+                                penaltyOrder={p.penalties_order}
+                                freeKickOrder={p.direct_freekicks_order}
+                                cornerOrder={p.corners_and_indirect_freekicks_order}
+                                size="w-3.5 h-3.5"
+                              />
+                            </span>
+                            <span className="text-[10px] text-zinc-500">
+                              {teamShort.get(p.team_id)} · {POSITIONS[p.element_type]}
+                            </span>
+                          </button>
                         </td>
                         <td className="py-1 tabular-nums">{((p.now_cost ?? 0) / 10).toFixed(1)}</td>
                         <td className="py-1 font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
-                          {xp.get(p.id)?.xp_1?.toFixed(1) ?? "—"}
+                          {xpAt(xpOf(p.id), horizon)?.toFixed(1) ?? "—"}
                         </td>
-                        <td className="py-1 tabular-nums">
-                          {xp.get(p.id)?.xp_6?.toFixed(1) ?? "—"}
+                        <td className="py-1 tabular-nums text-zinc-500">
+                          {scoredById.has(p.id)
+                            ? riskScore(scoredById.get(p.id)!, horizon)
+                            : "—"}
                         </td>
                         <td className="py-1 pr-1 text-right">
                           <button
@@ -988,6 +1301,33 @@ export default function BuilderPage() {
                 Next ›
               </button>
             </div>
+
+            {/* Same detail panel the pitch uses, anchored to the picker row.
+                Actions differ by context: pool players get Add and Find
+                replacement, squad players the armband controls. */}
+            {pickerPanel && (
+              <PlayerDetail
+                player={pickerPanel.player}
+                top={pickerPanel.top}
+                left={pickerPanel.left}
+                fixed
+                onClose={closePickerDetail}
+                onSetCaptain={(id) => persist(setCaptain(team, id))}
+                onSetVice={(id) => persist(setViceCaptain(team, id))}
+                onRemove={(id) => persist(removePlayer(team, id))}
+                owned={pickerPanel.owned}
+                addDisabledReason={pickerPanel.addDisabledReason}
+                onAdd={(id) => {
+                  const m = metaById.get(id);
+                  if (m) persist(addPlayer(team, m));
+                  closePickerDetail();
+                }}
+                onFindReplacement={(id) => {
+                  setReplaceFor(id);
+                  closePickerDetail();
+                }}
+              />
+            )}
           </div>
         </section>
       </div>

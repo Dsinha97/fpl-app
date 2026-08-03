@@ -213,15 +213,31 @@ export interface HorizonXp {
   xp8: number | null;
 }
 
+/** Gameweek windows the xP engine publishes. */
+export type Horizon = 1 | 3 | 6 | 8;
+
 export interface Projection {
-  /** Squad totals including the captaincy double. */
-  x1: number;
-  x6: number;
-  /** The extra points the armband contributes, per horizon. */
-  captainBonus1: number;
-  captainBonus6: number;
+  /** Squad total over the requested horizon, including the captaincy double. */
+  total: number;
+  /** The extra points the armband contributes over that horizon. */
+  captainBonus: number;
   /** Picks the xP model declined to predict (no prior-season minutes). */
   missing: number;
+}
+
+/** Pull one window out of a player's horizon set. */
+export function xpAt(xp: HorizonXp | undefined, horizon: Horizon): number | null {
+  if (!xp) return null;
+  switch (horizon) {
+    case 1:
+      return xp.xp1;
+    case 3:
+      return xp.xp3;
+    case 6:
+      return xp.xp6;
+    case 8:
+      return xp.xp8;
+  }
 }
 
 /**
@@ -243,37 +259,29 @@ export function computeProjection(
   availabilityOf: (playerId: number) => number,
   captain: number | null,
   vice: number | null,
+  horizon: Horizon = 1,
 ): Projection {
-  let x1 = 0;
-  let x6 = 0;
+  let base = 0;
   let missing = 0;
 
   for (const pick of picks) {
     const xp = xpOf(pick.playerId);
-    if (!xp || xp.xp1 === null) missing++;
-    x1 += xp?.xp1 ?? 0;
-    x6 += xp?.xp6 ?? 0;
+    const value = xpAt(xp, horizon);
+    if (value === null) missing++;
+    base += value ?? 0;
   }
 
-  let captainBonus1 = 0;
-  let captainBonus6 = 0;
+  let captainBonus = 0;
 
   if (captain !== null) {
-    const capXp = xpOf(captain);
-    const viceXp = vice !== null ? xpOf(vice) : undefined;
     const pCap = availabilityOf(captain);
+    const capXp = xpAt(xpOf(captain), horizon) ?? 0;
+    const viceXp = vice !== null ? (xpAt(xpOf(vice), horizon) ?? 0) : 0;
 
-    captainBonus1 = (capXp?.xp1 ?? 0) * pCap + (viceXp?.xp1 ?? 0) * (1 - pCap);
-    captainBonus6 = (capXp?.xp6 ?? 0) * pCap + (viceXp?.xp6 ?? 0) * (1 - pCap);
+    captainBonus = capXp * pCap + viceXp * (1 - pCap);
   }
 
-  return {
-    x1: x1 + captainBonus1,
-    x6: x6 + captainBonus6,
-    captainBonus1,
-    captainBonus6,
-    missing,
-  };
+  return { total: base + captainBonus, captainBonus, missing };
 }
 
 export function addPlayer(state: TeamState, meta: PlayerMeta): TeamState {
@@ -294,12 +302,16 @@ export function removePlayer(state: TeamState, playerId: number): TeamState {
   };
 }
 
-/** Captain and vice-captain must be different players. */
+// Captain and vice-captain must be different players. Promoting one of the two
+// therefore swaps them rather than vacating the other armband: choosing your
+// vice as captain almost always means you want the old captain as his backup,
+// and silently clearing the vice loses information the user already gave.
+
 export function setCaptain(state: TeamState, playerId: number): TeamState {
   return {
     ...state,
     captain: playerId,
-    viceCaptain: state.viceCaptain === playerId ? null : state.viceCaptain,
+    viceCaptain: state.viceCaptain === playerId ? state.captain : state.viceCaptain,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -308,7 +320,7 @@ export function setViceCaptain(state: TeamState, playerId: number): TeamState {
   return {
     ...state,
     viceCaptain: playerId,
-    captain: state.captain === playerId ? null : state.captain,
+    captain: state.captain === playerId ? state.viceCaptain : state.captain,
     updatedAt: new Date().toISOString(),
   };
 }

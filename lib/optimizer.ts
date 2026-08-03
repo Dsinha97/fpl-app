@@ -11,7 +11,11 @@ import type { SquadPick, SquadRules } from "./team-state";
 // close, runs in milliseconds on a 564-player pool, and — importantly — stays
 // readable enough to debug when it picks something strange.
 
-export type Horizon = 1 | 3 | 6 | 8;
+// Horizon lives in team-state, alongside the projection maths that consumes it;
+// re-exported here so optimiser callers need only one import.
+export type { Horizon } from "./team-state";
+import type { Horizon } from "./team-state";
+
 export type Strategy = "max_points" | "balanced" | "value" | "differential";
 export type RiskLevel = "low" | "medium" | "high";
 
