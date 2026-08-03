@@ -59,6 +59,15 @@ const VALUE_WEIGHT = 4;
  *  tilt on the projection, not a second projection. */
 const RISK_POINTS_AT_MAX = 12;
 
+/**
+ * Convert a 0-100 risk figure to points.
+ *
+ * Exported so the transfer simulator subtracts risk on the same scale a squad is
+ * scored on — two exchange rates for one quantity would make Scenarios and
+ * Transfers disagree about the same squad.
+ */
+export const riskPoints = (meanRisk: number): number => (meanRisk / 100) * RISK_POINTS_AT_MAX;
+
 export interface SquadScoreInput {
   team: TeamState;
   /** Every squad player, scored. Picks missing from this map are skipped. */
@@ -103,7 +112,7 @@ export function squadScore(input: SquadScoreInput): SquadScoreBreakdown {
   const value = (perMillion - VALUE_BASELINE) * VALUE_WEIGHT;
 
   const risk =
-    players.length === 0 ? 0 : (mean(players.map((p) => riskScore(p, horizon))) / 100) * RISK_POINTS_AT_MAX;
+    players.length === 0 ? 0 : riskPoints(mean(players.map((p) => riskScore(p, horizon))));
 
   // The lineup engine already computes the honest version of bench strength —
   // xP times the probability an auto-sub actually uses the slot. Fall back to a

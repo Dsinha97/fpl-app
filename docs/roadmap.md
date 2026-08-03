@@ -9,15 +9,15 @@ is superseded by this file.
 
 `update-aug3.md` lists Sprint 4 as "Squad Optimizer". In this repo the squad optimiser shipped in
 Sprint 2, and Sprint 4 delivered the **comparison engine and replacement finder** — which the new
-document numbers as Sprints 6 and 7. Those are therefore already built, and the next sprint to start
-is **5, Scenario Lab**.
+document numbers as Sprints 6 and 7. Those were therefore already built when this file was written.
+Sprints 5 and 8 have since shipped; the next sprint to start is **9, Transfer Optimizer**.
 
 | Sprint | Theme | Status |
 |---|---|---|
 | 5 | Scenario Lab & Draft Management | **Built** — `/scenarios`, `lib/squad-score.ts` |
 | 6 | Player Comparison Engine | **Built** — `/compare`, `lib/scoring.ts` |
 | 7 | Replacement Finder | **Built** — builder panel, `findReplacements` |
-| 8 | Transfer Simulator | Not started |
+| 8 | Transfer Simulator | **Built** — `/transfers`, `lib/transfers.ts` |
 | 9 | Transfer Optimizer (up to 5 banked FTs) | Not started |
 | 10 | Ownership Intelligence | Not started — **blocked**, see below |
 | 11 | Captain & Bench Optimizer | **Built** — `lib/lineup.ts` |
@@ -66,18 +66,34 @@ per draft for the timeline). The `team_drafts` / `draft_players` / `draft_lineup
 Sprint 14, when Supabase Auth gives them an owner — a cloud table with no user column would have to be
 rebuilt.
 
-Still open: importing an optimised squad *as a new draft* rather than overwriting the current one.
+The "import as a new draft" gap is now covered by the transfer simulator's Apply.
 
-## Sprint 8 — Transfer Simulator
+## Sprint 8 — Transfer Simulator (built)
 
-Player out → player in → recomputed squad. Outputs team xP before and after, captain impact, fixture
-impact, bench impact, budget and remaining bank.
+`/transfers` — a **basket** of out/in pairs against a saved draft, applied in order so cash freed by
+one move funds the next, as the game behaves.
 
 ```
-TransferGain = xP(new team) − xP(old team) − TransferCost − RiskChange
+TransferGain = xP(after) − xP(before) − pointsCost − riskPointsChange
 ```
 
-`findReplacements` already computes the per-player half of this; the simulator lifts it to the squad.
+Decisions worth keeping:
+
+- **The hit is always its own term.** The headline reads `+8.5 xP − 8 hit − 0.2 risk = +0.3`, never a
+  bare net figure. A basket that only breaks even should look like one.
+- **Selling price follows FPL's rule** — purchase price plus half of any rise, rounded down
+  (`sellPrice` in `lib/transfers.ts`). A no-op pre-season, and wrong the moment a price moves.
+- **Risk shares one exchange rate with SquadScore** via `riskPoints` (`lib/squad-score.ts`), so
+  Scenarios and Transfers cannot disagree about the same squad.
+- **Selling the captain moves the armband and says so** — a forced armband change is part of the cost.
+- **Apply writes a new draft**, named "<draft> +n transfers", leaving the original alone. That also
+  covers the Sprint 5 gap about importing a generated squad without overwriting.
+- Illegality blocks Apply and names the breach ("4 players from ARS — the limit is 3").
+
+Not modelled: free-transfer **accrual and expiry**. The count is an input (0–5); the banking rules
+belong with Sprint 9, which reasons about future gameweeks.
+
+A real-FPL-squad starting point waits on Sprint 14 — `manager_picks` is empty until the first deadline.
 
 ## Sprint 9 — Transfer Optimizer
 
@@ -89,8 +105,8 @@ RollValue     = FutureFlexibility + ExpectedFutureGain
 recommend transfer when TransferValue > RollValue + DecisionMargin
 ```
 
-Must track current FT, **banked FTs up to five** per current FPL rules, and wildcard / free-hit
-interactions. This is where `SquadBalance` and `FutureFlexibility` — omitted from TeamFit today, see
+Must track current FT, **banked FTs up to five** per current FPL rules (Sprint 8 takes the count as an
+input; accrual and expiry land here), and wildcard / free-hit interactions. This is where `SquadBalance` and `FutureFlexibility` — omitted from TeamFit today, see
 `REPLACEMENT_MODEL_NOTE` — become computable.
 
 ## Sprint 10 — Ownership Intelligence

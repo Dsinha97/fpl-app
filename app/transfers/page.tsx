@@ -1,0 +1,849 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase/client";
+import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
+import { AvailabilityBadge } from "@/components/player-status-icons";
+import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
+import { listDrafts, saveDraft } from "@/lib/drafts";
+import { fullName, matchesPlayerQuery } from "@/lib/player-search";
+import {
+  findReplacements,
+  riskScore,
+  RISK_MODEL_NOTE,
+  xpFor,
+  type ScoredPlayer,
+} from "@/lib/scoring";
+import {
+  MAX_FREE_TRANSFERS,
+  simulateTransfers,
+  TRANSFER_MODEL_NOTE,
+  type TransferMove,
+} from "@/lib/transfers";
+import {
+  DEFAULT_RULES,
+  HORIZONS,
+  horizonLabel,
+  SEASON_HORIZON_NOTE,
+  type Horizon,
+  type HorizonXp,
+  type PlayerMeta,
+  type SquadRules,
+  type TeamState,
+} from "@/lib/team-state";
+
+interface PlayerRow {
+  id: number;
+  web_name: string;
+  first_name: string | null;
+  second_name: string | null;
+  known_name: string | null;
+  team_id: number;
+  element_type: number;
+  now_cost: number | null;
+  selected_by_percent: number | null;
+  points_per_game: number | null;
+  status: string | null;
+  news: string | null;
+  chance_of_playing_next_round: number | null;
+  penalties_order: number | null;
+}
+
+interface XpRow {
+  player_id: number;
+  xp_1: number | null;
+  xp_3: number | null;
+  xp_5: number | null;
+  xp_8: number | null;
+  xp_total: number | null;
+}
+
+const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
+const FIXTURE_GWS = 8;
+const CANDIDATES = 8;
+
+const money = (tenths: number) => `£${(tenths / 10).toFixed(1)}m`;
+const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
+
+export default function TransfersPage() {
+  const [drafts, setDrafts] = useState<TeamState[]>([]);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [rowById, setRowById] = useState<Map<number, PlayerRow>>(new Map());
+  const [scoredById, setScoredById] = useState<Map<number, ScoredPlayer>>(new Map());
+  const [xp, setXp] = useState<Map<number, XpRow>>(new Map());
+  const [rules, setRules] = useState<SquadRules>(DEFAULT_RULES);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [horizon, setHorizon] = useState<Horizon>(5);
+  const [freeTransfers, setFreeTransfers] = useState(1);
+  const [moves, setMoves] = useState<TransferMove[]>([]);
+  /** The squad slot currently being filled, if any. */
+  const [pickingFor, setPickingFor] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+  const [applied, setApplied] = useState<string | null>(null);
+
+  // Drafts live in localStorage, so they can only be read after mount — an
+  // effect is the right place despite the set-state-in-effect lint preference.
+  useEffect(() => {
+    const list = listDrafts();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDrafts(list);
+    setDraftId(list[0]?.draftId ?? null);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: gw, error: gwError } = await supabase
+          .from("gameweeks")
+          .select("season, id")
+          .eq("is_next", true)
+          .limit(1)
+          .maybeSingle();
+        if (gwError) throw new Error(gwError.message);
+        if (!gw) throw new Error("No upcoming gameweek found.");
+
+        const [playersRes, teamsRes, typesRes, settingsRes, xpRes, predsRes, fixturesRes] =
+          await Promise.all([
+            supabase
+              .from("players")
+              .select(
+                "id, web_name, first_name, second_name, known_name, team_id, element_type, now_cost, selected_by_percent, points_per_game, status, news, chance_of_playing_next_round, penalties_order",
+              )
+              .eq("season", gw.season)
+              .limit(1000),
+            supabase.from("teams").select("id, short_name").eq("season", gw.season),
+            supabase.from("element_types").select("id, squad_select").eq("season", gw.season),
+            supabase
+              .from("game_settings")
+              .select("key, value")
+              .eq("season", gw.season)
+              .in("key", ["squad_total_spend", "squad_team_limit", "squad_squadsize"]),
+            supabase
+              .from("player_xp_horizons")
+              .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_total")
+              .eq("season", gw.season)
+              .limit(1000),
+            supabase
+              .from("player_predictions")
+              .select("player_id, expected_minutes, start_probability")
+              .eq("season", gw.season)
+              .eq("event", gw.id)
+              .limit(1000),
+            supabase
+              .from("fixtures")
+              .select("event, team_h, team_a, team_h_difficulty, team_a_difficulty")
+              .eq("season", gw.season)
+              .gte("event", gw.id)
+              .lte("event", gw.id + FIXTURE_GWS - 1)
+              .order("event"),
+          ]);
+        if (playersRes.error) throw new Error(playersRes.error.message);
+        if (teamsRes.error) throw new Error(teamsRes.error.message);
+
+        const shorts = new Map(
+          (teamsRes.data ?? []).map((t) => [t.id as number, t.short_name as string]),
+        );
+
+        const settings = new Map(
+          (settingsRes.data ?? []).map((s) => [s.key as string, Number(s.value)]),
+        );
+        const quota: Record<number, number> = {};
+        for (const t of typesRes.data ?? []) quota[t.id as number] = Number(t.squad_select ?? 0);
+        setRules({
+          totalSpend: settings.get("squad_total_spend") ?? DEFAULT_RULES.totalSpend,
+          teamLimit: settings.get("squad_team_limit") ?? DEFAULT_RULES.teamLimit,
+          squadSize: settings.get("squad_squadsize") ?? DEFAULT_RULES.squadSize,
+          positionQuota: Object.keys(quota).length > 0 ? quota : DEFAULT_RULES.positionQuota,
+        });
+
+        const fdrRuns = new Map<number, number[]>();
+        for (const f of fixturesRes.data ?? []) {
+          const push = (teamId: number, fdr: number) => {
+            const list = fdrRuns.get(teamId);
+            if (list) list.push(fdr);
+            else fdrRuns.set(teamId, [fdr]);
+          };
+          push(f.team_h as number, (f.team_h_difficulty as number | null) ?? 3);
+          push(f.team_a as number, (f.team_a_difficulty as number | null) ?? 3);
+        }
+
+        const xpById = new Map(
+          (xpRes.data ?? []).map((r) => [r.player_id as number, r as unknown as XpRow]),
+        );
+        const predById = new Map(
+          (predsRes.data ?? []).map((r) => [
+            r.player_id as number,
+            r as { expected_minutes: number | null; start_probability: number | null },
+          ]),
+        );
+
+        const rows = (playersRes.data ?? []) as PlayerRow[];
+        const scored = new Map<number, ScoredPlayer>();
+        for (const p of rows) {
+          const x = xpById.get(p.id);
+          const pred = predById.get(p.id);
+          const availability =
+            p.chance_of_playing_next_round !== null
+              ? Math.max(0, Math.min(1, p.chance_of_playing_next_round / 100))
+              : p.status === "a"
+                ? 1
+                : 0;
+          scored.set(p.id, {
+            id: p.id,
+            webName: p.web_name,
+            elementType: p.element_type,
+            teamId: p.team_id,
+            teamShort: shorts.get(p.team_id) ?? null,
+            price: p.now_cost ?? 0,
+            ownership: p.selected_by_percent,
+            pointsPerGame: p.points_per_game,
+            xp: {
+              1: x?.xp_1 ?? null,
+              3: x?.xp_3 ?? null,
+              5: x?.xp_5 ?? null,
+              8: x?.xp_8 ?? null,
+              season: x?.xp_total ?? null,
+            },
+            expectedMinutes: pred?.expected_minutes ?? null,
+            startProbability: pred?.start_probability ?? null,
+            availability,
+            fdrRun: fdrRuns.get(p.team_id) ?? [],
+          });
+        }
+
+        setRowById(new Map(rows.map((p) => [p.id, p])));
+        setScoredById(scored);
+        setXp(xpById);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const team = useMemo(
+    () => drafts.find((d) => d.draftId === draftId) ?? null,
+    [drafts, draftId],
+  );
+
+  useEffect(() => {
+    // A different squad invalidates the basket.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMoves([]);
+    setPickingFor(null);
+    setApplied(null);
+  }, [draftId]);
+
+  useEffect(() => {
+    if (team) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFreeTransfers(Math.min(MAX_FREE_TRANSFERS, Math.max(0, team.freeTransfers)));
+    }
+  }, [team]);
+
+  const lookup = useCallback(
+    (id: number): PlayerMeta | undefined => {
+      const p = rowById.get(id);
+      if (!p) return undefined;
+      return {
+        id: p.id,
+        elementType: p.element_type,
+        teamId: p.team_id,
+        nowCost: p.now_cost ?? 0,
+        webName: p.web_name,
+      };
+    },
+    [rowById],
+  );
+
+  const xpOf = useCallback(
+    (id: number): HorizonXp | undefined => {
+      const r = xp.get(id);
+      if (!r) return undefined;
+      return { xp1: r.xp_1, xp3: r.xp_3, xp5: r.xp_5, xp8: r.xp_8, xpSeason: r.xp_total };
+    },
+    [xp],
+  );
+
+  const availabilityOf = useCallback(
+    (id: number): number => scoredById.get(id)?.availability ?? 0,
+    [scoredById],
+  );
+
+  const isPenaltyTaker = useCallback(
+    (id: number): boolean => rowById.get(id)?.penalties_order === 1,
+    [rowById],
+  );
+
+  const simulation = useMemo(() => {
+    if (!team || scoredById.size === 0) return null;
+    return simulateTransfers({
+      team,
+      moves,
+      freeTransfers,
+      scoredById,
+      isPenaltyTaker,
+      lookup,
+      xpOf,
+      availabilityOf,
+      rules,
+      horizon,
+    });
+  }, [
+    team,
+    moves,
+    freeTransfers,
+    scoredById,
+    isPenaltyTaker,
+    lookup,
+    xpOf,
+    availabilityOf,
+    rules,
+    horizon,
+  ]);
+
+  /** Ranked candidates for the slot being filled, plus a free-text search. */
+  const candidates = useMemo(() => {
+    if (!team || pickingFor === null) return [];
+    const target = scoredById.get(pickingFor);
+    if (!target) return [];
+
+    const q = search.trim();
+    if (q.length >= 2) {
+      const owned = new Set(team.players.map((p) => p.playerId));
+      return [...scoredById.values()]
+        .filter((c) => {
+          const row = rowById.get(c.id);
+          return (
+            row !== undefined &&
+            c.elementType === target.elementType &&
+            !owned.has(c.id) &&
+            matchesPlayerQuery(row, q)
+          );
+        })
+        .sort((a, b) => xpFor(b, horizon) - xpFor(a, horizon))
+        .slice(0, CANDIDATES)
+        .map((player) => ({ player, teamFit: null as number | null, rationale: [] as string[] }));
+    }
+
+    return findReplacements(
+      target,
+      [...scoredById.values()],
+      team,
+      rules,
+      lookup,
+      horizon,
+      CANDIDATES,
+    ).map((r) => ({ player: r.player, teamFit: r.teamFit, rationale: r.rationale }));
+  }, [team, pickingFor, scoredById, rowById, search, horizon, rules, lookup]);
+
+  const addMove = (outId: number, inId: number) => {
+    setMoves((prev) => [...prev.filter((m) => m.outId !== outId), { outId, inId }]);
+    setPickingFor(null);
+    setSearch("");
+  };
+
+  const applyAsNewDraft = () => {
+    if (!simulation || !team || moves.length === 0) return;
+    const count = simulation.cost.transfers;
+    const copy: TeamState = {
+      ...simulation.resultingTeam,
+      draftId: crypto.randomUUID(),
+      name: `${team.name} +${count} transfer${count === 1 ? "" : "s"}`,
+      createdAt: new Date().toISOString(),
+    };
+    saveDraft(copy);
+    setDrafts(listDrafts());
+    setApplied(`Saved as "${copy.name}" — the original draft is untouched.`);
+  };
+
+  const movesByOut = useMemo(() => new Map(moves.map((m) => [m.outId, m])), [moves]);
+
+  return (
+    <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+            Transfer Simulator
+            <InfoTooltip>
+              <FdrLegendContent />
+            </InfoTooltip>
+          </h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            Queue transfers against a saved draft and see what they buy after the hit.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-zinc-500">Horizon</span>
+          {HORIZONS.map((h) => (
+            <button
+              key={h}
+              onClick={() => setHorizon(h)}
+              title={h === "season" ? SEASON_HORIZON_NOTE : undefined}
+              className={`rounded-md px-2.5 py-1 transition-colors ${
+                horizon === h
+                  ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
+                  : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
+              }`}
+            >
+              {horizonLabel(h)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {horizon === "season" && (
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{SEASON_HORIZON_NOTE}</p>
+      )}
+
+      {/* controls */}
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+        {drafts.length > 0 && (
+          <label className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+            Squad
+            <select
+              value={draftId ?? ""}
+              onChange={(e) => setDraftId(e.target.value)}
+              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+            >
+              {drafts.map((d) => (
+                <option key={d.draftId} value={d.draftId}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+          Free transfers
+          <select
+            value={freeTransfers}
+            onChange={(e) => setFreeTransfers(Number(e.target.value))}
+            title="FPL lets you bank up to five. Accrual is not modelled — set what you actually hold."
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+          >
+            {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
+              <option key={i} value={i}>
+                {i}
+              </option>
+            ))}
+          </select>
+        </label>
+        {moves.length > 0 && (
+          <button
+            onClick={() => setMoves([])}
+            className="rounded-md border border-zinc-300 px-2.5 py-1 text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+          >
+            Clear {moves.length} transfer{moves.length === 1 ? "" : "s"}
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <p className="mt-6 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+          {error}
+        </p>
+      )}
+      {loading && <p className="mt-6 text-sm text-zinc-500">Loading player data…</p>}
+
+      {!loading && drafts.length === 0 && (
+        <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 text-center dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <p className="text-sm text-zinc-500">
+            No saved squads yet. Build one in the{" "}
+            <Link
+              href="/builder"
+              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+            >
+              Team Builder
+            </Link>{" "}
+            first. Simulating against your real FPL squad needs the team sync that arrives with
+            authentication — FPL does not publish picks until after the first deadline.
+          </p>
+        </div>
+      )}
+
+      {team && !loading && (
+        <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+          {/* squad */}
+          <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+              {team.name} · {team.players.length} players
+            </h2>
+            <table className="mt-2 w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-left text-[10px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+                  <th className="py-1.5">Player</th>
+                  <th className="py-1.5">Pos</th>
+                  <th className="py-1.5">Sell</th>
+                  <th className="py-1.5">{horizonLabel(horizon)}</th>
+                  <th className="py-1.5">
+                    <span
+                      title={RISK_MODEL_NOTE}
+                      className="cursor-help underline decoration-dotted underline-offset-2"
+                    >
+                      Risk
+                    </span>
+                  </th>
+                  <th className="py-1.5"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {team.players.map((pick) => {
+                  const s = scoredById.get(pick.playerId);
+                  const row = rowById.get(pick.playerId);
+                  const move = movesByOut.get(pick.playerId);
+                  const incoming = move ? scoredById.get(move.inId) : undefined;
+
+                  return (
+                    <tr
+                      key={pick.playerId}
+                      className={`border-b border-zinc-100 last:border-0 dark:border-purple-900/30 ${
+                        move ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
+                      }`}
+                    >
+                      <td className="py-1.5">
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className={
+                              move
+                                ? "text-zinc-400 line-through"
+                                : "font-medium text-zinc-800 dark:text-zinc-200"
+                            }
+                            title={row ? (fullName(row) ?? undefined) : undefined}
+                          >
+                            {s?.webName ?? `#${pick.playerId}`}
+                          </span>
+                          {row && (
+                            <AvailabilityBadge
+                              status={row.status}
+                              chanceOfPlaying={row.chance_of_playing_next_round}
+                              news={row.news}
+                              size="w-3.5 h-3.5"
+                            />
+                          )}
+                          {team.captain === pick.playerId && <CaptainBadge className="h-4 w-4" />}
+                          {team.viceCaptain === pick.playerId && (
+                            <ViceCaptainBadge className="h-4 w-4" />
+                          )}
+                          {incoming && (
+                            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                              → {incoming.webName}
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="py-1.5 text-xs text-zinc-500">
+                        {POSITIONS[s?.elementType ?? 0] ?? "—"}
+                      </td>
+                      <td className="py-1.5 text-xs tabular-nums text-zinc-500">
+                        {money(pick.purchasePrice)}
+                      </td>
+                      <td className="py-1.5 tabular-nums font-semibold text-purple-800 dark:text-[#00FF87]">
+                        {s ? xpFor(s, horizon).toFixed(1) : "—"}
+                      </td>
+                      <td className="py-1.5 tabular-nums text-zinc-500">
+                        {s ? riskScore(s, horizon) : "—"}
+                      </td>
+                      <td className="py-1.5 text-right">
+                        {move ? (
+                          <button
+                            onClick={() => setMoves((prev) => prev.filter((m) => m.outId !== move.outId))}
+                            className="text-xs text-zinc-500 underline-offset-2 hover:underline"
+                          >
+                            undo
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setPickingFor(pick.playerId);
+                              setSearch("");
+                            }}
+                            className="rounded border border-zinc-300 px-2 py-0.5 text-xs font-medium transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+                          >
+                            Transfer out
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* candidate picker */}
+            {pickingFor !== null && (
+              <div className="mt-4 rounded-lg border border-purple-300 p-3 dark:border-[#00FF87]/40">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Replace {scoredById.get(pickingFor)?.webName}
+                  </h3>
+                  <button
+                    onClick={() => setPickingFor(null)}
+                    aria-label="Cancel"
+                    className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                  >
+                    ×
+                  </button>
+                </div>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search for a specific player…"
+                  className="mt-2 w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                />
+                {candidates.length === 0 ? (
+                  <p className="mt-2 text-xs text-zinc-500">
+                    {search.trim().length >= 2
+                      ? "No player of that position matches."
+                      : "Nothing available improves on this pick."}
+                  </p>
+                ) : (
+                  <ul className="mt-2 space-y-1">
+                    {candidates.map(({ player, teamFit, rationale }) => (
+                      <li key={player.id}>
+                        <button
+                          onClick={() => addMove(pickingFor, player.id)}
+                          className="flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-purple-950/60"
+                        >
+                          <span className="min-w-0">
+                            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                              {player.webName}
+                            </span>
+                            <span className="ml-1.5 text-xs text-zinc-500">
+                              {player.teamShort} · {money(player.price)}
+                            </span>
+                            {rationale.length > 0 && (
+                              <span className="block text-[11px] text-zinc-500">
+                                {rationale.join(" · ")}
+                              </span>
+                            )}
+                          </span>
+                          <span className="shrink-0 text-right">
+                            <span className="block tabular-nums font-semibold text-purple-800 dark:text-[#00FF87]">
+                              {xpFor(player, horizon).toFixed(1)}
+                            </span>
+                            {teamFit !== null && (
+                              <span
+                                className={`block text-[10px] tabular-nums ${
+                                  teamFit > 0
+                                    ? "text-emerald-700 dark:text-emerald-400"
+                                    : "text-amber-700 dark:text-amber-400"
+                                }`}
+                              >
+                                fit {signed(teamFit)}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* result */}
+          <aside className="space-y-4">
+            {simulation && moves.length === 0 && (
+              <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+                <p className="text-sm text-zinc-500">
+                  Choose a player to transfer out. Nothing is committed until you apply, and applying
+                  writes a new draft rather than changing this one.
+                </p>
+                <dl className="mt-3 space-y-1 text-sm">
+                  <Row
+                    label={`Team xP · ${horizonLabel(horizon)}`}
+                    value={simulation.before.projection.total.toFixed(1)}
+                  />
+                  <Row label="In the bank" value={money(simulation.before.bank)} />
+                </dl>
+              </div>
+            )}
+
+            {simulation && moves.length > 0 && (
+              <div className="rounded-xl border border-purple-300 bg-white p-4 dark:border-[#00FF87]/40 dark:bg-[#1E0234]">
+                <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  {simulation.cost.transfers} transfer
+                  {simulation.cost.transfers === 1 ? "" : "s"} · {horizonLabel(horizon)}
+                </h2>
+
+                {/* headline */}
+                <div className="mt-1.5">
+                  <div
+                    className={`text-3xl font-extrabold tabular-nums ${
+                      simulation.transferGain > 0
+                        ? "text-emerald-700 dark:text-emerald-400"
+                        : "text-amber-700 dark:text-amber-400"
+                    }`}
+                  >
+                    {signed(simulation.transferGain)}
+                  </div>
+                  {/* The hit is shown as its own term, never folded silently into
+                      the net figure. */}
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    {signed(simulation.xpDelta)} xP
+                    {simulation.cost.pointsCost > 0
+                      ? ` − ${simulation.cost.pointsCost} hit`
+                      : " · no hit"}
+                    {Math.abs(simulation.riskPointsDelta) >= 0.05
+                      ? ` ${simulation.riskPointsDelta > 0 ? "−" : "+"} ${Math.abs(simulation.riskPointsDelta).toFixed(1)} risk`
+                      : ""}
+                  </p>
+                  {simulation.cost.hits > 0 && (
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      {simulation.cost.transfers} transfers, {simulation.cost.freeTransfers} free →{" "}
+                      {simulation.cost.hits} hit{simulation.cost.hits === 1 ? "" : "s"}
+                    </p>
+                  )}
+                </div>
+
+                {!simulation.legal && (
+                  <div className="mt-3 rounded-md border border-red-300 bg-red-50 px-2.5 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/60 dark:text-red-300">
+                    <p className="font-medium">This squad could not be entered into FPL:</p>
+                    <ul className="mt-1 list-inside list-disc space-y-0.5">
+                      {simulation.problems.map((p) => (
+                        <li key={p}>{p}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {simulation.legal && simulation.transferGain <= 0 && (
+                  <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+                    This does not pay for itself over {horizonLabel(horizon)}. Rolling the transfer
+                    keeps the option open.
+                  </p>
+                )}
+
+                {simulation.armbandNote && (
+                  <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
+                    {simulation.armbandNote}
+                  </p>
+                )}
+
+                {/* before / after */}
+                <dl className="mt-3 space-y-1 border-t border-zinc-100 pt-2.5 text-sm dark:border-purple-900/40">
+                  <Row
+                    label="Team xP"
+                    value={`${simulation.before.projection.total.toFixed(1)} → ${simulation.after.projection.total.toFixed(1)}`}
+                    delta={simulation.xpDelta}
+                  />
+                  <Row
+                    label="Mean FDR score"
+                    value={`${simulation.before.meanFixture.toFixed(2)} → ${simulation.after.meanFixture.toFixed(2)}`}
+                    delta={simulation.after.meanFixture - simulation.before.meanFixture}
+                    digits={2}
+                  />
+                  <Row
+                    label="Mean risk"
+                    value={`${simulation.before.meanRisk.toFixed(0)} → ${simulation.after.meanRisk.toFixed(0)}`}
+                    delta={simulation.after.meanRisk - simulation.before.meanRisk}
+                    digits={0}
+                    lowerIsBetter
+                  />
+                  <Row
+                    label="Bench contribution"
+                    value={`${(simulation.before.benchContribution ?? 0).toFixed(1)} → ${(simulation.after.benchContribution ?? 0).toFixed(1)}`}
+                    delta={
+                      (simulation.after.benchContribution ?? 0) -
+                      (simulation.before.benchContribution ?? 0)
+                    }
+                  />
+                  <Row
+                    label="In the bank"
+                    value={`${money(simulation.before.bank)} → ${money(simulation.after.bank)}`}
+                  />
+                </dl>
+
+                {/* per move */}
+                <ul className="mt-3 space-y-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
+                  {simulation.moves.map((m) => (
+                    <li key={`${m.outId}-${m.inId}`}>
+                      <span className="text-zinc-700 dark:text-zinc-300">
+                        {m.outName} → {m.inName}
+                      </span>
+                      <span className="ml-1.5 text-zinc-500">
+                        {signed(m.xpDelta)} xP · {m.cashFreed >= 0 ? "frees" : "costs"}{" "}
+                        {money(Math.abs(m.cashFreed))}
+                        {Math.abs(m.riskDelta) >= 1 ? ` · risk ${signed(m.riskDelta, 0)}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  onClick={applyAsNewDraft}
+                  disabled={!simulation.legal}
+                  title={
+                    simulation.legal
+                      ? "Saves the result as a new draft"
+                      : "Fix the problems above first"
+                  }
+                  className="mt-3 w-full rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                >
+                  Apply as a new draft
+                </button>
+                {applied && (
+                  <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">
+                    {applied}{" "}
+                    <Link
+                      href="/scenarios"
+                      className="underline-offset-2 hover:underline dark:text-[#00FF87]"
+                    >
+                      Compare in Scenario Lab
+                    </Link>
+                  </p>
+                )}
+
+                <p className="mt-3 text-[10px] leading-relaxed text-zinc-400">
+                  {TRANSFER_MODEL_NOTE}
+                </p>
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
+    </main>
+  );
+}
+
+function Row({
+  label,
+  value,
+  delta,
+  digits = 1,
+  lowerIsBetter = false,
+}: {
+  label: string;
+  value: string;
+  delta?: number;
+  digits?: number;
+  lowerIsBetter?: boolean;
+}) {
+  const good = delta === undefined ? null : lowerIsBetter ? delta < 0 : delta > 0;
+  const show = delta !== undefined && Math.abs(delta) >= (digits === 0 ? 1 : 0.05);
+
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <dt className="text-xs text-zinc-500">{label}</dt>
+      <dd className="tabular-nums text-zinc-800 dark:text-zinc-200">
+        {value}
+        {show && (
+          <span
+            className={`ml-1.5 text-xs ${
+              good ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"
+            }`}
+          >
+            ({delta! >= 0 ? "+" : ""}
+            {delta!.toFixed(digits)})
+          </span>
+        )}
+      </dd>
+    </div>
+  );
+}

@@ -306,6 +306,34 @@ export function computeProjection(
   return { total: base + captainBonus, captainBonus, missing };
 }
 
+const sameIds = (a: readonly number[], b: readonly number[]) =>
+  a.length === b.length && a.every((id, i) => id === b[i]);
+
+/**
+ * Whether two states are the same squad, for "are there unsaved changes?".
+ *
+ * Compares what a user would call the squad and deliberately ignores
+ * `updatedAt` / `createdAt` — every save restamps those, so including them would
+ * make a freshly loaded draft read as dirty forever.
+ */
+export function sameSquadState(a: TeamState, b: TeamState): boolean {
+  return (
+    a.name === b.name &&
+    a.captain === b.captain &&
+    a.viceCaptain === b.viceCaptain &&
+    a.budget === b.budget &&
+    a.activeChip === b.activeChip &&
+    a.freeTransfers === b.freeTransfers &&
+    a.players.length === b.players.length &&
+    a.players.every(
+      (p, i) =>
+        p.playerId === b.players[i].playerId && p.purchasePrice === b.players[i].purchasePrice,
+    ) &&
+    sameIds(a.startingXI, b.startingXI) &&
+    sameIds(a.benchOrder, b.benchOrder)
+  );
+}
+
 export function addPlayer(state: TeamState, meta: PlayerMeta): TeamState {
   return {
     ...state,

@@ -56,12 +56,13 @@ URLs with curl — several documented patterns 404.
 
 ```
 app/            routes: / · /team · /players · /fixtures · /changes · /status
-                        /builder (squad builder) · /scenarios (draft lab) · /compare
+                        /builder · /scenarios (draft lab) · /transfers · /compare
 lib/            team-state.ts   TeamState, validateSquad, computeProjection, horizons, armbands
                 optimizer.ts    greedy + swap squad optimiser (strategies, risk gates)
                 lineup.ts       XI / captain / bench-order engine
                 scoring.ts      risk, comparison, replacement finder
                 squad-score.ts  SquadScore over a whole draft (points-equivalent terms)
+                transfers.ts    transfer basket simulation, sell prices, hit cost
                 player-search.ts  name matching for every search box
                 formation.ts    bestStartingXi · fdr.ts FDR palette · drafts.ts localStorage
                 supabase/client.ts
@@ -120,12 +121,13 @@ landing. Not for routine progress.
 
 Built: sync pipeline, xP engine v1.0.0, dark theme, `/players`, `/fixtures` (Schedule + FDR tabs),
 `/builder` (pitch UI, paginated picker, squad optimiser, lineup engine, replacement finder),
-`/compare`, and `/scenarios` (draft manager, SquadScore, comparison, timeline). In the revised
-numbering that covers Sprints 5, 6, 7 and 11.
+`/compare`, `/scenarios` (draft manager, SquadScore, comparison, timeline), and `/transfers`
+(basket simulation with hits, sell prices, armband handling). In the revised numbering that covers
+Sprints 5, 6, 7, 8 and 11.
 
-Next: **Sprint 8 — Transfer Simulator**, then 9 (transfer optimiser with up to five banked FTs). See
-[docs/roadmap.md](docs/roadmap.md) for the full ordering and the finishing passes outstanding on 6, 7
-and 11.
+Next: **Sprint 9 — Transfer Optimizer** (roll vs 1 vs 2 vs hit vs wildcard, and the free-transfer
+banking rules Sprint 8 deliberately left as an input). See [docs/roadmap.md](docs/roadmap.md) for the
+full ordering and the finishing passes outstanding on 6, 7 and 11.
 
 Blocked, with the reason recorded rather than worked around:
 

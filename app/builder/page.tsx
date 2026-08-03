@@ -22,6 +22,7 @@ import {
   removePlayer,
   setCaptain,
   setViceCaptain,
+  sameSquadState,
   validateSquad,
   xpAt,
   HORIZONS,
@@ -52,6 +53,7 @@ import {
 } from "@/lib/scoring";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { fullName, matchesPlayerQuery } from "@/lib/player-search";
+import { ActionMenu } from "@/components/ui/action-menu";
 
 interface PlayerRow {
   id: number;
@@ -116,6 +118,11 @@ export default function BuilderPage() {
    * only rewritten on Save, so restoring this returns exactly what was there.
    */
   const [previousTeam, setPreviousTeam] = useState<TeamState | null>(null);
+  /**
+   * The draft as it exists on disk, for "reset to saved" and for greying out
+   * Save when nothing has changed. Null until a draft has been saved once.
+   */
+  const [savedTeam, setSavedTeam] = useState<TeamState | null>(null);
 
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState<number>(0);
@@ -238,7 +245,10 @@ export default function BuilderPage() {
         // recently saved draft when the id is absent or stale.
         const wanted = new URLSearchParams(window.location.search).get("draft");
         const requested = wanted ? existing.find((d) => d.draftId === wanted) : undefined;
-        setTeam(requested ?? existing[0] ?? emptyTeamState(loadedRules));
+        const initial = requested ?? existing[0] ?? emptyTeamState(loadedRules);
+        setTeam(initial);
+        // Anything that came out of storage is by definition already saved.
+        setSavedTeam(existing.some((d) => d.draftId === initial.draftId) ? initial : null);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -334,11 +344,12 @@ export default function BuilderPage() {
   };
 
   /** Switching or creating a draft invalidates the undo slot. */
-  const switchTeam = (next: TeamState) => {
+  const switchTeam = (next: TeamState, isStored = false) => {
     setTeam(next);
     setSaved(null);
     setPreviousTeam(null);
     setOptimizeNote(null);
+    setSavedTeam(isStored ? next : null);
   };
 
   const onSave = () => {
@@ -347,6 +358,23 @@ export default function BuilderPage() {
     setDrafts(listDrafts());
     setSaved(`Saved ${new Date(stored.updatedAt).toLocaleTimeString()}`);
     setPreviousTeam(null);
+    setSavedTeam(stored);
+  };
+
+  /**
+   * Unsaved changes. A draft that has never been saved counts as dirty only
+   * once it holds a player, so an empty "New draft" does not offer to save
+   * nothing.
+   */
+  const isDirty =
+    savedTeam === null ? team.players.length > 0 : !sameSquadState(team, savedTeam);
+
+  const onResetToSaved = () => {
+    if (savedTeam === null) return;
+    setTeam(savedTeam);
+    setPreviousTeam(null);
+    setOptimizeNote(null);
+    setSaved("Reset to the last saved squad");
   };
 
   const runOptimizer = (clearFirst: boolean) => {
@@ -786,7 +814,7 @@ export default function BuilderPage() {
               value={team.draftId}
               onChange={(e) => {
                 const found = drafts.find((d) => d.draftId === e.target.value);
-                if (found) switchTeam(found);
+                if (found) switchTeam(found, true);
               }}
               className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
             >
@@ -806,41 +834,55 @@ export default function BuilderPage() {
             aria-label="Draft name"
             className="w-36 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus:border-[#00FF87]"
           />
-          <button
-            onClick={onSave}
-            className="rounded-md bg-purple-950 px-3 py-1.5 font-medium text-white transition-colors hover:bg-purple-800 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
-          >
-            Save
-          </button>
-          {[
-            { label: "New", fn: () => switchTeam(emptyTeamState(rules)) },
-            {
-              label: "Clone",
-              fn: () => {
-                const copy = cloneDraft(team);
-                setTeam(copy);
-                setDrafts(listDrafts());
-                setSaved("Cloned");
+          <ActionMenu
+            primaryLabel="Save"
+            onPrimary={onSave}
+            primaryDisabled={!isDirty}
+            primaryDisabledReason="No unsaved changes"
+            menuLabel="Draft actions"
+            items={[
+              // Only offered once there is a saved state to return to.
+              ...(savedTeam !== null
+                ? [
+                    {
+                      label: "Reset to saved",
+                      onSelect: onResetToSaved,
+                      disabled: !isDirty,
+                      disabledReason: "No unsaved changes",
+                      description: "Discard changes since the last save",
+                    },
+                  ]
+                : []),
+              {
+                label: "New",
+                onSelect: () => switchTeam(emptyTeamState(rules)),
+                description: isDirty ? "Unsaved changes will be lost" : undefined,
               },
-            },
-            {
-              label: "Delete",
-              fn: () => {
-                deleteDraft(team.draftId);
-                const rest = listDrafts();
-                setDrafts(rest);
-                switchTeam(rest[0] ?? emptyTeamState(rules));
+              {
+                label: "Clone",
+                onSelect: () => {
+                  const copy = cloneDraft(team);
+                  setTeam(copy);
+                  setSavedTeam(copy);
+                  setDrafts(listDrafts());
+                  setSaved("Cloned");
+                },
+                description: "Save a copy and switch to it",
               },
-            },
-          ].map((b) => (
-            <button
-              key={b.label}
-              onClick={b.fn}
-              className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
-            >
-              {b.label}
-            </button>
-          ))}
+              {
+                label: "Delete",
+                onSelect: () => {
+                  deleteDraft(team.draftId);
+                  const rest = listDrafts();
+                  setDrafts(rest);
+                  switchTeam(rest[0] ?? emptyTeamState(rules), rest.length > 0);
+                },
+                danger: true,
+                confirm: true,
+                description: "Permanently removes this draft",
+              },
+            ]}
+          />
           {saved && <span className="text-xs text-zinc-500">{saved}</span>}
         </div>
       </div>
