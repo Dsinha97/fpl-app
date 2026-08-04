@@ -163,8 +163,9 @@ on the free tier.
 This is resumable, cannot exceed the wall-clock limit, and keeps ingestion inside Supabase as the target architecture
 intends. Player history is a daily job, not a hot path, so spreading it across invocations costs nothing.
 
-*Alternative considered:* a GitHub Actions job has no time limit and is free for public repos, but splits ingestion
-across two platforms and puts the FPL fetch logic outside Supabase.
+*Alternative considered:* a GitHub Actions job has no time limit and was free while this repo was public, but splits
+ingestion across two platforms and puts the FPL fetch logic outside Supabase. The repo is private now, so Actions
+minutes are metered — which strengthens the original decision rather than changing it.
 
 ### 3.2 Shared module
 

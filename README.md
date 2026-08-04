@@ -1,9 +1,9 @@
 # FPL App
 
 Personal Fantasy Premier League analytics and decision-support application. A static Next.js front
-end on GitHub Pages, with Supabase Postgres and Edge Functions behind it.
+end on Cloudflare, with Supabase Postgres and Edge Functions behind it.
 
-Live at [dsinha97.github.io/fpl-app](https://dsinha97.github.io/fpl-app/).
+Live at [fpl-app.deepayansinha.workers.dev](https://fpl-app.deepayansinha.workers.dev/).
 
 ## Docs
 
@@ -42,7 +42,7 @@ ranking five worse options.
 - Next.js 16 (static export) + React 19 + TypeScript + Tailwind CSS v4
 - [Base UI](https://base-ui.com) for interactive primitives, shadcn/ui conventions for the rest
 - Supabase (Postgres, Edge Functions, pg_cron) as the system of record
-- GitHub Pages, deployed by GitHub Actions
+- Cloudflare Workers static assets, built from `main` by Cloudflare's Git integration
 
 ## Getting started
 
@@ -87,14 +87,23 @@ npm run build        # static export to out/ — must pass before pushing
 - `supabase/migrations/` — versioned schema changes
 - `supabase/functions/` — Edge Functions (ingestion, predictions). Deno, and deliberately excluded
   from `tsconfig` and eslint, or `tsc --noEmit` breaks on Deno globals
-- `.github/workflows/` — CI (`ci.yml`) and Pages deploy (`deploy.yml`)
+- `.github/workflows/` — CI only (`ci.yml`). The deploy lives on Cloudflare
+- `wrangler.jsonc` — Cloudflare Worker config: static assets from `out/`, no server script
 
 ## Deployment
 
-Pushing to `main` triggers `deploy.yml`, which builds the static export and publishes it to GitHub
-Pages. Repo secrets `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are
-consumed at build time. `next.config.ts` derives `basePath` from `GITHUB_REPOSITORY` in Actions, so
-one config serves local dev at `/` and Pages at `/fpl-app/`.
+Pushing to `main` triggers a Cloudflare build from the Git integration: `npm run build`, then
+`wrangler deploy` serves `out/` as static assets per `wrangler.jsonc`. Node comes from `.nvmrc`.
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` must be **Cloudflare Build
+variables**, not runtime bindings — a static export bakes them in at build time, and
+`lib/supabase/client.ts` calls `createClient` at module scope, so a missing one fails the build
+outright rather than degrading. The same two values are GitHub Secrets for `ci.yml`, which builds as
+a quality gate without deploying.
+
+Two things the Cloudflare setup wizard gets wrong for this project: it defaults the build command to
+the OpenNext adapter (`npx opennextjs-cloudflare build`), which targets server-rendered Next and
+fails on a static export, and it offers no base path — correctly, since the site is served from a
+domain root. There is deliberately no `basePath` in `next.config.ts` any more.
 
 ## Database changes
 

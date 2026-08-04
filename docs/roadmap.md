@@ -158,6 +158,24 @@ Not started. Findings that shape it, verified rather than assumed:
 - Free tier is 100 requests/day and `/players` paginates at 20, so a Championship season is ~36
   requests: enough for a seasonal backfill, never for anything live.
 
+### Hosting follow-ups (recorded 2026-08-04, after the move to Cloudflare)
+
+- **Content-Security-Policy.** `public/_headers` deliberately ships without one, because a hosting
+  migration is the worst time to introduce a subtle breakage you cannot attribute. The host list is
+  already worked out: `connect-src` for the Supabase project, `img-src` for `flagcdn.com`,
+  `resources.premierleague.com` and `fantasy.premierleague.com`. Verify the crests, kit graphics and
+  flag icons all still render before considering it done.
+- **Cloudflare Access.** The repo is private; the site is not. Gating it with Access (email
+  one-time-PIN, free to 50 users) is a dashboard change needing no code. If it is switched on, gate
+  **preview deployments too** — they get their own public URLs, so an unprotected preview makes the
+  gate decorative.
+- **Draft export/import.** Drafts live in origin-scoped `localStorage` with no export path, so the
+  move to a new hostname orphaned them (recovered by hand this time). A small export/import on
+  `/scenarios` would be a real backup and cost little; Sprint 14 supersedes it with cloud sync.
+- **Actions minutes are now metered.** Private repos get a monthly quota where public repos were
+  unlimited. Deleting `deploy.yml` roughly halved per-push consumption, leaving `ci.yml` at ~2
+  minutes a push — hundreds of pushes before it matters, but no longer free-and-ignorable.
+
 ### Dependency advisories (backlog, recorded 2026-08-03)
 
 `npm audit` reports 4 — 3 high, 1 moderate. Deliberately **not** fixed yet: the exposure here is low

@@ -11,7 +11,7 @@ FPL public API  ──►  Supabase Edge Functions (Deno)  ──►  Postgres (
                              ▲                                  │
                         pg_cron + pg_net                    anon SELECT
                                                                 ▼
-                                        Next.js static export ──► GitHub Pages
+                              Next.js static export ──► Cloudflare Workers assets
 ```
 
 The browser talks only to Postgres over the publishable key, and only reads. Every write
@@ -20,11 +20,30 @@ league data, which is why the client bundle needs no secret beyond the publishab
 
 ## Deployment
 
-`next.config.ts` sets `output: "export"`, `trailingSlash: true`, and derives `basePath` from
-`GITHUB_REPOSITORY` when `GITHUB_ACTIONS === "true"` — so local dev serves at `/` and Pages
-serves at `/fpl-app/` from one config. `.github/workflows/ci.yml` typechecks, lints, and
-builds; `deploy.yml` publishes `out/` to Pages. Both need the repo secrets
-`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+`next.config.ts` sets `output: "export"` and `trailingSlash: true`, and deliberately sets **no
+`basePath`** — the site is served from the root of its own hostname. Cloudflare's Git integration
+builds `main` with `npm run build` (Node from `.nvmrc`) and `wrangler deploy` serves `out/` as static
+assets per `wrangler.jsonc`; `public/_headers` ships as `out/_headers` for immutable asset caching.
+`.github/workflows/ci.yml` still typechecks, lints and builds as a quality gate, but no longer
+deploys.
+
+Three things this migration off GitHub Pages left behind, worth not rediscovering:
+
+- **The base path was a landmine, not just dead code.** It was derived from `GITHUB_REPOSITORY`
+  whenever `GITHUB_ACTIONS` was set. Cloudflare sets neither, so it resolved to `""` correctly by
+  accident — but any future build inside Actions would have silently prefixed every asset with
+  `/fpl-app`, giving a page whose HTML parsed and whose scripts all 404ed. Hence removed outright.
+- **`trailingSlash: true` now pairs with Cloudflare's `html_handling` default**
+  (`auto-trailing-slash`), which resolves both `/team` and `/team/` to `out/team/index.html`. Setting
+  that to `"none"` in `wrangler.jsonc` would 404 every route.
+- **`NEXT_PUBLIC_*` are Cloudflare *Build* variables, not runtime bindings.** A static export has no
+  runtime; the values are baked in at build. `lib/supabase/client.ts` calls `createClient` at module
+  scope, so a missing key throws `supabaseUrl is required` during prerender and fails the build. The
+  same pair are GitHub Secrets for `ci.yml`.
+
+The repository is **private**, which does not make the site private — the Workers URL is open to
+anyone holding it, and Postgres RLS remains the only real access boundary. Gating it with Cloudflare
+Access is a recorded follow-up in [roadmap.md](roadmap.md).
 
 Drafts live in `localStorage` — `fpl_drafts_v1`, plus `fpl_draft_history_v1` holding the last 20
 saves per draft for the Scenario Lab timeline (`lib/drafts.ts`). Cloud sync waits for Supabase Auth

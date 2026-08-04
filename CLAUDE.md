@@ -3,9 +3,10 @@
 # FPL Decision — Analytics Hub
 
 Personal Fantasy Premier League analytics and decision-support app. Static Next.js
-front end on GitHub Pages, Supabase Postgres + Edge Functions behind it.
+front end on Cloudflare, Supabase Postgres + Edge Functions behind it.
 
-- Live: https://dsinha97.github.io/fpl-app/ · repo `Dsinha97/fpl-app` (public)
+- Live: https://fpl-app.deepayansinha.workers.dev/ on Cloudflare Workers static assets ·
+  repo `Dsinha97/fpl-app` (**private**)
 - Supabase project `FPL-App`, ref `fyxyqxpscmqjyjxsyhms`
 - Owner's FPL manager ID **274486**; season being ingested 2026-27 (GW1 deadline 2026-08-21)
 - Roadmap: [docs/roadmap.md](docs/roadmap.md) — the authoritative sprint plan. It reconciles the
@@ -33,7 +34,8 @@ cache — delete `.next` and restart.
 **Secrets.** Never ask for, store, or accept the Supabase DB password. Migrations and
 function deploys go through the Supabase MCP OAuth integration; the browser client uses
 only the project URL and publishable key. `.env*` and `.claude/` are gitignored, and
-secrets belong in `.env.local` / GitHub Secrets referenced by name.
+secrets belong in `.env.local`, GitHub Secrets (for `ci.yml`) or Cloudflare Build variables
+(for the deploy) — referenced by name, never pasted into chat or a commit.
 
 **Missing pre-season data — drop, renormalise, disclose.** Several formulas in the plan
 reference fields FPL zeroes between seasons (team attack/defence strength, `players.form`).
@@ -131,7 +133,17 @@ or `tsc --noEmit` breaks on Deno globals.
   first 1,000 quietly shrinks every number computed from it (see `PAGE_ROWS` in `/transfers`).
 - Edge Functions called from the browser need CORS preflight (`preflight()` in
   `_shared/sync.ts`) — curl never exercises the OPTIONS request.
-- `trailingSlash: true` is required or `/team/` 404s on Pages.
+- `trailingSlash: true` is required or a direct hit on `/team/` 404s. It pairs with Cloudflare's
+  default `html_handling: "auto-trailing-slash"`, which resolves both `/team` and `/team/` to
+  `out/team/index.html` — setting that to `"none"` in `wrangler.jsonc` would 404 every route.
+- **Cloudflare's setup wizard sees `next` in package.json and configures the OpenNext adapter**
+  (`npx opennextjs-cloudflare build`), which is for server-rendered Next apps and dies on
+  `ENOENT .next/standalone/...pages-manifest.json`. This app is `output: "export"`; the build command
+  is plain `npm run build` and `wrangler.jsonc` serves `out/`. Don't let the wizard re-add it.
+- **Cloudflare runtime variables are not build variables.** A static export bakes
+  `NEXT_PUBLIC_*` in at build time, so they belong in Build variables. Set only as runtime
+  bindings, the build fails at `supabaseUrl is required` — `lib/supabase/client.ts` calls
+  `createClient` at module scope, so a missing key throws during prerender rather than degrading.
 - FPL kit images need the size suffix: `shirt_{team_code}-110.png`, GK `shirt_{code}_1-110.png`.
   Club crests are `resources.premierleague.com/premierleague/badges/70/t{team_code}.png`.
   FPL region codes aren't all ISO — EN/S1/WA/NI map to flagcdn `gb-eng`/`gb-sct`/`gb-wls`/`gb-nir`.
