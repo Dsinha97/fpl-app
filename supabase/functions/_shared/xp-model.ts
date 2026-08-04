@@ -264,7 +264,12 @@ export interface PriorCell {
   mu: number;
   /** Within-player, season-to-season variance. Numerator of the weight. */
   sigma2: number;
-  /** Between-player variance inside the band. */
+  /**
+   * Between-player variance, estimated per *position* rather than per band —
+   * a variance needs far more data than a mean, and the per-band estimate
+   * collapsed to zero on thin cells. Price informs `mu`; the position informs
+   * the spread. Repeated on every cell of a position, by design.
+   */
   tau2: number;
   sampleSize: number;
   shrunkTowardPosition: boolean;
