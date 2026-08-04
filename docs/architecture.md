@@ -1,7 +1,8 @@
 # Architecture
 
-Companion to [../CLAUDE.md](../CLAUDE.md). Roadmap lives in [updated-plan.md](updated-plan.md);
-the xP model's method and backtest in [phase-4-model.md](phase-4-model.md).
+Companion to [../CLAUDE.md](../CLAUDE.md). The authoritative sprint plan is
+[roadmap.md](roadmap.md); [updated-plan.md](updated-plan.md) is now the formula and method
+reference only. The xP model's method and backtest are in [phase-4-model.md](phase-4-model.md).
 
 ## Shape
 
@@ -25,8 +26,10 @@ serves at `/fpl-app/` from one config. `.github/workflows/ci.yml` typechecks, li
 builds; `deploy.yml` publishes `out/` to Pages. Both need the repo secrets
 `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
-Drafts live in `localStorage` (`lib/drafts.ts`). Cloud sync waits for Supabase Auth in
-Sprint 8, along with the `team_drafts` / `draft_players` / `draft_lineups` tables.
+Drafts live in `localStorage` — `fpl_drafts_v1`, plus `fpl_draft_history_v1` holding the last 20
+saves per draft for the Scenario Lab timeline (`lib/drafts.ts`). Cloud sync waits for Supabase Auth
+in **Sprint 14**, along with the `team_drafts` / `draft_players` / `draft_lineups` tables: a cloud
+table with no owning user column would only have to be rebuilt once auth arrives.
 
 ## Edge Functions and schedule
 
@@ -69,15 +72,52 @@ kickoff times and results. The `change_feed` view unions them for `/changes`.
 
 `player_predictions` stores one row per player per gameweek per model version;
 `prediction_models` records the version and parameters. The `player_xp_horizons` view
-pivots predictions into `xp_1` / `xp_3` / `xp_5` / `xp_8` / `xp_total`, which is the single shape the
-whole front end consumes (`expected_minutes` and `start_probability` come from
-`player_predictions` directly, for the next gameweek).
+pivots predictions into `xp_1` / `xp_3` / `xp_5` / `xp_8` / `xp_total`, which is the shape almost
+every screen consumes (`expected_minutes` and `start_probability` come from `player_predictions`
+directly, for the next gameweek).
+
+Two consumers need the **unpivoted** rows instead. `/transfers` reads `player_id, event, xp` across
+the whole window, because pricing a rolled transfer means knowing what a single gameweek is worth,
+which a cumulative total cannot answer. That is ~380 players × 8 gameweeks ≈ 3,040 rows, and
+**the API caps every response at 1000 rows whatever `.limit()` asks for** — a larger limit truncates
+and still returns 200. It has to be paged with `.range()` until a short page comes back; see
+`PAGE_ROWS` in `app/transfers/page.tsx`. Silently taking the first thousand would shrink every
+number computed from the series.
 
 `xp_total` sums every projected gameweek, so it is the Season horizon — but `generate-predictions`
 runs `HORIZON = 8`, which makes `xp_total` **identical to `xp_8`** today. `SEASON_HORIZON_NOTE` says so
-in the UI. Extending that window is the precondition for genuine season-long planning.
+in the UI. Extending that window is the precondition for genuine season-long planning, and since
+Sprint 9 it also bounds a *decision* rather than only a display: the transfer plan's roll branch
+cannot see past the window, which is why the value of waiting for news is an explicit user input.
+
+`chip_definitions` is load-bearing rather than decorative: the transfer optimiser reads the real
+wildcard window from it (wildcard #1 runs GW2–19), so the option is correctly unavailable in GW1.
 
 RLS: anon `SELECT` on reference and derived tables, writes service-role only.
+
+## Routes
+
+Static export, so no server components fetching at request time, no route handlers, and no
+`next/image` optimisation. Every page loads its own data from Postgres in the browser.
+
+| Route | What it is |
+|---|---|
+| `/` | Landing and status summary |
+| `/team` | The owner's real FPL squad. Empty until the first deadline — `manager_picks` has no rows yet |
+| `/players` | Explorer: paginated, searchable, position/team/price filters |
+| `/fixtures` | Schedule and FDR matrix sub-tabs |
+| `/changes` | The `change_feed` view — prices, ownership, status, news, fixture changes |
+| `/builder` | Pitch UI, paginated picker, squad optimiser, lineup engine, replacement finder |
+| `/scenarios` | Draft manager: SquadScore ranking, 2–4 draft comparison, save timeline |
+| `/transfers` | Weekly transfer plan, then basket simulation with hits and sell prices |
+| `/compare` | Head-to-head player comparison |
+| `/status` | `sync_runs` health per Edge Function |
+
+Two conventions worth knowing before touching a page. **Horizon** (`1 | 3 | 5 | 8 | "season"`) is a
+page-level control that drives projection, picker, optimiser and comparison together; the
+XI/captain/bench panel is deliberately pinned to the next gameweek, because FPL makes you pick one
+lineup per gameweek. And `"season"` is a *string*, so any arithmetic on a horizon must go through
+`horizonLength`, never the value itself.
 
 ## Model layer (`lib/`)
 
@@ -88,10 +128,15 @@ armbands, starting XI, bench order — mutated by pure functions returning new s
 `{ total, captainBonus, missing }`, weighting the armband bonus by availability so a
 doubtful captain's projection falls back toward the vice.
 
-- `optimizer.ts` — greedy build plus pairwise swap improvement, strategies
-  `max_points | balanced | value | differential`. Its risk gate is non-binding in practice:
-  the xP model already zeroes injured and suspended players, so they are never selected
-  regardless of the setting.
+- `optimizer.ts` — greedy build, then a bounded same-position swap pass, then a funded-upgrade pass
+  that downgrades one pick to pay for a better one (a same-position swap alone cannot fix a bad pick
+  costing 50p more than what is held, once the budget is committed). Strategies
+  `max_points | balanced | value | differential`. **Fill order and objective are separate concerns**:
+  maximising total xP under a budget is a knapsack, and ordering the fill by raw xP is the textbook
+  wrong answer — it buys five premiums and completes the squad with near-zero fillers, which is how
+  Maximum points once returned fewer points than Value. So `fillScoreOf` orders Maximum points by
+  points per million while `scoreOf` keeps raw points as what the swap passes maximise. Its risk gate
+  is non-binding in practice: the xP model already zeroes injured and suspended players.
 - `lineup.ts` — XI, captain, bench order. The XI maximises plain Σ xP, deliberately with no
   extra minutes multiplier, because xP already scales by expected minutes and double-counting
   would punish rotation risk twice. Bench order uses a Poisson substitution probability:
@@ -102,7 +147,37 @@ doubtful captain's projection falls back toward the vice.
   `comparePlayers` (normalised across the compared set, so it answers "which of these"),
   and `findReplacements`, which is squad-aware: the outgoing player's price is spendable and
   the club limit ignores him.
-- `formation.ts`, `fdr.ts`, `drafts.ts`, `supabase/client.ts`.
+- `squad-score.ts` — `SquadScore` over a whole draft, for the Scenario Lab. The terms arrive in
+  incompatible units (expected points in the hundreds, fixture quality 0–1, risk 0–100), so each is
+  converted to points-equivalent before summing and the per-term breakdown is returned so a
+  comparison table can show what drove the total. Exports `riskPoints`, the single risk→points
+  exchange rate — shared with `transfers.ts` so two screens cannot disagree about one squad.
+- `transfers.ts` — basket simulation. Applies out/in pairs in order against a working copy, so cash
+  freed by move one funds move two, as the game behaves. `sellPrice` follows FPL's rule (purchase
+  price plus half of any rise, rounded down); `accrueFreeTransfers` is the banking rule, one per
+  gameweek capped at five and clamped at both ends. Pure, so the optimiser below can call it in a
+  loop.
+- `transfer-optimizer.ts` — the weekly decision: roll, spend one, spend two, take a hit, or wildcard.
+  A beam search over `findReplacements` candidates, every surviving basket scored by
+  `simulateTransfers` rather than by a second scorer, so a recommendation cannot contradict the
+  manual simulator. The beam carries *funders* as well as winners: selling a premium to pay for an
+  upgrade elsewhere scores badly alone, so a beam ranked only by gain prunes the first leg before the
+  second can pay for it. `projectAtEvent` mirrors `computeProjection` term for term on a single
+  gameweek, which is what prices the roll branch honestly — see the roll-value table in
+  [roadmap.md](roadmap.md).
+- `player-search.ts` — `matchesPlayerQuery` / `fullName`, matching every name field and folding
+  accents. Used by every search box, because `web_name` alone is not enough: FPL abbreviates it to
+  `E.Anderson`.
+- `formation.ts`, `fdr.ts`, `drafts.ts`, `utils.ts` (`cn`), `supabase/client.ts`.
+
+### Disclosed omissions
+
+Several formulas in the plan reference fields FPL zeroes between seasons. Rather than multiply a term
+by zero and ship a quietly shrunken score, the term is dropped, the remaining weights renormalised,
+and a note surfaced in the UI next to the number: `CAPTAIN_MODEL_NOTE` (`lineup.ts`),
+`COMPARISON_MODEL_NOTE` / `RISK_MODEL_NOTE` / `REPLACEMENT_MODEL_NOTE` (`scoring.ts`),
+`SEASON_HORIZON_NOTE` (`team-state.ts`), `TRANSFER_MODEL_NOTE` (`transfers.ts`), and
+`TRANSFER_OPTIMIZER_NOTE` (`transfer-optimizer.ts`).
 
 ## xP model
 

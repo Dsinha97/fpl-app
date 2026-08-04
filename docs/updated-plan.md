@@ -1112,6 +1112,11 @@ Risk
 
 This score should drive replacement recommendations.
 
+> **`SquadBalance` and `FutureFlexibility` are omitted from the shipped TeamFit** — see
+> `REPLACEMENT_MODEL_NOTE` in `lib/scoring.ts`, which says so in the UI. Both became computable once
+> Sprint 9 loaded the per-gameweek series, but threading it into the builder's replacement panel is
+> still outstanding; it is tracked under "Finishing passes" in [roadmap.md](roadmap.md).
+
 ---
 
 # Replacement Finder
@@ -1355,6 +1360,13 @@ RollValue
 
 DecisionMargin
 ```
+
+> **Not implemented as written — see the Sprint 9 section of [roadmap.md](roadmap.md).** With a frozen
+> eight-gameweek projection, `RollValue` as stated can never win: the best future basket is already
+> visible today, and playing it today collects one extra gameweek of the same gain. `FutureFlexibility`
+> is therefore not estimated. Rolling is priced from the two computable reasons (banking a second free
+> transfer to fund a basket you cannot split into singles, and avoiding a hit), and `DecisionMargin`
+> became an explicit user input labelled as an assumption rather than a fitted coefficient.
 
 Example:
 

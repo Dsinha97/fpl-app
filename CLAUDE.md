@@ -41,10 +41,27 @@ Do not multiply a term by zero and ship a quietly shrunken score. Drop the term,
 renormalise the remaining weights, and surface a note in the UI next to the number.
 Precedent: `CAPTAIN_MODEL_NOTE` in `lib/lineup.ts`, `COMPARISON_MODEL_NOTE` and `RISK_MODEL_NOTE` in
 `lib/scoring.ts`, `REPLACEMENT_MODEL_NOTE` for the omitted TeamFit terms, `SEASON_HORIZON_NOTE` in
-`lib/team-state.ts` for a horizon that is shorter than its name suggests.
+`lib/team-state.ts` for a horizon that is shorter than its name suggests, `TRANSFER_MODEL_NOTE` in
+`lib/transfers.ts`, `TRANSFER_OPTIMIZER_NOTE` in `lib/transfer-optimizer.ts`.
+
+**When a term cannot be dropped, make it an input.** Sometimes the missing quantity *is* the
+feature — rolling a transfer is only worth something the frozen projection cannot see, so dropping it
+would delete the option, and estimating it would be a fudge factor wearing a model's clothes. The
+third way is `decisionMargin` in `lib/transfer-optimizer.ts`: a user-set number, defaulted and
+documented, rendered as its own `+1 news` term and settable to zero to see the arithmetic alone.
+Never tune an invented coefficient until the answer looks reasonable.
 
 **Say what the number means.** Downgrades are labelled as downgrades; empty result sets
 say so ("Nothing available improves on this pick") rather than ranking five worse options.
+Costs and assumptions stay as their own terms — the transfer headline reads
+`+8.5 xP − 8 hit − 0.2 risk = +0.3`, never a bare net figure. A basket that only breaks even should
+look like one. Where a figure is knowingly conservative, say so and prefer understating: the wildcard
+row does not re-optimise the armband, and discloses that its gain is therefore understated.
+
+**One quantity, one implementation.** `riskPoints` (`lib/squad-score.ts`) is the single risk→points
+rate, so Scenarios and Transfers cannot disagree about the same squad; the transfer optimiser scores
+every branch through `simulateTransfers` rather than a second scorer, so the recommendation and the
+manual basket agree to the decimal. Two implementations of one number is a bug with a delay on it.
 
 **Squad rules come from the database.** Load `SquadRules` from `game_settings`; never
 hardcode 15 players / £100m / 3-per-club.
@@ -58,7 +75,8 @@ URLs with curl — several documented patterns 404.
 app/            routes: / · /team · /players · /fixtures · /changes · /status
                         /builder · /scenarios (draft lab) · /transfers · /compare
 lib/            team-state.ts   TeamState, validateSquad, computeProjection, horizons, armbands
-                optimizer.ts    greedy + swap squad optimiser (strategies, risk gates)
+                optimizer.ts    greedy fill + swap + funded-upgrade squad optimiser; fill order
+                                and objective are separate (see fillScoreOf vs scoreOf)
                 lineup.ts       XI / captain / bench-order engine
                 scoring.ts      risk, comparison, replacement finder
                 squad-score.ts  SquadScore over a whole draft (points-equivalent terms)
@@ -66,7 +84,7 @@ lib/            team-state.ts   TeamState, validateSquad, computeProjection, hor
                 transfer-optimizer.ts  roll vs spend vs hit vs wildcard, beam search over baskets
                 player-search.ts  name matching for every search box
                 formation.ts    bestStartingXi · fdr.ts FDR palette · drafts.ts localStorage
-                supabase/client.ts
+                utils.ts        cn() · supabase/client.ts
 components/     pitch-view, pitch, player-card, player-detail, armband, identity, transfer-plan,
                 fixture-schedule, fdr-matrix, draft-timeline, player-status-icons,
                 fdr-badge, brand, theme, nav-links, info-tooltip, ui/ (+ range-slider)
@@ -115,6 +133,18 @@ or `tsc --noEmit` breaks on Deno globals.
   Club crests are `resources.premierleague.com/premierleague/badges/70/t{team_code}.png`.
   FPL region codes aren't all ISO — EN/S1/WA/NI map to flagcdn `gb-eng`/`gb-sct`/`gb-wls`/`gb-nir`.
 - Don't touch refs inside an IIFE in JSX; hoist into a `useMemo` or React lints it.
+- **Filling a budget-constrained squad greedily by raw score is wrong**, and it looked right for two
+  sprints: `max_points` returned 257.8 xP where `value` returned 311.6, because taking the highest
+  xP first buys five premiums and leaves ten slots for whatever the budget reserve still permits. It
+  is a knapsack — order the fill by score *per million*, then let the swap passes spend the surplus
+  on raw points. A legality floor is not a quality floor.
+- **Bounded searches prune the moves that only pay off in combination.** A beam ranked purely by gain
+  drops the "sell a premium to fund an upgrade elsewhere" leg before its second leg exists, so
+  `transfer-optimizer.ts` carries funders alongside winners (`FUNDER_WIDTH`). Same shape of bug as
+  the reserve floor above.
+- Verify engine changes by running the real module against live data in a `npx tsx` harness before
+  trusting the UI — both bugs above survived review and were caught that way in minutes. Keep the
+  harness out of the commit.
 
 ## Notifications
 
