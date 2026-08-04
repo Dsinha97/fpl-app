@@ -42,6 +42,30 @@ Small, do them opportunistically rather than as sprints.
   per-gameweek series is loaded, but `findReplacements` still omits them (`REPLACEMENT_MODEL_NOTE`).
   Threading the series into the builder's replacement panel is the remaining work.
 
+### Dependency advisories (backlog, recorded 2026-08-03)
+
+`npm audit` reports 4 — 3 high, 1 moderate. Deliberately **not** fixed yet: the exposure here is low
+and the fix touches the framework version, which this repo treats as a change needing its own
+verification pass. Recorded rather than silently carried.
+
+| Package | Severity | What it is | Exposure in this app |
+|---|---|---|---|
+| `postcss` | high | Path traversal / arbitrary `.map` file read via attacker-controlled `sourceMappingURL` in CSS comments | Build-time only, on CSS we author ourselves in CI |
+| `sharp` | high | Inherited libvips CVEs | Next uses it for image optimisation, which a static export disables — so it should never run |
+| `next` | high | Flagged transitively through the two above | Static export: no server, no route handlers, no request-time rendering |
+| `hono` | moderate | ReDoS in CORS middleware | Arrives via `shadcn` → `@modelcontextprotocol/sdk`, a dev-time CLI that never ships to the browser |
+
+The fix for the first three is a single non-breaking bump, `next@16.2.12 → 16.3.0`
+(`isSemVerMajor: false`). Do it deliberately, not with `npm audit fix --force`, and heed
+[../AGENTS.md](../AGENTS.md) — this is not the Next.js in anyone's training data, so read
+`node_modules/next/dist/docs/` for the version's own notes before assuming a minor bump is inert.
+Then the full gate: `npx tsc --noEmit`, `npm run lint`, `npm run build`, and a browser pass over
+`/builder` and `/transfers` in both themes.
+
+`hono` is separate. The cleanest fix is not a version pin but moving **`shadcn` out of
+`dependencies` into `devDependencies`**, where a scaffolding CLI belongs — that drops the whole
+subtree from production installs and takes the advisory with it.
+
 ## Sprint 5 — Scenario Lab & Draft Management (built)
 
 `/scenarios` — every draft as a card ranked by SquadScore, with inline rename, clone, delete, open

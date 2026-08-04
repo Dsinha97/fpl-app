@@ -164,6 +164,11 @@ Next: **Sprint 12 — Chip Strategy Engine**, which needs the prediction window 
 gameweeks first. See [docs/roadmap.md](docs/roadmap.md) for the full ordering and the finishing
 passes outstanding on 6, 7, 9 and 11.
 
+Carried knowingly: **4 `npm audit` advisories** (3 high, 1 moderate — `postcss`, `sharp`, `next`,
+`hono`). Low exposure on a static export with no image optimisation, and the fix is a framework bump
+that needs its own verification pass. Assessed per-package under "Dependency advisories" in
+[docs/roadmap.md](docs/roadmap.md) — don't reach for `npm audit fix --force`.
+
 Blocked, with the reason recorded rather than worked around:
 
 - **Team strength is 0 for all 20 clubs** pre-season → custom FDR and the `TeamAttackStrength` term.
