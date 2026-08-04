@@ -10,10 +10,14 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { currentSeason, jsonResponse, preflight, serviceClient, SyncRun } from "../_shared/sync.ts";
 import { chunk } from "../_shared/coerce.ts";
 import {
-  deriveRates,
+  deriveRatesWithPrior,
+  fitRatePriors,
   MODEL_PARAMS,
   MODEL_VERSION,
   predict,
+  priceBandOf,
+  ratesAtBound,
+  type FitRow,
   type ScoringRules,
   type SeasonRow,
 } from "../_shared/xp-model.ts";
@@ -53,9 +57,11 @@ Deno.serve(async (req) => {
     const { error: modelError } = await db.from("prediction_models").upsert({
       version: MODEL_VERSION,
       description:
-        "Baseline pre-season model: prior-season per-90 rates, recency weighted, " +
-        "with official-FDR fixture multipliers and Poisson threshold models for " +
-        "defensive contribution, saves, and goals conceded.",
+        "Prior-season per-90 rates, recency weighted, with official-FDR fixture " +
+        "multipliers and Poisson threshold models for defensive contribution, saves, " +
+        "and goals conceded. v1.1.0 adds an empirical-Bayes cold-start layer: rates " +
+        "are shrunk toward a prior fitted from position and price by measured " +
+        "variance components, so a thin record is used rather than discarded.",
       params: MODEL_PARAMS,
     }, { onConflict: "version" });
     if (modelError) throw new Error(`prediction_models: ${modelError.message}`);
@@ -79,7 +85,7 @@ Deno.serve(async (req) => {
 
     const [playersRes, typesRes, fixturesRes] = await Promise.all([
       db.from("players")
-        .select("id, code, team_id, element_type, status, chance_of_playing_next_round")
+        .select("id, code, team_id, element_type, status, chance_of_playing_next_round, now_cost")
         .eq("season", season)
         .limit(1000),
       db.from("element_types").select("id, singular_name_short").eq("season", season),
@@ -105,15 +111,20 @@ Deno.serve(async (req) => {
       element_type: number;
       status: string | null;
       chance_of_playing_next_round: number | null;
+      now_cost: number | null;
     }[];
 
+    const positionByCode = new Map(players.map((p) => [p.code, p.element_type]));
+
     const historyByCode = new Map<number, SeasonRow[]>();
+    const fitRows: FitRow[] = [];
     for (const codes of chunk(players.map((p) => p.code), 200)) {
       const { data, error } = await db
         .from("player_season_history")
         .select(
           "player_code, season_name, minutes, starts, expected_goals, expected_assists, " +
-            "expected_goals_conceded, clean_sheets, bonus, saves, defensive_contribution, yellow_cards",
+            "expected_goals_conceded, clean_sheets, bonus, saves, defensive_contribution, " +
+            "yellow_cards, start_cost",
         )
         .in("player_code", codes);
       if (error) throw new Error(`player_season_history: ${error.message}`);
@@ -122,8 +133,45 @@ Deno.serve(async (req) => {
         const code = row.player_code as number;
         if (!historyByCode.has(code)) historyByCode.set(code, []);
         historyByCode.get(code)!.push(row as unknown as SeasonRow);
+
+        const positionId = positionByCode.get(code);
+        if (positionId === undefined) continue;
+        fitRows.push({
+          ...(row as unknown as SeasonRow),
+          player_code: code,
+          positionId,
+          // That season's own starting price, not today's — bucketing an old
+          // season by a price set years later would be hindsight.
+          priceBand: priceBandOf((row.start_cost as number | null) ?? 0),
+        });
       }
     }
+
+    // ------------------------------------------------------ fit the priors
+    //
+    // Fitted in-run and persisted, rather than by a separate scheduled
+    // function: one writer means the priors can never be stale relative to the
+    // predictions built from them, and storing them keeps a number auditable
+    // after the fact. It is ~1,400 rows of aggregation, negligible next to the
+    // per-player work below.
+    const priors = fitRatePriors(fitRows);
+
+    const { error: priorError } = await db.from("rate_priors").upsert(
+      priors.cells.map((c) => ({
+        season,
+        model_version: MODEL_VERSION,
+        position_id: c.positionId,
+        price_band: c.priceBand,
+        metric: c.metric,
+        mu: round(c.mu, 6),
+        sigma2: round(c.sigma2, 8),
+        tau2: round(c.tau2, 8),
+        sample_size: c.sampleSize,
+        shrunk_toward_position: c.shrunkTowardPosition,
+      })),
+      { onConflict: "season,model_version,position_id,price_band,metric" },
+    );
+    if (priorError) throw new Error(`rate_priors: ${priorError.message}`);
 
     // Fixtures indexed by team, so each player inherits their club's schedule.
     const byTeam = new Map<number, { fixtureId: number; event: number; opponent: number; isHome: boolean; fdr: number }[]>();
@@ -151,15 +199,33 @@ Deno.serve(async (req) => {
 
     const rows: Record<string, unknown>[] = [];
     let skippedNoRates = 0;
+    const bySource = new Map<string, number>();
 
     for (const p of players) {
-      const rates = deriveRates(historyByCode.get(p.code) ?? []);
-      if (!rates) {
-        // No usable history — a promoted-club player or a new signing to the
-        // league. Emitting nothing is better than emitting a fabricated xP.
+      // Shrunk toward the fitted prior rather than gated on a minutes floor. The
+      // old floor threw away every player under 270 weighted minutes — half of
+      // whom had real Premier League evidence — and the honest treatment is to
+      // use what they have and say how thin it is.
+      const shrunk = deriveRatesWithPrior({
+        rows: historyByCode.get(p.code) ?? [],
+        positionId: p.element_type,
+        priceBand: priceBandOf(p.now_cost ?? 0),
+        priors,
+      });
+      if (!shrunk) {
+        // The one abstention left: no Premier League minutes *and* no prior for
+        // this position at all. Emitting nothing beats emitting a fabricated xP.
         skippedNoRates++;
         continue;
       }
+      const { rates, evidence } = shrunk;
+      bySource.set(evidence.priorSource, (bySource.get(evidence.priorSource) ?? 0) + 1);
+
+      // The reported band comes from re-running the model at the rates' bounds.
+      // It is a rate-uncertainty band, not a prediction interval — see
+      // COLD_START_MODEL_NOTE.
+      const ratesLow = ratesAtBound(rates, evidence, -MODEL_PARAMS.bandZ);
+      const ratesHigh = ratesAtBound(rates, evidence, MODEL_PARAMS.bandZ);
 
       const code = positionCode.get(p.element_type) ?? "MID";
       const playerInput = {
@@ -170,7 +236,10 @@ Deno.serve(async (req) => {
       };
 
       for (const f of byTeam.get(p.team_id) ?? []) {
-        const pred = predict(playerInput, rates, { fdr: f.fdr, isHome: f.isHome }, scoring);
+        const fixture = { fdr: f.fdr, isHome: f.isHome };
+        const pred = predict(playerInput, rates, fixture, scoring);
+        const low = predict(playerInput, ratesLow, fixture, scoring);
+        const high = predict(playerInput, ratesHigh, fixture, scoring);
 
         rows.push({
           season,
@@ -201,6 +270,14 @@ Deno.serve(async (req) => {
           xp_cards: round(pred.components.cards, 3),
 
           xp: round(pred.xp, 3),
+          xp_lower: round(Math.min(low.xp, high.xp), 3),
+          xp_upper: round(Math.max(low.xp, high.xp), 3),
+
+          prior_weight: round(evidence.priorWeight, 3),
+          n_eff: round(evidence.nEff, 2),
+          reliability: evidence.reliability,
+          prior_source: evidence.priorSource,
+
           rates: {
             seasons: rates.seasonsUsed,
             mpg: round(rates.minutesPerGame, 1),
@@ -208,6 +285,11 @@ Deno.serve(async (req) => {
             xg90: round(rates.xg90, 3),
             xa90: round(rates.xa90, 3),
             dc90: round(rates.dc90, 2),
+            // Carried so a number can be explained after the fact, which is the
+            // whole point of storing provenance next to the value.
+            prior_weight: round(evidence.priorWeight, 3),
+            prior_source: evidence.priorSource,
+            n_eff: round(evidence.nEff, 2),
           },
         });
       }
@@ -234,7 +316,9 @@ Deno.serve(async (req) => {
         model_version: MODEL_VERSION,
         events: `${firstEvent}-${lastEvent}`,
         players_predicted: players.length - skippedNoRates,
-        skipped_no_history: skippedNoRates,
+        skipped_no_prior: skippedNoRates,
+        prior_cells: priors.cells.length,
+        by_prior_source: Object.fromEntries(bySource),
       },
     });
 
@@ -245,7 +329,9 @@ Deno.serve(async (req) => {
       events: `${firstEvent}-${lastEvent}`,
       predictions: rows.length,
       players_predicted: players.length - skippedNoRates,
-      skipped_no_history: skippedNoRates,
+      skipped_no_prior: skippedNoRates,
+      prior_cells: priors.cells.length,
+      by_prior_source: Object.fromEntries(bySource),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

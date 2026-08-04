@@ -23,6 +23,13 @@ export interface ScoredPlayer {
   /** Last completed season's points per game — real data pre-season. */
   pointsPerGame: number | null;
   xp: Record<Horizon, number | null>;
+  /** Rate-uncertainty band. Optional — only exists from model v1.1.0. */
+  xpLower?: Record<Horizon, number | null>;
+  xpUpper?: Record<Horizon, number | null>;
+  /** How much of the projection is the prior rather than the player's record. */
+  reliability?: "high" | "medium" | "low";
+  /** 0 = pure Premier League evidence, 1 = pure prior. */
+  priorWeight?: number | null;
   expectedMinutes: number | null;
   startProbability: number | null;
   /** 0–1 from status / chance_of_playing. */
@@ -30,6 +37,26 @@ export interface ScoredPlayer {
   /** Official FDR for each of the next fixtures, in gameweek order. */
   fdrRun: number[];
 }
+
+/**
+ * Front-end copy of `COLD_START_MODEL_NOTE` from
+ * `supabase/functions/_shared/xp-model.ts`. Duplicated deliberately: that file is
+ * Deno and excluded from tsconfig, so importing it here would break `tsc`. Keep
+ * the two in step.
+ */
+export const COLD_START_NOTE =
+  "Players with little or no Premier League record are projected by shrinking their own rates toward " +
+  "a prior fitted from position and price, weighted by how many minutes they have actually played. " +
+  "The low and high figures are a rate-uncertainty band, not a prediction interval — they ignore " +
+  "match-to-match variance and are therefore narrower than real outcomes. No external-league data is " +
+  "used yet, so a promoted-club player's prior rests on position, price and role alone.";
+
+/** Worded confidence for a projection, for badges and tooltips. */
+export const RELIABILITY_LABELS: Record<"high" | "medium" | "low", string> = {
+  high: "Projection rests on this player's own Premier League record.",
+  medium: "Partly prior-based — a thin Premier League record, so the number leans on players of the same position and price.",
+  low: "Mostly prior-based. Little or no Premier League football, so treat the number as an expectation for the price bracket rather than a read on him.",
+};
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const mean = (xs: number[]) => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length);
@@ -305,6 +332,10 @@ export function findReplacements(
       if (riskDelta < -8) rationale.push("lower risk");
       else if (riskDelta > 8) rationale.push("more risk");
       if (priceDelta < 0) rationale.push(`frees £${(-priceDelta / 10).toFixed(1)}m`);
+      // Say when a suggestion rests on the prior rather than on evidence. A
+      // promoted-club player can out-score an established one on paper purely
+      // because his number is the average for his price bracket.
+      if (c.reliability === "low") rationale.push("prior-based, little PL record");
       if (rationale.length === 0) rationale.push("broadly equivalent");
 
       return { player: c, teamFit, xpDelta, fixtureDelta, riskDelta, priceDelta, rationale };

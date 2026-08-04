@@ -79,7 +79,14 @@ four positions. Two fixes:
    since clean sheets are gated on the same probability.
 2. **Per-position level correction**, fitted so mean predicted equals mean observed.
 
-Final factors: `GKP 1.091 · DEF 1.189 · MID 1.169 · FWD 1.165`.
+Final factors for v1.0.0: `GKP 1.091 · DEF 1.189 · MID 1.169 · FWD 1.165`.
+
+**Refitted for v1.1.0** (the cold-start prior layer). Shrinking rates toward a fitted prior lowered
+the overall level by 0.084 points per gameweek — a uniform 1.5–3.7% across positions — so the same
+method was rerun on the same 207-player cohort, giving `GKP 1.1077 · DEF 1.2224 · MID 1.2116 ·
+FWD 1.1972`. The refit restored bias to −0.000, and MAE improved to **0.410** from 0.420 while
+**Pearson r stayed at 0.850**. That last figure is the one that matters: the shrinkage changed the
+level without disturbing the ranking.
 
 These are readable. Goalkeepers need the least correction because their scoring is the most
 mechanistic — appearance, clean sheet, saves, and little else. Defenders need the most, consistent
@@ -112,9 +119,17 @@ game: midfield returns depend on attacking output that varies far more week to w
   accuracy, only internal consistency. Real backtesting starts once `player_gameweek_stats` fills
   with 2026/27 results, at which point predicted xP can be compared against actual points for
   gameweeks the model never saw.
-- **184 of 564 players get no prediction.** Promoted-club players and new signings to the league
-  have under 270 weighted minutes of history. The model emits nothing rather than a fabricated
-  number, and the UI shows a dash.
+- ~~**184 of 564 players get no prediction.**~~ **Fixed in v1.1.0.** The 270-weighted-minute gate
+  dropped 187 of 567 players by the 2026-27 pre-season, and roughly half of them *did* have Premier
+  League evidence that the gate discarded wholesale — at 269 weighted minutes you got nothing, at 271
+  a full-confidence point estimate. Rates are now shrunk toward a fitted position/price prior in
+  proportion to the minutes behind them, so every player gets a number plus a statement of how much
+  of it is the prior. Coverage is 567 of 567. See the cold-start section of
+  [roadmap.md](roadmap.md).
+- **The first genuine out-of-sample test now exists**, though only for the shrinkage: truncating
+  established players' histories to simulate 90/180/270 minutes, the shrunk estimate beat both the
+  raw thin-sample rate (MAE 0.048 vs 0.061) and the pure prior (0.054) on `xg90`. That validates the
+  blend, not the underlying xP model.
 - **Fixture difficulty is the official FDR.** Team attack/defence strength values are still zero
   pre-season, so the custom analytical FDR of Phase 5 cannot be built yet.
 - **The calibration factors are fitted, not derived.** They should be refitted from real gameweek

@@ -71,7 +71,10 @@ the incoming bootstrap against the last stored value and writes to
 kickoff times and results. The `change_feed` view unions them for `/changes`.
 
 `player_predictions` stores one row per player per gameweek per model version;
-`prediction_models` records the version and parameters. The `player_xp_horizons` view
+`prediction_models` records the version and parameters. Since **v1.1.0** each row also carries the
+provenance of its own number — `prior_weight`, `n_eff`, `reliability`, `prior_source`, and an
+`xp_lower` / `xp_upper` rate band — and `rate_priors` holds the fitted priors those were derived
+from, so a projection can be explained after the fact rather than only recomputed. The `player_xp_horizons` view
 pivots predictions into `xp_1` / `xp_3` / `xp_5` / `xp_8` / `xp_total`, which is the shape almost
 every screen consumes (`expected_minutes` and `start_probability` come from `player_predictions`
 directly, for the next gameweek).
@@ -128,6 +131,14 @@ armbands, starting XI, bench order — mutated by pure functions returning new s
 `{ total, captainBonus, missing }`, weighting the armband bonus by availability so a
 doubtful captain's projection falls back toward the vice.
 
+- `xp-model.ts` (Deno, `_shared/`) — the xP model, and since v1.1.0 the **cold-start prior layer**.
+  `fitRatePriors` decomposes `player_season_history` into within-player (`sigma2`) and between-player
+  (`tau2`) variance; `deriveRatesWithPrior` shrinks a player's own rates toward the prior by
+  `sigma2 / (n_eff * tau2 + sigma2)`, so a thin record is used rather than discarded. `predict` is
+  unchanged — the prior emits the same `Rates` shape it already consumed, which is why this was one
+  seam and not a parallel model. Two traps are documented in the code because both shipped wrong
+  first: fitting the playing-time prior on 450+ minute seasons selects for starters, and estimating
+  `tau2` per price band collapses it to zero on thin cells and lets the prior override evidence.
 - `optimizer.ts` — greedy build, then a bounded same-position swap pass, then a funded-upgrade pass
   that downgrades one pick to pay for a better one (a same-position swap alone cannot fix a bad pick
   costing 50p more than what is held, once the budget is committed). Strategies
@@ -169,6 +180,12 @@ doubtful captain's projection falls back toward the vice.
   accents. Used by every search box, because `web_name` alone is not enough: FPL abbreviates it to
   `E.Anderson`.
 - `formation.ts`, `fdr.ts`, `drafts.ts`, `utils.ts` (`cn`), `supabase/client.ts`.
+
+The squad optimiser's `RiskLevel` does double duty since v1.1.0: `low` optimises the *lower* edge of
+the rate band, `high` the mean. That is what stops the cold-start layer filling squads with
+speculation, and it avoided inventing a reliability discount coefficient — prior-based players lose
+~87% from mean to lower bound against ~14% for established ones, so Low deprioritises them by
+arithmetic rather than by fiat.
 
 ### Disclosed omissions
 

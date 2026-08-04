@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { FixtureCell } from "@/components/fdr-badge";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
+import { ConfidenceBadge, RateBand } from "@/components/confidence-badge";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { fullName, matchesPlayerQuery } from "@/lib/player-search";
 import { RangeSlider } from "@/components/ui/range-slider";
@@ -46,6 +47,10 @@ interface XpRow {
   player_id: number;
   xp_1: number | null;
   xp_5: number | null;
+  xp_5_lower: number | null;
+  xp_5_upper: number | null;
+  reliability: "high" | "medium" | "low" | null;
+  prior_weight: number | null;
 }
 
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
@@ -155,7 +160,7 @@ export default function PlayersPage() {
 
         const { data: xpRows } = await supabase
           .from("player_xp_horizons")
-          .select("player_id, xp_1, xp_5")
+          .select("player_id, xp_1, xp_5, xp_5_lower, xp_5_upper, reliability, prior_weight")
           .eq("season", gw.season)
           .limit(1000);
 
@@ -394,7 +399,17 @@ export default function PlayersPage() {
                       {xp.get(p.id)?.xp_1?.toFixed(1) ?? "—"}
                     </td>
                     <td className="px-2 py-1.5 tabular-nums">
-                      {xp.get(p.id)?.xp_5?.toFixed(1) ?? "—"}
+                      <span className="flex items-center gap-1">
+                        {xp.get(p.id)?.xp_5?.toFixed(1) ?? "—"}
+                        <ConfidenceBadge
+                          reliability={xp.get(p.id)?.reliability}
+                          priorWeight={xp.get(p.id)?.prior_weight}
+                        />
+                      </span>
+                      <RateBand
+                        lower={xp.get(p.id)?.xp_5_lower}
+                        upper={xp.get(p.id)?.xp_5_upper}
+                      />
                     </td>
                     <td className="px-2 py-1.5 tabular-nums">
                       {(() => {

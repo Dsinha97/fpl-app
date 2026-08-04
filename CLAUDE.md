@@ -42,7 +42,9 @@ renormalise the remaining weights, and surface a note in the UI next to the numb
 Precedent: `CAPTAIN_MODEL_NOTE` in `lib/lineup.ts`, `COMPARISON_MODEL_NOTE` and `RISK_MODEL_NOTE` in
 `lib/scoring.ts`, `REPLACEMENT_MODEL_NOTE` for the omitted TeamFit terms, `SEASON_HORIZON_NOTE` in
 `lib/team-state.ts` for a horizon that is shorter than its name suggests, `TRANSFER_MODEL_NOTE` in
-`lib/transfers.ts`, `TRANSFER_OPTIMIZER_NOTE` in `lib/transfer-optimizer.ts`.
+`lib/transfers.ts`, `TRANSFER_OPTIMIZER_NOTE` in `lib/transfer-optimizer.ts`,
+`COLD_START_MODEL_NOTE` in `supabase/functions/_shared/xp-model.ts` (mirrored front-side as
+`COLD_START_NOTE` in `lib/scoring.ts` — the Deno file cannot be imported by Next).
 
 **When a term cannot be dropped, make it an input.** Sometimes the missing quantity *is* the
 feature — rolling a transfer is only worth something the frozen projection cannot see, so dropping it
@@ -87,7 +89,8 @@ lib/            team-state.ts   TeamState, validateSquad, computeProjection, hor
                 utils.ts        cn() · supabase/client.ts
 components/     pitch-view, pitch, player-card, player-detail, armband, identity, transfer-plan,
                 fixture-schedule, fdr-matrix, draft-timeline, player-status-icons,
-                fdr-badge, brand, theme, nav-links, info-tooltip, ui/ (+ range-slider)
+                confidence-badge (reliability + rate band), fdr-badge, brand, theme,
+                nav-links, info-tooltip, ui/ (+ range-slider)
 supabase/       migrations/ (SQL) · functions/ (Deno Edge Functions) · functions/_shared/
 docs/           roadmap.md · architecture.md · updated-plan.md (formulas) ·
                 phase-4-model.md · phase-1-plan.md · update-aug3.md (owner source)
@@ -145,6 +148,16 @@ or `tsc --noEmit` breaks on Deno globals.
 - Verify engine changes by running the real module against live data in a `npx tsx` harness before
   trusting the UI — both bugs above survived review and were caught that way in minutes. Keep the
   harness out of the commit.
+- **A prior fitted on a filtered sample answers a different question.** The cold-start playing-time
+  prior was first fitted on seasons of 450+ minutes — the same floor that makes a per-90 rate
+  meaningful — which conditions on the very thing being predicted and produced a prior asserting
+  every defender averages 47 minutes a game. Check what a fitting filter selects *for*.
+- **A variance needs far more data than a mean.** Estimating the between-player variance inside a
+  price band collapsed it to zero on thin cells, and `sigma2 / (n * 0 + sigma2)` is 1 — the prior
+  silently overriding real evidence. Estimate spread at the coarsest level that is still meaningful.
+- **An acceptance threshold you invented is not evidence.** "Established players must move under 2%"
+  failed at 3% while MAE and RMSE both *improved*; the meaningful gate was the existing phase-4
+  backtest (bias, MAE, unchanged Pearson r), not the round number.
 
 ## Notifications
 
@@ -154,7 +167,8 @@ landing. Not for routine progress.
 
 ## Status
 
-Built: sync pipeline, xP engine v1.0.0, dark theme, `/players`, `/fixtures` (Schedule + FDR tabs),
+Built: sync pipeline, xP engine **v1.1.0** (component model + empirical-Bayes cold-start priors,
+so all 567 players are projected rather than 380), dark theme, `/players`, `/fixtures` (Schedule + FDR tabs),
 `/builder` (pitch UI, paginated picker, squad optimiser, lineup engine, replacement finder),
 `/compare`, `/scenarios` (draft manager, SquadScore, comparison, timeline), and `/transfers`
 (basket simulation with hits, sell prices, armband handling, plus the weekly roll/spend/hit/wildcard
@@ -180,4 +194,10 @@ Blocked, with the reason recorded rather than worked around:
   than something the model claims to know.
 - **`sync-live-gameweek`'s row-writing path has never executed** — no live matches yet.
 - **xP `positionCalibration` is fitted in-sample.** The backtest proves arithmetic consistency, not
-  predictive accuracy; refit against real 2026/27 results.
+  predictive accuracy; refit against real 2026/27 results. Refitted once already for v1.1.0
+  (GKP 1.1077 / DEF 1.2224 / MID 1.2116 / FWD 1.1972) after shrinkage moved the level.
+- **No external-league data source.** Cold-start phase 2 (league translation) is blocked on one:
+  API-Football has no xG at all, soccerdata does not cover the Championship out of the box, Understat
+  is top-5 only, and a translation cohort built from `player_season_history` would be survivor-biased
+  because that table only holds players still in the game. Assessed under "Cold-Start Patch" in
+  [docs/roadmap.md](docs/roadmap.md).

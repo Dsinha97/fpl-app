@@ -334,6 +334,8 @@ function toOptimizerPlayer(p: ScoredPlayer): OptimizerPlayer {
     // rather than threading two more fields through every caller.
     status: p.availability >= 1 ? "a" : p.availability > 0 ? "d" : "u",
     chanceNextRound: Math.round(p.availability * 100),
+    xpLower: p.xpLower,
+    reliability: p.reliability,
   };
 }
 
@@ -711,8 +713,8 @@ function wildcardBranch(input: OptimizeTransfersInput): Branch {
 
   const explanation = [
     `${moves.length} change${moves.length === 1 ? "" : "s"}, no points hit.`,
-    ...(rebuild.withoutXp > 0
-      ? [`${rebuild.withoutXp} of the rebuilt picks have no xP projection and were taken only to fit the budget.`]
+    ...(rebuild.lowReliability > 0
+      ? [`${rebuild.lowReliability} of the rebuilt picks are projected mostly from a position/price prior rather than a Premier League record.`]
       : []),
     ...(keepsArmband
       ? []

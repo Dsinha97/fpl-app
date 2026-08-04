@@ -26,6 +26,14 @@ export interface OptimizerPlayer {
   price: number;
   /** Horizon totals from player_xp_horizons; null when the model abstained. */
   xp: Record<Horizon, number | null>;
+  /**
+   * Low end of the rate-uncertainty band, per horizon. Optional because it only
+   * exists from model v1.1.0 onward; absent, the optimiser falls back to `xp`
+   * and behaves exactly as it did before.
+   */
+  xpLower?: Record<Horizon, number | null>;
+  /** How much of the projection is the prior rather than the player's record. */
+  reliability?: "high" | "medium" | "low";
   ownership: number | null;
   status: string | null;
   chanceNextRound: number | null;
@@ -47,8 +55,43 @@ export interface OptimizeResult {
   totalScore: number;
   /** Set when the optimiser could not complete a legal squad. */
   error: string | null;
-  /** Picks with no model prediction, taken only as budget enablers. */
-  withoutXp: number;
+  /**
+   * Picks whose projection rests mostly on the prior rather than on Premier
+   * League minutes. Was `withoutXp`, which counted players the model refused to
+   * predict at all — since v1.1.0 almost nobody is refused, so the useful
+   * warning is "this squad leans on speculative numbers", not "these are blank".
+   */
+  lowReliability: number;
+}
+
+/**
+ * How much of a projection's uncertainty the objective should price in.
+ *
+ * Reuses the existing risk control rather than adding a reliability discount
+ * coefficient. `low` optimises the bottom of the rate band, so a player whose
+ * number is mostly prior looks as unattractive as he is uncertain; `high`
+ * optimises the mean and will happily buy a promoted-club punt. That is a stated
+ * risk posture, not an invented constant, and it is what stops the cold-start
+ * patch from quietly filling squads with speculation.
+ */
+function xpForRisk(
+  p: OptimizerPlayer,
+  horizon: Horizon,
+  risk: RiskLevel,
+): number | null {
+  const mean = p.xp[horizon];
+  const lower = p.xpLower?.[horizon] ?? null;
+  if (mean === null) return null;
+  if (lower === null) return mean;
+
+  switch (risk) {
+    case "low":
+      return lower;
+    case "medium":
+      return (mean + lower) / 2;
+    case "high":
+      return mean;
+  }
 }
 
 export const STRATEGY_LABELS: Record<Strategy, string> = {
@@ -86,8 +129,13 @@ function passesRisk(p: OptimizerPlayer, risk: RiskLevel): boolean {
  * deliberately *not* the order the greedy fill takes players in — see
  * `fillScoreOf`.
  */
-function scoreOf(p: OptimizerPlayer, horizon: Horizon, strategy: Strategy): number {
-  const xp = p.xp[horizon] ?? 0;
+function scoreOf(
+  p: OptimizerPlayer,
+  horizon: Horizon,
+  strategy: Strategy,
+  risk: RiskLevel = "high",
+): number {
+  const xp = xpForRisk(p, horizon, risk) ?? 0;
   if (xp <= 0) return 0;
 
   const priceM = Math.max(0.1, p.price / 10);
@@ -130,9 +178,14 @@ function scoreOf(p: OptimizerPlayer, horizon: Horizon, strategy: Strategy): numb
  * never concentrates spend the way raw xP does. Dividing their scores again
  * would distort what the user asked for, so their fill order is their objective.
  */
-function fillScoreOf(p: OptimizerPlayer, horizon: Horizon, strategy: Strategy): number {
-  if (strategy !== "max_points") return scoreOf(p, horizon, strategy);
-  const xp = p.xp[horizon] ?? 0;
+function fillScoreOf(
+  p: OptimizerPlayer,
+  horizon: Horizon,
+  strategy: Strategy,
+  risk: RiskLevel = "high",
+): number {
+  if (strategy !== "max_points") return scoreOf(p, horizon, strategy, risk);
+  const xp = xpForRisk(p, horizon, risk) ?? 0;
   if (xp <= 0) return 0;
   return xp / Math.max(0.1, p.price / 10);
 }
@@ -161,7 +214,11 @@ export function optimizeSquad(input: OptimizeInput): OptimizeResult {
   // passes rely on, since both take the first match they find.
   const eligible = pool
     .filter((p) => !chosen.has(p.id) && passesRisk(p, risk) && p.price > 0)
-    .map((p) => ({ p, score: scoreOf(p, horizon, strategy), fill: fillScoreOf(p, horizon, strategy) }))
+    .map((p) => ({
+      p,
+      score: scoreOf(p, horizon, strategy, risk),
+      fill: fillScoreOf(p, horizon, strategy, risk),
+    }))
     .sort((a, b) => b.score - a.score);
 
   // The same candidates in fill order, which for Maximum points is by points per
@@ -181,7 +238,7 @@ export function optimizeSquad(input: OptimizeInput): OptimizeResult {
   for (const { p } of eligible) {
     const anyCur = cheapestAny.get(p.elementType);
     if (anyCur === undefined || p.price < anyCur) cheapestAny.set(p.elementType, p.price);
-    if (p.xp[horizon] !== null) {
+    if (xpForRisk(p, horizon, risk) !== null) {
       const realCur = cheapestReal.get(p.elementType);
       if (realCur === undefined || p.price < realCur) cheapestReal.set(p.elementType, p.price);
     }
@@ -240,7 +297,7 @@ export function optimizeSquad(input: OptimizeInput): OptimizeResult {
       picks,
       filled: picks.length - locked.length,
       totalScore: 0,
-      withoutXp: 0,
+      lowReliability: 0,
       error:
         "Could not complete a legal squad — the locked picks leave too little budget, or the risk filter excludes too many players.",
     };
@@ -260,7 +317,7 @@ export function optimizeSquad(input: OptimizeInput): OptimizeResult {
       const out = byId.get(pick.playerId);
       if (!out) continue;
 
-      const outScore = scoreOf(out, horizon, strategy);
+      const outScore = scoreOf(out, horizon, strategy, risk);
       const budgetIfDropped = rules.totalSpend - spent + pick.purchasePrice;
       const clubIfDropped = (clubCount.get(out.teamId) ?? 1) - 1;
 
@@ -303,7 +360,7 @@ export function optimizeSquad(input: OptimizeInput): OptimizeResult {
   for (let round = 0; round < 3; round++) {
     const weakest = [...picks]
       .filter((pick) => !lockedIds.has(pick.playerId))
-      .map((pick) => ({ pick, score: scoreOf(byId.get(pick.playerId)!, horizon, strategy) }))
+      .map((pick) => ({ pick, score: scoreOf(byId.get(pick.playerId)!, horizon, strategy, risk) }))
       .sort((a, b) => a.score - b.score)[0];
     if (!weakest) break;
 
@@ -325,7 +382,7 @@ export function optimizeSquad(input: OptimizeInput): OptimizeResult {
           ({ p }) =>
             !chosen.has(p.id) &&
             p.elementType === donorMeta.elementType &&
-            p.xp[horizon] !== null &&
+            xpForRisk(p, horizon, risk) !== null &&
             p.price < donor.purchasePrice,
         )
         .sort((a, b) => a.p.price - b.p.price)[0];
@@ -357,7 +414,7 @@ export function optimizeSquad(input: OptimizeInput): OptimizeResult {
         .sort((a, b) => b.score - a.score)[0];
       if (!weakReplacement || weakReplacement.score <= weakest.score) continue;
 
-      const donorLoss = scoreOf(donorMeta, horizon, strategy) - donorCheapest.score;
+      const donorLoss = scoreOf(donorMeta, horizon, strategy, risk) - donorCheapest.score;
       const netGain = weakReplacement.score - weakest.score - donorLoss;
       if (netGain > 0 && (!bestPlan || netGain > bestPlan.netGain)) {
         bestPlan = {
@@ -393,19 +450,19 @@ export function optimizeSquad(input: OptimizeInput): OptimizeResult {
   }
 
   let totalScore = 0;
-  let withoutXp = 0;
+  let lowReliability = 0;
   for (const pick of picks) {
     const meta = byId.get(pick.playerId);
     if (!meta) continue;
-    totalScore += scoreOf(meta, horizon, strategy);
-    if (meta.xp[horizon] === null) withoutXp++;
+    totalScore += scoreOf(meta, horizon, strategy, risk);
+    if (meta.xp[horizon] === null || meta.reliability === "low") lowReliability++;
   }
 
   return {
     picks,
     filled: picks.length - locked.length,
     totalScore,
-    withoutXp,
+    lowReliability,
     error: null,
   };
 }

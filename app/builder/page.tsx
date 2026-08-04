@@ -82,6 +82,14 @@ interface XpRow {
   xp_5: number | null;
   xp_total: number | null;
   xp_8: number | null;
+  xp_1_lower: number | null;
+  xp_3_lower: number | null;
+  xp_5_lower: number | null;
+  xp_8_lower: number | null;
+  xp_total_lower: number | null;
+  xp_5_upper: number | null;
+  reliability: "high" | "medium" | "low" | null;
+  prior_weight: number | null;
 }
 
 interface PredictionRow {
@@ -167,7 +175,11 @@ export default function BuilderPage() {
               .in("key", ["squad_total_spend", "squad_team_limit", "squad_squadsize"]),
             supabase
               .from("player_xp_horizons")
-              .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_total")
+              // One string literal, never concatenated: `+` collapses the row
+              // type to GenericStringError.
+              .select(
+                "player_id, xp_1, xp_3, xp_5, xp_8, xp_total, xp_1_lower, xp_3_lower, xp_5_lower, xp_8_lower, xp_total_lower, xp_5_upper, reliability, prior_weight",
+              )
               .eq("season", gw.season)
               .limit(1000),
             supabase
@@ -328,6 +340,16 @@ export default function BuilderPage() {
             8: r?.xp_8 ?? null,
             season: r?.xp_total ?? null,
           },
+          // Lets the Risk control price uncertainty: Low optimises this bottom
+          // edge, so a squad is not quietly filled with prior-based punts.
+          xpLower: {
+            1: r?.xp_1_lower ?? null,
+            3: r?.xp_3_lower ?? null,
+            5: r?.xp_5_lower ?? null,
+            8: r?.xp_8_lower ?? null,
+            season: r?.xp_total_lower ?? null,
+          },
+          reliability: r?.reliability ?? undefined,
           ownership: p.selected_by_percent,
           status: p.status,
           chanceNextRound: p.chance_of_playing_next_round,
@@ -413,7 +435,9 @@ export default function BuilderPage() {
 
     setOptimizeNote(
       `Filled ${result.filled} slot${result.filled === 1 ? "" : "s"}` +
-        (result.withoutXp > 0 ? ` · ${result.withoutXp} without an xP projection` : ""),
+        (result.lowReliability > 0
+          ? ` · ${result.lowReliability} projected mostly from a position/price prior`
+          : ""),
     );
   };
 
@@ -580,6 +604,15 @@ export default function BuilderPage() {
             8: r?.xp_8 ?? null,
             season: r?.xp_total ?? null,
           },
+        xpLower: {
+            1: r?.xp_1_lower ?? null,
+            3: r?.xp_3_lower ?? null,
+            5: r?.xp_5_lower ?? null,
+            8: r?.xp_8_lower ?? null,
+            season: r?.xp_total_lower ?? null,
+          },
+        reliability: r?.reliability ?? undefined,
+        priorWeight: r?.prior_weight ?? null,
         expectedMinutes: predictions.get(p.id)?.expected_minutes ?? null,
         startProbability: predictions.get(p.id)?.start_probability ?? null,
         availability: availabilityOf(p.id),
