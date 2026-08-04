@@ -47,3 +47,8 @@ next-env.d.ts
 /live.json
 /boot.json
 /fix.json
+
+# Third-party provider documentation kept locally for reference. Large binaries
+# (the API-Football PDF alone is 7.3MB) and not ours to redistribute from a
+# public repo. docs/roadmap.md records what was read out of them instead.
+/docs/*.pdf
