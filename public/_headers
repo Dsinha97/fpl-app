@@ -1,0 +1,17 @@
+# Cloudflare Pages header rules. Next copies everything in public/ to the export
+# root, so this ships as out/_headers. GitHub Pages ignores the file, which is why
+# it was safe to add before the host cutover.
+#
+# No Content-Security-Policy here yet. A correct one has to allow connect-src for
+# the Supabase project and img-src for flagcdn.com, resources.premierleague.com
+# and fantasy.premierleague.com. Worth adding, but not folded into a hosting
+# migration: if the crests stopped loading you could not tell which change did it.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# Next content-hashes every filename under here, so a stale copy can never be
+# served for changed content and a one-year immutable cache is safe.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
