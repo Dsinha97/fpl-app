@@ -1,0 +1,32 @@
+// Cloudflare Worker config — static assets only, no server script.
+//
+// This app is `output: "export"` (see next.config.ts): a pure static export with
+// no server components fetching at request time, no route handlers, and no
+// middleware. So there is nothing for a Next server adapter to adapt.
+//
+// That matters because Cloudflare's setup wizard detects "Next.js" and defaults
+// the build command to `npx opennextjs-cloudflare build`, which is the OpenNext
+// adapter for *server-rendered* Next apps. It looks for
+// .next/standalone/.next/server/pages-manifest.json, which a static export never
+// produces, and fails with ENOENT. The build command must be plain
+// `npm run build`, and this file tells the deploy where the output landed.
+//
+// Keeping the config here rather than in the dashboard means the deploy is
+// reproducible and reviewable, and a future change to the output directory shows
+// up in a diff instead of silently mismatching.
+{
+  "name": "fpl-app",
+  "compatibility_date": "2026-08-04",
+  "assets": {
+    "directory": "./out",
+
+    // Next emits out/404.html; serve it for paths that match no asset, which is
+    // what GitHub Pages did.
+    "not_found_handling": "404-page"
+
+    // `html_handling` is left at its default, "auto-trailing-slash". With
+    // trailingSlash: true the export is a directory per route (out/team/index.html),
+    // and the default resolves both /team and /team/ to it — so the URL shape the
+    // old host served stays intact. Do not set this to "none" or every route 404s.
+  }
+}
