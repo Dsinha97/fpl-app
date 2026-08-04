@@ -11,6 +11,7 @@ import {
   type SquadRules,
   type TeamState,
 } from "./team-state";
+import { clamp, mean, stdevPopulation } from "./stats";
 
 export interface ScoredPlayer {
   id: number;
@@ -57,15 +58,6 @@ export const RELIABILITY_LABELS: Record<"high" | "medium" | "low", string> = {
   medium: "Partly prior-based — a thin Premier League record, so the number leans on players of the same position and price.",
   low: "Mostly prior-based. Little or no Premier League football, so treat the number as an expectation for the price bracket rather than a read on him.",
 };
-
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-const mean = (xs: number[]) => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length);
-
-function stdev(xs: number[]): number {
-  if (xs.length < 2) return 0;
-  const m = mean(xs);
-  return Math.sqrt(mean(xs.map((x) => (x - m) ** 2)));
-}
 
 /**
  * How many fixtures a horizon covers, for slicing the FDR run.
@@ -114,7 +106,7 @@ export function riskScore(p: ScoredPlayer, horizon: Horizon): number {
   const minutes = 1 - Math.abs(share - 0.5) * 2;
 
   const run = p.fdrRun.slice(0, fixturesFor(horizon));
-  const fixtureVariance = clamp(stdev(run) / MAX_FDR_SD, 0, 1);
+  const fixtureVariance = clamp(stdevPopulation(run) / MAX_FDR_SD, 0, 1);
 
   const raw =
     RISK_WEIGHTS.rotation * clamp(rotation, 0, 1) +

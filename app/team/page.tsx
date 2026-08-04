@@ -5,6 +5,8 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { CountryFlag, flagCode, SeasonsBadge, TeamCrest } from "@/components/identity";
+import { ManagerProfileCard, RivalTable } from "@/components/manager-profile-card";
+import { buildManagerProfile, compareToRival, type ManagerProfile, type RivalComparison } from "@/lib/manager-profile";
 
 /** Separator between identity badges in the profile line. */
 const Dot = () => <span className="text-zinc-300 dark:text-purple-700">•</span>;
@@ -84,6 +86,8 @@ interface TeamData {
   teamNames: Map<number, string>;
   teamMeta: Map<number, { code: number | null; short: string }>;
   nextGw: NextGw | null;
+  profile: ManagerProfile | null;
+  rivals: RivalComparison[];
 }
 
 // -------------------------------------------------------------- helpers
@@ -162,6 +166,56 @@ export default function TeamPage() {
       const manager = managerRes.data as ManagerRow;
       const nextGw = (nextGwRes.data as NextGw | null) ?? null;
 
+      // Sprint 12A — career percentile profile, built from the same rows the
+      // Past Seasons table already fetched. buildManagerProfile assumes
+      // oldest-to-newest for trend's sign, so re-sort ascending regardless of
+      // how the display table orders them.
+      const seasonRowsAsc = [...((seasonsRes.data as SeasonRow[]) ?? [])].sort((a, b) =>
+        a.season_name.localeCompare(b.season_name),
+      );
+      const profile = buildManagerProfile(
+        seasonRowsAsc
+          .filter((s) => s.rank_percentage !== null)
+          .map((s) => ({ seasonName: s.season_name, rankPercentage: s.rank_percentage! })),
+      );
+
+      // Rivals: every other manager already loaded, compared on career
+      // median. No league lookup or new sync — these are the entries whose
+      // owners have already connected on this deployment.
+      let rivals: RivalComparison[] = [];
+      if (profile) {
+        const { data: otherManagers } = await supabase
+          .from("managers")
+          .select("entry_id, team_name")
+          .neq("entry_id", entryId);
+
+        if (otherManagers && otherManagers.length > 0) {
+          const { data: rivalSeasons } = await supabase
+            .from("manager_season_history")
+            .select("entry_id, season_name, rank_percentage")
+            .in("entry_id", otherManagers.map((r) => r.entry_id));
+
+          const byRival = new Map<number, { season_name: string; rank_percentage: number }[]>();
+          for (const row of rivalSeasons ?? []) {
+            if (row.rank_percentage === null) continue;
+            const list = byRival.get(row.entry_id) ?? [];
+            list.push({ season_name: row.season_name, rank_percentage: row.rank_percentage });
+            byRival.set(row.entry_id, list);
+          }
+
+          rivals = otherManagers.flatMap((r) => {
+            const rows = (byRival.get(r.entry_id) ?? []).sort((a, b) =>
+              a.season_name.localeCompare(b.season_name),
+            );
+            const rivalProfile = buildManagerProfile(
+              rows.map((s) => ({ seasonName: s.season_name, rankPercentage: s.rank_percentage })),
+            );
+            if (!rivalProfile) return [];
+            return [compareToRival(profile, r.entry_id, r.team_name ?? `Entry ${r.entry_id}`, rivalProfile)];
+          });
+        }
+      }
+
       // 3. Latest gameweek's picks, if any exist yet.
       const { data: allPicks } = await supabase
         .from("manager_picks")
@@ -210,6 +264,8 @@ export default function TeamPage() {
         teamNames,
         teamMeta,
         nextGw,
+        profile,
+        rivals,
       });
       setSavedId(entryId);
       localStorage.setItem("fpl_manager_id", String(entryId));
@@ -515,13 +571,44 @@ export default function TeamPage() {
                         <td className="px-3 py-2">{s.season_name}</td>
                         <td className="px-3 py-2 tabular-nums">{fmtNum(s.total_points)}</td>
                         <td className="px-3 py-2 tabular-nums">{fmtNum(s.rank)}</td>
-                        <td className="px-3 py-2 tabular-nums">
-                          {s.rank_percentage !== null ? `Top ${s.rank_percentage}%` : "—"}
+                        <td className="px-3 py-2">
+                          {s.rank_percentage !== null ? (
+                            <div className="flex items-center gap-2">
+                              <span className="w-16 shrink-0 tabular-nums">
+                                Top {s.rank_percentage}%
+                              </span>
+                              <div
+                                role="img"
+                                aria-label={`${s.season_name}: top ${s.rank_percentage}%`}
+                                className="h-1.5 w-24 overflow-hidden rounded-full bg-zinc-200 dark:bg-purple-950/60"
+                              >
+                                <div
+                                  className="h-full rounded-full bg-purple-700 transition-[width] duration-300 motion-reduce:transition-none dark:bg-[#00FF87]"
+                                  style={{ width: `${100 - s.rank_percentage}%` }}
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            "—"
+                          )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </section>
+          )}
+
+          {/* ------------------------------------- manager intelligence */}
+          {data?.profile && (
+            <section className="mt-8">
+              <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+                Manager Profile
+              </h2>
+              <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+                <ManagerProfileCard profile={data.profile} />
+                <RivalTable rivals={data.rivals} />
               </div>
             </section>
           )}

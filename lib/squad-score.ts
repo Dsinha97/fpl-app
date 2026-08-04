@@ -17,6 +17,7 @@ import {
   xpFor,
   type ScoredPlayer,
 } from "./scoring";
+import { mean } from "./stats";
 import {
   computeProjection,
   horizonLength,
@@ -78,8 +79,6 @@ export interface SquadScoreInput {
   /** Expected bench contribution from the lineup engine, when a lineup exists. */
   benchContribution?: number | null;
 }
-
-const mean = (xs: number[]) => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length);
 
 export function squadScore(input: SquadScoreInput): SquadScoreBreakdown {
   const { team, scoredById, xpOf, availabilityOf, horizon, benchContribution } = input;

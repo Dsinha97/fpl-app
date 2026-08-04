@@ -78,7 +78,10 @@ URLs with curl — several documented patterns 404.
 ```
 app/            routes: / · /team · /players · /fixtures · /changes · /status
                         /builder · /scenarios (draft lab) · /transfers · /compare
-lib/            team-state.ts   TeamState, validateSquad, computeProjection, horizons, armbands
+lib/            stats.ts        shared mean/median/variance/quantile/linearSlope — import, don't
+                                redeclare (scoring.ts keeps the population stdev form, deliberately)
+                manager-profile.ts  career percentile profile + rival comparison (Sprint 12A)
+                team-state.ts   TeamState, validateSquad, computeProjection, horizons, armbands
                 optimizer.ts    greedy fill + swap + funded-upgrade squad optimiser; fill order
                                 and objective are separate (see fillScoreOf vs scoreOf)
                 lineup.ts       XI / captain / bench-order engine
@@ -91,8 +94,8 @@ lib/            team-state.ts   TeamState, validateSquad, computeProjection, hor
                 utils.ts        cn() · supabase/client.ts
 components/     pitch-view, pitch, player-card, player-detail, armband, identity, transfer-plan,
                 fixture-schedule, fdr-matrix, draft-timeline, player-status-icons,
-                confidence-badge (reliability + rate band), fdr-badge, brand, theme,
-                nav-links, info-tooltip, ui/ (+ range-slider)
+                confidence-badge (reliability + rate band), manager-profile-card (+ RivalTable),
+                fdr-badge, brand, theme, nav-links, info-tooltip, ui/ (+ range-slider)
 supabase/       migrations/ (SQL) · functions/ (Deno Edge Functions) · functions/_shared/
 docs/           roadmap.md · architecture.md · updated-plan.md (formulas) ·
                 phase-4-model.md · phase-1-plan.md · update-aug3.md (owner source)
@@ -213,3 +216,16 @@ Blocked, with the reason recorded rather than worked around:
   is top-5 only, and a translation cohort built from `player_season_history` would be survivor-biased
   because that table only holds players still in the game. Assessed under "Cold-Start Patch" in
   [docs/roadmap.md](docs/roadmap.md).
+- **Manager behavioural history (transfers, captains, chips, differentials) is blocked, not just
+  pre-season** → all of §9/§10 in the Manager Intelligence change plan. The FPL API exposes none of
+  that for past seasons, and `manager_picks` has a hard FK to the current season's `players`, so it
+  cannot even be stored if it could be fetched. Buildable only from GW1 onward, current season only.
+
+Two data-shape gotchas worth not rediscovering (Sprint 12A):
+
+- **`manager_season_history.rank_percentage` is FPL's own "top X%" — lower is better.** Everything
+  internal to `lib/manager-profile.ts` flips this to a 0–100 higher-is-better `percentileScore` so it
+  reads the same direction as xP and SquadScore; don't mix the two conventions in one screen.
+- **`total_players` (captured into `game_settings`) is a pre-season snapshot, not a field size.** It
+  reads ~2.9M in early August and climbs to ~11M by GW1 — a ~4× swing. Nothing consumes it yet;
+  `game_settings.updated_at` is the sample-time record for whoever does.

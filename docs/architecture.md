@@ -76,6 +76,12 @@ invocation, so 700 `element-summary` calls spread across runs instead of timing 
 `sync-live-gameweek`'s row-writing path is **unverified** — there are no live matches until
 GW1, so it has only ever taken the no-op branch.
 
+`sync-manager` is the one function with **no cron entry** — `invoke_sync` POSTs an empty body, so it
+has no way to supply an `entry_id` even if scheduled. It runs only when `/team` invokes it directly
+with the manager ID from `localStorage`, which is why manager data refreshes on a page visit rather
+than on a schedule. Its `history.past` capture already includes `rank_percentage` per season, which
+Sprint 12A's manager profile consumes as-is rather than re-deriving from a stored field size.
+
 ## Data model
 
 Reference tables mirror `bootstrap-static` (`teams`, `players`, `element_types`,
@@ -198,6 +204,16 @@ doubtful captain's projection falls back toward the vice.
 - `player-search.ts` — `matchesPlayerQuery` / `fullName`, matching every name field and folding
   accents. Used by every search box, because `web_name` alone is not enough: FPL abbreviates it to
   `E.Anderson`.
+- `stats.ts` — shared `mean`/`median`/`variance`/`quantile`/`linearSlope`, added in Sprint 12A to
+  replace five independent `mean` redeclarations. Keeps *both* variance forms as distinct exports
+  (`variancePopulation`/`varianceSample`): `scoring.ts`'s risk engine has always used the population
+  form, and the two are not interchangeable — the consolidation was verified to move zero risk scores
+  across 2,272 player/horizon comparisons before it shipped.
+- `manager-profile.ts` — career percentile profile and rival comparison (Sprint 12A). Converts FPL's
+  own `rank_percentage` ("top X%", lower better) to a 0–100 higher-is-better score, then reports
+  best/median/worst/spread/trend with a confidence gate below 3 and 6 seasons — deliberately no
+  composite volatility index (uncalibratable weights) and no archetype (needs behavioural data the
+  API does not expose for past seasons). See "Sprint 12A" in [roadmap.md](roadmap.md).
 - `formation.ts`, `fdr.ts`, `drafts.ts`, `utils.ts` (`cn`), `supabase/client.ts`.
 
 The squad optimiser's `RiskLevel` does double duty since v1.1.0: `low` optimises the *lower* edge of

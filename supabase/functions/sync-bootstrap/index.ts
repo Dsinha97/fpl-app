@@ -264,16 +264,21 @@ Deno.serve(async (req) => {
 
     // --------------------------------------------------------- game settings
 
-    counts.game_settings = await upsert(
-      db,
-      "game_settings",
-      Object.entries(boot.game_settings ?? {}).map(([key, value]) => ({
-        season,
-        key,
-        value: value ?? null,
-      })),
-      "season,key",
-    );
+    // total_players is a bootstrap sibling of game_settings, not a member of
+    // it, and it is not a season constant — it climbs roughly 4x between now
+    // and GW1. Captured here anyway, because a current-season percentile
+    // needs it eventually and the trap (a pre-season snapshot mistaken for a
+    // settled field size) is best documented at the point of capture. Nothing
+    // in Sprint 12A reads this key yet.
+    const gameSettingsRows = Object.entries(boot.game_settings ?? {}).map(([key, value]) => ({
+      season,
+      key,
+      value: value ?? null,
+    }));
+    if (typeof boot.total_players === "number") {
+      gameSettingsRows.push({ season, key: "total_players", value: boot.total_players });
+    }
+    counts.game_settings = await upsert(db, "game_settings", gameSettingsRows, "season,key");
 
     // ------------------------------------------------------- snapshots
     // Runs after players are current, so it compares fresh values against the

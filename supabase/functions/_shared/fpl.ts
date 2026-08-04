@@ -104,6 +104,14 @@ export interface Bootstrap {
   events: BootstrapEvent[];
   elements: BootstrapElement[];
   chips: BootstrapChip[];
+  /**
+   * Total FPL entries right now — a moving target, not a season constant. It
+   * reads ~2.9M in early August and climbs toward ~11M by GW1, a ~4x swing.
+   * Captured into game_settings alongside `updated_at` (which the table's
+   * trigger already stamps), so a reader can see when the figure was sampled
+   * rather than mistake a pre-season snapshot for a settled field size.
+   */
+  total_players: number;
   game_settings: Record<string, unknown>;
   game_config: {
     scoring: Record<string, number | Record<string, number> | null>;

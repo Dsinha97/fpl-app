@@ -10,6 +10,7 @@
 
 import { fixtureScore, riskScore, xpFor, type ScoredPlayer } from "./scoring";
 import { riskPoints } from "./squad-score";
+import { mean } from "./stats";
 import { optimiseLineup, type LineupCandidate } from "./lineup";
 import {
   addPlayer,
@@ -118,8 +119,6 @@ export function sellPrice(purchasePrice: number, nowCost: number): number {
   if (nowCost <= purchasePrice) return nowCost;
   return purchasePrice + Math.floor((nowCost - purchasePrice) / 2);
 }
-
-const mean = (xs: number[]) => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length);
 
 export interface SimulateInput {
   team: TeamState;

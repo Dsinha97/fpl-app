@@ -10,8 +10,9 @@ is superseded by this file.
 `update-aug3.md` lists Sprint 4 as "Squad Optimizer". In this repo the squad optimiser shipped in
 Sprint 2, and Sprint 4 delivered the **comparison engine and replacement finder** — which the new
 document numbers as Sprints 6 and 7. Those were therefore already built when this file was written.
-Sprints 5, 8 and 9 have since shipped; the next sprint to start is **12, Chip Strategy** (10 is
-blocked pre-season, 11 is built, 13 needs a live match and 14 is authentication).
+Sprints 5, 8 and 9 have since shipped; **Sprint 12A, Manager Percentile Profile** ships alongside this
+file (10 is blocked pre-season, 11 is built, 13 needs a live match, 14 is authentication). Sprint 12
+proper — Chip Strategy — is next, and needs the prediction window extended past 8 gameweeks first.
 
 | Sprint | Theme | Status |
 |---|---|---|
@@ -22,6 +23,7 @@ blocked pre-season, 11 is built, 13 needs a live match and 14 is authentication)
 | 9 | Transfer Optimizer (up to 5 banked FTs) | **Built** — `/transfers` plan panel, `lib/transfer-optimizer.ts` |
 | 10 | Ownership Intelligence | Not started — **blocked**, see below |
 | 11 | Captain & Bench Optimizer | **Built** — `lib/lineup.ts` |
+| 12A | Manager Percentile Profile | **Built** — `/team`, `lib/manager-profile.ts` |
 | 12 | Chip Strategy Engine | Not started |
 | 13 | Live Matchday Hub | Not started |
 | 14 | Authentication & Team Sync | Not started |
@@ -338,6 +340,50 @@ points fills by points per million — the standard greedy approximation — whi
 funded-upgrade passes still maximise raw points, so the strategy keeps its meaning. It now returns
 331.4 xP at a full £100m spend, and a wildcard on its output correctly proposes zero changes. The
 other three strategies already price their scores and are untouched.
+
+## Sprint 12A — Manager Percentile Profile (built)
+
+`docs/manager_intelligence_sprint12_change_plan.md` proposed a Manager Intelligence & Rank
+Normalization workstream alongside Sprint 12. This is the executable subset — a career percentile
+profile and rival comparison on `/team` — scoped to what the data actually supports, with no new
+tables and no new Edge Functions: every quantity is a deterministic statistic over the season rows
+`/team` already fetches, computed in `lib/stats.ts` and `lib/manager-profile.ts`.
+
+**FPL already ships the percentile.** `entry/{id}/history` returns `rank_percentage` per past season
+at sub-1% precision, already ingested into `manager_season_history.rank_percentage` and already
+rendered on `/team` as "Top X%". The change plan's proposed `season_field_sizes` table and
+`1 − (rank−1)/(field−1)` formula would reinvent it — and worse, historical field sizes are not in any
+API, so that table would be hand-entered constants going stale to reproduce a number FPL gives away.
+
+**Over half the proposed capabilities are blocked, more permanently than Sprint 10.** Measured against
+the live database: `manager_season_history` held 60 rows (7 managers, 4–13 seasons each);
+`manager_gameweek_history`, `manager_picks`, `manager_transfers` and `manager_chips` held **zero**.
+The gameweek tables are empty because it is pre-season, but the FPL API exposes no picks, transfers or
+chips for *past* seasons at all, and `manager_picks` carries a hard FK to `players(season, id)` where
+`players` holds only the current season — so past-season behaviour cannot be stored even if it could be
+fetched. Transfer/captain/differential/chip aggressiveness, hit frequency and template dependence are
+therefore not a 12A deliverable; they begin to accrue for the *current* season from GW1.
+
+`total_players` (bootstrap-static) is a moving target — **2,889,243** in early August, climbing toward
+~11M by GW1, a ~4× swing — so it is captured into `game_settings` (`sync-bootstrap`) but used by
+nothing yet; `game_settings.updated_at` is the sample-time record.
+
+**Decisions taken**: use `rank_percentage` as canonical, no composite volatility index (§7's
+0.50/0.30/0.20 weights are uncalibratable on 7 managers — the three components are reported side by
+side instead), and archetypes deferred entirely rather than classified on half the inputs (Ceiling
+Chaser and Conservative Grinder are indistinguishable without differential exposure).
+
+| §3 capability | Status |
+|---|---|
+| Historical percentile, consistency, volatility, best/worst, median | **Built** |
+| Basic rival analysis (percentile gap) | **Built** — career comparison, 7 managers loaded |
+| Manager archetype | Deferred — needs behaviour |
+| Risk appetite, transfer/captain/differential/chip aggressiveness, hit frequency | Blocked — no historical behavioural data; accrues from GW1 |
+| Template dependence | Doubly blocked — needs Sprint 10 *and* picks |
+
+**Not scheduled by the change plan, but a real prerequisite**: `generate-predictions` runs an
+8-gameweek window (`SEASON_HORIZON_NOTE`), which `CLAUDE.md` already records as required before chip
+planning. Extending it is the natural follow-on before Sprint 12 proper.
 
 ## Sprint 10 — Ownership Intelligence
 
