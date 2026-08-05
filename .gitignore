@@ -55,3 +55,15 @@ next-env.d.ts
 # weakens that half of the argument but not the first.) docs/roadmap.md records
 # what was actually read out of them, which is the part that needed to be durable.
 /docs/*.pdf
+
+# Working files for the promoted-clubs cold-start data drop (2026-08-05): raw
+# FootyStats PDFs per player/club and a fabricated analytics CSV rejected as a
+# data source (95% position archetypes, not real per-player data — see "A
+# candidate data drop was rejected" in docs/roadmap.md). The verified
+# premier_league_new_players.csv is tracked; everything else here is scratch
+# or vendor material, not durable repo content.
+/docs/Promoted Team Data/*.pdf
+/docs/Promoted Team Data/premier_league_new_players_analytics.csv
+/docs/Promoted Team Data/Coventry/
+/docs/Promoted Team Data/Hull City/
+/docs/Promoted Team Data/Ipswich/
