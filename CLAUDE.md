@@ -182,8 +182,10 @@ landing. Not for routine progress.
 
 ## Status
 
-Built: sync pipeline, xP engine **v1.1.0** (component model + empirical-Bayes cold-start priors,
-so all 567 players are projected rather than 380), dark theme, `/players`, `/fixtures` (Schedule + FDR tabs),
+Built: sync pipeline, xP engine **v1.2.0** (component model + empirical-Bayes cold-start priors, so
+all 567 players are projected rather than 380, plus squad reconciliation so every club's projected
+starters, goalkeeper and minutes sum to the facts a match enforces — promoted-club squads no longer
+collapse toward zero nor established squads inflate past eleven), dark theme, `/players`, `/fixtures` (Schedule + FDR tabs),
 `/builder` (pitch UI, paginated picker, squad optimiser, lineup engine, replacement finder),
 `/compare`, `/scenarios` (draft manager, SquadScore, comparison, timeline), and `/transfers`
 (basket simulation with hits, sell prices, armband handling, plus the weekly roll/spend/hit/wildcard
@@ -216,6 +218,16 @@ Blocked, with the reason recorded rather than worked around:
   is top-5 only, and a translation cohort built from `player_season_history` would be survivor-biased
   because that table only holds players still in the game. Assessed under "Cold-Start Patch" in
   [docs/roadmap.md](docs/roadmap.md).
+- **Squad reconciliation (v1.2.0) fixes how much a club plays, not how well.** Promoted-club squads
+  are now role-correct — starters, goalkeeper and minutes sum to what a match actually enforces —
+  but team strength is still 0 for all 20 clubs, so the model has no way to say Hull's best player is
+  worse than Arsenal's; a promoted club's projections can top the value tables purely because their
+  squad sum was fixed, which is a real answer from an incomplete model, not a bug. It also cannot
+  tell an established starter from a fringe reserve on the same price band — at a large registered
+  squad, a nailed starter can be pulled down by the same proportion as a reserve who should have
+  moved far more; measured on the phase-4 backtest cohort, Pearson r fell from 0.850 to 0.761 with no
+  recalibration. The evidence-weighted fix (weight the correction by `n_eff`) is deferred, not
+  blocked on data — see "Squad reconciliation, phase 1" in [docs/roadmap.md](docs/roadmap.md).
 - **Manager behavioural history (transfers, captains, chips, differentials) is blocked, not just
   pre-season** → all of §9/§10 in the Manager Intelligence change plan. The FPL API exposes none of
   that for past seasons, and `manager_picks` has a hard FK to the current season's `players`, so it

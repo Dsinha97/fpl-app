@@ -113,7 +113,92 @@ game: midfield returns depend on attacking output that varies far more week to w
 
 ---
 
-## 3. Honest limitations
+## 3. Squad reconciliation (v1.2.0)
+
+**The problem, measured.** Rates are derived per player with no view of the rest of the squad, so
+nothing enforces the facts every club satisfies: exactly eleven start, exactly one of them the
+goalkeeper, and the squad plays 990 minutes (11 × 90) per fixture. Summing `start_probability` per
+club at the first predicted event under v1.1.0:
+
+| Club | GKP sum (must be 1.00) | XI sum (must be 11.00) |
+| --- | --- | --- |
+| Chelsea | 1.36 | **14.82** |
+| Spurs | 1.71 | 14.34 |
+| Man City | 1.30 | 13.45 |
+| Hull City | 0.31 | **4.08** |
+| Coventry City | 0.75 | 6.39 |
+| Ipswich Town | 1.21 | 7.21 |
+
+A promoted club's squad collapses toward the position/price prior mean — fitted on squads where a
+cheap defender is a bench filler, not a certain starter — while an expensive established squad
+inflates past eleven in the same direction. League-wide: Σ start-probability 210.25 vs a true 220;
+Σ expected minutes 20,031 vs a true 19,800.
+
+**The fix.** `reconcileClubSquad` (`xp-model.ts`) solves an exact, parameter-free water-fill per
+club per fixture: `Σ min(ceiling_i, λ·p_i) = target`, with the ceiling set by each player's own
+`availability` so a doubtful player can never be handed a start probability above their own chance
+of playing. Two independent budgets — eleven starters (one a goalkeeper) and 990 minutes — because
+the ratio between them varies more than the model assumed: Hull's squad ran 138 minutes per start
+against a league norm of ~92, so scaling minutes by the same factor as starts would have handed
+Hull's squad over 1,500 minutes for one match. Verified against live data: after reconciliation,
+every club's start/GKP/minutes sums hit their targets to within 1e-13 (floating-point noise), and
+the water-fill's edge cases (a club with only one available goalkeeper, a doubtful player's ceiling,
+an unreachable target) are covered by synthetic tests in addition to the live-data pass.
+
+A doubly-bounded variant was tried and rejected: flooring each player's minutes at
+`appearanceMinutes × startCompletion × theirOwnScaledStartShare` fixes the small tail of players
+(~1% of the league) whose start and minutes scales otherwise disagree, but for a squad member whose
+own raw minutes estimate is near zero — the exact population this mechanism exists for — the floor
+swamps their base rate, so nearly their whole minutes allocation comes from the floor rather than
+real signal. On live data this took a club's third-choice goalkeeper from squad-rank 24 of 29 to
+rank 3 purely on save points inflating with borrowed minutes, and dragged that club's within-squad
+rank correlation from 0.92 to 0.80. The single-budget version is shipped instead, leaving 8 of 570
+players (1.4%) with a small, disclosed inconsistency between their scaled minutes and starts, rather
+than an occasional large, unexplained swing.
+
+**What it costs, measured against this document's own backtest.** Recalibration is decided from the
+league-wide level, not the cohort — mean predicted points per gameweek across all 568 players moved
+**−0.72%**, inside the ±1% band this document already treats as "leave `positionCalibration` alone"
+(see §2), so the factors above are unchanged for v1.2.0.
+
+The 207-player backtest cohort, run through the same method as §2, moved further than that:
+
+| | Bias | MAE | RMSE | Pearson r |
+| --- | --- | --- | --- | --- |
+| v1.1.0 (before) | 0.000 | 0.409 | 0.542 | 0.850 |
+| v1.2.0 (after, no recalibration) | −0.177 | 0.535 | 0.670 | **0.761** |
+
+This is not noise spread evenly across the cohort — it is concentrated exactly where the mechanism's
+limitation predicts. Splitting the cohort by club and squad start-scale:
+
+| Club | Squad start-scale | Cohort bias, before → after |
+| --- | --- | --- |
+| Chelsea | 0.74 (cut) | +0.16 → **−0.81** |
+| Spurs | 0.77 (cut) | −0.15 → −0.74 |
+| Man City | 0.82 (cut) | −0.15 → −0.84 |
+| Leeds | 1.12 (boost) | −0.33 → −0.08 (improved) |
+| Everton | 1.13 (boost) | −0.31 → −0.02 (improved) |
+
+Every club being cut got worse; every club being boosted got better. The clearest single case: a
+Chelsea player who actually averaged 4.05 points per gameweek last season — a clearly nailed starter
+— was projected down from 4.88 to 3.30, a 32% cut his own record does not support. This is the
+uniform-correction limitation from §"Squad reconciliation" in `xp-model.ts` showing up in exactly
+the population it predicts: a large registered squad has enough fringe depth that the *raw* sum
+comfortably clears eleven from reserves alone, so the cut that brings the group back to eleven lands
+on the established starter as hard as on the reserve who should have moved far more.
+
+**Shipped anyway, deliberately, with this recorded rather than hidden.** The squad-sum error this
+patch fixes (a 3.6× spread on a quantity that is identically 11 for every club) is a worse, more
+visible defect than the cohort-r cost of fixing it with the simplest correct mechanism, and the
+`COLD_START_MODEL_NOTE` / `COLD_START_NOTE` disclosures say plainly that established starters at
+deep squads can be pulled down by more than their own record supports. The real fix — weighting the
+water-fill by `n_eff` so low-evidence players absorb more of the correction and high-evidence
+starters less — is a different algorithm, not a parameter, and is recorded as follow-up work in
+[roadmap.md](roadmap.md) rather than built under the same change that found the need for it.
+
+---
+
+## 4. Honest limitations
 
 - **No out-of-sample validation exists yet.** Nothing in this document demonstrates predictive
   accuracy, only internal consistency. Real backtesting starts once `player_gameweek_stats` fills
@@ -140,7 +225,7 @@ game: midfield returns depend on attacking output that varies far more week to w
 
 ---
 
-## 4. Storage and scheduling
+## 5. Storage and scheduling
 
 - `prediction_models` — one row per version, with the full parameter set as JSON, so a prediction
   can always be traced to the exact configuration that produced it.
@@ -153,7 +238,7 @@ availability flag flipping is the largest day-to-day input change.
 
 ---
 
-## 5. Next
+## 6. Next
 
 Phase 5's custom FDR replaces the official rating with a calibrated fixture model once team
 strength data exists. Phase 6's transfer optimiser consumes `player_xp_horizons` directly — the

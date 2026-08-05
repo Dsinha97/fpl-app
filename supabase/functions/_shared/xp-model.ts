@@ -1,9 +1,16 @@
-// Expected points model, v1.1.0.
+// Expected points model, v1.2.0.
 //
-// v1.1.0 adds the cold-start prior layer at the bottom of this file: rates are
+// v1.1.0 added the cold-start prior layer at the bottom of this file: rates are
 // shrunk toward a fitted position/price prior instead of the player being
 // dropped for having too few minutes. `predict` itself is unchanged — the prior
 // produces the same `Rates` shape the model already consumed.
+//
+// v1.2.0 adds squad reconciliation, further down: every club starts exactly
+// eleven players and one goalkeeper, and its squad plays 990 minutes, but
+// rates derived per player with no view of the rest of the squad do not sum
+// to those facts — see the "Squad reconciliation" section for the mechanism
+// and its known limitation. `predict` is again unchanged; reconciliation
+// only rescales the `Rates` it is handed.
 //
 // Implements the nine steps in the build plan. Two deliberate deviations,
 // both of which the plan itself sanctions:
@@ -19,7 +26,7 @@
 // tactical change. Once player_gameweek_stats fills up, current-season form
 // should be blended in and these rates reweighted.
 
-export const MODEL_VERSION = "v1.1.0";
+export const MODEL_VERSION = "v1.2.0";
 
 export const MODEL_PARAMS = {
   // Recency weights applied to prior seasons, most recent first.
@@ -722,7 +729,285 @@ export const COLD_START_MODEL_NOTE =
   "match-to-match variance and are therefore narrower than real outcomes. No external-league data is " +
   "used yet, so a promoted-club player's prior rests on position, price and role alone, and team " +
   "attacking strength is omitted entirely because the API reports it as zero for all twenty clubs " +
-  "pre-season.";
+  "pre-season. Since v1.2.0, every club's squad is also reconciled so exactly eleven players and one " +
+  "goalkeeper start each fixture, so a player's number now depends on their team-mates too — where a " +
+  "squad's raw numbers fall short of eleven (promoted clubs, mainly) or run past it (deep, expensive " +
+  "squads), the shortfall or surplus is spread across the squad in proportion to existing estimates, " +
+  "capped at each player's own chance of playing. This fixes how much a club plays, not how well — " +
+  "team strength is still zero for all twenty clubs, so it is a role estimate, not a quality one — and " +
+  "it does not order players within a position, so understudies can end up sharing a start rather than " +
+  "one being picked out as first choice. It also does not distinguish an established starter from a " +
+  "fringe squad member on the same price band: at a large, deep squad the correction is spread evenly " +
+  "across everyone in a position, so a nailed starter can be pulled down by the same proportion as a " +
+  "reserve who should have moved far more and the starter far less.";
+
+// ===========================================================================
+// Squad reconciliation (v1.2.0)
+//
+// Every club starts exactly 11 players and exactly 1 goalkeeper per fixture,
+// and its squad plays exactly 990 minutes (11 x 90, up to red cards). Rates
+// above are derived per player with no view of the rest of the squad, so
+// nothing enforces those three facts: a promoted club with no Premier League
+// record collapses toward the position/price prior mean — fitted on squads
+// where a cheap defender is a bench filler, not a certain starter — while an
+// expensive established squad inflates past eleven in the same direction.
+// This section is a squad-level correction, not a new source of evidence: it
+// redistributes existing estimates onto a known constraint and adds no
+// fitted parameter of its own.
+//
+// Known limitation, measured rather than assumed: the correction is a single
+// proportional factor per club per position group, so it cannot tell an
+// established starter from a fringe reserve who happens to share their price
+// band. At a large registered squad (25+ players), enough fringe depth each
+// carries a small but non-zero position/price baseline that the *raw* sum
+// comfortably exceeds eleven even before any established starter is counted,
+// so the uniform cut that brings the group back to eleven lands on the
+// starter just as hard as on the reserve who should have been near zero.
+// Measured on the phase-4 backtest cohort: cut clubs (Chelsea, Spurs, Man
+// City) saw their established-player bias worsen, while boosted clubs
+// (promoted and mid-table squads with real depth gaps) improved — the
+// direction is not symmetric, because only deep squads have fringe players
+// numerous enough to inflate the raw sum in the first place. A player-level
+// fix exists (weight the correction by `n_eff`, already computed by
+// `deriveRatesWithPrior` for exactly this purpose — low-evidence players
+// absorb more of the correction, established ones less) but is not built
+// here; see docs/roadmap.md.
+// ===========================================================================
+
+export interface WaterFillResult {
+  /** The reconciled quantities, same order and length as the input. */
+  q: number[];
+  /** The solved scale. Multiply an input's *pre-ceiling* value by this to reproduce q (see reconcileClubSquad). */
+  lambda: number;
+  cappedCount: number;
+  /** target - sum(ceilings), when the ceilings alone cannot reach target. Zero otherwise. */
+  shortfall: number;
+  status: "ok" | "exact_ceiling" | "infeasible" | "uniform_fallback" | "empty";
+}
+
+/**
+ * Solve `sum(min(c_i, lambda * p_i)) = target` for `lambda`, exactly.
+ *
+ * This is the minimal-information (KL) projection of `p` onto
+ * `{q : sum(q) = target, 0 <= q <= c}` — the smallest change to `p` that
+ * satisfies the constraint, with no free shape parameter. Rejected
+ * alternatives (scaling the complement `1-p` to protect nailed starters;
+ * weighting by evidence) each need a chosen shape with nothing to fit it
+ * against.
+ *
+ * Solved by iterative capping rather than bisection: a player whose
+ * proportional share would exceed their ceiling is pinned to it and removed
+ * from the pool, the remaining budget is re-solved over the rest, and this
+ * repeats until stable. At most `n` rounds, each O(n) — negligible for a
+ * ~30-player squad — and exact rather than tolerance-based, so the result is
+ * deterministic.
+ */
+export function solveWaterFill(p: number[], c: number[], target: number): WaterFillResult {
+  const EPS = 1e-9;
+  const n = p.length;
+  if (n === 0) return { q: [], lambda: 0, cappedCount: 0, shortfall: target, status: "empty" };
+
+  const C = c.reduce((a, b) => a + b, 0);
+  if (C <= target + EPS) {
+    // The squad's own ceilings (availability) can't reach the target, or land
+    // exactly on it: give everyone their ceiling and record how far short.
+    return {
+      q: [...c],
+      lambda: Infinity,
+      cappedCount: n,
+      shortfall: target - C,
+      status: C < target - EPS ? "infeasible" : "exact_ceiling",
+    };
+  }
+
+  const P = p.reduce((a, b) => a + b, 0);
+  // Nothing to scale proportionally (e.g. a whole group with zero estimated
+  // share) — fall back to spreading the target across availability, which is
+  // the only remaining signal.
+  const base = P > EPS ? p : c;
+  const status: WaterFillResult["status"] = P > EPS ? "ok" : "uniform_fallback";
+
+  const capped = new Array(n).fill(false);
+  let lambda = 0;
+  for (let round = 0; round < n; round++) {
+    let cappedSum = 0;
+    let activeBase = 0;
+    for (let i = 0; i < n; i++) {
+      if (capped[i]) cappedSum += c[i];
+      else activeBase += base[i];
+    }
+    if (activeBase <= EPS) {
+      lambda = 0;
+      break;
+    }
+    lambda = (target - cappedSum) / activeBase;
+
+    let newlyCapped = false;
+    for (let i = 0; i < n; i++) {
+      if (capped[i] || base[i] <= EPS) continue;
+      if (lambda * base[i] > c[i] + EPS) {
+        capped[i] = true;
+        newlyCapped = true;
+      }
+    }
+    if (!newlyCapped) break;
+  }
+
+  const q = base.map((bi, i) => (capped[i] ? c[i] : Math.min(c[i], lambda * bi)));
+  const sum = q.reduce((a, b) => a + b, 0);
+  const cappedCount = capped.filter(Boolean).length;
+
+  if (!Number.isFinite(lambda) || Math.abs(sum - target) > 1e-6) {
+    // Unreachable given the checks above, but a squad's projection must never
+    // silently fail the constraint — fall back to a no-op over emitting a
+    // number that looks reconciled but is not.
+    return { q: [...p], lambda: 1, cappedCount: 0, shortfall: target - P, status: "infeasible" };
+  }
+
+  return { q, lambda, cappedCount, shortfall: 0, status };
+}
+
+/**
+ * Goalkeeper position id. Hardcoded on the same precedent as
+ * `MODEL_PARAMS.dcThreshold`'s `1: 0` entry above — this file already assumes
+ * FPL's element-type ids are stable (1=GKP, 2=DEF, 3=MID, 4=FWD).
+ */
+export const GOALKEEPER_POSITION_ID = 1;
+
+export interface SquadMember {
+  /** Opaque to this function — relayed back as the key into `scales`. */
+  key: number;
+  positionId: number;
+  startShare: number;
+  minutesPerGame: number;
+  /** From `availabilityOf`, so there is one implementation of availability. */
+  availability: number;
+}
+
+export interface SquadBudgets {
+  /** Players who start a fixture. From `game_settings.squad_squadplay` — never hardcoded. */
+  xi: number;
+  /** Goalkeepers among the eleven. From `element_types`' GKP row (`squad_min_play === squad_max_play === 1`). */
+  goalkeepers: number;
+}
+
+export interface SquadScale {
+  /** Multiplies `rates.startShare`. 1 = untouched. */
+  startScale: number;
+  /** Multiplies `rates.minutesPerGame`. 1 = untouched. */
+  minutesScale: number;
+}
+
+export interface SquadReconciliation {
+  scales: Map<number, SquadScale>;
+  goalkeeperFit: WaterFillResult;
+  outfieldFit: WaterFillResult;
+  minutesFit: WaterFillResult;
+  /**
+   * Players whose scaled rates put `p60` above `pAny` (see `predict`) — the
+   * two water-fills are solved independently and club-wide totals guarantee
+   * this only in aggregate (990/11 = 90 >= appearanceMinutes*startCompletion
+   * = 66.24), not per player. Counted rather than silently left to predict's
+   * clamp to absorb.
+   */
+  consistencyViolations: number;
+}
+
+/**
+ * Reconcile one club's roster, for one fixture, onto the facts every club
+ * satisfies: eleven players start, one of them the goalkeeper, and (a third
+ * budget, necessary because minutes-per-start varies more than tenfold
+ * across today's squads — see docs/roadmap.md) 990 total minutes.
+ *
+ * Pure and per-club: takes a roster snapshot, returns a scale per player to
+ * multiply into their `Rates` via `applySquadScale`. Never touches a
+ * database, and never sees more than one club at a time.
+ */
+export function reconcileClubSquad(
+  members: SquadMember[],
+  budgets: SquadBudgets,
+): SquadReconciliation {
+  const SQUAD_EPS = 1e-9;
+  const scales = new Map<number, SquadScale>();
+  for (const m of members) scales.set(m.key, { startScale: 1, minutesScale: 1 });
+
+  const gks = members.filter((m) => m.positionId === GOALKEEPER_POSITION_ID);
+  const outfield = members.filter((m) => m.positionId !== GOALKEEPER_POSITION_ID);
+
+  const goalkeeperFit = solveWaterFill(
+    gks.map((m) => m.startShare * m.availability),
+    gks.map((m) => m.availability),
+    budgets.goalkeepers,
+  );
+  const outfieldFit = solveWaterFill(
+    outfield.map((m) => m.startShare * m.availability),
+    outfield.map((m) => m.availability),
+    budgets.xi - budgets.goalkeepers,
+  );
+  const applyStart = (group: SquadMember[], fit: WaterFillResult) => {
+    group.forEach((m, i) => {
+      const p = m.startShare * m.availability;
+      scales.get(m.key)!.startScale = p > SQUAD_EPS ? fit.q[i] / p : 1;
+    });
+  };
+  applyStart(gks, goalkeeperFit);
+  applyStart(outfield, outfieldFit);
+
+  // A match is 90 minutes — the same literal `predict` divides by directly
+  // (`minuteShare = expectedMinutes / 90`), not a new constant.
+  //
+  // A single club-wide budget, not per-player floors. A doubly-bounded
+  // variant was tried — flooring each player's minutes at
+  // `bound * theirOwnScaledStartShare` — and measured, not assumed, to be
+  // worse: for a squad member whose own raw minutes estimate is near zero
+  // (a fringe player, the case this whole mechanism exists for), that floor
+  // swamps their base rate, so almost their entire minutes allocation comes
+  // from the floor rather than from redistribution, producing an
+  // implausibly large minutesScale for exactly the players with the least
+  // evidence behind them. On live data this took Coventry's third-choice
+  // keeper from rank 24 of 29 in the squad to rank 3, entirely on a backup's
+  // save-points inflating with his minutes share, and dragged the whole
+  // club's within-club rank correlation from 0.92 to 0.80. The single-budget
+  // version leaves a small tail of players (~1% of the league, measured via
+  // `consistencyViolations` below) whose minutes and starts were scaled by
+  // different amounts and so mildly understate one of appearance or scoring
+  // points relative to the other — a smaller, disclosed cost than the
+  // alternative's occasional large, unexplained swing.
+  const bound = MODEL_PARAMS.appearanceMinutes * MODEL_PARAMS.startCompletion;
+  const minutesFit = solveWaterFill(
+    members.map((m) => m.minutesPerGame * m.availability),
+    members.map((m) => 90 * m.availability),
+    budgets.xi * 90,
+  );
+
+  members.forEach((m, i) => {
+    const p = m.minutesPerGame * m.availability;
+    scales.get(m.key)!.minutesScale = p > SQUAD_EPS ? minutesFit.q[i] / p : 1;
+  });
+
+  let consistencyViolations = 0;
+  for (const m of members) {
+    const scale = scales.get(m.key)!;
+    const scaledStart = clamp(m.startShare * scale.startScale, 0, 1);
+    const scaledMpg = Math.max(0, m.minutesPerGame * scale.minutesScale);
+    if (scaledMpg < bound * scaledStart - 1e-6) consistencyViolations++;
+  }
+
+  return { scales, goalkeeperFit, outfieldFit, minutesFit, consistencyViolations };
+}
+
+/**
+ * Apply a squad-reconciliation scale to a player's rates. The single place
+ * scaling happens, so the mean/low/high rate sets built from one `Rates`
+ * cannot drift apart from each other.
+ */
+export function applySquadScale(rates: Rates, scale: SquadScale): Rates {
+  return {
+    ...rates,
+    startShare: clamp(rates.startShare * scale.startScale, 0, 1),
+    minutesPerGame: clamp(rates.minutesPerGame * scale.minutesScale, 0, 90),
+  };
+}
 
 /** P(X >= k) for X ~ Poisson(lambda). */
 export function poissonAtLeast(lambda: number, k: number): number {

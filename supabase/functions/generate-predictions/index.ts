@@ -10,16 +10,24 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { currentSeason, jsonResponse, preflight, serviceClient, SyncRun } from "../_shared/sync.ts";
 import { chunk } from "../_shared/coerce.ts";
 import {
+  applySquadScale,
+  availabilityOf,
   deriveRatesWithPrior,
   fitRatePriors,
+  GOALKEEPER_POSITION_ID,
   MODEL_PARAMS,
   MODEL_VERSION,
   predict,
   priceBandOf,
   ratesAtBound,
+  reconcileClubSquad,
   type FitRow,
+  type Rates,
+  type RateEvidence,
   type ScoringRules,
   type SeasonRow,
+  type SquadMember,
+  type SquadReconciliation,
 } from "../_shared/xp-model.ts";
 
 const FUNCTION_NAME = "generate-predictions";
@@ -61,7 +69,11 @@ Deno.serve(async (req) => {
         "multipliers and Poisson threshold models for defensive contribution, saves, " +
         "and goals conceded. v1.1.0 adds an empirical-Bayes cold-start layer: rates " +
         "are shrunk toward a prior fitted from position and price by measured " +
-        "variance components, so a thin record is used rather than discarded.",
+        "variance components, so a thin record is used rather than discarded. v1.2.0 " +
+        "adds squad reconciliation: each club's projected starters, goalkeeper and " +
+        "minutes are rescaled per fixture to sum to eleven, one and 990 respectively, " +
+        "via an exact parameter-free water-fill, so a promoted club's squad no longer " +
+        "collapses toward zero nor an established squad inflates past eleven.",
       params: MODEL_PARAMS,
     }, { onConflict: "version" });
     if (modelError) throw new Error(`prediction_models: ${modelError.message}`);
@@ -83,25 +95,42 @@ Deno.serve(async (req) => {
     const firstEvent = nextGw.id as number;
     const lastEvent = firstEvent + HORIZON - 1;
 
-    const [playersRes, typesRes, fixturesRes] = await Promise.all([
+    const [playersRes, typesRes, fixturesRes, squadplayRes] = await Promise.all([
       db.from("players")
         .select("id, code, team_id, element_type, status, chance_of_playing_next_round, now_cost")
         .eq("season", season)
         .limit(1000),
-      db.from("element_types").select("id, singular_name_short").eq("season", season),
+      db.from("element_types")
+        .select("id, singular_name_short, squad_min_play")
+        .eq("season", season),
       db.from("fixtures")
         .select("id, event, team_h, team_a, team_h_difficulty, team_a_difficulty")
         .eq("season", season)
         .gte("event", firstEvent)
         .lte("event", lastEvent),
+      // How many start per club, per fixture — never hardcoded. See
+      // reconcileClubSquad below.
+      db.from("game_settings")
+        .select("value")
+        .eq("season", season)
+        .eq("key", "squad_squadplay")
+        .maybeSingle(),
     ]);
     if (playersRes.error) throw new Error(`players: ${playersRes.error.message}`);
     if (typesRes.error) throw new Error(`element_types: ${typesRes.error.message}`);
     if (fixturesRes.error) throw new Error(`fixtures: ${fixturesRes.error.message}`);
+    if (squadplayRes.error) throw new Error(`game_settings: ${squadplayRes.error.message}`);
+    if (!squadplayRes.data) throw new Error("game_settings: squad_squadplay missing");
 
     const positionCode = new Map(
       (typesRes.data ?? []).map((t) => [t.id as number, t.singular_name_short as string]),
     );
+    const goalkeeperRow = (typesRes.data ?? []).find((t) => t.id === GOALKEEPER_POSITION_ID);
+    if (!goalkeeperRow) throw new Error(`element_types: no row for goalkeeper id ${GOALKEEPER_POSITION_ID}`);
+    const squadBudgets = {
+      xi: Number(squadplayRes.data.value),
+      goalkeepers: Number(goalkeeperRow.squad_min_play),
+    };
 
     // History can exceed one page; pull it in slices keyed by player code.
     const players = (playersRes.data ?? []) as {
@@ -196,11 +225,29 @@ Deno.serve(async (req) => {
     }
 
     // ------------------------------------------------------------ predict
+    //
+    // Three passes rather than one. Rates are still derived per player with
+    // no view of the rest of the squad (pass 1); but a club's players do not
+    // independently sum to eleven starters, one keeper, and 990 minutes, so a
+    // second pass reconciles each club's roster onto those facts before the
+    // per-fixture `predict()` calls run (pass 3). See reconcileClubSquad in
+    // xp-model.ts for why this needed its own pass rather than folding into
+    // deriveRatesWithPrior — the shrinkage is genuinely per-player, and the
+    // squad budget is genuinely not.
 
-    const rows: Record<string, unknown>[] = [];
+    interface Derived {
+      player: typeof players[number];
+      rates: Rates;
+      evidence: RateEvidence;
+      availability: number;
+      playerInput: { positionId: number; positionCode: string; status: string | null; chanceNextRound: number | null };
+    }
+
+    const derived: Derived[] = [];
     let skippedNoRates = 0;
     const bySource = new Map<string, number>();
 
+    // ---- pass 1: derive --------------------------------------------------
     for (const p of players) {
       // Shrunk toward the fitted prior rather than gated on a minutes floor. The
       // old floor threw away every player under 270 weighted minutes — half of
@@ -215,17 +262,13 @@ Deno.serve(async (req) => {
       if (!shrunk) {
         // The one abstention left: no Premier League minutes *and* no prior for
         // this position at all. Emitting nothing beats emitting a fabricated xP.
+        // A skipped player is absent from pass 2's roster too, and so
+        // correctly consumes none of their club's squad budget.
         skippedNoRates++;
         continue;
       }
       const { rates, evidence } = shrunk;
       bySource.set(evidence.priorSource, (bySource.get(evidence.priorSource) ?? 0) + 1);
-
-      // The reported band comes from re-running the model at the rates' bounds.
-      // It is a rate-uncertainty band, not a prediction interval — see
-      // COLD_START_MODEL_NOTE.
-      const ratesLow = ratesAtBound(rates, evidence, -MODEL_PARAMS.bandZ);
-      const ratesHigh = ratesAtBound(rates, evidence, MODEL_PARAMS.bandZ);
 
       const code = positionCode.get(p.element_type) ?? "MID";
       const playerInput = {
@@ -234,12 +277,70 @@ Deno.serve(async (req) => {
         status: p.status,
         chanceNextRound: p.chance_of_playing_next_round,
       };
+      derived.push({ player: p, rates, evidence, availability: availabilityOf(playerInput), playerInput });
+    }
+
+    // ---- pass 2: reconcile ------------------------------------------------
+    const byClub = new Map<number, Derived[]>();
+    for (const d of derived) {
+      const teamId = d.player.team_id;
+      if (!byClub.has(teamId)) byClub.set(teamId, []);
+      byClub.get(teamId)!.push(d);
+    }
+
+    const scaleByPlayerId = new Map<number, { startScale: number; minutesScale: number }>();
+    const squadStatusByPlayerId = new Map<number, string>();
+    const reconciliationByClub = new Map<number, SquadReconciliation>();
+    let squadConsistencyViolations = 0;
+
+    for (const [teamId, clubDerived] of byClub) {
+      const members: SquadMember[] = clubDerived.map((d) => ({
+        key: d.player.id,
+        positionId: d.player.element_type,
+        startShare: d.rates.startShare,
+        minutesPerGame: d.rates.minutesPerGame,
+        availability: d.availability,
+      }));
+      const reconciliation = reconcileClubSquad(members, squadBudgets);
+      reconciliationByClub.set(teamId, reconciliation);
+      squadConsistencyViolations += reconciliation.consistencyViolations;
+
+      const status = `${reconciliation.goalkeeperFit.status}/${reconciliation.outfieldFit.status}/${reconciliation.minutesFit.status}`;
+      for (const d of clubDerived) {
+        scaleByPlayerId.set(d.player.id, reconciliation.scales.get(d.player.id)!);
+        squadStatusByPlayerId.set(d.player.id, status);
+      }
+    }
+
+    // ---- pass 3: predict ---------------------------------------------------
+    const rows: Record<string, unknown>[] = [];
+
+    for (const d of derived) {
+      const p = d.player;
+      const scale = scaleByPlayerId.get(p.id)!;
+      const squadStatus = squadStatusByPlayerId.get(p.id)!;
+      const rates = applySquadScale(d.rates, scale);
+
+      // The reported band comes from re-running the model at the rates'
+      // bounds around the *unscaled* mean rates, then applying the same
+      // squad scale to all three runs. One club-level lambda, not one per
+      // bound — solving each bound independently would collapse the band on
+      // exactly the cold-start players it exists for (their team-mates share
+      // a prior cell, so ratesAtBound shifts them by a similar absolute
+      // amount, and dividing each run by its own lambda maps all three close
+      // to the same allocation). "Eleven start" is a certainty; which eleven
+      // is what is uncertain, and the band should describe the second thing.
+      // See COLD_START_MODEL_NOTE.
+      const ratesLowUnscaled = ratesAtBound(d.rates, d.evidence, -MODEL_PARAMS.bandZ);
+      const ratesHighUnscaled = ratesAtBound(d.rates, d.evidence, MODEL_PARAMS.bandZ);
+      const ratesLow = applySquadScale(ratesLowUnscaled, scale);
+      const ratesHigh = applySquadScale(ratesHighUnscaled, scale);
 
       for (const f of byTeam.get(p.team_id) ?? []) {
         const fixture = { fdr: f.fdr, isHome: f.isHome };
-        const pred = predict(playerInput, rates, fixture, scoring);
-        const low = predict(playerInput, ratesLow, fixture, scoring);
-        const high = predict(playerInput, ratesHigh, fixture, scoring);
+        const pred = predict(d.playerInput, rates, fixture, scoring);
+        const low = predict(d.playerInput, ratesLow, fixture, scoring);
+        const high = predict(d.playerInput, ratesHigh, fixture, scoring);
 
         rows.push({
           season,
@@ -273,10 +374,10 @@ Deno.serve(async (req) => {
           xp_lower: round(Math.min(low.xp, high.xp), 3),
           xp_upper: round(Math.max(low.xp, high.xp), 3),
 
-          prior_weight: round(evidence.priorWeight, 3),
-          n_eff: round(evidence.nEff, 2),
-          reliability: evidence.reliability,
-          prior_source: evidence.priorSource,
+          prior_weight: round(d.evidence.priorWeight, 3),
+          n_eff: round(d.evidence.nEff, 2),
+          reliability: d.evidence.reliability,
+          prior_source: d.evidence.priorSource,
 
           rates: {
             seasons: rates.seasonsUsed,
@@ -287,21 +388,37 @@ Deno.serve(async (req) => {
             dc90: round(rates.dc90, 2),
             // Carried so a number can be explained after the fact, which is the
             // whole point of storing provenance next to the value.
-            prior_weight: round(evidence.priorWeight, 3),
-            prior_source: evidence.priorSource,
-            n_eff: round(evidence.nEff, 2),
+            prior_weight: round(d.evidence.priorWeight, 3),
+            prior_source: d.evidence.priorSource,
+            n_eff: round(d.evidence.nEff, 2),
+            // Squad-reconciliation provenance (v1.2.0): how much this
+            // player's rates moved to make their club's roster sum to
+            // eleven starters, one keeper, and 990 minutes.
+            squad_start_scale: round(scale.startScale, 3),
+            squad_minutes_scale: round(scale.minutesScale, 3),
+            squad_status: squadStatus,
           },
         });
       }
     }
 
-    // Replace this version's predictions wholesale — a stale row for a fixture
-    // that has since been rescheduled would otherwise linger.
+    const squadStatusCounts = new Map<string, number>();
+    for (const reconciliation of reconciliationByClub.values()) {
+      for (const s of [reconciliation.goalkeeperFit.status, reconciliation.outfieldFit.status, reconciliation.minutesFit.status]) {
+        squadStatusCounts.set(s, (squadStatusCounts.get(s) ?? 0) + 1);
+      }
+    }
+
+    // Replace every stored version for this season, not just this run's own
+    // MODEL_VERSION. No front-end page filters on model_version — six call
+    // sites read player_predictions/player_xp_horizons without one — so a
+    // version bump that deletes only its own rows would leave the previous
+    // version's rows in place and double every player's horizon data. This
+    // is the invariant that keeps that correct; see docs/roadmap.md.
     const { error: deleteError } = await db
       .from("player_predictions")
       .delete()
-      .eq("season", season)
-      .eq("model_version", MODEL_VERSION);
+      .eq("season", season);
     if (deleteError) throw new Error(`clear predictions: ${deleteError.message}`);
 
     for (const batch of chunk(rows, 500)) {
@@ -319,6 +436,9 @@ Deno.serve(async (req) => {
         skipped_no_prior: skippedNoRates,
         prior_cells: priors.cells.length,
         by_prior_source: Object.fromEntries(bySource),
+        clubs_reconciled: reconciliationByClub.size,
+        squad_status: Object.fromEntries(squadStatusCounts),
+        squad_consistency_violations: squadConsistencyViolations,
       },
     });
 

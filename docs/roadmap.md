@@ -160,6 +160,22 @@ Not started. Findings that shape it, verified rather than assumed:
 - Free tier is 100 requests/day and `/players` paginates at 20, so a Championship season is ~36
   requests: enough for a seasonal backfill, never for anything live.
 
+**A candidate data drop was rejected, measured rather than assumed (2026-08-05).**
+`docs/Promoted Team Data/premier_league_new_players_analytics.csv` was supplied as per-player
+minutes/appearances/xG/xA data for players new to the league, intended to feed the cold-start prior.
+Three checks — distinct-tuple count per position, `origin_club == new_pl_club` rate, and a join
+against `player_season_history` — showed it is 95% synthetic: 96 of 101 rows are one of four
+hand-written position archetypes (all 13 goalkeepers identically 3420 minutes / 38 apps / 38 starts,
+which is impossible — several clubs have four registered keepers), `origin_club` equals `new_pl_club`
+in 79/101 rows with `origin_league` defaulting to `EFL_Championship`, and 42/101 players already
+carry real Premier League minutes and are not cold-start cases at all. Injecting it would have been
+actively harmful: shrinkage weights evidence by `n_eff = minutes/90`, so the fabricated 2700-minute
+defender template would read as *strong* evidence and override the fitted prior, flipping ~96 players
+from `reliability: "low"` to `"high"` and giving every promoted-club defender an identical
+projection. **Not used.** Any future drop must pass the same three checks before it is allowed to
+influence a projection: per-player distinct values (not position archetypes), a genuine origin
+competition, and no overlap with players who already carry PL minutes.
+
 ### Hosting follow-ups (recorded 2026-08-04, after the move to Cloudflare)
 
 - **Content-Security-Policy.** `public/_headers` deliberately ships without one, because a hosting
@@ -201,6 +217,46 @@ Then the full gate: `npx tsc --noEmit`, `npm run lint`, `npm run build`, and a b
 `hono` is separate. The cleanest fix is not a version pin but moving **`shadcn` out of
 `dependencies` into `devDependencies`**, where a scaffolding CLI belongs — that drops the whole
 subtree from production installs and takes the advisory with it.
+
+## Squad reconciliation, phase 1 — start/minutes water-fill (built, v1.2.0, 2026-08-05)
+
+Investigating why the rejected data drop above felt necessary surfaced a real, measurable defect:
+every club starts exactly 11 players and 1 goalkeeper per fixture, but `player_predictions` summed
+`start_probability` anywhere from 4.08 (Hull) to 14.82 (Chelsea) per club. `reconcileClubSquad`
+(`xp-model.ts`) fixes this with an exact, parameter-free water-fill onto two budgets per club per
+fixture — 11 starters (1 goalkeeper) and 990 minutes, kept separate because the ratio between them
+varies more than tenfold across today's squads (Hull ran 138 minutes per start against a league norm
+of ~92). Full mechanism, measurements, and the trade-off accepted to ship it are recorded in
+[phase-4-model.md §3](phase-4-model.md#3-squad-reconciliation-v120).
+
+**Known limitation, shipped deliberately rather than fixed under the same change that found it.**
+The water-fill is a single proportional factor per club per position group, so it cannot tell an
+established starter from a fringe reserve on the same price band — at a large registered squad, the
+correction lands on both equally, pulling a nailed starter down by the same proportion as a reserve
+who should have moved far more. Measured on the phase-4 backtest cohort: Pearson r on the 207-player
+established-player cohort fell from 0.850 to 0.761 with no recalibration, driven entirely by clubs
+being scaled down (Chelsea, Spurs, Man City), while clubs being scaled up improved. The league-wide
+level barely moved (mean predicted PPG −0.72%, inside the band this repo already treats as "leave
+`positionCalibration` alone"), so recalibrating to chase the cohort figure would have been exactly
+the mistake CLAUDE.md already warns against — raising the whole league to cancel a bias caused by
+cohort *selection*.
+
+**Phase 2 — evidence-weighted water-fill (deferred, not gated on external data this time).** The
+real fix is to weight each player's share of the correction by `n_eff` (evidence, already computed
+by `deriveRatesWithPrior` for exactly this purpose) rather than uniformly, so a low-evidence reserve
+absorbs most of a club's correction and a high-evidence established starter absorbs little. This is
+a different algorithm from a plain KL-minimal proportional water-fill, not a parameter change to the
+one shipped, and needs its own derivation and the same verification pass (constraint audit,
+within-club Spearman, phase-4 cohort r) before it replaces phase 1. Unlike the cold-start patch's
+phase 2, this one is blocked on design work, not on a missing data source — everything it needs
+already exists in the model.
+
+A doubly-bounded minutes solve (flooring each player's minutes at their own scaled start share, to
+close the ~1% consistency gap where `p60 > pAny`) was tried and rejected: for a squad member with a
+near-zero own minutes estimate, the floor swamps their base rate and hands them an implausibly large
+minutes scale from borrowed signal — measured taking one club's third-choice goalkeeper from
+squad-rank 24 to rank 3. The single-budget solve is shipped instead, leaving that ~1% consistency
+gap as a smaller, disclosed cost.
 
 ## Sprint 5 — Scenario Lab & Draft Management (built)
 
