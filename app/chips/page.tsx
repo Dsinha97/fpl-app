@@ -363,39 +363,70 @@ export default function ChipsPage() {
             {result.note}
           </p>
 
-          {/* joint schedule */}
-          {result.schedule && (
-            <section className="mt-5 rounded-xl border border-purple-300 bg-white p-4 dark:border-[#00FF87]/40 dark:bg-[#1E0234]">
+          {/* per-half schedules — FPL grants each chip once per half, so these
+              are two independent decisions, not one combined total. */}
+          {result.schedules.map((half) => (
+            <section
+              key={half.label}
+              className="mt-5 rounded-xl border border-purple-300 bg-white p-4 dark:border-[#00FF87]/40 dark:bg-[#1E0234]"
+            >
               <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                Best joint schedule
+                Chip schedule · {half.label}
               </h2>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {result.schedule.entries
-                  .slice()
-                  .sort((a, b) => a.event - b.event)
-                  .map((e) => (
-                    <div
-                      key={e.chip}
-                      className="rounded-md border border-zinc-200 px-2.5 py-1.5 text-sm dark:border-purple-900/40"
-                    >
-                      <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                        {CHIP_LABELS[e.chip]}
-                      </span>
-                      <span className="ml-1.5 text-zinc-500">GW{e.event}</span>
-                      <span className="ml-1.5 tabular-nums text-purple-800 dark:text-[#00FF87]">
-                        {signed(e.gain)}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-              <p className="mt-2 text-xs text-zinc-500">
-                Total {signed(result.schedule.total)} xP.{" "}
-                {result.schedule.margin < 1
-                  ? `The next-best combination of gameweeks is within ${result.schedule.margin.toFixed(1)} points — treat this as illustrative, not a recommendation.`
-                  : `${result.schedule.margin.toFixed(1)} points clear of the next-best combination of gameweeks.`}
-              </p>
+
+              {half.oneOff && (
+                <>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {half.oneOff.entries
+                      .slice()
+                      .sort((a, b) => a.event - b.event)
+                      .map((e) => (
+                        <div
+                          key={e.chip}
+                          className="rounded-md border border-zinc-200 px-2.5 py-1.5 text-sm dark:border-purple-900/40"
+                        >
+                          <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                            {CHIP_LABELS[e.chip]}
+                          </span>
+                          <span className="ml-1.5 text-zinc-500">GW{e.event}</span>
+                          <span className="ml-1.5 tabular-nums text-purple-800 dark:text-[#00FF87]">
+                            {signed(e.gain)}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                  <p className="mt-2 text-xs text-zinc-500">
+                    Bench Boost + Triple Captain + Free Hit total {signed(half.oneOff.total)} xP.{" "}
+                    {half.oneOff.margin < 1
+                      ? `The next-best combination of gameweeks is within ${half.oneOff.margin.toFixed(1)} points — treat this as illustrative, not a recommendation.`
+                      : `${half.oneOff.margin.toFixed(1)} points clear of the next-best combination of gameweeks.`}
+                  </p>
+                </>
+              )}
+
+              {/* Wildcard shown on its own — a cumulative gain over the rest of
+                  the half, not a single gameweek, so it is never summed with
+                  the one-off total above. */}
+              {half.wildcard && (
+                <div className="mt-3 flex items-center gap-2 border-t border-zinc-100 pt-3 dark:border-purple-900/40">
+                  <div className="rounded-md border border-zinc-200 px-2.5 py-1.5 text-sm dark:border-purple-900/40">
+                    <span className="font-medium text-zinc-800 dark:text-zinc-200">Wildcard</span>
+                    <span className="ml-1.5 text-zinc-500">GW{half.wildcard.event}</span>
+                    <span className="ml-1.5 tabular-nums text-purple-800 dark:text-[#00FF87]">
+                      {signed(half.wildcard.gain)}
+                    </span>
+                  </div>
+                  <span className="text-xs text-zinc-500">
+                    cumulative through GW{half.stopEvent} — not added to the total above
+                  </span>
+                </div>
+              )}
+
+              {!half.oneOff && !half.wildcard && (
+                <p className="mt-2 text-xs text-zinc-500">Nothing evaluable in this half yet.</p>
+              )}
             </section>
-          )}
+          ))}
 
           {/* per-chip shortlists */}
           <div className="mt-5 grid gap-4 sm:grid-cols-2">

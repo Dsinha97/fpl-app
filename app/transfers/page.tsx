@@ -106,6 +106,13 @@ export default function TransfersPage() {
     available: false,
     reason: null,
   });
+  /**
+   * Applies the manual basket as a Wildcard: every move is free, however many
+   * are queued. Mirrors the trick `transfer-optimizer.ts`'s own wildcard
+   * branch already uses internally (`freeTransfers: moves.length`) rather
+   * than inventing a second way to waive the hit.
+   */
+  const [wildcardMode, setWildcardMode] = useState(false);
   const [decisionMargin, setDecisionMargin] = useState(DEFAULT_DECISION_MARGIN);
   /** The squad slot currently being filled, if any. */
   const [pickingFor, setPickingFor] = useState<number | null>(null);
@@ -340,6 +347,7 @@ export default function TransfersPage() {
     setMoves([]);
     setPickingFor(null);
     setApplied(null);
+    setWildcardMode(false);
   }, [draftId]);
 
   useEffect(() => {
@@ -388,7 +396,9 @@ export default function TransfersPage() {
     return simulateTransfers({
       team,
       moves,
-      freeTransfers,
+      // Wildcard mode waives the hit outright, whatever the real free-transfer
+      // count is — the same trick the optimizer's own wildcard branch uses.
+      freeTransfers: wildcardMode ? moves.length : freeTransfers,
       scoredById,
       isPenaltyTaker,
       lookup,
@@ -400,6 +410,7 @@ export default function TransfersPage() {
   }, [
     team,
     moves,
+    wildcardMode,
     freeTransfers,
     scoredById,
     isPenaltyTaker,
@@ -414,6 +425,18 @@ export default function TransfersPage() {
     (id: number): XpByEvent | undefined => seriesById.get(id),
     [seriesById],
   );
+
+  /**
+   * The window check alone isn't enough — a draft that already has a
+   * *different* chip active can't also play Wildcard, the same guard
+   * `transfer-optimizer.ts`'s own wildcard branch applies.
+   */
+  const wildcardBlockedReason: string | null =
+    !wildcard.available
+      ? wildcard.reason
+      : team && team.activeChip && team.activeChip !== "wildcard"
+        ? `This draft already has the ${team.activeChip} chip active.`
+        : null;
 
   const pool = useMemo(() => [...scoredById.values()], [scoredById]);
 
@@ -503,7 +526,13 @@ export default function TransfersPage() {
     const copy: TeamState = {
       ...simulation.resultingTeam,
       draftId: crypto.randomUUID(),
-      name: `${team.name} +${count} transfer${count === 1 ? "" : "s"}`,
+      name: wildcardMode
+        ? `${team.name} (Wildcard)`
+        : `${team.name} +${count} transfer${count === 1 ? "" : "s"}`,
+      // A wildcard spends the chip, not a free transfer — the count carried
+      // into the new draft is unchanged from the original.
+      freeTransfers: wildcardMode ? team.freeTransfers : simulation.resultingTeam.freeTransfers,
+      activeChip: wildcardMode ? "wildcard" : simulation.resultingTeam.activeChip,
       createdAt: new Date().toISOString(),
     };
     saveDraft(copy);
@@ -514,6 +543,7 @@ export default function TransfersPage() {
     setMoves([]);
     setPickingFor(null);
     setSearch("");
+    setWildcardMode(false);
   };
 
   const movesByOut = useMemo(() => new Map(moves.map((m) => [m.outId, m])), [moves]);
@@ -573,13 +603,20 @@ export default function TransfersPage() {
             </select>
           </label>
         )}
-        <label className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+        <label
+          className={`flex items-center gap-2 text-zinc-600 dark:text-zinc-400 ${wildcardMode ? "opacity-40" : ""}`}
+        >
           Free transfers
           <select
             value={freeTransfers}
             onChange={(e) => setFreeTransfers(Number(e.target.value))}
-            title="FPL lets you bank up to five. Accrual is not modelled — set what you actually hold."
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+            disabled={wildcardMode}
+            title={
+              wildcardMode
+                ? "Irrelevant in Wildcard mode — every move is free."
+                : "FPL lets you bank up to five. Accrual is not modelled — set what you actually hold."
+            }
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:cursor-not-allowed dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
           >
             {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
               <option key={i} value={i}>
@@ -587,6 +624,26 @@ export default function TransfersPage() {
               </option>
             ))}
           </select>
+        </label>
+        <label
+          className={`flex items-center gap-2 ${
+            wildcardBlockedReason === null
+              ? "text-zinc-600 dark:text-zinc-400"
+              : "text-zinc-400 dark:text-zinc-600"
+          }`}
+          title={
+            wildcardBlockedReason ??
+            "Apply this basket with no points hit, however many players change — the same as playing the Wildcard chip."
+          }
+        >
+          <input
+            type="checkbox"
+            checked={wildcardMode}
+            disabled={wildcardBlockedReason !== null}
+            onChange={(e) => setWildcardMode(e.target.checked)}
+            className="disabled:cursor-not-allowed"
+          />
+          Apply as Wildcard (no hit)
         </label>
         {moves.length > 0 && (
           <button
@@ -868,6 +925,11 @@ export default function TransfersPage() {
                 <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                   {simulation.cost.transfers} transfer
                   {simulation.cost.transfers === 1 ? "" : "s"} · {horizonLabel(horizon)}
+                  {wildcardMode && (
+                    <span className="ml-1.5 rounded bg-purple-950 px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-white dark:bg-[#00FF87] dark:text-slate-950">
+                      Wildcard
+                    </span>
+                  )}
                 </h2>
 
                 {/* headline */}

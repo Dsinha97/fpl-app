@@ -135,11 +135,32 @@ export interface ChipSchedule {
   margin: number;
 }
 
+/**
+ * One chip half — FPL gives every chip once per half (GW1-19, GW20-38 today),
+ * so the two halves are independent decisions, not one season-long schedule.
+ * `oneOff` is Bench Boost + Triple Captain + Free Hit: none of them change
+ * the squad permanently, so their gains are genuinely additive and combine
+ * into one total. `wildcard` is reported separately and never summed with
+ * `oneOff` — it is a *cumulative* gain over the rest of the half (a
+ * permanent rebuild), not a single gameweek's worth, so adding it to three
+ * one-week numbers would mix incompatible units into a meaningless total.
+ */
+export interface ChipHalfSchedule {
+  /** e.g. "GW1-19". */
+  label: string;
+  startEvent: number;
+  stopEvent: number;
+  oneOff: ChipSchedule | null;
+  /** Best gameweek for Wildcard in this half, or null if none is playable. */
+  wildcard: ChipValuation | null;
+}
+
 export interface ChipEngineResult {
   windows: ChipWindow[];
   /** Every evaluable gameweek per chip, including ones a caller may choose not to show. */
   valuationsByChip: Record<ChipKind, ChipValuation[]>;
-  schedule: ChipSchedule | null;
+  /** One entry per chip half (normally two: GW1-19 and GW20-38). */
+  schedules: ChipHalfSchedule[];
   note: string;
 }
 
@@ -179,7 +200,13 @@ export function chipModelNote(blankEvents: number, doubleEvents: number, windowE
     "until the chip is played, which will not happen — treat gameweeks further away as more " +
     "speculative. Bench Boost is shown net of what auto-subs would already deliver without the chip. " +
     "Free Hit and Wildcard carry your current armband into the rebuilt squad when it is still there, " +
-    "and disclose it when the captain has to move on, so the gain is never overstated."
+    "and disclose it when the captain has to move on, so the gain is never overstated. FPL gives each " +
+    "chip once per half, so the two halves are shown as separate schedules rather than one combined " +
+    "total. Within a half, Bench Boost, Triple Captain and Free Hit are single-gameweek gains and sum " +
+    "together; Wildcard is a permanent rebuild valued cumulatively over the rest of the half, so it is " +
+    "reported on its own rather than added to the other three. Every chip is still valued against " +
+    "today's squad regardless of what the schedule plays first — a Triple Captain shown after a " +
+    "scheduled Wildcard does not yet reflect the rebuilt squad."
   );
 }
 
@@ -311,7 +338,7 @@ function blockedValuation(chip: ChipKind, event: number, reason: string): ChipVa
  * value would overstate every Bench Boost by however much the bench already
  * earns on a normal week.
  */
-function benchBoostAt(
+export function benchBoostAt(
   picks: SquadPick[],
   event: number,
   predAt: PredAt,
@@ -344,7 +371,7 @@ function benchBoostAt(
  * earn. The best Triple Captain target is often not today's captain, and
  * collapsing the two into one number would hide a choice the user still has.
  */
-function tripleCaptainAt(
+export function tripleCaptainAt(
   team: TeamState,
   event: number,
   predAt: PredAt,
@@ -487,17 +514,28 @@ function wildcardAt(ctx: RebuildContext, event: number, windowEnd: number): Chip
 // -------------------------------------------------------------- schedule
 
 /**
- * Best way to place one available chip per gameweek across all four, by
- * exhaustive search — at most a few dozen candidate gameweeks per chip, so a
- * full search (tens of thousands of combinations) runs in milliseconds and
- * needs no pruning heuristic to get right.
+ * Best way to place one available chip per gameweek across the given chip
+ * kinds, by exhaustive search — at most a few dozen candidate gameweeks per
+ * chip, so a full search (tens of thousands of combinations) runs in
+ * milliseconds and needs no pruning heuristic to get right.
+ *
+ * `kinds` restricts which chips compete for a slot — callers pass the
+ * single-gameweek chips (Bench Boost, Triple Captain, Free Hit) here, since
+ * summing in Wildcard's cumulative multi-gameweek gain would mix
+ * incompatible units into the total. `preUsedEvents` blocks gameweeks
+ * already spoken for by a chip decided outside this search (Wildcard's own
+ * pick), since FPL never allows two chips active in the same gameweek.
  *
  * Returns the margin to the next-best assignment alongside the total, so a
  * schedule built from a flat set of values is visibly flat rather than
  * presented as a confident recommendation.
  */
-export function bestSchedule(perChip: Record<ChipKind, ChipValuation[]>): ChipSchedule | null {
-  const chips = CHIP_KINDS.filter((c) => perChip[c] && perChip[c].length > 0);
+export function bestSchedule(
+  perChip: Record<ChipKind, ChipValuation[]>,
+  kinds: ChipKind[] = CHIP_KINDS,
+  preUsedEvents: Set<number> = new Set(),
+): ChipSchedule | null {
+  const chips = kinds.filter((c) => perChip[c] && perChip[c].length > 0);
   if (chips.length === 0) return null;
 
   const options: Record<ChipKind, ChipValuation[]> = {} as Record<ChipKind, ChipValuation[]>;
@@ -507,7 +545,7 @@ export function bestSchedule(perChip: Record<ChipKind, ChipValuation[]>): ChipSc
   let bestEntries: ChipScheduleEntry[] = [];
   let secondTotal = -Infinity;
 
-  const used = new Set<number>();
+  const used = new Set<number>(preUsedEvents);
   const current: ChipScheduleEntry[] = [];
 
   function recurse(idx: number, total: number) {
@@ -609,20 +647,75 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
     }
   }
 
-  const playable: Record<ChipKind, ChipValuation[]> = {
-    bboost: valuationsByChip.bboost.filter((v) => v.blocked === null),
-    "3xc": valuationsByChip["3xc"].filter((v) => v.blocked === null),
-    freehit: valuationsByChip.freehit.filter((v) => v.blocked === null),
-    wildcard: valuationsByChip.wildcard.filter((v) => v.blocked === null),
-  };
+  // ---- per-half schedules ------------------------------------------------
+  //
+  // FPL grants each chip once per half (GW1-19, GW20-38 today), so the two
+  // halves are independent decisions rather than one season-long schedule —
+  // this is also what stops the second half's chip use from being silently
+  // discarded, which a single flat search across both halves would do.
+  const defsByChip = new Map<ChipKind, ChipDefinitionRow[]>();
+  for (const def of chipDefinitions) {
+    const chip = def.name as ChipKind;
+    if (!CHIP_KINDS.includes(chip)) continue;
+    const list = defsByChip.get(chip) ?? [];
+    list.push(def);
+    defsByChip.set(chip, list);
+  }
+  for (const list of defsByChip.values()) list.sort((a, b) => a.startEvent - b.startEvent);
 
-  const schedule = bestSchedule(playable);
+  const halfCount = Math.max(0, ...[...defsByChip.values()].map((l) => l.length));
+  const schedules: ChipHalfSchedule[] = [];
+
+  for (let h = 0; h < halfCount; h++) {
+    const perChipHalf: Record<ChipKind, ChipValuation[]> = {
+      bboost: [],
+      "3xc": [],
+      freehit: [],
+      wildcard: [],
+    };
+    let minStart = Infinity;
+    let maxStop = -Infinity;
+    let anyDef = false;
+
+    for (const chip of CHIP_KINDS) {
+      const def = defsByChip.get(chip)?.[h];
+      if (!def) continue;
+      anyDef = true;
+      minStart = Math.min(minStart, def.startEvent);
+      maxStop = Math.max(maxStop, def.stopEvent);
+      perChipHalf[chip] = valuationsByChip[chip].filter(
+        (v) => v.blocked === null && v.event >= def.startEvent && v.event <= def.stopEvent,
+      );
+    }
+    if (!anyDef) continue;
+
+    // Wildcard is picked independently — argmax over this half's gameweeks —
+    // rather than jointly with the one-off search, since its cumulative gain
+    // dwarfs three single-gameweek gains by construction and a joint search
+    // would not meaningfully change which gameweek wins.
+    const wildcardPick =
+      perChipHalf.wildcard.length > 0
+        ? [...perChipHalf.wildcard].sort((a, b) => b.gain - a.gain)[0]
+        : null;
+    const preUsed = wildcardPick ? new Set([wildcardPick.event]) : new Set<number>();
+
+    const oneOff = bestSchedule(perChipHalf, ["bboost", "3xc", "freehit"], preUsed);
+
+    schedules.push({
+      label: `GW${minStart}-${maxStop}`,
+      startEvent: minStart,
+      stopEvent: maxStop,
+      oneOff,
+      wildcard: wildcardPick,
+    });
+  }
+
   const { blankEvents, doubleEvents } = countBlanksAndDoubles(fixturesPerEvent, windowStart, windowEnd);
 
   return {
     windows,
     valuationsByChip,
-    schedule,
+    schedules,
     note: chipModelNote(blankEvents, doubleEvents, windowEnd),
   };
 }

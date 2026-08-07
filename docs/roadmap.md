@@ -594,11 +594,52 @@ real zero-xP pick, skewing which players the reserve floor considered. The same 
 mode CLAUDE.md already records for the squad optimiser, caught this time by the `tsx` harness against
 live data before it reached the UI, not by code review.
 
-**Joint schedule, not a bare ranking.** Assigning all four chips to distinct gameweeks is a small
+**Joint schedule, not a bare ranking.** Assigning chips to distinct gameweeks within a half is a small
 exact search (a few dozen candidate gameweeks per chip), so it is brute-forced rather than
 approximated, and the result reports its margin over the next-best assignment — so a schedule built
 from a flat set of values reads as illustrative rather than a confident recommendation, which is what
 today's blank/double-free fixture list actually produces.
+
+### Post-ship fixes and extensions (2026-08-07)
+
+Two real defects, found by the owner using the shipped page, plus three follow-on extensions.
+
+**Bug 1 — the joint schedule silently discarded the second half's chip use.** `chip_definitions`
+holds two windows per chip (GW1-19, GW20-38 today — FPL grants each chip once per half), and
+`runChipEngine` correctly valued every gameweek in both, but `bestSchedule` only ever assigned one
+slot per chip name across the *entire* season. The second half's Bench Boost/Triple Captain/Free
+Hit/Wildcard was computed and sitting in the calendar table but never reachable from the schedule.
+Fixed: `bestSchedule` now runs once per half (grouping `chipDefinitions` by chip, then zipping each
+chip's Nth window together as "half N", robust to windows starting on slightly different gameweeks
+across chips — wildcard opens GW2, the others GW1). Two independent `ChipHalfSchedule`s are returned
+and rendered as two blocks.
+
+**Bug 2 — the schedule total mixed incompatible units.** Wildcard is valued cumulatively over the
+rest of its half (a permanent rebuild), while Bench Boost, Triple Captain and Free Hit are each a
+single gameweek's gain (nothing persists). The old single "Total" summed all four into one number —
+a season-long figure added to three one-week figures, which meant nothing. Fixed: `ChipHalfSchedule`
+splits `oneOff` (BB + TC + FH, genuinely additive, its own total and margin) from `wildcard` (its own
+best gameweek, reported separately, never summed). `chipModelNote` now also discloses that every chip
+is still valued against *today's* squad regardless of what the schedule plays first — a Triple
+Captain shown after a scheduled Wildcard does not yet reflect the rebuilt squad, since the engine
+doesn't model chip-to-chip interaction.
+
+**Wildcard toggle on `/transfers`' manual basket.** The optimizer panel's own Wildcard row already
+waived the hit internally (`freeTransfers: moves.length`), but a user building a custom basket by
+hand had no way to do the same — any basket beyond the free-transfer count was charged normally. An
+"Apply as Wildcard (no hit)" checkbox now does exactly that, gated on the same window check the
+optimizer panel already computes plus a check that the draft doesn't already carry a different active
+chip (the same guard `transfer-optimizer.ts`'s own wildcard branch applies). Applying sets the new
+draft's `activeChip` to `"wildcard"` and leaves `freeTransfers` untouched — a wildcard spends the
+chip, not a free transfer.
+
+**Bench Boost / Triple Captain inline on `/builder` and `/scenarios`.** Both are one `optimiseLineup`
+call, cheap enough to run on every edit; `benchBoostAt`/`tripleCaptainAt` (`lib/chips.ts`) are now
+exported and reused directly rather than reimplemented. Both pages build a `PredAt` scoped to the
+next gameweek entirely from data already loaded (`xp_1`, the loaded prediction row, the first
+fixture's FDR) — no new fetch. Free Hit and Wildcard stay off both pages: each is a full-squad
+rebuild search that already takes several seconds on `/chips` alone, and running it on every builder
+edit would make the page unusable — both pages link to `/chips` for them instead.
 
 ## Sprints 13–17
 

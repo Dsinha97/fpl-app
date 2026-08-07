@@ -58,6 +58,7 @@ import { fullName, matchesPlayerQuery } from "@/lib/player-search";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { RangeSlider, ValueSlider } from "@/components/ui/range-slider";
 import { tacticalSummary, toTacticalProfile, type PlManagerRow } from "@/lib/tactical-profile";
+import { benchBoostAt, tripleCaptainAt } from "@/lib/chips";
 
 interface PlayerRow {
   id: number;
@@ -382,6 +383,45 @@ export default function BuilderPage() {
     },
     [rowById],
   );
+
+  const isPenaltyTaker = useCallback(
+    (id: number): boolean => rowById.get(id)?.penalties_order === 1,
+    [rowById],
+  );
+
+  /**
+   * A `PredAt` scoped to the next gameweek only, built entirely from data the
+   * builder already has loaded — `xp_1` is exactly the next-gameweek figure
+   * `lib/chips.ts` needs, so this needs no new fetch. Free Hit and Wildcard
+   * are not offered here: both are full-squad rebuilds over the search
+   * `/chips` already runs, and re-running that on every builder edit would
+   * make the page unusable.
+   */
+  const nextEventPredAt = useCallback(
+    (id: number, event: number) => {
+      if (nextEvent === null || event !== nextEvent) return undefined;
+      const row = rowById.get(id);
+      const pred = predictions.get(id);
+      const fixture = (upcoming.get(row?.team_id ?? -1) ?? [])[0];
+      return {
+        expectedMinutes: pred?.expected_minutes ?? null,
+        startProbability: pred?.start_probability ?? null,
+        availability: availabilityOf(id),
+        fdr: fixture?.fdr ?? null,
+        xp: xp.get(id)?.xp_1 ?? null,
+      };
+    },
+    [nextEvent, rowById, predictions, upcoming, availabilityOf, xp],
+  );
+
+  /** Bench Boost / Triple Captain for the next gameweek, if this chip is playable now. */
+  const cheapChips = useMemo(() => {
+    if (nextEvent === null || team.players.length !== rules.squadSize) return null;
+    return {
+      bboost: benchBoostAt(team.players, nextEvent, nextEventPredAt, lookup, isPenaltyTaker),
+      threeXC: tripleCaptainAt(team, nextEvent, nextEventPredAt, availabilityOf, lookup, isPenaltyTaker),
+    };
+  }, [nextEvent, team, rules.squadSize, nextEventPredAt, lookup, isPenaltyTaker, availabilityOf]);
 
   const validation = useMemo(() => validateSquad(team, rules, lookup), [team, rules, lookup]);
 
@@ -1207,6 +1247,37 @@ export default function BuilderPage() {
               <p className="mt-3 border-t border-zinc-100 pt-2 text-[11px] leading-relaxed text-amber-700 dark:border-purple-900/40 dark:text-amber-400">
                 * {seasonHorizonNote(seasonWindow)}
               </p>
+            )}
+            {cheapChips && (
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
+                <span className="text-zinc-500">Next GW chips</span>
+                <span
+                  title={cheapChips.bboost.explanation.join(" ")}
+                  className="cursor-help text-zinc-700 dark:text-zinc-300"
+                >
+                  Bench Boost{" "}
+                  <span className="font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                    {cheapChips.bboost.gain >= 0 ? "+" : ""}
+                    {cheapChips.bboost.gain.toFixed(1)}
+                  </span>
+                </span>
+                <span
+                  title={cheapChips.threeXC.explanation.join(" ")}
+                  className="cursor-help text-zinc-700 dark:text-zinc-300"
+                >
+                  Triple Captain{" "}
+                  <span className="font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                    {cheapChips.threeXC.gain >= 0 ? "+" : ""}
+                    {cheapChips.threeXC.gain.toFixed(1)}
+                  </span>
+                </span>
+                <Link
+                  href="/chips"
+                  className="ml-auto text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                >
+                  Free Hit &amp; Wildcard schedule →
+                </Link>
+              </div>
             )}
           </div>
 

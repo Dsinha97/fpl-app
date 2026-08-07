@@ -24,6 +24,7 @@ import {
 } from "@/lib/squad-score";
 import { fixtureScore, riskScore, RISK_MODEL_NOTE, type ScoredPlayer } from "@/lib/scoring";
 import { optimiseLineup, type LineupCandidate } from "@/lib/lineup";
+import { benchBoostAt, tripleCaptainAt, type ChipValuation } from "@/lib/chips";
 import {
   HORIZONS,
   horizonLabel,
@@ -84,6 +85,7 @@ export default function ScenariosPage() {
   const [error, setError] = useState<string | null>(null);
   /** The real "season" prediction window — from `player_xp_horizons`, not hardcoded. */
   const [seasonWindow, setSeasonWindow] = useState(FALLBACK_SEASON_WINDOW);
+  const [nextEvent, setNextEvent] = useState<number | null>(null);
 
   const [horizon, setHorizon] = useState<Horizon>(5);
   const [selected, setSelected] = useState<string[]>([]);
@@ -112,6 +114,7 @@ export default function ScenariosPage() {
           .maybeSingle();
         if (gwError) throw new Error(gwError.message);
         if (!gw) throw new Error("No upcoming gameweek found.");
+        setNextEvent(gw.id);
 
         const [playersRes, teamsRes, typesRes, settingsRes, xpRes, predsRes, fixturesRes] =
           await Promise.all([
@@ -313,6 +316,47 @@ export default function ScenariosPage() {
     }
     return m;
   }, [drafts, scoredById, rowById]);
+
+  const isPenaltyTaker = useCallback(
+    (id: number): boolean => rowById.get(id)?.penalties_order === 1,
+    [rowById],
+  );
+
+  /**
+   * A `PredAt` scoped to the next gameweek, built entirely from `ScoredPlayer`
+   * fields already loaded — no new fetch. Mirrors the same next-gameweek-only
+   * shortcut `/builder` uses; Free Hit and Wildcard are full-squad rebuilds
+   * and stay on `/chips` rather than running per draft here.
+   */
+  const nextEventPredAt = useCallback(
+    (id: number, event: number) => {
+      if (nextEvent === null || event !== nextEvent) return undefined;
+      const s = scoredById.get(id);
+      if (!s) return undefined;
+      return {
+        expectedMinutes: s.expectedMinutes,
+        startProbability: s.startProbability,
+        availability: s.availability,
+        fdr: s.fdrRun[0] ?? null,
+        xp: s.xp[1],
+      };
+    },
+    [nextEvent, scoredById],
+  );
+
+  /** Bench Boost / Triple Captain for the next gameweek, per draft. */
+  const chipsByDraft = useMemo(() => {
+    const m = new Map<string, { bboost: ChipValuation; threeXC: ChipValuation }>();
+    if (scoredById.size === 0 || nextEvent === null) return m;
+    for (const d of drafts) {
+      if (d.players.length !== rules.squadSize) continue;
+      m.set(d.draftId, {
+        bboost: benchBoostAt(d.players, nextEvent, nextEventPredAt, lookup, isPenaltyTaker),
+        threeXC: tripleCaptainAt(d, nextEvent, nextEventPredAt, availabilityOf, lookup, isPenaltyTaker),
+      });
+    }
+    return m;
+  }, [drafts, scoredById, nextEvent, nextEventPredAt, lookup, isPenaltyTaker, availabilityOf, rules.squadSize]);
 
   /** SquadScore per draft, keyed by draftId. */
   const scores = useMemo(() => {
@@ -716,12 +760,21 @@ export default function ScenariosPage() {
                   seasonWindow={seasonWindow}
                   rules={rules}
                   lookup={lookup}
+                  chipsByDraft={chipsByDraft}
                 />
               </tbody>
             </table>
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-zinc-400">{SQUAD_SCORE_NOTE}</p>
           <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">{RISK_MODEL_NOTE}</p>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
+            Bench Boost and Triple Captain above are for the next gameweek only. Free Hit and
+            Wildcard are full-squad rebuilds, valued for every playable gameweek on the{" "}
+            <Link href="/chips" className="text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]">
+              Chip Strategy
+            </Link>{" "}
+            page.
+          </p>
         </section>
       )}
 
@@ -743,6 +796,7 @@ function ComparisonRows({
   seasonWindow,
   rules,
   lookup,
+  chipsByDraft,
 }: {
   drafts: TeamState[];
   scores: Map<string, SquadScoreBreakdown>;
@@ -751,6 +805,7 @@ function ComparisonRows({
   seasonWindow: number;
   rules: SquadRules;
   lookup: (id: number) => PlayerMeta | undefined;
+  chipsByDraft: Map<string, { bboost: ChipValuation; threeXC: ChipValuation }>;
 }) {
   const mean = (xs: number[]) => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length);
 
@@ -794,6 +849,20 @@ function ComparisonRows({
       format: (v) => (v === 0 ? "no legal XI" : v.toFixed(1)),
       values: drafts.map((d) => scores.get(d.draftId)?.benchStrength ?? 0),
       note: "Bench xP weighted by the chance an auto-sub uses the slot, from each draft's best XI",
+    },
+    {
+      label: "Bench Boost this week",
+      dir: "high",
+      format: (v) => (v >= 0 ? `+${v.toFixed(1)}` : v.toFixed(1)),
+      values: drafts.map((d) => chipsByDraft.get(d.draftId)?.bboost.gain ?? 0),
+      note: "What playing Bench Boost next gameweek would add over auto-subs",
+    },
+    {
+      label: "Triple Captain this week",
+      dir: "high",
+      format: (v) => (v >= 0 ? `+${v.toFixed(1)}` : v.toFixed(1)),
+      values: drafts.map((d) => chipsByDraft.get(d.draftId)?.threeXC.gain ?? 0),
+      note: "One extra copy of the captain's next-gameweek score",
     },
     {
       label: "Value",
