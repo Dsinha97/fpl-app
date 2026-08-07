@@ -1,9 +1,8 @@
 // generate-predictions
 //
-// Recomputes expected points for every player across the chip window
-// covering the next gameweek and replaces the stored predictions for this
-// model version. The window comes from chip_definitions, not a hardcoded
-// constant — see the window-resolution block below.
+// Recomputes expected points for every player from the next gameweek through
+// the season's last gameweek, and replaces the stored predictions for this
+// model version. See the window-resolution block below.
 //
 // Runs after sync-bootstrap has refreshed prices and availability, since a
 // player being flagged doubtful is the single largest input change day to day.
@@ -22,7 +21,7 @@ import {
   predict,
   priceBandOf,
   ratesAtBound,
-  reconcileClubSquad,
+  reconcileClubSquadWeighted,
   type FitRow,
   type Rates,
   type RateEvidence,
@@ -36,8 +35,8 @@ const FUNCTION_NAME = "generate-predictions";
 
 /**
  * Floor on the prediction window, in gameweeks. Never publish less than this
- * even if `chip_definitions` is missing or malformed — this is today's
- * window, not an invented minimum.
+ * even if the `gameweeks` table's last row is missing or malformed — this is
+ * today's window, not an invented minimum.
  */
 const MIN_HORIZON = 8;
 
@@ -80,20 +79,30 @@ Deno.serve(async (req) => {
         "variance components, so a thin record is used rather than discarded. v1.2.0 " +
         "adds squad reconciliation: each club's projected starters, goalkeeper and " +
         "minutes are rescaled per fixture to sum to eleven, one and 990 respectively, " +
-        "via an exact parameter-free water-fill, so a promoted club's squad no longer " +
-        "collapses toward zero nor an established squad inflates past eleven. The " +
-        "prediction window is now the chip window covering the next gameweek, read " +
-        "from chip_definitions rather than hardcoded to 8, floored at 8 and clamped " +
-        "to the season's last gameweek — this does not change the per-fixture model " +
-        "and so is not its own MODEL_VERSION.",
+        "so a promoted club's squad no longer collapses toward zero nor an established " +
+        "squad inflates past eleven. v1.3.0 replaces that uniform water-fill with an " +
+        "evidence-weighted one: each player's share of the correction is weighted by " +
+        "how much of their rate is prior rather than their own Premier League record, " +
+        "so an established starter moves far less than a fringe reserve on the same " +
+        "price band — gated on a backtest against the phase-4 cohort before shipping " +
+        "(Pearson r 0.774 to 0.830, recovering most of the gap to the 0.851 figure with " +
+        "no reconciliation at all; see docs/roadmap.md). The prediction window runs from " +
+        "the next gameweek through the season's last gameweek (floored at 8).",
       params: MODEL_PARAMS,
     }, { onConflict: "version" });
     if (modelError) throw new Error(`prediction_models: ${modelError.message}`);
 
     const scoring = await loadScoring(db, season);
 
-    // Prediction window starts at the next unfinished gameweek.
-    const [nextGwRes, lastGwRes, chipsRes] = await Promise.all([
+    // Prediction window starts at the next unfinished gameweek and now runs to
+    // the season's last gameweek. Sprint 12 (Chip Strategy) needed "Season" to
+    // mean at least the chip window covering the next gameweek, which is why
+    // this used to stop at whatever chip_definitions window contained
+    // firstEvent (19 gameweeks, today). With Sprint 12 shipped and the 19 GW
+    // horizon added alongside it (see the horizon_xp_19 migration), the
+    // half-season figure is still reachable on its own horizon — so there is
+    // no remaining reason for "Season" to stop short of the actual season.
+    const [nextGwRes, lastGwRes] = await Promise.all([
       db.from("gameweeks")
         .select("id")
         .eq("season", season)
@@ -107,37 +116,17 @@ Deno.serve(async (req) => {
         .order("id", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      // The window is driven by the real chip calendar, not a hardcoded
-      // constant — chip_definitions already holds Wildcard #1's GW2-19 (and
-      // #2's GW20-38), and Sprint 12 needs "season" to mean the window a
-      // chip actually spans, not whatever the engine happened to compute.
-      db.from("chip_definitions")
-        .select("start_event, stop_event")
-        .eq("season", season),
     ]);
     if (nextGwRes.error) throw new Error(`gameweeks: ${nextGwRes.error.message}`);
     if (!nextGwRes.data) throw new Error("no unfinished gameweeks - season complete?");
     if (lastGwRes.error) throw new Error(`gameweeks: ${lastGwRes.error.message}`);
-    if (chipsRes.error) throw new Error(`chip_definitions: ${chipsRes.error.message}`);
 
     const firstEvent = nextGwRes.data.id as number;
+    // Floored at MIN_HORIZON so a malformed or missing `gameweeks` row can
+    // never publish less than today's window; otherwise the season's real
+    // last gameweek, whatever that currently is (38 today).
     const finalGameweek = (lastGwRes.data?.id as number | undefined) ?? firstEvent + MIN_HORIZON - 1;
-
-    // The window whose [start_event, stop_event] contains the gameweek we are
-    // about to predict from - that is the chip decision this run's numbers
-    // need to support. Floored at MIN_HORIZON so a malformed or missing chip
-    // calendar can never publish *less* than today's window, and clamped to
-    // the season's last gameweek so the second half of the season doesn't
-    // run off the end.
-    const chipWindows = (chipsRes.data ?? []) as {
-      start_event: number | null;
-      stop_event: number | null;
-    }[];
-    const coveringWindow = chipWindows.find(
-      (w) => (w.start_event ?? 1) <= firstEvent && firstEvent <= (w.stop_event ?? finalGameweek),
-    );
-    const windowEnd = coveringWindow?.stop_event ?? firstEvent + MIN_HORIZON - 1;
-    const lastEvent = Math.min(Math.max(windowEnd, firstEvent + MIN_HORIZON - 1), finalGameweek);
+    const lastEvent = Math.max(finalGameweek, firstEvent + MIN_HORIZON - 1);
 
     const [playersRes, typesRes, fixturesRes, squadplayRes] = await Promise.all([
       db.from("players")
@@ -344,8 +333,15 @@ Deno.serve(async (req) => {
         startShare: d.rates.startShare,
         minutesPerGame: d.rates.minutesPerGame,
         availability: d.availability,
+        // v1.3.0: phase 2 weights each player's share of the squad
+        // correction by how much of their rate is prior rather than their
+        // own record, instead of one uniform factor per position group —
+        // see reconcileClubSquadWeighted in xp-model.ts and "Squad
+        // reconciliation, phase 2" in docs/roadmap.md for the backtest that
+        // gated shipping it.
+        priorWeight: d.evidence.priorWeight,
       }));
-      const reconciliation = reconcileClubSquad(members, squadBudgets);
+      const reconciliation = reconcileClubSquadWeighted(members, squadBudgets);
       reconciliationByClub.set(teamId, reconciliation);
       squadConsistencyViolations += reconciliation.consistencyViolations;
 

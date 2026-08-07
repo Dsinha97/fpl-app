@@ -46,7 +46,10 @@ Precedent: `CAPTAIN_MODEL_NOTE` in `lib/lineup.ts`, `COMPARISON_MODEL_NOTE` and 
 `lib/team-state.ts` for a horizon that is shorter than its name suggests, `TRANSFER_MODEL_NOTE` in
 `lib/transfers.ts`, `TRANSFER_OPTIMIZER_NOTE` in `lib/transfer-optimizer.ts`,
 `COLD_START_MODEL_NOTE` in `supabase/functions/_shared/xp-model.ts` (mirrored front-side as
-`COLD_START_NOTE` in `lib/scoring.ts` — the Deno file cannot be imported by Next).
+`COLD_START_NOTE` in `lib/scoring.ts` — the Deno file cannot be imported by Next), and
+`chipModelNote` in `lib/chips.ts` for the flat fixture list every chip is currently valued against,
+and `TACTICAL_PROFILE_NOTE` in `lib/tactical-profile.ts` for PL club tactical data shown as
+disclosed context rather than folded into xP.
 
 **When a term cannot be dropped, make it an input.** Sometimes the missing quantity *is* the
 feature — rolling a transfer is only worth something the frozen projection cannot see, so dropping it
@@ -77,7 +80,7 @@ URLs with curl — several documented patterns 404.
 
 ```
 app/            routes: / · /team · /players · /fixtures · /changes · /status
-                        /builder · /scenarios (draft lab) · /transfers · /compare
+                        /builder · /scenarios (draft lab) · /transfers · /chips · /compare
 lib/            stats.ts        shared mean/median/variance/quantile/linearSlope — import, don't
                                 redeclare (scoring.ts keeps the population stdev form, deliberately)
                 manager-profile.ts  career percentile profile + rival comparison (Sprint 12A)
@@ -89,6 +92,10 @@ lib/            stats.ts        shared mean/median/variance/quantile/linearSlope
                 squad-score.ts  SquadScore over a whole draft (points-equivalent terms)
                 transfers.ts    transfer basket simulation, sell prices, hit cost, FT accrual
                 transfer-optimizer.ts  roll vs spend vs hit vs wildcard, beam search over baskets
+                chips.ts        Chip Strategy Engine (Sprint 12) — per-event lineup/pool views over
+                                optimiseLineup/optimizeSquad, joint chip-schedule search
+                tactical-profile.ts  PL club manager profiles (Sprint 12.5) — types + loader only,
+                                deliberately no scoring function; disclosed context, not an xP term
                 player-search.ts  name matching for every search box
                 formation.ts    bestStartingXi · fdr.ts FDR palette · drafts.ts localStorage
                 utils.ts        cn() · supabase/client.ts
@@ -182,24 +189,57 @@ landing. Not for routine progress.
 
 ## Status
 
-Built: sync pipeline, xP engine **v1.2.0** (component model + empirical-Bayes cold-start priors, so
+Built: sync pipeline, xP engine **v1.3.0** (component model + empirical-Bayes cold-start priors, so
 all 567 players are projected rather than 380, plus squad reconciliation so every club's projected
 starters, goalkeeper and minutes sum to the facts a match enforces — promoted-club squads no longer
-collapse toward zero nor established squads inflate past eleven), dark theme, `/players`, `/fixtures` (Schedule + FDR tabs),
+collapse toward zero nor established squads inflate past eleven; v1.3.0 weights that correction by
+each player's evidence rather than applying it uniformly, gated on a backtest — see Status below),
+dark theme, `/players`, `/fixtures` (Schedule + FDR tabs),
 `/builder` (pitch UI, paginated picker, squad optimiser, lineup engine, replacement finder),
-`/compare`, `/scenarios` (draft manager, SquadScore, comparison, timeline), and `/transfers`
+`/compare`, `/scenarios` (draft manager, SquadScore, comparison, timeline), `/transfers`
 (basket simulation with hits, sell prices, armband handling, plus the weekly roll/spend/hit/wildcard
-plan). In the revised numbering that covers Sprints 5, 6, 7, 8, 9 and 11.
+plan), and `/chips` (per-gameweek value for all four chips over the projected window, plus a joint
+scheduling search). In the revised numbering that covers Sprints 5, 6, 7, 8, 9, 11 and 12.
 
-Next: **Sprint 12 — Chip Strategy Engine**. Its prerequisite — the prediction window extended past
-8 gameweeks — is done (2026-08-06), along with the Sprint 7 and 9 finishing passes and a batch of
-carried housekeeping. See "Pre-Sprint-12 finishing batch" in [docs/roadmap.md](docs/roadmap.md) for
-what shipped; the finishing pass outstanding on 11 (TeamAttack) remains blocked on team strength.
+**Sprint 12 — Chip Strategy Engine — built (2026-08-07).** `lib/chips.ts` values Bench Boost, Triple
+Captain, Free Hit and Wildcard per gameweek by reusing `optimiseLineup` and `optimizeSquad` unchanged
+against a new per-event view rather than a second implementation. Measured against the live fixture
+list: every gameweek this season has all 20 clubs playing exactly once — no blanks or doubles yet,
+since those are only created later by cup postponements — so today's values are driven by fixture
+difficulty alone and read comparatively flat; `chipModelNote` computes this from `fixtures` at call
+time rather than asserting it, so the finding updates itself once real doubles appear. A chip window
+the prediction engine hasn't reached yet is reported blocked, not silently omitted, matching
+`transfer-optimizer.ts`'s wildcard-row precedent — moot today since predictions now reach GW38 (see
+the horizon item below), so both chip halves (GW1-19, GW20-38) evaluate. Free Hit always re-optimises
+the armband for its one-week squad; Wildcard carries the current armband forward when it survives the
+rebuild and discloses understatement when it doesn't, the same treatment `transfer-optimizer.ts`'s
+wildcard branch already gives the same situation — verified in a `tsx` harness against live data
+(caught a real bug: `windowTotal` was defaulting a missing prediction to `0` instead of `null`, which
+made `optimizeSquad`'s reserve-floor logic treat "no data" as a genuine zero-xP pick).
 
-Queued alongside Sprint 12, not yet started (2026-08-07): squad reconciliation phase 2
-(evidence-weighted water-fill), a 19 GW horizon button plus expanding "Season" to the full 38,
-a price filter on the Builder player search, and a fixture list (capped at 8 GW) in the player
-detail panel. See "Queued for next sprint" in [docs/roadmap.md](docs/roadmap.md).
+**Five queued items, built (2026-08-07):** a price filter on the Builder search (`RangeSlider`,
+bounds from the live pool); the player detail panel's fixture ticker now follows the page's horizon
+(was hardcoded to 3, capped at 8, `components/player-detail.tsx` / `app/builder/page.tsx`); a `19`
+horizon plus **Season now means the full 38 gameweeks**, not the chip window it used to stop at
+(`player_xp_horizons` gained `xp_19*`; `generate-predictions` runs to the season's real last
+gameweek — verified live, 573 players, 21,774 rows, 20s; `seasonHorizonNote` rewritten since its old
+"Sprint 12 prerequisite" caveat went stale the moment Sprint 12 shipped); Sprint 12.5's buildable
+slice (below); and **squad reconciliation phase 2**, gated on a backtest and shipped as **xP engine
+v1.3.0** — see "Squad reconciliation, phase 2" in [docs/roadmap.md](docs/roadmap.md) for the full gate
+table (Pearson r 0.774 → 0.830 recovering most of the gap to the no-reconciliation 0.851, at a
+disclosed cost of `consistencyViolations` rising 1.6% → 4.2% of the league).
+
+**Sprint 12.5 — PL Team Manager Intelligence, buildable slice — built (2026-08-07).** `pl_managers` +
+`teams.tactical_manager_id` (seeded via migration, alias-mapping the 7 of 20 clubs whose name differs
+from `teams.name` and asserting all 20 linked or failing the migration), `lib/tactical-profile.ts`
+(types + loader only — no scoring function, so nothing here can accidentally multiply into xP), a
+`System` line in the player detail panel, and a full 20-club section on `/team`. The numeric `μ_fit`
+multiplier and cold-start integration stay blocked on validation, exactly as scoped — see
+[docs/roadmap.md](docs/roadmap.md).
+
+Next: the finishing pass outstanding on Sprint 11 (TeamAttack) remains blocked on team strength.
+Sprints 13 (live match data) and 14 (authentication) are the next substantial pieces of work; both
+are otherwise unblocked.
 
 Carried knowingly: **1 `npm audit` advisory** (moderate — `hono`, via `shadcn`'s own dev-time
 dependency tree, unreachable from the app). The 3 high advisories (`postcss`, `sharp`, `next`) cleared
@@ -219,16 +259,15 @@ Blocked, with the reason recorded rather than worked around:
   is top-5 only, and a translation cohort built from `player_season_history` would be survivor-biased
   because that table only holds players still in the game. Assessed under "Cold-Start Patch" in
   [docs/roadmap.md](docs/roadmap.md).
-- **Squad reconciliation (v1.2.0) fixes how much a club plays, not how well.** Promoted-club squads
-  are now role-correct — starters, goalkeeper and minutes sum to what a match actually enforces —
-  but team strength is still 0 for all 20 clubs, so the model has no way to say Hull's best player is
-  worse than Arsenal's; a promoted club's projections can top the value tables purely because their
-  squad sum was fixed, which is a real answer from an incomplete model, not a bug. It also cannot
-  tell an established starter from a fringe reserve on the same price band — at a large registered
-  squad, a nailed starter can be pulled down by the same proportion as a reserve who should have
-  moved far more; measured on the phase-4 backtest cohort, Pearson r fell from 0.850 to 0.761 with no
-  recalibration. The evidence-weighted fix (weight the correction by `n_eff`) is deferred, not
-  blocked on data — see "Squad reconciliation, phase 1" in [docs/roadmap.md](docs/roadmap.md).
+- **Squad reconciliation fixes how much a club plays, not how well.** Promoted-club squads are
+  role-correct — starters, goalkeeper and minutes sum to what a match actually enforces — but team
+  strength is still 0 for all 20 clubs, so the model has no way to say Hull's best player is worse
+  than Arsenal's; a promoted club's projections can top the value tables purely because their squad
+  sum was fixed, which is a real answer from an incomplete model, not a bug. Phase 1 (v1.2.0) could
+  not tell an established starter from a fringe reserve on the same price band either — that part is
+  now fixed: phase 2 (v1.3.0) weights the correction by each player's evidence, recovering the phase-4
+  cohort Pearson r from 0.774 to 0.830 (0.851 with no reconciliation at all) — see "Squad
+  reconciliation, phase 2" in [docs/roadmap.md](docs/roadmap.md).
 - **Manager behavioural history (transfers, captains, chips, differentials) is blocked, not just
   pre-season** → all of §9/§10 in the Manager Intelligence change plan. The FPL API exposes none of
   that for past seasons, and `manager_picks` has a hard FK to the current season's `players`, so it

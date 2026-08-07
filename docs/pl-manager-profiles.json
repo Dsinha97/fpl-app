@@ -1,0 +1,642 @@
+[
+  {
+    "manager_id": "arteta_mikel",
+    "name": "Mikel Arteta",
+    "current_club": "Arsenal",
+    "preferred_formation": "4-3-3 / 3-2-4-1 in buildup",
+    "buildup_style": "possession_control",
+    "pressing_intensity": "high",
+    "source_file": "The Complete Tactical Evolution Of Mikel Arteta",
+    "tactical_traits": {
+      "wingers": {
+        "role": "inverted_inside_scorer",
+        "xp_impact": "+10% npxG for wingers isolating 1v1 in wide/half-spaces"
+      },
+      "fullbacks": {
+        "role": "inverted_pivot",
+        "xp_impact": "Reduced crossing xA; increased clean sheet & baseline minutes security"
+      },
+      "pivots": {
+        "profile_required": "press_resistant_small_space",
+        "rotation_risk_factors": "Low rotation risk for press-resistant line breakers"
+      },
+      "strikers": {
+        "profile_required": "pressing_enabler",
+        "xp_impact": "High pressure/defensive contribution; creates zone 14 pockets for #10"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 1.05,
+      "high_press_fdr_modifier": 1.15,
+      "set_piece_bias": 1.20
+    }
+  },
+  {
+    "manager_id": "emery_unai",
+    "name": "Unai Emery",
+    "current_club": "Aston Villa",
+    "preferred_formation": "4-4-2 / 4-2-2-2",
+    "buildup_style": "bait_press",
+    "pressing_intensity": "medium",
+    "source_file": "A Tactical Guide to Unai Emery's Aston Villa",
+    "tactical_traits": {
+      "wingers": {
+        "role": "transition_runner",
+        "xp_impact": "+15% xP in high-offside trap / vertical transition games"
+      },
+      "fullbacks": {
+        "role": "flexible_back_three",
+        "xp_impact": "Asymmetric fullback: one tucks into back 3, one bombs high for xA"
+      },
+      "pivots": {
+        "profile_required": "deep_playmaker",
+        "rotation_risk_factors": "Low rotation for double pivot with high positional discipline"
+      },
+      "strikers": {
+        "profile_required": "transitional_runner",
+        "xp_impact": "High penalty box xG on direct vertical through-balls"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.95,
+      "high_press_fdr_modifier": 1.20,
+      "set_piece_bias": 1.10
+    }
+  },
+  {
+    "manager_id": "rose_marco",
+    "name": "Marco Rose",
+    "current_club": "Bournemouth",
+    "preferred_formation": "4-2-2-2 / 4-2-3-1",
+    "buildup_style": "high_regain_pressing",
+    "pressing_intensity": "high",
+    "source_file": "Marco Rose's FM26 Blueprint | Full Tactical Breakdown",
+    "tactical_traits": {
+      "wingers": {
+        "role": "transition_runner",
+        "xp_impact": "+10% xG on high turnovers in opposition half"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "+15% xA on direct wide transitions and overlapping deliveries"
+      },
+      "pivots": {
+        "profile_required": "box_to_box_carrier",
+        "rotation_risk_factors": "Aggressive man-marking eights face booking risk"
+      },
+      "strikers": {
+        "profile_required": "transitional_runner",
+        "xp_impact": "+15% xP for dual-striker partnerships exploiting second balls"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.95,
+      "high_press_fdr_modifier": 1.15,
+      "set_piece_bias": 1.10
+    }
+  },
+  {
+    "manager_id": "andrews_keith",
+    "name": "Keith Andrews",
+    "current_club": "Brentford",
+    "preferred_formation": "3-5-2 / 4-3-3 hybrid",
+    "buildup_style": "direct_possession",
+    "pressing_intensity": "high",
+    "source_file": "How a Set-Piece Coach Is DESTROYING The Premier League",
+    "tactical_traits": {
+      "wingers": {
+        "role": "wide_crosser",
+        "xp_impact": "+15% xA from curved runs in behind & second-ball flick-ons"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "+20% xA from long throws & early wide deliveries"
+      },
+      "pivots": {
+        "profile_required": "box_to_box_carrier",
+        "rotation_risk_factors": "Midfielders required to cover second-ball horseshoe zones"
+      },
+      "strikers": {
+        "profile_required": "box_presence_target",
+        "xp_impact": "+20% header xG & physical duel winning percentage"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 1.10,
+      "high_press_fdr_modifier": 1.05,
+      "set_piece_bias": 1.35
+    }
+  },
+  {
+    "manager_id": "hurzeler_fabian",
+    "name": "Fabian Hürzeler",
+    "current_club": "Brighton & Hove Albion",
+    "preferred_formation": "4-2-3-1 / 3-4-2-1",
+    "buildup_style": "bait_press",
+    "pressing_intensity": "high",
+    "source_file": "How Fabian Hürzeler's Brighton Tactics Are Fighting For EUROPE & Nobody Noticed...",
+    "tactical_traits": {
+      "wingers": {
+        "role": "transition_runner",
+        "xp_impact": "+10% xG on high turnovers in opposition half"
+      },
+      "fullbacks": {
+        "role": "inverted_pivot",
+        "xp_impact": "+10% tackles & recovery points; moderate crossing volume"
+      },
+      "pivots": {
+        "profile_required": "press_resistant_small_space",
+        "rotation_risk_factors": "High card risk due to tactical fouls in high rest-defense"
+      },
+      "strikers": {
+        "profile_required": "pressing_enabler",
+        "xp_impact": "High pressing output leading to high team turnover xG"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.90,
+      "high_press_fdr_modifier": 1.15,
+      "set_piece_bias": 1.05
+    }
+  },
+  {
+    "manager_id": "alonso_xabi",
+    "name": "Xabi Alonso",
+    "current_club": "Chelsea",
+    "preferred_formation": "4-2-3-1 / 3-4-3",
+    "buildup_style": "high_regain_pressing",
+    "pressing_intensity": "high",
+    "source_file": "Is Xabi Alonso the answer to Chelsea's problems? | Sensible Transfers",
+    "tactical_traits": {
+      "wingers": {
+        "role": "transition_runner",
+        "xp_impact": "+10% xG from depth runs attacking space behind high lines"
+      },
+      "fullbacks": {
+        "role": "flexible_back_three",
+        "xp_impact": "High clean sheet probability due to final-third regains"
+      },
+      "pivots": {
+        "profile_required": "deep_playmaker",
+        "rotation_risk_factors": "Low rotation risk for central double-pivot with high pass volume"
+      },
+      "strikers": {
+        "profile_required": "pressing_enabler",
+        "xp_impact": "+5% bonus point probability via defensive workrate & pressing traps"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 1.05,
+      "high_press_fdr_modifier": 1.10,
+      "set_piece_bias": 1.05
+    }
+  },
+  {
+    "manager_id": "lampard_frank",
+    "name": "Frank Lampard",
+    "current_club": "Coventry City",
+    "preferred_formation": "4-2-3-1 / 4-3-3",
+    "buildup_style": "direct_possession",
+    "pressing_intensity": "medium",
+    "source_file": "How Frank Lampard's Ingenious Tactics Got Coventry City Back To The Premier League",
+    "tactical_traits": {
+      "wingers": {
+        "role": "transition_runner",
+        "xp_impact": "+15% xA on rapid switches to dynamic wide runners (e.g., Sakamoto)"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "+15% xA for attacking full-backs (e.g., Van Ewijk) overlapping"
+      },
+      "pivots": {
+        "profile_required": "box_to_box_carrier",
+        "rotation_risk_factors": "High physical demand; booking risk for central ball-winners"
+      },
+      "strikers": {
+        "profile_required": "box_presence_target",
+        "xp_impact": "+10% goal xP for physical strikers running channels (e.g., Simms/Wright)"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.95,
+      "high_press_fdr_modifier": 1.15,
+      "set_piece_bias": 1.10
+    }
+  },
+  {
+    "manager_id": "sage_pierre",
+    "name": "Pierre Sage",
+    "current_club": "Crystal Palace",
+    "preferred_formation": "3-4-3 / 5-4-1 low-block",
+    "buildup_style": "high_regain_pressing",
+    "pressing_intensity": "high",
+    "source_file": "How Pierre Sage's RC Lens Tactics Are DOMINATING France.",
+    "tactical_traits": {
+      "wingers": {
+        "role": "inverted_inside_scorer",
+        "xp_impact": "+15% npxG for dual inverted wingers playing narrow/centrally"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "+15% xA for wide wing-backs crossing into opposite wing-back box runs"
+      },
+      "pivots": {
+        "profile_required": "press_resistant_small_space",
+        "rotation_risk_factors": "Central overload reduces transition conceded goals"
+      },
+      "strikers": {
+        "profile_required": "box_presence_target",
+        "xp_impact": "+10% goal xP on continuous wide delivery into box"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.95,
+      "high_press_fdr_modifier": 1.15,
+      "set_piece_bias": 1.10
+    }
+  },
+  {
+    "manager_id": "moyes_david",
+    "name": "David Moyes",
+    "current_club": "Everton",
+    "preferred_formation": "4-4-1-1 / 4-4-2 mid-block",
+    "buildup_style": "direct_possession",
+    "pressing_intensity": "medium",
+    "source_file": "How David Moyes Built the Premier League’s Most Intelligent Machine: Everton",
+    "tactical_traits": {
+      "wingers": {
+        "role": "wide_crosser",
+        "xp_impact": "+15% xA for wide midfielders delivering early diagonal crosses"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "+15% xA for overlapping full-backs exploiting wide overloads"
+      },
+      "pivots": {
+        "profile_required": "box_to_box_carrier",
+        "rotation_risk_factors": "Deep double-pivot provides high clean-sheet security"
+      },
+      "strikers": {
+        "profile_required": "box_presence_target",
+        "xp_impact": "+25% set-piece & aerial target xG for physical target men"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 1.00,
+      "high_press_fdr_modifier": 1.05,
+      "set_piece_bias": 1.30
+    }
+  },
+  {
+    "manager_id": "arbeloa_alvaro",
+    "name": "Álvaro Arbeloa",
+    "current_club": "Fulham",
+    "preferred_formation": "4-4-2 / 5-3-2 low-block",
+    "buildup_style": "bait_press",
+    "pressing_intensity": "low",
+    "source_file": "Álvaro Arbeloa’s Tactics at Real Madrid Destroyed Man City | Valverde Hat-Trick | Tactical Analysis",
+    "tactical_traits": {
+      "wingers": {
+        "role": "wide_crosser",
+        "xp_impact": "+10% xA on long-throw flicks & far-post overload crosses"
+      },
+      "fullbacks": {
+        "role": "flexible_back_three",
+        "xp_impact": "High clean-sheet xP due to rigid low-block spatial control"
+      },
+      "pivots": {
+        "profile_required": "deep_playmaker",
+        "rotation_risk_factors": "Single central anchor covers massive space; low rotation risk"
+      },
+      "strikers": {
+        "profile_required": "box_presence_target",
+        "xp_impact": "+15% set-piece & long-throw header goal threat"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.85,
+      "high_press_fdr_modifier": 1.20,
+      "set_piece_bias": 1.30
+    }
+  },
+  {
+    "manager_id": "jakirovic_sergej",
+    "name": "Sergej Jakirović",
+    "current_club": "Hull City",
+    "preferred_formation": "4-3-3 / 3-5-2 flexible",
+    "buildup_style": "direct_possession",
+    "pressing_intensity": "high",
+    "source_file": "Hull City Broke English Football.",
+    "tactical_traits": {
+      "wingers": {
+        "role": "wide_crosser",
+        "xp_impact": "+15% xA for attacking wing-backs in high-turnover fast-paced games"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "+15% xA for wide wing-backs; high defensive conceded risk"
+      },
+      "pivots": {
+        "profile_required": "box_to_box_carrier",
+        "rotation_risk_factors": "High yellow card risk due to back-and-forth end-to-end chaos"
+      },
+      "strikers": {
+        "profile_required": "box_presence_target",
+        "xp_impact": "+35% total team goal dependency on focal target striker (McBurnie type)"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.85,
+      "high_press_fdr_modifier": 1.15,
+      "set_piece_bias": 1.25
+    }
+  },
+  {
+    "manager_id": "oneil_gary",
+    "name": "Gary O'Neil",
+    "current_club": "Ipswich Town",
+    "preferred_formation": "4-2-3-1 / 3-4-2-1 flexible",
+    "buildup_style": "high_regain_pressing",
+    "pressing_intensity": "high",
+    "source_file": "How Ipswich Setup Under Gary O’Neil 🚜",
+    "tactical_traits": {
+      "wingers": {
+        "role": "transition_runner",
+        "xp_impact": "+10% xP on rapid turnover counterattacks"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "+10% xA from wide wing-back width"
+      },
+      "pivots": {
+        "profile_required": "box_to_box_carrier",
+        "rotation_risk_factors": "High aggressive ball-winning demand in double pivot"
+      },
+      "strikers": {
+        "profile_required": "box_presence_target",
+        "xp_impact": "Striker acts as central reference point for long balls & hold-up"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.90,
+      "high_press_fdr_modifier": 1.10,
+      "set_piece_bias": 1.10
+    }
+  },
+  {
+    "manager_id": "farke_daniel",
+    "name": "Daniel Farke",
+    "current_club": "Leeds United",
+    "preferred_formation": "3-5-2 / 4-3-3",
+    "buildup_style": "direct_possession",
+    "pressing_intensity": "medium",
+    "source_file": "How Daniel Farke's NEW Tactics SAVED Leeds United",
+    "tactical_traits": {
+      "wingers": {
+        "role": "transition_runner",
+        "xp_impact": "+10% xA from wide overloads and physical box crashes"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "+15% xA for aggressive full-backs (e.g., Bogle/Gudmundsson)"
+      },
+      "pivots": {
+        "profile_required": "box_to_box_carrier",
+        "rotation_risk_factors": "Physical dominance required; strong set-piece target value"
+      },
+      "strikers": {
+        "profile_required": "box_presence_target",
+        "xp_impact": "+20% penalty box touches & goal xP for target forwards (e.g., Calvert-Lewin)"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.95,
+      "high_press_fdr_modifier": 1.10,
+      "set_piece_bias": 1.25
+    }
+  },
+  {
+    "manager_id": "iraola_andoni",
+    "name": "Andoni Iraola",
+    "current_club": "Liverpool",
+    "preferred_formation": "4-2-3-1 heavy metal press",
+    "buildup_style": "high_regain_pressing",
+    "pressing_intensity": "high",
+    "source_file": "What To Expect From Iraola At Liverpool | The Overlap Breakdown",
+    "tactical_traits": {
+      "wingers": {
+        "role": "transition_runner",
+        "xp_impact": "+20% npxG on high turnover transitions in chaos conditions"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "+15% xA from aggressive high-line pressing traps"
+      },
+      "pivots": {
+        "profile_required": "box_to_box_carrier",
+        "rotation_risk_factors": "Extreme stamina & pressing demand; high card risk"
+      },
+      "strikers": {
+        "profile_required": "transitional_runner",
+        "xp_impact": "+15% goal probability on high turnovers inside opponent box"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.90,
+      "high_press_fdr_modifier": 1.25,
+      "set_piece_bias": 1.10
+    }
+  },
+  {
+    "manager_id": "maresca_enzo",
+    "name": "Enzo Maresca",
+    "current_club": "Manchester City",
+    "preferred_formation": "3-2-4-1 / 4-3-3 positional",
+    "buildup_style": "possession_control",
+    "pressing_intensity": "high",
+    "source_file": "How Man City Setup Under Enzo Maresca.",
+    "tactical_traits": {
+      "wingers": {
+        "role": "inverted_inside_scorer",
+        "xp_impact": "+15% xA/xG from 1v1 wide isolations feeding central runners"
+      },
+      "fullbacks": {
+        "role": "inverted_pivot",
+        "xp_impact": "Inverted full-back acts as secondary midfielder; low crossing xA"
+      },
+      "pivots": {
+        "profile_required": "press_resistant_small_space",
+        "rotation_risk_factors": "High positional discipline required; GK used as +1 spare man"
+      },
+      "strikers": {
+        "profile_required": "box_presence_target",
+        "xp_impact": "Elite gravity striker (Haaland) frees secondary box crashers"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 1.15,
+      "high_press_fdr_modifier": 1.10,
+      "set_piece_bias": 1.05
+    }
+  },
+  {
+    "manager_id": "carrick_michael",
+    "name": "Michael Carrick",
+    "current_club": "Manchester United",
+    "preferred_formation": "4-2-3-1",
+    "buildup_style": "fluid_freedom",
+    "pressing_intensity": "medium",
+    "source_file": "How Manchester United can build on Carrick’s success | Sensible Transfers",
+    "tactical_traits": {
+      "wingers": {
+        "role": "wide_crosser",
+        "xp_impact": "+10% xA for wide creators"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "+10% attacking contribution & crossing volume"
+      },
+      "pivots": {
+        "profile_required": "deep_playmaker",
+        "rotation_risk_factors": "PL-proven midfielders receive high baseline minutes security"
+      },
+      "strikers": {
+        "profile_required": "box_presence_target",
+        "xp_impact": "+15% set-piece xG header probability"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 1.00,
+      "high_press_fdr_modifier": 1.00,
+      "set_piece_bias": 1.25
+    }
+  },
+  {
+    "manager_id": "jaissle_matthias",
+    "name": "Matthias Jaissle",
+    "current_club": "Newcastle United",
+    "preferred_formation": "4-3-1-2 diamond / 4-3-3",
+    "buildup_style": "high_regain_pressing",
+    "pressing_intensity": "high",
+    "source_file": "How Newcastle Setup Under Matthias Jaissle.",
+    "tactical_traits": {
+      "wingers": {
+        "role": "transition_runner",
+        "xp_impact": "+10% xG on wide pressing traps & funnelled turnovers"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "+15% xA from full-backs providing sole width in diamond shape"
+      },
+      "pivots": {
+        "profile_required": "box_to_box_carrier",
+        "rotation_risk_factors": "High channel-running demand for central eights"
+      },
+      "strikers": {
+        "profile_required": "transitional_runner",
+        "xp_impact": "Split strikers create space for attacking #10 late runs"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.95,
+      "high_press_fdr_modifier": 1.15,
+      "set_piece_bias": 1.05
+    }
+  },
+  {
+    "manager_id": "glasner_oliver",
+    "name": "Oliver Glasner",
+    "current_club": "Nottingham Forest",
+    "preferred_formation": "3-4-2-1 / 5-2-3",
+    "buildup_style": "high_regain_pressing",
+    "pressing_intensity": "high",
+    "source_file": "Oliver Glasner tactics deep dive | How they really work | Winners and losers | What the data says",
+    "tactical_traits": {
+      "wingers": {
+        "role": "inverted_inside_scorer",
+        "xp_impact": "+15% npxG for dual #10s operating in central half-spaces"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "+20% xA & goal threat for aggressive wing-backs (e.g., Munoz)"
+      },
+      "pivots": {
+        "profile_required": "box_to_box_carrier",
+        "rotation_risk_factors": "High card & foul risk for central ball-winners in 2-man midfield"
+      },
+      "strikers": {
+        "profile_required": "box_presence_target",
+        "xp_impact": "+15% goal probability via aerial flick-ons and hold-up play"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.95,
+      "high_press_fdr_modifier": 1.20,
+      "set_piece_bias": 1.15
+    }
+  },
+  {
+    "manager_id": "lebris_regis",
+    "name": "Régis Le Bris",
+    "current_club": "Sunderland",
+    "preferred_formation": "4-2-3-1 / 4-4-2 low-block",
+    "buildup_style": "bait_press",
+    "pressing_intensity": "medium",
+    "source_file": "Tactical Blueprint: How Régis Le Bris Turned Sunderland Into GIANT KILLERS",
+    "tactical_traits": {
+      "wingers": {
+        "role": "transition_runner",
+        "xp_impact": "+15% xA on long-throw flicks & far-post overload crosses"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "High clean-sheet xP due to rigid 442 low-block spatial control"
+      },
+      "pivots": {
+        "profile_required": "deep_playmaker",
+        "rotation_risk_factors": "Single central anchor (e.g., Xhaka) covers massive space"
+      },
+      "strikers": {
+        "profile_required": "box_presence_target",
+        "xp_impact": "+20% set-piece & long-throw header goal threat"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.85,
+      "high_press_fdr_modifier": 1.25,
+      "set_piece_bias": 1.35
+    }
+  },
+  {
+    "manager_id": "de_zerbi_roberto",
+    "name": "Roberto De Zerbi",
+    "current_club": "Tottenham Hotspur",
+    "preferred_formation": "4-2-3-1 / 2-4-4",
+    "buildup_style": "bait_press",
+    "pressing_intensity": "high",
+    "source_file": "How Roberto De Zerbi is fixing Spurs | Sensible Transfers",
+    "tactical_traits": {
+      "wingers": {
+        "role": "inverted_inside_scorer",
+        "xp_impact": "+15% npxG for wingers cutting inside behind high lines"
+      },
+      "fullbacks": {
+        "role": "high_overlapping_crosser",
+        "xp_impact": "+10% xA against low-block opponents"
+      },
+      "pivots": {
+        "profile_required": "press_resistant_small_space",
+        "rotation_risk_factors": "Large-space carriers face sub/role risk in tight buildup"
+      },
+      "strikers": {
+        "profile_required": "box_presence_target",
+        "xp_impact": "+10% goal probability vs deep blocks"
+      }
+    },
+    "modifiers": {
+      "low_block_fdr_modifier": 0.90,
+      "high_press_fdr_modifier": 1.15,
+      "set_piece_bias": 1.00
+    }
+  }
+]

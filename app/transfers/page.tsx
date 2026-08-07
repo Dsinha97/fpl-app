@@ -62,6 +62,7 @@ interface XpRow {
   xp_3: number | null;
   xp_5: number | null;
   xp_8: number | null;
+  xp_19: number | null;
   xp_total: number | null;
 }
 
@@ -159,7 +160,7 @@ export default function TransfersPage() {
               .in("key", ["squad_total_spend", "squad_team_limit", "squad_squadsize"]),
             supabase
               .from("player_xp_horizons")
-              .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_total, first_event, last_event")
+              .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_19, xp_total, first_event, last_event")
               .eq("season", gw.season)
               .limit(1000),
             supabase
@@ -307,6 +308,7 @@ export default function TransfersPage() {
               3: x?.xp_3 ?? null,
               5: x?.xp_5 ?? null,
               8: x?.xp_8 ?? null,
+              19: x?.xp_19 ?? null,
               season: x?.xp_total ?? null,
             },
             expectedMinutes: pred?.expected_minutes ?? null,
@@ -366,7 +368,7 @@ export default function TransfersPage() {
     (id: number): HorizonXp | undefined => {
       const r = xp.get(id);
       if (!r) return undefined;
-      return { xp1: r.xp_1, xp3: r.xp_3, xp5: r.xp_5, xp8: r.xp_8, xpSeason: r.xp_total };
+      return { xp1: r.xp_1, xp3: r.xp_3, xp5: r.xp_5, xp8: r.xp_8, xp19: r.xp_19, xpSeason: r.xp_total };
     },
     [xp],
   );

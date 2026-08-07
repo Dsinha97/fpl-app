@@ -165,6 +165,16 @@ export function PlayerDetail({
         )}
       </div>
 
+      {/* club system — Sprint 12.5, context only, never folded into xP */}
+      {player.system && (
+        <p
+          className="mt-2.5 truncate border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40 dark:text-zinc-400"
+          title={`System: ${player.system} — tactical context, not applied to xP.`}
+        >
+          <span className="font-medium text-zinc-600 dark:text-zinc-300">System</span> · {player.system}
+        </p>
+      )}
+
       {/* availability */}
       <div className="mt-2.5 flex items-start gap-2 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
         <AvailabilityBadge

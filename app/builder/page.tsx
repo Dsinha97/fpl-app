@@ -56,7 +56,8 @@ import {
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { fullName, matchesPlayerQuery } from "@/lib/player-search";
 import { ActionMenu } from "@/components/ui/action-menu";
-import { ValueSlider } from "@/components/ui/range-slider";
+import { RangeSlider, ValueSlider } from "@/components/ui/range-slider";
+import { tacticalSummary, toTacticalProfile, type PlManagerRow } from "@/lib/tactical-profile";
 
 interface PlayerRow {
   id: number;
@@ -85,10 +86,12 @@ interface XpRow {
   xp_5: number | null;
   xp_total: number | null;
   xp_8: number | null;
+  xp_19: number | null;
   xp_1_lower: number | null;
   xp_3_lower: number | null;
   xp_5_lower: number | null;
   xp_8_lower: number | null;
+  xp_19_lower: number | null;
   xp_total_lower: number | null;
   xp_5_upper: number | null;
   reliability: "high" | "medium" | "low" | null;
@@ -108,8 +111,15 @@ const REPLACEMENT_LIMITS = [5, 10, 20] as const;
 /** The API caps every response at 1000 rows regardless of `.limit()` — see /transfers' PAGE_ROWS. */
 const PAGE_ROWS = 1000;
 
-/** How many upcoming gameweeks to show in the player detail panel's fixture ticker. */
-const DISPLAY_GWS = 3;
+/**
+ * Hard cap on the player detail panel's fixture ticker, whatever the horizon.
+ *
+ * The panel is a compact anchored popover with a fixed `PANEL_MAX_HEIGHT`, not a
+ * schedule page — `/fixtures` already exists for the full run. So the ticker
+ * follows the selected horizon up to this many fixtures and then stops, which
+ * matters now that "Season" reaches the whole 38-gameweek season.
+ */
+const MAX_TICKER_GWS = 8;
 /** Fallback when `player_xp_horizons` has no rows yet — matches `generate-predictions`' own floor. */
 const FALLBACK_SEASON_WINDOW = 8;
 
@@ -120,6 +130,8 @@ type SortKey = "xp5" | "xp1" | "price" | "ownership";
 export default function BuilderPage() {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [teamShort, setTeamShort] = useState<Map<number, string>>(new Map());
+  /** Sprint 12.5 — one-line club tactical summary per team, context only. */
+  const [tacticalByTeam, setTacticalByTeam] = useState<Map<number, string>>(new Map());
   const [xp, setXp] = useState<Map<number, XpRow>>(new Map());
   const [upcoming, setUpcoming] = useState<Map<number, UpcomingFixture[]>>(new Map());
   const [predictions, setPredictions] = useState<Map<number, PredictionRow>>(new Map());
@@ -146,6 +158,13 @@ export default function BuilderPage() {
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState<number>(0);
   const [teamFilter, setTeamFilter] = useState<number>(0);
+  /**
+   * Price band in FPL tenths, or null until the pool has loaded and its real
+   * bounds are known. Deliberately not defaulted to a hardcoded 40–150: prices
+   * move during a season, and a bound invented here would start silently
+   * excluding players the moment the most expensive one rose past it.
+   */
+  const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("xp5");
   const [page, setPage] = useState(0);
 
@@ -174,7 +193,7 @@ export default function BuilderPage() {
         setSeason(gw.season);
         setNextEvent(gw.id);
 
-        const [playersRes, teamsRes, typesRes, settingsRes, xpRes, fixturesRes, predsRes] =
+        const [playersRes, teamsRes, typesRes, settingsRes, xpRes, fixturesRes, predsRes, tacticalRes] =
           await Promise.all([
             supabase
               .from("players")
@@ -183,7 +202,7 @@ export default function BuilderPage() {
               )
               .eq("season", gw.season)
               .limit(1000),
-            supabase.from("teams").select("id, short_name").eq("season", gw.season),
+            supabase.from("teams").select("id, short_name, tactical_manager_id").eq("season", gw.season),
             supabase.from("element_types").select("id, squad_select").eq("season", gw.season),
             supabase
               .from("game_settings")
@@ -195,7 +214,7 @@ export default function BuilderPage() {
               // One string literal, never concatenated: `+` collapses the row
               // type to GenericStringError.
               .select(
-                "player_id, xp_1, xp_3, xp_5, xp_8, xp_total, xp_1_lower, xp_3_lower, xp_5_lower, xp_8_lower, xp_total_lower, xp_5_upper, reliability, prior_weight, first_event, last_event",
+                "player_id, xp_1, xp_3, xp_5, xp_8, xp_19, xp_total, xp_1_lower, xp_3_lower, xp_5_lower, xp_8_lower, xp_19_lower, xp_total_lower, xp_5_upper, reliability, prior_weight, first_event, last_event",
               )
               .eq("season", gw.season)
               .limit(1000),
@@ -216,6 +235,13 @@ export default function BuilderPage() {
               .eq("season", gw.season)
               .eq("event", gw.id)
               .limit(1000),
+            // Sprint 12.5 — club tactical profiles, disclosed context only.
+            supabase
+              .from("pl_managers")
+              .select(
+                "manager_key, name, current_club, preferred_formation, buildup_style, pressing_intensity, source_file, tactical_traits, modifiers",
+              )
+              .eq("season", gw.season),
           ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
         if (teamsRes.error) throw new Error(teamsRes.error.message);
@@ -223,6 +249,19 @@ export default function BuilderPage() {
         const shorts = new Map(
           (teamsRes.data ?? []).map((t) => [t.id as number, t.short_name as string]),
         );
+
+        // Sprint 12.5 — resolve each team's manager profile into one summary
+        // line, disclosed context shown in the player detail panel.
+        const profileByManagerKey = new Map(
+          ((tacticalRes.data ?? []) as PlManagerRow[]).map((r) => [r.manager_key, toTacticalProfile(r)]),
+        );
+        const tactical = new Map<number, string>();
+        for (const t of teamsRes.data ?? []) {
+          const managerKey = t.tactical_manager_id as string | null;
+          const profile = managerKey ? profileByManagerKey.get(managerKey) : undefined;
+          if (profile) tactical.set(t.id as number, tacticalSummary(profile));
+        }
+        setTacticalByTeam(tactical);
 
         // Squad rules come from the database, never hardcoded — FPL has
         // changed budget and squad size between seasons.
@@ -327,7 +366,7 @@ export default function BuilderPage() {
     (id: number): HorizonXp | undefined => {
       const r = xp.get(id);
       if (!r) return undefined;
-      return { xp1: r.xp_1, xp3: r.xp_3, xp5: r.xp_5, xp8: r.xp_8, xpSeason: r.xp_total };
+      return { xp1: r.xp_1, xp3: r.xp_3, xp5: r.xp_5, xp8: r.xp_8, xp19: r.xp_19, xpSeason: r.xp_total };
     },
     [xp],
   );
@@ -372,6 +411,7 @@ export default function BuilderPage() {
             3: r?.xp_3 ?? null,
             5: r?.xp_5 ?? null,
             8: r?.xp_8 ?? null,
+            19: r?.xp_19 ?? null,
             season: r?.xp_total ?? null,
           },
           // Lets the Risk control price uncertainty: Low optimises this bottom
@@ -381,6 +421,7 @@ export default function BuilderPage() {
             3: r?.xp_3_lower ?? null,
             5: r?.xp_5_lower ?? null,
             8: r?.xp_8_lower ?? null,
+            19: r?.xp_19_lower ?? null,
             season: r?.xp_total_lower ?? null,
           },
           reliability: r?.reliability ?? undefined,
@@ -477,12 +518,29 @@ export default function BuilderPage() {
 
   // -------------------------------------------------------- filtering
 
+  /** The pool's real price bounds, which drive the slider's own min/max. */
+  const priceBounds = useMemo<[number, number] | null>(() => {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const p of players) {
+      const cost = p.now_cost;
+      if (cost === null || cost === undefined) continue;
+      if (cost < lo) lo = cost;
+      if (cost > hi) hi = cost;
+    }
+    return Number.isFinite(lo) && Number.isFinite(hi) ? [lo, hi] : null;
+  }, [players]);
+
   const filtered = useMemo(() => {
     const q = search.trim();
     const rows = players.filter((p) => {
       if (q && !matchesPlayerQuery(p, q)) return false;
       if (position !== 0 && p.element_type !== position) return false;
       if (teamFilter !== 0 && p.team_id !== teamFilter) return false;
+      if (priceRange) {
+        const cost = p.now_cost ?? 0;
+        if (cost < priceRange[0] || cost > priceRange[1]) return false;
+      }
       return true;
     });
 
@@ -500,7 +558,7 @@ export default function BuilderPage() {
     };
 
     return rows.sort((a, b) => value(b) - value(a));
-  }, [players, xp, search, position, teamFilter, sortKey]);
+  }, [players, xp, search, position, teamFilter, priceRange, sortKey]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -548,14 +606,17 @@ export default function BuilderPage() {
         xp5: xp.get(row.id)?.xp_5 ?? null,
         expected_minutes: pred?.expected_minutes ?? null,
         start_probability: pred?.start_probability ?? null,
+        system: tacticalByTeam.get(row.team_id) ?? null,
         // The detail panel renders every entry in `upcoming` with no
         // truncation of its own, so the ticker's display length is sliced
         // here — `fixtures` itself (and fdrRun below) carries the whole
-        // remaining season for risk/fixture scoring.
-        upcoming: fixtures.slice(0, DISPLAY_GWS),
+        // remaining season for risk/fixture scoring. The length follows the
+        // page's horizon so the ticker shows the run the numbers beside it
+        // were computed over, capped at MAX_TICKER_GWS.
+        upcoming: fixtures.slice(0, Math.min(MAX_TICKER_GWS, horizonLength(horizon, seasonWindow))),
       };
     },
-    [upcoming, predictions, xpOf, xp, horizon, team.captain, team.viceCaptain, teamShort],
+    [upcoming, predictions, xpOf, xp, horizon, seasonWindow, team.captain, team.viceCaptain, teamShort, tacticalByTeam],
   );
 
   const squadCards = useMemo<PlayerData[]>(
@@ -640,6 +701,7 @@ export default function BuilderPage() {
             3: r?.xp_3 ?? null,
             5: r?.xp_5 ?? null,
             8: r?.xp_8 ?? null,
+            19: r?.xp_19 ?? null,
             season: r?.xp_total ?? null,
           },
         xpLower: {
@@ -647,6 +709,7 @@ export default function BuilderPage() {
             3: r?.xp_3_lower ?? null,
             5: r?.xp_5_lower ?? null,
             8: r?.xp_8_lower ?? null,
+            19: r?.xp_19_lower ?? null,
             season: r?.xp_total_lower ?? null,
           },
         reliability: r?.reliability ?? undefined,
@@ -1552,6 +1615,34 @@ export default function BuilderPage() {
                 <option value="ownership">Owned</option>
               </select>
             </div>
+
+            {/* price band — bounds come from the pool, never hardcoded */}
+            {priceBounds && (
+              <div className="mt-2 flex items-center gap-2 text-xs">
+                <span className="text-zinc-500">Price</span>
+                <RangeSlider
+                  value={priceRange ?? priceBounds}
+                  onValueChange={changeFilter(setPriceRange)}
+                  min={priceBounds[0]}
+                  max={priceBounds[1]}
+                  step={1}
+                  minLabel="Minimum price"
+                  maxLabel="Maximum price"
+                />
+                <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+                  {money((priceRange ?? priceBounds)[0])} – {money((priceRange ?? priceBounds)[1])}
+                </span>
+                {priceRange &&
+                  (priceRange[0] !== priceBounds[0] || priceRange[1] !== priceBounds[1]) && (
+                    <button
+                      onClick={() => changeFilter(setPriceRange)(null)}
+                      className="text-zinc-500 underline-offset-2 hover:underline"
+                    >
+                      reset
+                    </button>
+                  )}
+              </div>
+            )}
 
             <div className="mt-2 overflow-x-auto">
               <table className="w-full text-xs">

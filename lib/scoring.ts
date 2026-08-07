@@ -55,14 +55,13 @@ export const COLD_START_NOTE =
   "pre-season. Since v1.2.0, every club's squad is also reconciled so exactly eleven players and one " +
   "goalkeeper start each fixture, so a player's number now depends on their team-mates too — where a " +
   "squad's raw numbers fall short of eleven (promoted clubs, mainly) or run past it (deep, expensive " +
-  "squads), the shortfall or surplus is spread across the squad in proportion to existing estimates, " +
-  "capped at each player's own chance of playing. This fixes how much a club plays, not how well — " +
-  "team strength is still zero for all twenty clubs, so it is a role estimate, not a quality one — and " +
-  "it does not order players within a position, so understudies can end up sharing a start rather than " +
-  "one being picked out as first choice. It also does not distinguish an established starter from a " +
-  "fringe squad member on the same price band: at a large, deep squad the correction is spread evenly " +
-  "across everyone in a position, so a nailed starter can be pulled down by the same proportion as a " +
-  "reserve who should have moved far more and the starter far less.";
+  "squads), the shortfall or surplus is spread across the squad capped at each player's own chance of " +
+  "playing. This fixes how much a club plays, not how well — team strength is still zero for all " +
+  "twenty clubs, so it is a role estimate, not a quality one — and it does not order players within a " +
+  "position, so understudies can end up sharing a start rather than one being picked out as first " +
+  "choice. Since v1.3.0 the correction is weighted by how much of each player's number is prior " +
+  "rather than their own Premier League record, so an established starter moves far less than a " +
+  "fringe reserve on the same price band, rather than both moving by the same proportion.";
 
 /** Worded confidence for a projection, for badges and tooltips. */
 export const RELIABILITY_LABELS: Record<"high" | "medium" | "low", string> = {

@@ -211,30 +211,37 @@ export interface HorizonXp {
   xp3: number | null;
   xp5: number | null;
   xp8: number | null;
+  /** The half-season figure — both chip windows (GW1-19, GW20-38) are this long. */
+  xp19: number | null;
   /** Every gameweek the model has projected, not necessarily all 38. */
   xpSeason: number | null;
 }
 
 /** Gameweek windows the xP engine publishes. */
-export type Horizon = 1 | 3 | 5 | 8 | "season";
+export type Horizon = 1 | 3 | 5 | 8 | 19 | "season";
 
-export const HORIZONS: Horizon[] = [1, 3, 5, 8, "season"];
+export const HORIZONS: Horizon[] = [1, 3, 5, 8, 19, "season"];
 
 export const horizonLabel = (h: Horizon): string => (h === "season" ? "Season" : `${h} GW`);
 
 /**
- * `generate-predictions` no longer runs a fixed 8-gameweek window — it
- * predicts through the chip window covering the next gameweek (GW1-19
- * today, from `chip_definitions`), floored at 8. So "Season" is no longer
- * simply the 8 GW figure under a longer name, but it is still short of the
- * full 38-gameweek season. `windowGws` is the real span, read from
- * `player_xp_horizons.first_event`/`last_event` by the caller — never
- * hardcoded here, since the window moves as the chip calendar does.
+ * `generate-predictions` now runs from the next gameweek through the
+ * season's real last gameweek (38 today), so "Season" means the actual
+ * season rather than stopping at a chip window. `windowGws` is still read
+ * from `player_xp_horizons.first_event`/`last_event` rather than hardcoded —
+ * a season is 38 gameweeks today but was not always, and will not always be.
+ * The caveat that remains is not the window's length but its freshness: a
+ * projection frozen this far out cannot see news, injuries or form that
+ * has not happened yet, so the far weeks of it are its least trustworthy
+ * part — the same reason `decisionMargin` exists as a disclosed input in
+ * `transfer-optimizer.ts` rather than a modelled one.
  */
 export function seasonHorizonNote(windowGws: number): string {
   return (
-    `Season covers the ${windowGws} gameweeks the prediction engine currently projects, not the full ` +
-    "38-gameweek season — a longer window is a Sprint 12 prerequisite."
+    `Season covers the ${windowGws} gameweeks the prediction engine currently projects. It is a ` +
+    "single frozen snapshot, not a forecast that updates itself — the further a gameweek is from " +
+    "today, the more news, injuries and form it cannot yet reflect, so treat the back end of the " +
+    "season as the least certain part of this number."
   );
 }
 
@@ -271,6 +278,8 @@ export function xpAt(xp: HorizonXp | undefined, horizon: Horizon): number | null
       return xp.xp5;
     case 8:
       return xp.xp8;
+    case 19:
+      return xp.xp19;
     case "season":
       return xp.xpSeason;
   }

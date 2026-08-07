@@ -1,4 +1,4 @@
-// Expected points model, v1.2.0.
+// Expected points model, v1.3.0.
 //
 // v1.1.0 added the cold-start prior layer at the bottom of this file: rates are
 // shrunk toward a fitted position/price prior instead of the player being
@@ -11,6 +11,15 @@
 // to those facts — see the "Squad reconciliation" section for the mechanism
 // and its known limitation. `predict` is again unchanged; reconciliation
 // only rescales the `Rates` it is handed.
+//
+// v1.3.0 replaces phase 1's uniform reconciliation with `reconcileClubSquadWeighted`
+// (phase 2, further down): each player's share of the correction is weighted by
+// how much of their rate is prior rather than their own record, instead of one
+// factor per club per position group, so an established starter moves far less
+// than a fringe reserve on the same price band. Gated on a backtest before
+// shipping — see "Squad reconciliation, phase 2" — and phase 1's exact solver
+// (`reconcileClubSquad`/`solveWaterFill`) stays in this file, reachable as the
+// `w=1` special case of the phase 2 solver, in case a future run needs it back.
 //
 // Implements the nine steps in the build plan. Two deliberate deviations,
 // both of which the plan itself sanctions:
@@ -26,7 +35,7 @@
 // tactical change. Once player_gameweek_stats fills up, current-season form
 // should be blended in and these rates reweighted.
 
-export const MODEL_VERSION = "v1.2.0";
+export const MODEL_VERSION = "v1.3.0";
 
 export const MODEL_PARAMS = {
   // Recency weights applied to prior seasons, most recent first.
@@ -732,14 +741,13 @@ export const COLD_START_MODEL_NOTE =
   "pre-season. Since v1.2.0, every club's squad is also reconciled so exactly eleven players and one " +
   "goalkeeper start each fixture, so a player's number now depends on their team-mates too — where a " +
   "squad's raw numbers fall short of eleven (promoted clubs, mainly) or run past it (deep, expensive " +
-  "squads), the shortfall or surplus is spread across the squad in proportion to existing estimates, " +
-  "capped at each player's own chance of playing. This fixes how much a club plays, not how well — " +
-  "team strength is still zero for all twenty clubs, so it is a role estimate, not a quality one — and " +
-  "it does not order players within a position, so understudies can end up sharing a start rather than " +
-  "one being picked out as first choice. It also does not distinguish an established starter from a " +
-  "fringe squad member on the same price band: at a large, deep squad the correction is spread evenly " +
-  "across everyone in a position, so a nailed starter can be pulled down by the same proportion as a " +
-  "reserve who should have moved far more and the starter far less.";
+  "squads), the shortfall or surplus is spread across the squad capped at each player's own chance of " +
+  "playing. This fixes how much a club plays, not how well — team strength is still zero for all " +
+  "twenty clubs, so it is a role estimate, not a quality one — and it does not order players within a " +
+  "position, so understudies can end up sharing a start rather than one being picked out as first " +
+  "choice. Since v1.3.0 the correction is weighted by how much of each player's number is prior " +
+  "rather than their own Premier League record, so an established starter moves far less than a " +
+  "fringe reserve on the same price band, rather than both moving by the same proportion.";
 
 // ===========================================================================
 // Squad reconciliation (v1.2.0)
@@ -882,6 +890,13 @@ export interface SquadMember {
   minutesPerGame: number;
   /** From `availabilityOf`, so there is one implementation of availability. */
   availability: number;
+  /**
+   * How much of this player's rate is the prior rather than their own record
+   * (0-1, from `RateEvidence.priorWeight`). Optional and ignored by
+   * `reconcileClubSquad` (phase 1) — only `reconcileClubSquadWeighted`
+   * (phase 2, gated on its own backtest; see docs/roadmap.md) reads it.
+   */
+  priorWeight?: number;
 }
 
 export interface SquadBudgets {
@@ -977,6 +992,190 @@ export function reconcileClubSquad(
   const minutesFit = solveWaterFill(
     members.map((m) => m.minutesPerGame * m.availability),
     members.map((m) => 90 * m.availability),
+    budgets.xi * 90,
+  );
+
+  members.forEach((m, i) => {
+    const p = m.minutesPerGame * m.availability;
+    scales.get(m.key)!.minutesScale = p > SQUAD_EPS ? minutesFit.q[i] / p : 1;
+  });
+
+  let consistencyViolations = 0;
+  for (const m of members) {
+    const scale = scales.get(m.key)!;
+    const scaledStart = clamp(m.startShare * scale.startScale, 0, 1);
+    const scaledMpg = Math.max(0, m.minutesPerGame * scale.minutesScale);
+    if (scaledMpg < bound * scaledStart - 1e-6) consistencyViolations++;
+  }
+
+  return { scales, goalkeeperFit, outfieldFit, minutesFit, consistencyViolations };
+}
+
+// ===========================================================================
+// Squad reconciliation, phase 2 — evidence-weighted water-fill (gated)
+//
+// Phase 1's known limitation, recorded above: one proportional factor per
+// club per position group cannot tell an established starter from a fringe
+// reserve on the same price band, so a nailed starter is cut as hard as a
+// reserve who should have moved far more. Measured on the phase-4 backtest
+// cohort, that cost Pearson r 0.850 -> 0.761.
+//
+// The fix weights each player's share of the correction by
+// `RateEvidence.priorWeight` — already computed by `deriveRatesWithPrior` for
+// exactly this purpose, and already out-of-sample validated there, so this
+// adds no new fitted parameter. A player whose number is pure prior
+// (priorWeight near 1) absorbs close to the full correction; a player with a
+// real Premier League record (priorWeight near 0) barely moves.
+//
+// Not shipped by default. `generate-predictions` keeps calling
+// `reconcileClubSquad` (phase 1) unless a backtest run through
+// `reconcileClubSquadWeighted` shows it recovers the cohort Pearson r without
+// breaking the constraint audit or the within-club ranking — see
+// docs/roadmap.md, "Squad reconciliation, phase 2", for the recorded result.
+// ===========================================================================
+
+/**
+ * Generalises `solveWaterFill` to `q_i = min(c_i, p_i * lambda^w_i)`.
+ *
+ * `w_i = 1` for every player is *exactly* phase 1's formula
+ * (`q_i = min(c_i, lambda * p_i)`) — so this is a strict generalisation, not
+ * a different algorithm, and phase 1 is reviewable as its special case.
+ * `w_i = 0` holds a player at their raw `p_i` (capped at `c_i`) regardless of
+ * `lambda`, which is the point: zero evidence weight means the correction
+ * passes the player by entirely.
+ *
+ * Two costs, disclosed rather than hidden: mixed exponents have no closed
+ * form, so this is solved by bisection on `lambda` (monotone — every term is
+ * non-decreasing in `lambda`) rather than phase 1's exact iterative capping,
+ * and is therefore tolerance- rather than exact. And if every player in a
+ * group has `w_i` at or near zero, the fixed floor alone can exceed the
+ * target and no `lambda` can reach it — that case falls back to
+ * `solveWaterFill`'s unweighted solve rather than failing the constraint.
+ */
+export function solveWeightedWaterFill(
+  p: number[],
+  c: number[],
+  w: number[],
+  target: number,
+): WaterFillResult {
+  const EPS = 1e-9;
+  const n = p.length;
+  if (n === 0) return { q: [], lambda: 0, cappedCount: 0, shortfall: target, status: "empty" };
+
+  const C = c.reduce((a, b) => a + b, 0);
+  if (C <= target + EPS) {
+    return {
+      q: [...c],
+      lambda: Infinity,
+      cappedCount: n,
+      shortfall: target - C,
+      status: C < target - EPS ? "infeasible" : "exact_ceiling",
+    };
+  }
+
+  // No player carries any weight: every term is pinned at its raw p_i
+  // regardless of lambda, so the sum cannot move toward target at all — not
+  // just when the fixed floor happens to exceed it (checked below), but also
+  // when it falls short with nothing left to grow. Both directions fall back
+  // to the unweighted solve rather than let bisection converge on a lambda
+  // that changes nothing.
+  if (w.every((wi) => wi <= EPS)) {
+    const fallback = solveWaterFill(p, c, target);
+    return { ...fallback, status: "uniform_fallback" };
+  }
+
+  const termAt = (lambda: number, i: number): number => {
+    if (w[i] <= EPS) return Math.min(c[i], p[i]);
+    if (p[i] <= EPS) return 0;
+    return Math.min(c[i], p[i] * lambda ** w[i]);
+  };
+  const sumAt = (lambda: number): number => {
+    let s = 0;
+    for (let i = 0; i < n; i++) s += termAt(lambda, i);
+    return s;
+  };
+
+  const floorSum = sumAt(0);
+  if (floorSum > target + EPS) {
+    const fallback = solveWaterFill(p, c, target);
+    return { ...fallback, status: "uniform_fallback" };
+  }
+
+  let lo = 0;
+  let hi = 1;
+  while (sumAt(hi) < target - EPS && hi < 1e8) hi *= 2;
+
+  for (let iter = 0; iter < 100 && hi - lo >= 1e-12; iter++) {
+    const mid = (lo + hi) / 2;
+    if (sumAt(mid) < target) lo = mid;
+    else hi = mid;
+  }
+
+  const lambda = hi;
+  const q = p.map((pi, i) => termAt(lambda, i));
+  const sum = q.reduce((a, b) => a + b, 0);
+  const cappedCount = q.filter((qi, i) => qi >= c[i] - EPS).length;
+
+  if (!Number.isFinite(lambda) || Math.abs(sum - target) > 1e-4) {
+    return {
+      q: [...p],
+      lambda: 1,
+      cappedCount: 0,
+      shortfall: target - p.reduce((a, b) => a + b, 0),
+      status: "infeasible",
+    };
+  }
+
+  return { q, lambda, cappedCount, shortfall: 0, status: "ok" };
+}
+
+/**
+ * Phase 2 sibling of `reconcileClubSquad`. Identical structure — same three
+ * budgets, same `SquadScale` output — differing only in which solver each
+ * water-fill runs through and the weight passed to it
+ * (`member.priorWeight ?? 1`, so a member with no evidence recorded behaves
+ * like phase 1's uniform treatment rather than silently vanishing from the
+ * correction).
+ */
+export function reconcileClubSquadWeighted(
+  members: SquadMember[],
+  budgets: SquadBudgets,
+): SquadReconciliation {
+  const SQUAD_EPS = 1e-9;
+  const scales = new Map<number, SquadScale>();
+  for (const m of members) scales.set(m.key, { startScale: 1, minutesScale: 1 });
+
+  const weightOf = (m: SquadMember) => clamp(m.priorWeight ?? 1, 0, 1);
+
+  const gks = members.filter((m) => m.positionId === GOALKEEPER_POSITION_ID);
+  const outfield = members.filter((m) => m.positionId !== GOALKEEPER_POSITION_ID);
+
+  const goalkeeperFit = solveWeightedWaterFill(
+    gks.map((m) => m.startShare * m.availability),
+    gks.map((m) => m.availability),
+    gks.map(weightOf),
+    budgets.goalkeepers,
+  );
+  const outfieldFit = solveWeightedWaterFill(
+    outfield.map((m) => m.startShare * m.availability),
+    outfield.map((m) => m.availability),
+    outfield.map(weightOf),
+    budgets.xi - budgets.goalkeepers,
+  );
+  const applyStart = (group: SquadMember[], fit: WaterFillResult) => {
+    group.forEach((m, i) => {
+      const p = m.startShare * m.availability;
+      scales.get(m.key)!.startScale = p > SQUAD_EPS ? fit.q[i] / p : 1;
+    });
+  };
+  applyStart(gks, goalkeeperFit);
+  applyStart(outfield, outfieldFit);
+
+  const bound = MODEL_PARAMS.appearanceMinutes * MODEL_PARAMS.startCompletion;
+  const minutesFit = solveWeightedWaterFill(
+    members.map((m) => m.minutesPerGame * m.availability),
+    members.map((m) => 90 * m.availability),
+    members.map(weightOf),
     budgets.xi * 90,
   );
 

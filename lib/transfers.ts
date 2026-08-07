@@ -329,7 +329,7 @@ function emptyScored(id: number): ScoredPlayer {
     price: 0,
     ownership: null,
     pointsPerGame: null,
-    xp: { 1: null, 3: null, 5: null, 8: null, season: null },
+    xp: { 1: null, 3: null, 5: null, 8: null, 19: null, season: null },
     expectedMinutes: null,
     startProbability: null,
     availability: 0,

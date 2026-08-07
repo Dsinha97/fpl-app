@@ -44,6 +44,8 @@ export interface PlayerData {
   upcoming?: UpcomingFixture[];
   /** Probability this bench slot is used by an auto-sub, when benched. */
   sub_probability?: number | null;
+  /** One-line club tactical summary (Sprint 12.5), e.g. "4-3-3 · Possession control · high press". */
+  system?: string | null;
 }
 
 interface PlayerCardProps {

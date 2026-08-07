@@ -96,7 +96,7 @@ export default function ComparePage() {
           supabase.from("teams").select("id, short_name").eq("season", gw.season),
           supabase
             .from("player_xp_horizons")
-            .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_total, first_event, last_event")
+            .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_19, xp_total, first_event, last_event")
             .eq("season", gw.season)
             .limit(1000),
           supabase
@@ -188,6 +188,7 @@ export default function ComparePage() {
               3: x?.xp_3 ?? null,
               5: x?.xp_5 ?? null,
               8: x?.xp_8 ?? null,
+              19: x?.xp_19 ?? null,
               season: x?.xp_total ?? null,
             },
             expectedMinutes: pred?.expected_minutes ?? null,
