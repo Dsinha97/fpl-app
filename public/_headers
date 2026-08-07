@@ -2,14 +2,21 @@
 # root, so this ships as out/_headers. GitHub Pages ignores the file, which is why
 # it was safe to add before the host cutover.
 #
-# No Content-Security-Policy here yet. A correct one has to allow connect-src for
-# the Supabase project and img-src for flagcdn.com, resources.premierleague.com
-# and fantasy.premierleague.com. Worth adding, but not folded into a hosting
-# migration: if the crests stopped loading you could not tell which change did it.
-
+# script-src and style-src carry 'unsafe-inline' rather than a hash or nonce.
+# A nonce needs a server to mint one per request, which a static export does
+# not have, and a hash only works for content that is identical on every
+# build: the theme boot script qualifies, but Next's own RSC hydration
+# payload (`self.__next_f.push(...)`, verified present in out/index.html)
+# embeds build-specific chunk hashes and changes every build, so a hardcoded
+# hash would break the very next deploy. `style-src` needs the same
+# treatment — five components set inline `style={{...}}` from computed
+# values (FDR colours, dynamic widths), which cannot be hashed in advance
+# either. This is the standard trade-off for a static Next.js export; a
+# server-rendered app could do better with per-request nonces.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://flagcdn.com https://resources.premierleague.com https://fantasy.premierleague.com; font-src 'self'; connect-src 'self' https://fyxyqxpscmqjyjxsyhms.supabase.co; object-src 'none'; base-uri 'self'
 
 # Next content-hashes every filename under here, so a stale copy can never be
 # served for changed content and a one-year immutable cache is safe.

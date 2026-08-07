@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# wrangler local dev cache (from testing Cloudflare headers/deploy locally)
+.wrangler/
+
 # claude code local settings
 .claude/
 
