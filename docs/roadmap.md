@@ -12,7 +12,8 @@ Sprint 2, and Sprint 4 delivered the **comparison engine and replacement finder*
 document numbers as Sprints 6 and 7. Those were therefore already built when this file was written.
 Sprints 5, 8 and 9 have since shipped; **Sprint 12A, Manager Percentile Profile** ships alongside this
 file (10 is blocked pre-season, 11 is built, 13 needs a live match, 14 is authentication). Sprint 12
-proper — Chip Strategy — is next, and needs the prediction window extended past 8 gameweeks first.
+proper — Chip Strategy — is next; its prerequisite, extending the prediction window past 8
+gameweeks, is done (below).
 
 | Sprint | Theme | Status |
 |---|---|---|
@@ -31,18 +32,49 @@ proper — Chip Strategy — is next, and needs the prediction window extended p
 | 16 | Notifications & Automation | Not started |
 | 17 | Historical Analytics & ML | Not started |
 
+## Pre-Sprint-12 finishing batch (2026-08-06)
+
+Cleared before starting Sprint 12 proper: the prediction-window extension it depends on, plus four
+items this file had recorded as knowingly carried.
+
+- **Prediction window extended.** `generate-predictions`' `HORIZON = 8` is replaced by a window
+  derived from `chip_definitions` — the chip window covering the next gameweek (GW1-19 today,
+  Wildcard #1's real span), floored at 8 and clamped to the season's last gameweek. `player_xp_horizons`
+  gains `last_event` so a consumer can read the real span rather than inferring it from `fixtures`.
+  "Season" now means that real window everywhere it is used — `horizonLength`, `fixtureScore`,
+  `riskScore`, `comparePlayers` and `squadScore` all take an optional `seasonWindow`, threaded through
+  from `first_event`/`last_event` on each page that needs it, defaulting to 8 (today's floor) where not
+  yet wired. `SEASON_HORIZON_NOTE` is now `seasonHorizonNote(windowGws)`, stating the real figure
+  instead of a claim that stopped being true the moment the window moved. Deployed and verified live:
+  `events: "1-19"`, 10,868 rows, `squad_consistency_violations` unchanged at 10.
+- **Dependency advisories cleared** (see "Dependency advisories" below, kept for the record) —
+  `next` bumped to 16.3.0, `shadcn` moved to `devDependencies`. `npm audit` now reports only the
+  `hono` moderate advisory, isolated to `shadcn`'s own dev-time tree.
+- **CSP added** to `public/_headers` (see "Hosting follow-ups" below).
+- **Sprint 7 gaps closed** — `findReplacements` takes an optional trailing `ReplacementFilters` object
+  (minimum start probability, price ceiling, "include below the minutes floor", `seasonWindow`) without
+  changing its existing positional `limit` or default, so `/transfers` and `transfer-optimizer.ts`'s beam
+  search are unaffected. The builder panel now shows 10 by default (5/10/20 control) with all three
+  filters user-adjustable via `components/ui/range-slider.tsx`'s new single-thumb `ValueSlider`.
+- **Sprint 9 follow-on, half closed** — `SquadBalance` is now computed and shown as its own rationale
+  line (change in the squad's week-to-week coefficient of variation from the swap), loaded lazily only
+  when the replacement panel is first opened. It is **not** folded into `teamFit`'s ranking — no
+  exchange rate combines it with xP/fixture/risk, since inventing one would be exactly the "fudge
+  factor" `TRANSFER_OPTIMIZER_NOTE` already warns against for the sibling `FutureFlexibility` term.
+  `FutureFlexibility` itself stays unbuilt: the design spec never gives it a formula, and no computable
+  proxy was found here that doesn't invent a coefficient with nothing to fit it against — the same
+  conclusion `transfer-optimizer.ts` already reached, which is why its own roll-vs-spend decision
+  exposes `decisionMargin` as a disclosed input rather than modelling it. `REPLACEMENT_MODEL_NOTE`
+  says both of these things now.
+- **Draft export/import shipped** on `/scenarios` (see "Hosting follow-ups" below).
+
 ## Finishing passes on what exists
 
 Small, do them opportunistically rather than as sprints.
 
 - **Sprint 6 gaps** — EO column (needs Sprint 10); Form term (dropped, see `COMPARISON_MODEL_NOTE`).
-- **Sprint 7 gaps** — the spec asks for top 10 replacements; the panel shows 5. The position, budget,
-  club-limit, availability and minutes filters are applied but not user-adjustable.
 - **Sprint 11 gaps** — the TeamAttack term is dropped until team strength populates
   (`CAPTAIN_MODEL_NOTE`).
-- **Sprint 9 follow-on** — `SquadBalance` and `FutureFlexibility` are computable now that the
-  per-gameweek series is loaded, but `findReplacements` still omits them (`REPLACEMENT_MODEL_NOTE`).
-  Threading the series into the builder's replacement panel is the remaining work.
 
 ## Cold-Start Patch, phase 1 — empirical-Bayes rate priors (built)
 
@@ -178,45 +210,39 @@ competition, and no overlap with players who already carry PL minutes.
 
 ### Hosting follow-ups (recorded 2026-08-04, after the move to Cloudflare)
 
-- **Content-Security-Policy.** `public/_headers` deliberately ships without one, because a hosting
-  migration is the worst time to introduce a subtle breakage you cannot attribute. The host list is
-  already worked out: `connect-src` for the Supabase project, `img-src` for `flagcdn.com`,
-  `resources.premierleague.com` and `fantasy.premierleague.com`. Verify the crests, kit graphics and
-  flag icons all still render before considering it done.
+- **Content-Security-Policy — done (2026-08-06).** `public/_headers` now sets one: `connect-src` for
+  the Supabase project, `img-src` for `flagcdn.com`, `resources.premierleague.com` and
+  `fantasy.premierleague.com`, `script-src`/`style-src` with `'unsafe-inline'` (a nonce needs a server
+  a static export doesn't have, and Next's own RSC hydration payload changes every build so it can't be
+  hashed either — the standard trade-off for this hosting shape). Verified via `wrangler dev` (the
+  same asset-serving path Cloudflare uses in production): header present on every response, crests and
+  flags load, zero CSP violations across `/players`, `/fixtures`, `/builder` and a connected `/team`.
 - **Cloudflare Access.** The repo is private; the site is not. Gating it with Access (email
   one-time-PIN, free to 50 users) is a dashboard change needing no code. If it is switched on, gate
   **preview deployments too** — they get their own public URLs, so an unprotected preview makes the
   gate decorative.
-- **Draft export/import.** Drafts live in origin-scoped `localStorage` with no export path, so the
-  move to a new hostname orphaned them (recovered by hand this time). A small export/import on
-  `/scenarios` would be a real backup and cost little; Sprint 14 supersedes it with cloud sync.
+- **Draft export/import — done (2026-08-06).** `lib/drafts.ts` gains `exportDrafts`/`importDrafts`
+  under a versioned envelope carrying both the drafts and the save timeline; merge keeps whichever
+  copy of a draft is newer by `updatedAt`, so reimporting an old backup can't clobber later work.
+  `/scenarios` has a download button and a file picker. Sprint 14 still supersedes it with cloud sync.
 - **Actions minutes are now metered.** Private repos get a monthly quota where public repos were
   unlimited. Deleting `deploy.yml` roughly halved per-push consumption, leaving `ci.yml` at ~2
   minutes a push — hundreds of pushes before it matters, but no longer free-and-ignorable.
 
-### Dependency advisories (backlog, recorded 2026-08-03)
+### Dependency advisories — cleared (2026-08-06, recorded 2026-08-03)
 
-`npm audit` reports 4 — 3 high, 1 moderate. Deliberately **not** fixed yet: the exposure here is low
-and the fix touches the framework version, which this repo treats as a change needing its own
-verification pass. Recorded rather than silently carried.
+`npm audit` reported 4 — 3 high, 1 moderate.
 
-| Package | Severity | What it is | Exposure in this app |
+| Package | Severity | What it is | Resolution |
 |---|---|---|---|
-| `postcss` | high | Path traversal / arbitrary `.map` file read via attacker-controlled `sourceMappingURL` in CSS comments | Build-time only, on CSS we author ourselves in CI |
-| `sharp` | high | Inherited libvips CVEs | Next uses it for image optimisation, which a static export disables — so it should never run |
-| `next` | high | Flagged transitively through the two above | Static export: no server, no route handlers, no request-time rendering |
-| `hono` | moderate | ReDoS in CORS middleware | Arrives via `shadcn` → `@modelcontextprotocol/sdk`, a dev-time CLI that never ships to the browser |
+| `postcss` | high | Path traversal / arbitrary `.map` file read via attacker-controlled `sourceMappingURL` in CSS comments | Cleared by the `next` bump below (transitive) |
+| `sharp` | high | Inherited libvips CVEs | Cleared by the `next` bump below (transitive) |
+| `next` | high | Flagged transitively through the two above | **Bumped 16.2.12 → 16.3.0** (`isSemVerMajor: false`) |
+| `hono` | moderate | ReDoS in CORS middleware | **`shadcn` moved to `devDependencies`** — drops the `@modelcontextprotocol/sdk` → `hono` subtree from production installs |
 
-The fix for the first three is a single non-breaking bump, `next@16.2.12 → 16.3.0`
-(`isSemVerMajor: false`). Do it deliberately, not with `npm audit fix --force`, and heed
-[../AGENTS.md](../AGENTS.md) — this is not the Next.js in anyone's training data, so read
-`node_modules/next/dist/docs/` for the version's own notes before assuming a minor bump is inert.
-Then the full gate: `npx tsc --noEmit`, `npm run lint`, `npm run build`, and a browser pass over
-`/builder` and `/transfers` in both themes.
-
-`hono` is separate. The cleanest fix is not a version pin but moving **`shadcn` out of
-`dependencies` into `devDependencies`**, where a scaffolding CLI belongs — that drops the whole
-subtree from production installs and takes the advisory with it.
+Verified: full gate (`tsc`, `lint`, `build`) passed, `npm audit` now reports only `hono`, isolated to
+`shadcn`'s own dev-time tree (unreachable from either fix — it is `shadcn`'s own dependency, not a
+transitive one either bump touches, so it stays until `shadcn` itself updates).
 
 ## Squad reconciliation, phase 1 — start/minutes water-fill (built, v1.2.0, 2026-08-05)
 
@@ -437,9 +463,9 @@ Chaser and Conservative Grinder are indistinguishable without differential expos
 | Risk appetite, transfer/captain/differential/chip aggressiveness, hit frequency | Blocked — no historical behavioural data; accrues from GW1 |
 | Template dependence | Doubly blocked — needs Sprint 10 *and* picks |
 
-**Not scheduled by the change plan, but a real prerequisite**: `generate-predictions` runs an
-8-gameweek window (`SEASON_HORIZON_NOTE`), which `CLAUDE.md` already records as required before chip
-planning. Extending it is the natural follow-on before Sprint 12 proper.
+**Not scheduled by the change plan, but a real prerequisite**: `generate-predictions` ran a fixed
+8-gameweek window, which `CLAUDE.md` already recorded as required before chip planning. Extended
+2026-08-06 — see "Pre-Sprint-12 finishing batch" above.
 
 ## Sprint 10 — Ownership Intelligence
 
@@ -466,8 +492,8 @@ Tables: `top10k_managers`, `top10k_picks`, `template_snapshots`, `ownership_metr
 ## Sprints 12–17
 
 - **12 Chip Strategy** — `ChipValue = xP(with chip) − xP(without)`, optimised over 5 GW / 8 GW /
-  season. `chip_definitions` already holds the real windows (GW1–19, GW20–38). Needs the prediction
-  window extended past 8 gameweeks first, or "season" chip planning is really 8-week planning.
+  season. `chip_definitions` already holds the real windows (GW1–19, GW20–38), and the prediction
+  window now reaches them (see "Pre-Sprint-12 finishing batch" above) — ready to build on.
 - **13 Live Matchday Hub** — a `GameweekState` object: live score, bonus, live rank, pending auto
   subs, captain EO, safety score. Depends on `sync-live-gameweek`'s row-writing path, which has never
   executed — there have been no live matches.
@@ -496,8 +522,9 @@ renormalised over 0.90 → `0.333 / 0.278 / 0.222 / 0.167`. See `RISK_WEIGHTS` a
 `0.35 / 0.30 / 0.20 / 0.15`.
 
 **Horizons** are `1 | 3 | 5 | 8 | "season"` (`lib/team-state.ts`). Season reads `xp_total` from
-`player_xp_horizons`, which currently equals `xp_8` because `generate-predictions` runs an 8-gameweek
-window — `SEASON_HORIZON_NOTE` discloses that wherever Season is selected.
+`player_xp_horizons`, which now spans whatever chip window `generate-predictions` last ran (GW1–19
+today) rather than a fixed 8 gameweeks — `seasonHorizonNote(windowGws)` discloses the real span
+wherever Season is selected.
 
 **Every recommendation returns** recommendation, expected gain, confidence, risk, explanation, and
 alternatives. The existing rationale strings in `findReplacements` and the strengths/weaknesses in

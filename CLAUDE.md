@@ -191,24 +191,20 @@ collapse toward zero nor established squads inflate past eleven), dark theme, `/
 (basket simulation with hits, sell prices, armband handling, plus the weekly roll/spend/hit/wildcard
 plan). In the revised numbering that covers Sprints 5, 6, 7, 8, 9 and 11.
 
-Next: **Sprint 12 — Chip Strategy Engine**, which needs the prediction window extended past 8
-gameweeks first. See [docs/roadmap.md](docs/roadmap.md) for the full ordering and the finishing
-passes outstanding on 6, 7, 9 and 11.
+Next: **Sprint 12 — Chip Strategy Engine**. Its prerequisite — the prediction window extended past
+8 gameweeks — is done (2026-08-06), along with the Sprint 7 and 9 finishing passes and a batch of
+carried housekeeping. See "Pre-Sprint-12 finishing batch" in [docs/roadmap.md](docs/roadmap.md) for
+what shipped; the finishing pass outstanding on 11 (TeamAttack) remains blocked on team strength.
 
-Carried knowingly: **4 `npm audit` advisories** (3 high, 1 moderate — `postcss`, `sharp`, `next`,
-`hono`). Low exposure on a static export with no image optimisation, and the fix is a framework bump
-that needs its own verification pass. Assessed per-package under "Dependency advisories" in
-[docs/roadmap.md](docs/roadmap.md) — don't reach for `npm audit fix --force`.
+Carried knowingly: **1 `npm audit` advisory** (moderate — `hono`, via `shadcn`'s own dev-time
+dependency tree, unreachable from the app). The 3 high advisories (`postcss`, `sharp`, `next`) cleared
+with the `next` 16.3.0 bump; `hono`'s cleared for production by moving `shadcn` to
+`devDependencies`. Assessed under "Dependency advisories" in [docs/roadmap.md](docs/roadmap.md).
 
 Blocked, with the reason recorded rather than worked around:
 
 - **Team strength is 0 for all 20 clubs** pre-season → custom FDR and the `TeamAttackStrength` term.
 - **League 314 standings are empty** pre-season → all of Sprint 10 (EO, template, rank gain).
-- **`generate-predictions` runs an 8-gameweek window**, so `xp_total` equals `xp_8` and the Season
-  horizon is really an 8-week horizon. Extending it is a prerequisite for Sprint 12 chip planning —
-  and now load-bearing for a *decision*, not just a display: the transfer plan's roll branch cannot
-  see beyond that window, which is why the value of waiting for news is an explicit input rather
-  than something the model claims to know.
 - **`sync-live-gameweek`'s row-writing path has never executed** — no live matches yet.
 - **xP `positionCalibration` is fitted in-sample.** The backtest proves arithmetic consistency, not
   predictive accuracy; refit against real 2026/27 results. Refitted once already for v1.1.0
