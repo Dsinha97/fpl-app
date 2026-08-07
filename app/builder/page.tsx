@@ -45,6 +45,7 @@ import {
 } from "@/lib/optimizer";
 import {
   findReplacements,
+  MINUTES_FLOOR,
   REPLACEMENT_MODEL_NOTE,
   RISK_MODEL_NOTE,
   riskScore,
@@ -54,6 +55,7 @@ import {
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { fullName, matchesPlayerQuery } from "@/lib/player-search";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { ValueSlider } from "@/components/ui/range-slider";
 
 interface PlayerRow {
   id: number;
@@ -100,6 +102,8 @@ interface PredictionRow {
 
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
 const PAGE_SIZE = 10;
+/** Replacement finder result-count choices. 10 is the default — the spec's number. */
+const REPLACEMENT_LIMITS = [5, 10, 20] as const;
 
 /** How many upcoming gameweeks to show in the player detail panel's fixture ticker. */
 const DISPLAY_GWS = 3;
@@ -648,6 +652,12 @@ export default function BuilderPage() {
   }, [players, xp, teamShort, predictions, upcoming, availabilityOf]);
 
   const [replaceFor, setReplaceFor] = useState<number | null>(null);
+  /** Replacement finder filters — each defaults to today's hardcoded value. */
+  const [replaceLimit, setReplaceLimit] = useState<(typeof REPLACEMENT_LIMITS)[number]>(10);
+  const [minStartOverride, setMinStartOverride] = useState(MINUTES_FLOOR);
+  const [includeUnavailable, setIncludeUnavailable] = useState(false);
+  /** null = no cap beyond what selling the outgoing player affords. */
+  const [maxPriceOverride, setMaxPriceOverride] = useState<number | null>(null);
 
   /** Detail panel for a picker row, anchored to that row. */
   const [pickerDetail, setPickerDetail] = useState<{
@@ -690,6 +700,16 @@ export default function BuilderPage() {
     setPickerDetail({ id: row.id, top, left });
   };
 
+  /** What selling the outgoing player would leave to spend — the slider's ceiling. */
+  const replaceAffordable = useMemo(() => {
+    if (replaceFor === null) return 0;
+    const target = scoredById.get(replaceFor);
+    if (!target) return 0;
+    const outgoing = team.players.find((p) => p.playerId === replaceFor);
+    const spent = team.players.reduce((sum, p) => sum + p.purchasePrice, 0);
+    return team.budget - spent + (outgoing?.purchasePrice ?? target.price);
+  }, [replaceFor, scoredById, team]);
+
   const replacements = useMemo<Replacement[]>(() => {
     if (replaceFor === null) return [];
     const target = scoredById.get(replaceFor);
@@ -701,8 +721,27 @@ export default function BuilderPage() {
       rules,
       lookup,
       horizon,
+      replaceLimit,
+      {
+        minStartProbability: minStartOverride,
+        includeUnavailable,
+        maxPrice: maxPriceOverride ?? undefined,
+        seasonWindow,
+      },
     );
-  }, [replaceFor, scoredById, team, rules, lookup, horizon]);
+  }, [
+    replaceFor,
+    scoredById,
+    team,
+    rules,
+    lookup,
+    horizon,
+    replaceLimit,
+    minStartOverride,
+    includeUnavailable,
+    maxPriceOverride,
+    seasonWindow,
+  ]);
 
   /** Everything the picker's detail panel needs, resolved outside of render. */
   const pickerPanel = useMemo(() => {
@@ -1248,6 +1287,70 @@ export default function BuilderPage() {
                   >
                     ×
                   </button>
+                </div>
+              </div>
+
+              {/* filters — each defaults to the panel's prior fixed behaviour */}
+              <div className="mt-3 flex flex-wrap items-end gap-x-5 gap-y-2 border-b border-zinc-100 pb-3 text-[11px] text-zinc-500 dark:border-purple-900/40">
+                <label className="flex items-center gap-2">
+                  <span className="tabular-nums">
+                    Min start {Math.round(minStartOverride * 100)}%
+                  </span>
+                  <ValueSlider
+                    value={minStartOverride}
+                    onValueChange={setMinStartOverride}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    label="Minimum start probability"
+                    className={includeUnavailable ? "opacity-40" : undefined}
+                  />
+                </label>
+                <label className="flex items-center gap-2">
+                  <span className="tabular-nums">
+                    Max £{((maxPriceOverride ?? replaceAffordable) / 10).toFixed(1)}m
+                  </span>
+                  <ValueSlider
+                    value={maxPriceOverride ?? replaceAffordable}
+                    onValueChange={setMaxPriceOverride}
+                    min={0}
+                    max={Math.max(replaceAffordable, 1)}
+                    step={5}
+                    label="Maximum price"
+                  />
+                  {maxPriceOverride !== null && (
+                    <button
+                      onClick={() => setMaxPriceOverride(null)}
+                      className="text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                    >
+                      reset
+                    </button>
+                  )}
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={includeUnavailable}
+                    onChange={(e) => setIncludeUnavailable(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-zinc-300 text-purple-700 focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-purple-800/50 dark:text-[#00FF87]"
+                  />
+                  Include below the minutes floor
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <span>Show</span>
+                  {REPLACEMENT_LIMITS.map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setReplaceLimit(n)}
+                      className={`rounded px-1.5 py-0.5 font-medium transition-colors ${
+                        replaceLimit === n
+                          ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
+                          : "border border-zinc-300 hover:bg-zinc-100 dark:border-purple-800/50 dark:hover:bg-purple-950/60"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
                 </div>
               </div>
 

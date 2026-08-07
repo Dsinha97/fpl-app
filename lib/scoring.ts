@@ -268,14 +268,43 @@ export const REPLACEMENT_MODEL_NOTE =
   "TeamFit covers the transfer gain, fixture change, and risk change. Squad balance and future " +
   "flexibility need the multi-gameweek transfer optimiser and are not yet included.";
 
-/** Minimum start probability for a candidate to be worth suggesting. */
-const MINUTES_FLOOR = 0.4;
+/** Minimum start probability for a candidate to be worth suggesting, by default. */
+export const MINUTES_FLOOR = 0.4;
+
+export interface ReplacementFilters {
+  /**
+   * Minimum start probability (or availability, when start probability is
+   * unknown) for a candidate to survive. Defaults to `MINUTES_FLOOR`.
+   * Ignored when `includeUnavailable` is set.
+   */
+  minStartProbability?: number;
+  /**
+   * Skip the minutes/availability filter entirely, surfacing candidates a
+   * manager might still want to see — a returning-from-injury pick, a
+   * rotation risk worth the gamble. Defaults to false.
+   */
+  includeUnavailable?: boolean;
+  /**
+   * Price ceiling for a candidate, in tenths. Can only narrow the legal
+   * budget, never widen it — always clamped to what selling the outgoing
+   * player actually affords, since a swap must stay legal.
+   */
+  maxPrice?: number;
+  /** The real "season" prediction window, threaded into fixtureScore/riskScore. */
+  seasonWindow?: number;
+}
 
 /**
  * Legal, affordable swaps for one squad player, best first.
  *
  * Squad-aware by design: the budget released by selling the outgoing player is
  * available to spend, and the club limit ignores him because he is leaving.
+ *
+ * `filters` is additive and optional — every existing call site (the transfer
+ * optimiser's beam search, `/transfers`) keeps its exact prior behaviour by
+ * simply not passing it. Only `/builder`'s user-facing panel threads it
+ * through, so a wider or differently-filtered pool there can never silently
+ * move a recommendation the optimiser produces elsewhere.
  */
 export function findReplacements(
   target: ScoredPlayer,
@@ -285,6 +314,7 @@ export function findReplacements(
   lookup: (playerId: number) => PlayerMeta | undefined,
   horizon: Horizon,
   limit = 5,
+  filters: ReplacementFilters = {},
 ): Replacement[] {
   const owned = new Set(team.players.map((p) => p.playerId));
   const outgoing = team.players.find((p) => p.playerId === target.id);
@@ -292,6 +322,10 @@ export function findReplacements(
 
   // Selling the outgoing player frees up what was paid for him.
   const affordable = team.budget - spent + (outgoing?.purchasePrice ?? target.price);
+  const priceCeiling = filters.maxPrice != null
+    ? Math.min(filters.maxPrice, affordable)
+    : affordable;
+  const minStartProbability = filters.minStartProbability ?? MINUTES_FLOOR;
 
   const clubCounts = new Map<number, number>();
   for (const pick of team.players) {
@@ -301,26 +335,31 @@ export function findReplacements(
   }
 
   const targetXp = xpFor(target, horizon);
-  const targetFixture = fixtureScore(target, horizon);
-  const targetRisk = riskScore(target, horizon);
+  const targetFixture = fixtureScore(target, horizon, filters.seasonWindow);
+  const targetRisk = riskScore(target, horizon, filters.seasonWindow);
   const fixtureWeight = Math.max(
     1,
-    Math.min(fixturesFor(horizon), target.fdrRun.length),
+    Math.min(fixturesFor(horizon, filters.seasonWindow), target.fdrRun.length),
   );
 
   return pool
     .filter((c) => {
       if (c.id === target.id || owned.has(c.id)) return false;
       if (c.elementType !== target.elementType) return false;
-      if (c.price > affordable) return false;
+      if (c.price > priceCeiling) return false;
       if ((clubCounts.get(c.teamId) ?? 0) >= rules.teamLimit) return false;
-      if ((c.startProbability ?? c.availability) < MINUTES_FLOOR) return false;
+      if (
+        !filters.includeUnavailable &&
+        (c.startProbability ?? c.availability) < minStartProbability
+      ) {
+        return false;
+      }
       return true;
     })
     .map((c) => {
       const xpDelta = xpFor(c, horizon) - targetXp;
-      const fixtureDelta = fixtureScore(c, horizon) - targetFixture;
-      const riskDelta = riskScore(c, horizon) - targetRisk;
+      const fixtureDelta = fixtureScore(c, horizon, filters.seasonWindow) - targetFixture;
+      const riskDelta = riskScore(c, horizon, filters.seasonWindow) - targetRisk;
       const priceDelta = c.price - target.price;
 
       // Fixture improvement is expressed in points so it is commensurate with
@@ -344,6 +383,12 @@ export function findReplacements(
       // promoted-club player can out-score an established one on paper purely
       // because his number is the average for his price bracket.
       if (c.reliability === "low") rationale.push("prior-based, little PL record");
+      // Only reachable with includeUnavailable set — the default filter
+      // already excludes anyone below the floor, so this only ever fires
+      // when the caller deliberately asked to see them anyway.
+      if ((c.startProbability ?? c.availability) < minStartProbability) {
+        rationale.push("below the usual minutes floor");
+      }
       if (rationale.length === 0) rationale.push("broadly equivalent");
 
       return { player: c, teamFit, xpDelta, fixtureDelta, riskDelta, priceDelta, rationale };
