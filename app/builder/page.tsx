@@ -27,6 +27,7 @@ import {
   xpAt,
   HORIZONS,
   horizonLabel,
+  horizonLength,
   seasonHorizonNote,
   type Horizon,
   type HorizonXp,
@@ -104,6 +105,8 @@ const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FW
 const PAGE_SIZE = 10;
 /** Replacement finder result-count choices. 10 is the default — the spec's number. */
 const REPLACEMENT_LIMITS = [5, 10, 20] as const;
+/** The API caps every response at 1000 rows regardless of `.limit()` — see /transfers' PAGE_ROWS. */
+const PAGE_ROWS = 1000;
 
 /** How many upcoming gameweeks to show in the player detail panel's fixture ticker. */
 const DISPLAY_GWS = 3;
@@ -151,6 +154,10 @@ export default function BuilderPage() {
   const [risk, setRisk] = useState<RiskLevel>("medium");
   const [optimizeNote, setOptimizeNote] = useState<string | null>(null);
 
+  /** Season and next gameweek, kept for the lazy per-gameweek series fetch below. */
+  const [season, setSeason] = useState<string | null>(null);
+  const [nextEvent, setNextEvent] = useState<number | null>(null);
+
   // ------------------------------------------------------------- load
 
   useEffect(() => {
@@ -164,6 +171,8 @@ export default function BuilderPage() {
           .maybeSingle();
         if (gwError) throw new Error(gwError.message);
         if (!gw) throw new Error("No upcoming gameweek found.");
+        setSeason(gw.season);
+        setNextEvent(gw.id);
 
         const [playersRes, teamsRes, typesRes, settingsRes, xpRes, fixturesRes, predsRes] =
           await Promise.all([
@@ -659,6 +668,61 @@ export default function BuilderPage() {
   /** null = no cap beyond what selling the outgoing player affords. */
   const [maxPriceOverride, setMaxPriceOverride] = useState<number | null>(null);
 
+  /**
+   * Per-gameweek xP, keyed by player id then event — SquadBalance needs the
+   * whole squad's week-by-week shape, not just the horizon total each
+   * player already carries. Loaded lazily, only when the replacement panel
+   * is first opened: at a 19-gameweek window this is ~11 paged requests
+   * (the same PAGE_ROWS pattern /transfers already uses), which is too much
+   * to pay on every builder load for a feature most visits never open.
+   */
+  const [seriesById, setSeriesById] = useState<Map<number, Map<number, number>> | null>(null);
+  const [seriesLoading, setSeriesLoading] = useState(false);
+  // A ref, not state: it must not participate in the effect's own dependency
+  // array. seriesLoading is reactive state set *inside* this effect, so if it
+  // were also a dependency, setSeriesLoading(true) would retrigger the
+  // effect, whose cleanup cancels the very fetch it just started — leaving
+  // seriesLoading stuck true and seriesById stuck null forever. This ref
+  // guards against a duplicate fetch without being part of that loop.
+  const seriesLoadStarted = useRef(false);
+
+  useEffect(() => {
+    if (replaceFor === null || seriesById !== null || seriesLoadStarted.current || !season || nextEvent === null) {
+      return;
+    }
+    seriesLoadStarted.current = true;
+    let cancelled = false;
+    (async () => {
+      setSeriesLoading(true);
+      const series = new Map<number, Map<number, number>>();
+      for (let from = 0; ; from += PAGE_ROWS) {
+        const { data: page, error } = await supabase
+          .from("player_predictions")
+          .select("player_id, event, xp")
+          .eq("season", season)
+          .gte("event", nextEvent)
+          .order("player_id")
+          .order("event")
+          .range(from, from + PAGE_ROWS - 1);
+        if (error || cancelled) break;
+        for (const r of page ?? []) {
+          const id = r.player_id as number;
+          let byEvent = series.get(id);
+          if (!byEvent) series.set(id, (byEvent = new Map()));
+          byEvent.set(r.event as number, Number(r.xp ?? 0));
+        }
+        if ((page?.length ?? 0) < PAGE_ROWS) break;
+      }
+      if (!cancelled) {
+        setSeriesById(series);
+        setSeriesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [replaceFor, seriesById, season, nextEvent]);
+
   /** Detail panel for a picker row, anchored to that row. */
   const [pickerDetail, setPickerDetail] = useState<{
     id: number;
@@ -714,6 +778,19 @@ export default function BuilderPage() {
     if (replaceFor === null) return [];
     const target = scoredById.get(replaceFor);
     if (!target) return [];
+
+    const squadBalance =
+      seriesById && nextEvent !== null
+        ? {
+            seriesOf: (id: number) => seriesById.get(id),
+            squadPlayerIds: team.players.map((p) => p.playerId),
+            windowEvents: Array.from(
+              { length: horizonLength(horizon, seasonWindow) },
+              (_, i) => nextEvent + i,
+            ),
+          }
+        : undefined;
+
     return findReplacements(
       target,
       [...scoredById.values()],
@@ -727,6 +804,7 @@ export default function BuilderPage() {
         includeUnavailable,
         maxPrice: maxPriceOverride ?? undefined,
         seasonWindow,
+        squadBalance,
       },
     );
   }, [
@@ -741,6 +819,8 @@ export default function BuilderPage() {
     includeUnavailable,
     maxPriceOverride,
     seasonWindow,
+    seriesById,
+    nextEvent,
   ]);
 
   /** Everything the picker's detail panel needs, resolved outside of render. */
@@ -1403,6 +1483,11 @@ export default function BuilderPage() {
                     ))}
                   </ul>
                 </>
+              )}
+              {seriesLoading && (
+                <p className="mt-2 text-[10px] text-zinc-400">
+                  Loading the week-by-week signal for SquadBalance…
+                </p>
               )}
               <p className="mt-2 text-[10px] leading-relaxed text-zinc-400">
                 {REPLACEMENT_MODEL_NOTE}

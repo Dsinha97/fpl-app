@@ -261,12 +261,23 @@ export interface Replacement {
   fixtureDelta: number;
   riskDelta: number;
   priceDelta: number;
+  /**
+   * Change in the squad's week-to-week evenness after the swap — positive
+   * means smoother, negative means lumpier. Only present when the caller
+   * supplied `filters.squadBalance`; informational only, not folded into
+   * `teamFit` (see `REPLACEMENT_MODEL_NOTE` for why).
+   */
+  squadBalanceDelta?: number;
   rationale: string[];
 }
 
 export const REPLACEMENT_MODEL_NOTE =
-  "TeamFit covers the transfer gain, fixture change, and risk change. Squad balance and future " +
-  "flexibility need the multi-gameweek transfer optimiser and are not yet included.";
+  "TeamFit covers the transfer gain, fixture change, and risk change. FutureFlexibility from the " +
+  "design spec is not included — nothing in this app computes it without inventing a coefficient " +
+  "with nothing to fit it against, the same reasoning transfer-optimizer.ts already applies to its " +
+  "own decisionMargin. SquadBalance — whether the swap smooths or roughens the squad's week-to-week " +
+  "total, from the per-gameweek series — is shown as its own line when that series is available, but " +
+  "reported rather than folded into the ranking for the same reason.";
 
 /** Minimum start probability for a candidate to be worth suggesting, by default. */
 export const MINUTES_FLOOR = 0.4;
@@ -292,6 +303,36 @@ export interface ReplacementFilters {
   maxPrice?: number;
   /** The real "season" prediction window, threaded into fixtureScore/riskScore. */
   seasonWindow?: number;
+  /**
+   * Supplies the per-gameweek series needed to report SquadBalance. Omit to
+   * skip that computation entirely — every existing call site does, and
+   * `squadBalanceDelta` is simply absent from the result.
+   */
+  squadBalance?: {
+    /** Per-player projected points keyed by event, e.g. from `player_predictions`. */
+    seriesOf: (playerId: number) => Map<number, number> | undefined;
+    /** Every squad pick's player id — the full fifteen, not just starters. */
+    squadPlayerIds: number[];
+    /** Absolute event ids the horizon covers, e.g. [gw, gw+1, ...]. */
+    windowEvents: number[];
+  };
+}
+
+/** Population coefficient of variation — 0 for a constant series, undefined for a zero mean. */
+function coefficientOfVariation(xs: number[]): number {
+  const m = mean(xs);
+  return m > 0 ? stdevPopulation(xs) / m : 0;
+}
+
+/** The squad's total projected points for each event in `windowEvents`. */
+function weeklyTotals(
+  playerIds: number[],
+  seriesOf: (playerId: number) => Map<number, number> | undefined,
+  windowEvents: number[],
+): number[] {
+  return windowEvents.map((event) =>
+    playerIds.reduce((sum, id) => sum + (seriesOf(id)?.get(event) ?? 0), 0),
+  );
 }
 
 /**
@@ -389,9 +430,33 @@ export function findReplacements(
       if ((c.startProbability ?? c.availability) < minStartProbability) {
         rationale.push("below the usual minutes floor");
       }
+
+      // SquadBalance: does swapping target -> c smooth or roughen the
+      // squad's week-to-week total over the horizon? Reported only, never
+      // folded into teamFit — see REPLACEMENT_MODEL_NOTE.
+      let squadBalanceDelta: number | undefined;
+      if (filters.squadBalance) {
+        const { seriesOf, squadPlayerIds, windowEvents } = filters.squadBalance;
+        const afterIds = squadPlayerIds.map((id) => (id === target.id ? c.id : id));
+        const cvBefore = coefficientOfVariation(weeklyTotals(squadPlayerIds, seriesOf, windowEvents));
+        const cvAfter = coefficientOfVariation(weeklyTotals(afterIds, seriesOf, windowEvents));
+        squadBalanceDelta = cvBefore - cvAfter;
+        if (squadBalanceDelta > 0.02) rationale.push("smoother week-to-week spread");
+        else if (squadBalanceDelta < -0.02) rationale.push("lumpier week-to-week spread");
+      }
+
       if (rationale.length === 0) rationale.push("broadly equivalent");
 
-      return { player: c, teamFit, xpDelta, fixtureDelta, riskDelta, priceDelta, rationale };
+      return {
+        player: c,
+        teamFit,
+        xpDelta,
+        fixtureDelta,
+        riskDelta,
+        priceDelta,
+        squadBalanceDelta,
+        rationale,
+      };
     })
     .sort((a, b) => b.teamFit - a.teamFit)
     .slice(0, limit);
