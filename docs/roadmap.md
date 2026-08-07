@@ -489,6 +489,40 @@ RankGain     = ExpectedPoints × (1 − EO)
 
 Tables: `top10k_managers`, `top10k_picks`, `template_snapshots`, `ownership_metrics`, `eo_metrics`.
 
+## Queued for next sprint (added 2026-08-07)
+
+Four small items, not yet started. Grouped here because they are independent of each other and of
+Sprint 12 proper — take in any order, or alongside it.
+
+- **Squad reconciliation phase 2** — the evidence-weighted water-fill described under "Squad
+  reconciliation, phase 1" above. Weight each player's share of the correction by `n_eff` (already
+  computed by `deriveRatesWithPrior`) instead of applying one proportional factor uniformly across a
+  club's position group. Needs its own derivation and the same verification pass as phase 1
+  (constraint audit, within-club Spearman, phase-4 cohort Pearson r) before it replaces the shipped
+  water-fill. Not blocked on data — everything it needs already exists in the model.
+- **A 19 GW horizon button, and Season expanded to the full 38.** `HORIZONS` (`lib/team-state.ts`)
+  is currently `[1, 3, 5, 8, "season"]`, and `"season"` still reads whatever `generate-predictions`
+  actually projected — today GW1–19, per the pre-Sprint-12 finishing batch. Two separable pieces:
+  add `19` as its own horizon value alongside `8`, and separately, extend `generate-predictions`'
+  window derivation past the current chip-window cap so `"season"` can reach all 38 gameweeks rather
+  than stopping at the wildcard window. The second half is the larger piece — it changes prediction
+  volume (~572 players × up to 38 GWs) and needs the same row-count and timing check the GW19
+  extension got, plus a look at whether a frozen 38-gameweek projection is honest to show at all this
+  far out (the model has no way to reflect news that hasn't happened yet — this is the same caveat
+  `decisionMargin` exists for in `transfer-optimizer.ts`).
+- **Price filter on the Builder player search.** The main picker (`app/builder/page.tsx`, the
+  `search`/`position`/`teamFilter` filter set around line 481) has no price bound today — only the
+  replacement panel does (`maxPriceOverride`, added in the pre-Sprint-12 batch). Add a min/max price
+  range using `components/ui/range-slider`, the same control already used there.
+- **Fixture list in the player detail panel, capped at 8 GW.** `components/player-detail.tsx` shows
+  point-in-time stats (price, xP GW, xP5, expected minutes, start%) but no fixture-by-fixture list.
+  Add one driven by the page's selected horizon, reusing `FixtureCell`
+  (`components/fdr-badge.tsx`, already imported into `player-detail.tsx`) — the same cell the FDR
+  matrix uses, so a fixture reads identically everywhere it appears. Cap at 8 fixtures regardless of
+  horizon, including once "season" reaches 19 or 38 above: the panel is a compact, anchored popover
+  (`PANEL_MAX_HEIGHT` is fixed), not a schedule page, and `app/fixtures` already exists for the full
+  run.
+
 ## Sprints 12–17
 
 - **12 Chip Strategy** — `ChipValue = xP(with chip) − xP(without)`, optimised over 5 GW / 8 GW /

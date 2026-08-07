@@ -196,6 +196,11 @@ Next: **Sprint 12 — Chip Strategy Engine**. Its prerequisite — the predictio
 carried housekeeping. See "Pre-Sprint-12 finishing batch" in [docs/roadmap.md](docs/roadmap.md) for
 what shipped; the finishing pass outstanding on 11 (TeamAttack) remains blocked on team strength.
 
+Queued alongside Sprint 12, not yet started (2026-08-07): squad reconciliation phase 2
+(evidence-weighted water-fill), a 19 GW horizon button plus expanding "Season" to the full 38,
+a price filter on the Builder player search, and a fixture list (capped at 8 GW) in the player
+detail panel. See "Queued for next sprint" in [docs/roadmap.md](docs/roadmap.md).
+
 Carried knowingly: **1 `npm audit` advisory** (moderate — `hono`, via `shadcn`'s own dev-time
 dependency tree, unreachable from the app). The 3 high advisories (`postcss`, `sharp`, `next`) cleared
 with the `next` 16.3.0 bump; `hono`'s cleared for production by moving `shadcn` to
