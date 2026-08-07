@@ -147,3 +147,114 @@ export function cloneDraft(state: TeamState): TeamState {
   };
   return saveDraft(copy);
 }
+
+// -------------------------------------------------------- export / import
+//
+// Drafts live in origin-scoped localStorage, so a hostname change orphans
+// them — it happened once already, moving to the Workers hostname, and was
+// recovered by hand. This is a real backup path, not a sync feature: Sprint
+// 14 supersedes it with cloud storage that has an owner.
+
+const EXPORT_VERSION = 1;
+
+interface DraftExportEnvelope {
+  version: typeof EXPORT_VERSION;
+  exportedAt: string;
+  drafts: TeamState[];
+  /** The save timeline travels with the drafts, so a restore isn't a blank slate. */
+  history: Record<string, DraftSnapshot[]>;
+}
+
+/** Every draft and its save timeline, as a JSON string ready to download. */
+export function exportDrafts(): string {
+  const envelope: DraftExportEnvelope = {
+    version: EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    drafts: readAll(),
+    history: readHistory(),
+  };
+  return JSON.stringify(envelope, null, 2);
+}
+
+export interface ImportResult {
+  added: number;
+  skipped: number;
+  /** A rejected file, or nothing usable inside it — not per-draft, which "skipped" already covers. */
+  error: string | null;
+}
+
+/**
+ * Restore drafts from a previously exported file.
+ *
+ * `merge` keeps whichever copy of a draft is newer by `updatedAt` rather
+ * than blindly overwriting — reimporting an old backup should never clobber
+ * work done since. `replace` is an explicit, named choice for "start over
+ * from this file", never the default.
+ */
+export function importDrafts(json: string, mode: "merge" | "replace"): ImportResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return { added: 0, skipped: 0, error: "That file isn't valid JSON." };
+  }
+
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    (parsed as { version?: unknown }).version !== EXPORT_VERSION ||
+    !Array.isArray((parsed as { drafts?: unknown }).drafts)
+  ) {
+    return {
+      added: 0,
+      skipped: 0,
+      error: "Not a draft export this app recognises — wrong version or shape.",
+    };
+  }
+
+  const envelope = parsed as DraftExportEnvelope;
+  const incomingHistory =
+    envelope.history && typeof envelope.history === "object" ? envelope.history : {};
+
+  // Each entry is validated on its own — one malformed draft in a file
+  // should not sink the rest of an otherwise-good import.
+  const isDraft = (d: unknown): d is TeamState =>
+    !!d &&
+    typeof d === "object" &&
+    typeof (d as TeamState).draftId === "string" &&
+    typeof (d as TeamState).updatedAt === "string" &&
+    Array.isArray((d as TeamState).players);
+
+  if (mode === "replace") {
+    const drafts = envelope.drafts.filter(isDraft);
+    writeAll(drafts);
+    writeHistory(incomingHistory);
+    return { added: drafts.length, skipped: envelope.drafts.length - drafts.length, error: null };
+  }
+
+  const byId = new Map(readAll().map((d) => [d.draftId, d]));
+  const history = readHistory();
+  let added = 0;
+  let skipped = 0;
+
+  for (const incoming of envelope.drafts) {
+    if (!isDraft(incoming)) {
+      skipped++;
+      continue;
+    }
+    const current = byId.get(incoming.draftId);
+    // A draft this browser has never seen always wins; otherwise the newer
+    // save wins, so reimporting an old backup can't clobber later work.
+    if (!current || incoming.updatedAt > current.updatedAt) {
+      byId.set(incoming.draftId, incoming);
+      if (incomingHistory[incoming.draftId]) history[incoming.draftId] = incomingHistory[incoming.draftId];
+      added++;
+    } else {
+      skipped++;
+    }
+  }
+
+  writeAll([...byId.values()]);
+  writeHistory(history);
+  return { added, skipped, error: null };
+}

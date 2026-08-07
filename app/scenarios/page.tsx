@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
@@ -10,6 +10,8 @@ import {
   cloneDraft,
   deleteDraft,
   draftHistory,
+  exportDrafts,
+  importDrafts,
   listDrafts,
   renameDraft,
   type DraftSnapshot,
@@ -333,6 +335,42 @@ export default function ScenariosPage() {
 
   const refresh = () => setDrafts(listDrafts());
 
+  // ------------------------------------------------ export / import backup
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importMessage, setImportMessage] = useState<{
+    text: string;
+    tone: "ok" | "error";
+  } | null>(null);
+
+  const handleExport = () => {
+    const json = exportDrafts();
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `fpl-drafts-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportFile = async (file: File) => {
+    const text = await file.text();
+    const result = importDrafts(text, "merge");
+    if (result.error) {
+      setImportMessage({ text: result.error, tone: "error" });
+      return;
+    }
+    setImportMessage({
+      text:
+        `Imported ${result.added} draft${result.added === 1 ? "" : "s"}` +
+        (result.skipped > 0
+          ? ` · skipped ${result.skipped} (already up to date locally, or invalid)`
+          : ""),
+      tone: "ok",
+    });
+    refresh();
+  };
+
   const toggleSelect = (draftId: string) =>
     setSelected((prev) =>
       prev.includes(draftId)
@@ -405,6 +443,50 @@ export default function ScenariosPage() {
       {horizon === "season" && (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{seasonHorizonNote(seasonWindow)}</p>
       )}
+
+      {/* backup — drafts live in this browser's localStorage only */}
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
+        {drafts.length > 0 && (
+          <button
+            onClick={handleExport}
+            className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
+          >
+            Export drafts
+          </button>
+        )}
+        <button
+          onClick={() => importInputRef.current?.click()}
+          className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
+        >
+          Import drafts
+        </button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleImportFile(file);
+            e.target.value = "";
+          }}
+        />
+        <span className="text-zinc-400">
+          Drafts live in this browser only — export a backup before switching devices or clearing
+          site data.
+        </span>
+        {importMessage && (
+          <span
+            className={
+              importMessage.tone === "error"
+                ? "text-red-600 dark:text-red-400"
+                : "text-emerald-700 dark:text-emerald-400"
+            }
+          >
+            {importMessage.text}
+          </span>
+        )}
+      </div>
 
       {error && (
         <p className="mt-6 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
