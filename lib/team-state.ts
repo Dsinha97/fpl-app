@@ -223,17 +223,31 @@ export const HORIZONS: Horizon[] = [1, 3, 5, 8, "season"];
 export const horizonLabel = (h: Horizon): string => (h === "season" ? "Season" : `${h} GW`);
 
 /**
- * `generate-predictions` runs an 8-gameweek window, so the season total
- * currently equals the 8 GW figure exactly. Saying so beats presenting an
- * identical number under a longer-sounding name.
+ * `generate-predictions` no longer runs a fixed 8-gameweek window — it
+ * predicts through the chip window covering the next gameweek (GW1-19
+ * today, from `chip_definitions`), floored at 8. So "Season" is no longer
+ * simply the 8 GW figure under a longer name, but it is still short of the
+ * full 38-gameweek season. `windowGws` is the real span, read from
+ * `player_xp_horizons.first_event`/`last_event` by the caller — never
+ * hardcoded here, since the window moves as the chip calendar does.
  */
-export const SEASON_HORIZON_NOTE =
-  "Season covers every gameweek the model has projected. The prediction engine currently runs an " +
-  "8-gameweek window, so this matches the 8 GW figure until that window is extended for the chip planner.";
+export function seasonHorizonNote(windowGws: number): string {
+  return (
+    `Season covers the ${windowGws} gameweeks the prediction engine currently projects, not the full ` +
+    "38-gameweek season — a longer window is a Sprint 12 prerequisite."
+  );
+}
 
-/** Gameweeks a horizon spans, for anything that needs a fixture count. */
-export function horizonLength(horizon: Horizon): number {
-  return horizon === "season" ? 38 : horizon;
+/**
+ * Gameweeks a horizon spans, for anything that needs a fixture count.
+ * `seasonWindow` is the real prediction window for "season" — pass the
+ * value read from `player_xp_horizons` when it is known. Defaults to 8,
+ * `generate-predictions`' floor, so a caller that has not been updated to
+ * thread the real value through stays exactly as conservative as before
+ * rather than silently claiming the full 38-gameweek season.
+ */
+export function horizonLength(horizon: Horizon, seasonWindow: number = 8): number {
+  return horizon === "season" ? seasonWindow : horizon;
 }
 
 export interface Projection {

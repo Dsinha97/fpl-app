@@ -78,10 +78,17 @@ export interface SquadScoreInput {
   horizon: Horizon;
   /** Expected bench contribution from the lineup engine, when a lineup exists. */
   benchContribution?: number | null;
+  /**
+   * The real "season" prediction window in gameweeks, from
+   * `player_xp_horizons.first_event`/`last_event`. Undefined falls back to
+   * `horizonLength`'s own conservative default (8) rather than the fetched
+   * value being required everywhere at once.
+   */
+  seasonWindow?: number;
 }
 
 export function squadScore(input: SquadScoreInput): SquadScoreBreakdown {
-  const { team, scoredById, xpOf, availabilityOf, horizon, benchContribution } = input;
+  const { team, scoredById, xpOf, availabilityOf, horizon, benchContribution, seasonWindow } = input;
 
   const picks: SquadPick[] = team.players;
   const players = picks.flatMap((p) => {
@@ -98,12 +105,18 @@ export function squadScore(input: SquadScoreInput): SquadScoreBreakdown {
     horizon,
   );
 
-  const gameweeks = Math.min(horizonLength(horizon), 8);
+  // Was `Math.min(horizonLength(horizon), 8)` — a clamp that only ever mattered
+  // for "season", back when the model's own window was fixed at 8 GWs. Now
+  // that the window moves with the chip calendar, `horizonLength` carries the
+  // real figure (or the same 8-GW floor when it is not known), so the clamp
+  // would otherwise silently cap fixtureQuality below the window that
+  // `expectedPoints` and `fixtureScore` below are both computed over.
+  const gameweeks = horizonLength(horizon, seasonWindow);
 
   const fixtureQuality =
     players.length === 0
       ? 0
-      : (mean(players.map((p) => fixtureScore(p, horizon))) - 0.5) * 2 * FIXTURE_POINTS_PER_GW * gameweeks;
+      : (mean(players.map((p) => fixtureScore(p, horizon, seasonWindow))) - 0.5) * 2 * FIXTURE_POINTS_PER_GW * gameweeks;
 
   const spent = picks.reduce((sum, p) => sum + p.purchasePrice, 0);
   const totalXp = players.reduce((sum, p) => sum + xpFor(p, horizon), 0);
@@ -111,7 +124,9 @@ export function squadScore(input: SquadScoreInput): SquadScoreBreakdown {
   const value = (perMillion - VALUE_BASELINE) * VALUE_WEIGHT;
 
   const risk =
-    players.length === 0 ? 0 : riskPoints(mean(players.map((p) => riskScore(p, horizon))));
+    players.length === 0
+      ? 0
+      : riskPoints(mean(players.map((p) => riskScore(p, horizon, seasonWindow))));
 
   // The lineup engine already computes the honest version of bench strength —
   // xP times the probability an auto-sub actually uses the slot. Fall back to a

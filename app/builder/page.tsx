@@ -27,7 +27,7 @@ import {
   xpAt,
   HORIZONS,
   horizonLabel,
-  SEASON_HORIZON_NOTE,
+  seasonHorizonNote,
   type Horizon,
   type HorizonXp,
   type PlayerMeta,
@@ -101,8 +101,10 @@ interface PredictionRow {
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
 const PAGE_SIZE = 10;
 
-/** How many upcoming gameweeks to show in the player detail panel. */
-const UPCOMING_GWS = 3;
+/** How many upcoming gameweeks to show in the player detail panel's fixture ticker. */
+const DISPLAY_GWS = 3;
+/** Fallback when `player_xp_horizons` has no rows yet — matches `generate-predictions`' own floor. */
+const FALLBACK_SEASON_WINDOW = 8;
 
 const money = (tenths: number) => `£${(tenths / 10).toFixed(1)}m`;
 
@@ -117,6 +119,8 @@ export default function BuilderPage() {
   const [rules, setRules] = useState<SquadRules>(DEFAULT_RULES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** The real "season" prediction window — from `player_xp_horizons`, not hardcoded. */
+  const [seasonWindow, setSeasonWindow] = useState(FALLBACK_SEASON_WINDOW);
 
   const [team, setTeam] = useState<TeamState>(() => emptyTeamState(DEFAULT_RULES));
   const [drafts, setDrafts] = useState<TeamState[]>([]);
@@ -178,16 +182,20 @@ export default function BuilderPage() {
               // One string literal, never concatenated: `+` collapses the row
               // type to GenericStringError.
               .select(
-                "player_id, xp_1, xp_3, xp_5, xp_8, xp_total, xp_1_lower, xp_3_lower, xp_5_lower, xp_8_lower, xp_total_lower, xp_5_upper, reliability, prior_weight",
+                "player_id, xp_1, xp_3, xp_5, xp_8, xp_total, xp_1_lower, xp_3_lower, xp_5_lower, xp_8_lower, xp_total_lower, xp_5_upper, reliability, prior_weight, first_event, last_event",
               )
               .eq("season", gw.season)
               .limit(1000),
+            // No upper bound: a season has at most 380 fixtures total, and the
+            // real "season" window (seasonWindow, below) is however many the
+            // model actually predicted. Fetching the full remaining season
+            // lets fdrRun (risk/fixture scoring) see past DISPLAY_GWS's
+            // three-fixture ticker, which only slices the display field.
             supabase
               .from("fixtures")
               .select("event, team_h, team_a, team_h_difficulty, team_a_difficulty")
               .eq("season", gw.season)
               .gte("event", gw.id)
-              .lte("event", gw.id + UPCOMING_GWS - 1)
               .order("event"),
             supabase
               .from("player_predictions")
@@ -218,8 +226,11 @@ export default function BuilderPage() {
           positionQuota: Object.keys(quota).length > 0 ? quota : DEFAULT_RULES.positionQuota,
         };
 
-        // Upcoming fixtures per club — the first feeds the pitch card, all
-        // three the detail panel. Ordered by event, so index 0 is next.
+        // Upcoming fixtures per club, for the whole remaining season — the
+        // first feeds the pitch card, the first DISPLAY_GWS the detail
+        // panel's ticker (sliced in toPlayerData below), and the full run
+        // feeds risk/fixture scoring via fdrRun. Ordered by event, so index
+        // 0 is next.
         const fixtures = new Map<number, UpcomingFixture[]>();
         const push = (teamId: number, f: UpcomingFixture) => {
           const list = fixtures.get(teamId);
@@ -244,6 +255,16 @@ export default function BuilderPage() {
         setPlayers((playersRes.data ?? []) as PlayerRow[]);
         setTeamShort(shorts);
         setXp(new Map(((xpRes.data ?? []) as XpRow[]).map((r) => [r.player_id, r])));
+        // first_event/last_event are constant across every row for one
+        // season + model version, so any row gives the real window.
+        const horizonsFirstRow = (xpRes.data ?? [])[0] as
+          | { first_event: number | null; last_event: number | null }
+          | undefined;
+        setSeasonWindow(
+          horizonsFirstRow?.first_event != null && horizonsFirstRow?.last_event != null
+            ? horizonsFirstRow.last_event - horizonsFirstRow.first_event + 1
+            : FALLBACK_SEASON_WINDOW,
+        );
         setUpcoming(fixtures);
         setPredictions(
           new Map(((predsRes.data ?? []) as PredictionRow[]).map((r) => [r.player_id, r])),
@@ -514,7 +535,11 @@ export default function BuilderPage() {
         xp5: xp.get(row.id)?.xp_5 ?? null,
         expected_minutes: pred?.expected_minutes ?? null,
         start_probability: pred?.start_probability ?? null,
-        upcoming: fixtures,
+        // The detail panel renders every entry in `upcoming` with no
+        // truncation of its own, so the ticker's display length is sliced
+        // here — `fixtures` itself (and fdrRun below) carries the whole
+        // remaining season for risk/fixture scoring.
+        upcoming: fixtures.slice(0, DISPLAY_GWS),
       };
     },
     [upcoming, predictions, xpOf, xp, horizon, team.captain, team.viceCaptain, teamShort],
@@ -830,7 +855,7 @@ export default function BuilderPage() {
               <button
                 key={h}
                 onClick={() => setHorizon(h)}
-                title={h === "season" ? SEASON_HORIZON_NOTE : undefined}
+                title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
                 className={`rounded px-1.5 py-0.5 text-xs transition-colors ${
                   horizon === h
                     ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
@@ -946,7 +971,7 @@ export default function BuilderPage() {
               <div>
                 <div
                   className="text-xs uppercase tracking-wide text-zinc-500"
-                  title={horizon === "season" ? SEASON_HORIZON_NOTE : undefined}
+                  title={horizon === "season" ? seasonHorizonNote(seasonWindow) : undefined}
                 >
                   {horizon === "season"
                     ? "Projected · rest of season*"
@@ -998,7 +1023,7 @@ export default function BuilderPage() {
             </div>
             {horizon === "season" && (
               <p className="mt-3 border-t border-zinc-100 pt-2 text-[11px] leading-relaxed text-amber-700 dark:border-purple-900/40 dark:text-amber-400">
-                * {SEASON_HORIZON_NOTE}
+                * {seasonHorizonNote(seasonWindow)}
               </p>
             )}
           </div>
@@ -1403,7 +1428,7 @@ export default function BuilderPage() {
                         </td>
                         <td className="py-1 tabular-nums text-zinc-500">
                           {scoredById.has(p.id)
-                            ? riskScore(scoredById.get(p.id)!, horizon)
+                            ? riskScore(scoredById.get(p.id)!, horizon, seasonWindow)
                             : "—"}
                         </td>
                         <td className="py-1 pr-1 text-right">

@@ -31,7 +31,7 @@ import {
   DEFAULT_RULES,
   HORIZONS,
   horizonLabel,
-  SEASON_HORIZON_NOTE,
+  seasonHorizonNote,
   type Horizon,
   type HorizonXp,
   type PlayerMeta,
@@ -66,7 +66,8 @@ interface XpRow {
 }
 
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
-const FIXTURE_GWS = 8;
+/** Fallback when `player_xp_horizons` has no rows yet — matches `generate-predictions`' own floor. */
+const FALLBACK_SEASON_WINDOW = 8;
 const CANDIDATES = 8;
 
 /**
@@ -91,6 +92,8 @@ export default function TransfersPage() {
   const [rules, setRules] = useState<SquadRules>(DEFAULT_RULES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** The real "season" prediction window — from `player_xp_horizons`, not hardcoded. */
+  const [seasonWindow, setSeasonWindow] = useState(FALLBACK_SEASON_WINDOW);
 
   const [horizon, setHorizon] = useState<Horizon>(5);
   const [freeTransfers, setFreeTransfers] = useState(1);
@@ -156,7 +159,7 @@ export default function TransfersPage() {
               .in("key", ["squad_total_spend", "squad_team_limit", "squad_squadsize"]),
             supabase
               .from("player_xp_horizons")
-              .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_total")
+              .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_total, first_event, last_event")
               .eq("season", gw.season)
               .limit(1000),
             supabase
@@ -165,12 +168,15 @@ export default function TransfersPage() {
               .eq("season", gw.season)
               .eq("event", gw.id)
               .limit(1000),
+            // No upper bound: a season has at most 380 fixtures total, and the
+            // real "season" window (seasonWindow, below) is however many the
+            // model actually predicted — a constant cap would silently
+            // under-serve fixtureScore/riskScore the moment that window moves.
             supabase
               .from("fixtures")
               .select("event, team_h, team_a, team_h_difficulty, team_a_difficulty")
               .eq("season", gw.season)
               .gte("event", gw.id)
-              .lte("event", gw.id + FIXTURE_GWS - 1)
               .order("event"),
             supabase
               .from("chip_definitions")
@@ -204,7 +210,10 @@ export default function TransfersPage() {
               : "No wildcard window covers this gameweek",
         });
 
-        // Paged deliberately — see PAGE_ROWS.
+        // Paged deliberately — see PAGE_ROWS. No upper `event` bound either:
+        // rows only exist through whatever window generate-predictions last
+        // ran (see A1 in docs/roadmap.md), so this naturally tracks that
+        // window rather than needing to be told it.
         const series = new Map<number, XpByEvent>();
         for (let from = 0; ; from += PAGE_ROWS) {
           const { data: page, error: pageError } = await supabase
@@ -212,7 +221,6 @@ export default function TransfersPage() {
             .select("player_id, event, xp")
             .eq("season", gw.season)
             .gte("event", gw.id)
-            .lte("event", gw.id + FIXTURE_GWS - 1)
             .order("player_id")
             .order("event")
             .range(from, from + PAGE_ROWS - 1);
@@ -256,6 +264,16 @@ export default function TransfersPage() {
 
         const xpById = new Map(
           (xpRes.data ?? []).map((r) => [r.player_id as number, r as unknown as XpRow]),
+        );
+        // first_event/last_event are constant across every row for one
+        // season + model version, so any row gives the real window.
+        const horizonsFirstRow = (xpRes.data ?? [])[0] as
+          | { first_event: number | null; last_event: number | null }
+          | undefined;
+        setSeasonWindow(
+          horizonsFirstRow?.first_event != null && horizonsFirstRow?.last_event != null
+            ? horizonsFirstRow.last_event - horizonsFirstRow.first_event + 1
+            : FALLBACK_SEASON_WINDOW,
         );
         const predById = new Map(
           (predsRes.data ?? []).map((r) => [
@@ -518,7 +536,7 @@ export default function TransfersPage() {
             <button
               key={h}
               onClick={() => setHorizon(h)}
-              title={h === "season" ? SEASON_HORIZON_NOTE : undefined}
+              title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
               className={`rounded-md px-2.5 py-1 transition-colors ${
                 horizon === h
                   ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
@@ -532,7 +550,7 @@ export default function TransfersPage() {
       </div>
 
       {horizon === "season" && (
-        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{SEASON_HORIZON_NOTE}</p>
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{seasonHorizonNote(seasonWindow)}</p>
       )}
 
       {/* controls */}
@@ -706,7 +724,7 @@ export default function TransfersPage() {
                         {s ? xpFor(s, horizon).toFixed(1) : "—"}
                       </td>
                       <td className="py-1.5 tabular-nums text-zinc-500">
-                        {s ? riskScore(s, horizon) : "—"}
+                        {s ? riskScore(s, horizon, seasonWindow) : "—"}
                       </td>
                       <td className="py-1.5 text-right">
                         {move ? (

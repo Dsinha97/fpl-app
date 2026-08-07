@@ -77,7 +77,7 @@ export const RELIABILITY_LABELS: Record<"high" | "medium" | "low", string> = {
  * Not the identity function any more: "season" is not a number, and an FDR run
  * never holds more entries than were fetched anyway, so over-slicing is safe.
  */
-const fixturesFor = (horizon: Horizon) => horizonLength(horizon);
+const fixturesFor = (horizon: Horizon, seasonWindow?: number) => horizonLength(horizon, seasonWindow);
 
 // ------------------------------------------------------------ risk engine
 //
@@ -108,7 +108,7 @@ export const RISK_MODEL_NOTE =
 /** Widest plausible spread of FDR values, used to normalise the variance term. */
 const MAX_FDR_SD = 1.6;
 
-export function riskScore(p: ScoredPlayer, horizon: Horizon): number {
+export function riskScore(p: ScoredPlayer, horizon: Horizon, seasonWindow?: number): number {
   const rotation = 1 - (p.startProbability ?? p.availability);
   const injury = 1 - p.availability;
 
@@ -117,7 +117,7 @@ export function riskScore(p: ScoredPlayer, horizon: Horizon): number {
   const share = p.expectedMinutes === null ? 0.5 : clamp(p.expectedMinutes / 90, 0, 1);
   const minutes = 1 - Math.abs(share - 0.5) * 2;
 
-  const run = p.fdrRun.slice(0, fixturesFor(horizon));
+  const run = p.fdrRun.slice(0, fixturesFor(horizon, seasonWindow));
   const fixtureVariance = clamp(stdevPopulation(run) / MAX_FDR_SD, 0, 1);
 
   const raw =
@@ -132,8 +132,8 @@ export function riskScore(p: ScoredPlayer, horizon: Horizon): number {
 // ------------------------------------------------- fixture score (0-1)
 
 /** Mean difficulty over the horizon, mapped so 1 is the kindest run. */
-export function fixtureScore(p: ScoredPlayer, horizon: Horizon): number {
-  const run = p.fdrRun.slice(0, fixturesFor(horizon));
+export function fixtureScore(p: ScoredPlayer, horizon: Horizon, seasonWindow?: number): number {
+  const run = p.fdrRun.slice(0, fixturesFor(horizon, seasonWindow));
   if (run.length === 0) return 0.5;
   return clamp((5 - mean(run)) / 4, 0, 1);
 }
@@ -186,7 +186,11 @@ export interface ComparisonRow {
  * rather than against the whole league, so the score answers "which of these"
  * rather than "how good in the abstract".
  */
-export function comparePlayers(players: ScoredPlayer[], horizon: Horizon): ComparisonRow[] {
+export function comparePlayers(
+  players: ScoredPlayer[],
+  horizon: Horizon,
+  seasonWindow?: number,
+): ComparisonRow[] {
   if (players.length === 0) return [];
 
   const maxXp = Math.max(...players.map((p) => xpFor(p, horizon)), 0);
@@ -195,9 +199,9 @@ export function comparePlayers(players: ScoredPlayer[], horizon: Horizon): Compa
   const rows = players.map((player) => {
     const xp = xpFor(player, horizon);
     const value = valuePerMillion(player, horizon);
-    const fixture = fixtureScore(player, horizon);
+    const fixture = fixtureScore(player, horizon, seasonWindow);
     const minutes = player.startProbability ?? player.availability;
-    const risk = riskScore(player, horizon);
+    const risk = riskScore(player, horizon, seasonWindow);
 
     const score =
       COMPARISON_WEIGHTS.xp * (maxXp > 0 ? xp / maxXp : 0) +

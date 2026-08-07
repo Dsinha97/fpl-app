@@ -25,7 +25,7 @@ import { optimiseLineup, type LineupCandidate } from "@/lib/lineup";
 import {
   HORIZONS,
   horizonLabel,
-  SEASON_HORIZON_NOTE,
+  seasonHorizonNote,
   validateSquad,
   type Horizon,
   type HorizonXp,
@@ -58,7 +58,8 @@ interface XpRow {
 }
 
 const MAX_COMPARE = 4;
-const FIXTURE_GWS = 8;
+/** Fallback when `player_xp_horizons` has no rows yet — matches `generate-predictions`' own floor. */
+const FALLBACK_SEASON_WINDOW = 8;
 
 const money = (tenths: number) => `£${(tenths / 10).toFixed(1)}m`;
 
@@ -78,6 +79,8 @@ export default function ScenariosPage() {
   const [rules, setRules] = useState<SquadRules>(DEFAULT_RULES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** The real "season" prediction window — from `player_xp_horizons`, not hardcoded. */
+  const [seasonWindow, setSeasonWindow] = useState(FALLBACK_SEASON_WINDOW);
 
   const [horizon, setHorizon] = useState<Horizon>(5);
   const [selected, setSelected] = useState<string[]>([]);
@@ -125,7 +128,7 @@ export default function ScenariosPage() {
               .in("key", ["squad_total_spend", "squad_team_limit", "squad_squadsize"]),
             supabase
               .from("player_xp_horizons")
-              .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_total")
+              .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_total, first_event, last_event")
               .eq("season", gw.season)
               .limit(1000),
             supabase
@@ -134,12 +137,16 @@ export default function ScenariosPage() {
               .eq("season", gw.season)
               .eq("event", gw.id)
               .limit(1000),
+            // No upper bound: a season has at most 380 fixtures total, and the
+            // real "season" window is however many the model actually
+            // predicted (see seasonWindow below) — capping the fetch at a
+            // constant would silently under-serve fixtureScore/riskScore the
+            // moment that window changes.
             supabase
               .from("fixtures")
               .select("event, team_h, team_a, team_h_difficulty, team_a_difficulty")
               .eq("season", gw.season)
               .gte("event", gw.id)
-              .lte("event", gw.id + FIXTURE_GWS - 1)
               .order("event"),
           ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
@@ -174,6 +181,16 @@ export default function ScenariosPage() {
 
         const xpById = new Map(
           (xpRes.data ?? []).map((r) => [r.player_id as number, r as unknown as XpRow]),
+        );
+        // first_event/last_event are constant across every row for one
+        // season + model version, so any row gives the real window.
+        const horizonsFirstRow = (xpRes.data ?? [])[0] as
+          | { first_event: number | null; last_event: number | null }
+          | undefined;
+        setSeasonWindow(
+          horizonsFirstRow?.first_event != null && horizonsFirstRow?.last_event != null
+            ? horizonsFirstRow.last_event - horizonsFirstRow.first_event + 1
+            : FALLBACK_SEASON_WINDOW,
         );
         const predById = new Map(
           (predsRes.data ?? []).map((r) => [
@@ -307,11 +324,12 @@ export default function ScenariosPage() {
           availabilityOf,
           horizon,
           benchContribution: benchByDraft.get(d.draftId) ?? null,
+          seasonWindow,
         }),
       );
     }
     return m;
-  }, [drafts, scoredById, xpOf, availabilityOf, horizon, benchByDraft]);
+  }, [drafts, scoredById, xpOf, availabilityOf, horizon, benchByDraft, seasonWindow]);
 
   const refresh = () => setDrafts(listDrafts());
 
@@ -371,7 +389,7 @@ export default function ScenariosPage() {
             <button
               key={h}
               onClick={() => setHorizon(h)}
-              title={h === "season" ? SEASON_HORIZON_NOTE : undefined}
+              title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
               className={`rounded-md px-2.5 py-1 transition-colors ${
                 horizon === h
                   ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
@@ -385,7 +403,7 @@ export default function ScenariosPage() {
       </div>
 
       {horizon === "season" && (
-        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{SEASON_HORIZON_NOTE}</p>
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{seasonHorizonNote(seasonWindow)}</p>
       )}
 
       {error && (
@@ -611,6 +629,7 @@ export default function ScenariosPage() {
                   scores={scores}
                   scoredById={scoredById}
                   horizon={horizon}
+                  seasonWindow={seasonWindow}
                   rules={rules}
                   lookup={lookup}
                 />
@@ -637,6 +656,7 @@ function ComparisonRows({
   scores,
   scoredById,
   horizon,
+  seasonWindow,
   rules,
   lookup,
 }: {
@@ -644,6 +664,7 @@ function ComparisonRows({
   scores: Map<string, SquadScoreBreakdown>;
   scoredById: Map<number, ScoredPlayer>;
   horizon: Horizon;
+  seasonWindow: number;
   rules: SquadRules;
   lookup: (id: number) => PlayerMeta | undefined;
 }) {
@@ -706,13 +727,13 @@ function ComparisonRows({
       label: "Mean player risk",
       dir: "low",
       format: (v) => v.toFixed(0),
-      values: drafts.map((d) => mean(squadPlayers(d).map((p) => riskScore(p, horizon)))),
+      values: drafts.map((d) => mean(squadPlayers(d).map((p) => riskScore(p, horizon, seasonWindow)))),
     },
     {
       label: "Mean FDR score",
       dir: "high",
       format: (v) => v.toFixed(2),
-      values: drafts.map((d) => mean(squadPlayers(d).map((p) => fixtureScore(p, horizon)))),
+      values: drafts.map((d) => mean(squadPlayers(d).map((p) => fixtureScore(p, horizon, seasonWindow)))),
     },
     {
       label: "xP per £m",

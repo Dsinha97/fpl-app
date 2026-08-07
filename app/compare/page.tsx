@@ -18,7 +18,7 @@ import {
   HORIZONS,
   horizonLabel,
   horizonLength,
-  SEASON_HORIZON_NOTE,
+  seasonHorizonNote,
   type Horizon,
 } from "@/lib/team-state";
 import { fullName, matchesPlayerQuery } from "@/lib/player-search";
@@ -52,7 +52,8 @@ interface UpcomingFixture {
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
 
 const MAX_COMPARE = 4;
-const FIXTURE_GWS = 8;
+/** Fallback when `player_xp_horizons` has no rows yet — matches `generate-predictions`' own floor. */
+const FALLBACK_SEASON_WINDOW = 8;
 
 /** Higher is better for every metric except risk and price. */
 type Direction = "high" | "low";
@@ -65,6 +66,8 @@ export default function ComparePage() {
   const [teamShort, setTeamShort] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** The real "season" prediction window — from `player_xp_horizons`, not hardcoded. */
+  const [seasonWindow, setSeasonWindow] = useState(FALLBACK_SEASON_WINDOW);
 
   const [selected, setSelected] = useState<number[]>([]);
   const [horizon, setHorizon] = useState<Horizon>(5);
@@ -93,7 +96,7 @@ export default function ComparePage() {
           supabase.from("teams").select("id, short_name").eq("season", gw.season),
           supabase
             .from("player_xp_horizons")
-            .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_total")
+            .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_total, first_event, last_event")
             .eq("season", gw.season)
             .limit(1000),
           supabase
@@ -102,12 +105,15 @@ export default function ComparePage() {
             .eq("season", gw.season)
             .eq("event", gw.id)
             .limit(1000),
+          // No upper bound: a season has at most 380 fixtures total, and the
+          // real "season" window (seasonWindow, below) is however many the
+          // model actually predicted — a constant cap would silently
+          // under-serve fixtureScore/riskScore the moment that window moves.
           supabase
             .from("fixtures")
             .select("event, team_h, team_a, team_h_difficulty, team_a_difficulty")
             .eq("season", gw.season)
             .gte("event", gw.id)
-            .lte("event", gw.id + FIXTURE_GWS - 1)
             .order("event"),
         ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
@@ -139,6 +145,16 @@ export default function ComparePage() {
 
         const xpById = new Map(
           (xpRes.data ?? []).map((r) => [r.player_id as number, r as Record<string, number | null>]),
+        );
+        // first_event/last_event are constant across every row for one
+        // season + model version, so any row gives the real window.
+        const horizonsFirstRow = (xpRes.data ?? [])[0] as
+          | { first_event: number | null; last_event: number | null }
+          | undefined;
+        setSeasonWindow(
+          horizonsFirstRow?.first_event != null && horizonsFirstRow?.last_event != null
+            ? horizonsFirstRow.last_event - horizonsFirstRow.first_event + 1
+            : FALLBACK_SEASON_WINDOW,
         );
         const predById = new Map(
           (predsRes.data ?? []).map((r) => [
@@ -208,7 +224,10 @@ export default function ComparePage() {
     [selected, scored],
   );
 
-  const ranked = useMemo(() => comparePlayers(chosen, horizon), [chosen, horizon]);
+  const ranked = useMemo(
+    () => comparePlayers(chosen, horizon, seasonWindow),
+    [chosen, horizon, seasonWindow],
+  );
 
   const add = useCallback(
     (id: number) => {
@@ -288,14 +307,14 @@ export default function ComparePage() {
     {
       label: "Fixture quality",
       dir: "high",
-      value: (p) => fixtureScore(p, horizon),
+      value: (p) => fixtureScore(p, horizon, seasonWindow),
       format: (v) => (v === null ? "—" : `${Math.round(v * 100)}%`),
       hint: "Mean official FDR over the horizon, mapped so 100% is the kindest run",
     },
     {
       label: "Risk",
       dir: "low",
-      value: (p) => riskScore(p, horizon),
+      value: (p) => riskScore(p, horizon, seasonWindow),
       format: (v) => (v === null ? "—" : v.toString()),
       hint: "0.35 rotation + 0.30 injury + 0.20 minutes uncertainty + 0.15 fixture variance — lower is better",
     },
@@ -319,7 +338,7 @@ export default function ComparePage() {
             <button
               key={h}
               onClick={() => setHorizon(h)}
-              title={h === "season" ? SEASON_HORIZON_NOTE : undefined}
+              title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
               className={`rounded-md px-2.5 py-1 transition-colors ${
                 horizon === h
                   ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
@@ -333,7 +352,7 @@ export default function ComparePage() {
       </div>
 
       {horizon === "season" && (
-        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{SEASON_HORIZON_NOTE}</p>
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{seasonHorizonNote(seasonWindow)}</p>
       )}
 
       {/* picker */}
@@ -488,7 +507,7 @@ export default function ComparePage() {
                   {chosen.map((p) => (
                     <td key={p.id} className="px-3 py-2">
                       <span className="flex flex-wrap gap-1">
-                        {(upcoming.get(p.teamId) ?? []).slice(0, horizonLength(horizon)).map((f) => (
+                        {(upcoming.get(p.teamId) ?? []).slice(0, horizonLength(horizon, seasonWindow)).map((f) => (
                           <FixtureCell
                             key={f.event}
                             opponent={f.opponent_short_name}
