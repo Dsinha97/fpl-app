@@ -1,7 +1,9 @@
 // generate-predictions
 //
-// Recomputes expected points for every player across the next HORIZON
-// gameweeks and replaces the stored predictions for this model version.
+// Recomputes expected points for every player across the chip window
+// covering the next gameweek and replaces the stored predictions for this
+// model version. The window comes from chip_definitions, not a hardcoded
+// constant — see the window-resolution block below.
 //
 // Runs after sync-bootstrap has refreshed prices and availability, since a
 // player being flagged doubtful is the single largest input change day to day.
@@ -31,7 +33,13 @@ import {
 } from "../_shared/xp-model.ts";
 
 const FUNCTION_NAME = "generate-predictions";
-const HORIZON = 8;
+
+/**
+ * Floor on the prediction window, in gameweeks. Never publish less than this
+ * even if `chip_definitions` is missing or malformed — this is today's
+ * window, not an invented minimum.
+ */
+const MIN_HORIZON = 8;
 
 /** Scoring values read from the database, so FPL rule changes flow through. */
 async function loadScoring(db: SupabaseClient, season: string): Promise<ScoringRules> {
@@ -73,7 +81,11 @@ Deno.serve(async (req) => {
         "adds squad reconciliation: each club's projected starters, goalkeeper and " +
         "minutes are rescaled per fixture to sum to eleven, one and 990 respectively, " +
         "via an exact parameter-free water-fill, so a promoted club's squad no longer " +
-        "collapses toward zero nor an established squad inflates past eleven.",
+        "collapses toward zero nor an established squad inflates past eleven. The " +
+        "prediction window is now the chip window covering the next gameweek, read " +
+        "from chip_definitions rather than hardcoded to 8, floored at 8 and clamped " +
+        "to the season's last gameweek — this does not change the per-fixture model " +
+        "and so is not its own MODEL_VERSION.",
       params: MODEL_PARAMS,
     }, { onConflict: "version" });
     if (modelError) throw new Error(`prediction_models: ${modelError.message}`);
@@ -81,19 +93,51 @@ Deno.serve(async (req) => {
     const scoring = await loadScoring(db, season);
 
     // Prediction window starts at the next unfinished gameweek.
-    const { data: nextGw, error: gwError } = await db
-      .from("gameweeks")
-      .select("id")
-      .eq("season", season)
-      .eq("finished", false)
-      .order("id")
-      .limit(1)
-      .maybeSingle();
-    if (gwError) throw new Error(`gameweeks: ${gwError.message}`);
-    if (!nextGw) throw new Error("no unfinished gameweeks - season complete?");
+    const [nextGwRes, lastGwRes, chipsRes] = await Promise.all([
+      db.from("gameweeks")
+        .select("id")
+        .eq("season", season)
+        .eq("finished", false)
+        .order("id")
+        .limit(1)
+        .maybeSingle(),
+      db.from("gameweeks")
+        .select("id")
+        .eq("season", season)
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      // The window is driven by the real chip calendar, not a hardcoded
+      // constant — chip_definitions already holds Wildcard #1's GW2-19 (and
+      // #2's GW20-38), and Sprint 12 needs "season" to mean the window a
+      // chip actually spans, not whatever the engine happened to compute.
+      db.from("chip_definitions")
+        .select("start_event, stop_event")
+        .eq("season", season),
+    ]);
+    if (nextGwRes.error) throw new Error(`gameweeks: ${nextGwRes.error.message}`);
+    if (!nextGwRes.data) throw new Error("no unfinished gameweeks - season complete?");
+    if (lastGwRes.error) throw new Error(`gameweeks: ${lastGwRes.error.message}`);
+    if (chipsRes.error) throw new Error(`chip_definitions: ${chipsRes.error.message}`);
 
-    const firstEvent = nextGw.id as number;
-    const lastEvent = firstEvent + HORIZON - 1;
+    const firstEvent = nextGwRes.data.id as number;
+    const finalGameweek = (lastGwRes.data?.id as number | undefined) ?? firstEvent + MIN_HORIZON - 1;
+
+    // The window whose [start_event, stop_event] contains the gameweek we are
+    // about to predict from - that is the chip decision this run's numbers
+    // need to support. Floored at MIN_HORIZON so a malformed or missing chip
+    // calendar can never publish *less* than today's window, and clamped to
+    // the season's last gameweek so the second half of the season doesn't
+    // run off the end.
+    const chipWindows = (chipsRes.data ?? []) as {
+      start_event: number | null;
+      stop_event: number | null;
+    }[];
+    const coveringWindow = chipWindows.find(
+      (w) => (w.start_event ?? 1) <= firstEvent && firstEvent <= (w.stop_event ?? finalGameweek),
+    );
+    const windowEnd = coveringWindow?.stop_event ?? firstEvent + MIN_HORIZON - 1;
+    const lastEvent = Math.min(Math.max(windowEnd, firstEvent + MIN_HORIZON - 1), finalGameweek);
 
     const [playersRes, typesRes, fixturesRes, squadplayRes] = await Promise.all([
       db.from("players")
@@ -432,6 +476,7 @@ Deno.serve(async (req) => {
       details: {
         model_version: MODEL_VERSION,
         events: `${firstEvent}-${lastEvent}`,
+        horizon_gameweeks: lastEvent - firstEvent + 1,
         players_predicted: players.length - skippedNoRates,
         skipped_no_prior: skippedNoRates,
         prior_cells: priors.cells.length,
