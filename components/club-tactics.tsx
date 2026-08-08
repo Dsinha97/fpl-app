@@ -77,7 +77,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                   </div>
                   <span
                     aria-hidden="true"
-                    className={`shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
+                    className={`shrink-0 text-zinc-400 transition-transform ${open ? "" : "rotate-180"}`}
                   >
                     ⌃
                   </span>

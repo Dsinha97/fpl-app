@@ -136,7 +136,7 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw }: FixtureS
               <span className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className={`text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
+                  className={`text-zinc-400 transition-transform ${open ? "" : "rotate-180"}`}
                 >
                   ⌃
                 </span>

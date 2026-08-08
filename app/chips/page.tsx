@@ -376,7 +376,7 @@ export default function ChipsPage() {
             >
               <span
                 aria-hidden="true"
-                className={`shrink-0 text-amber-600 transition-transform dark:text-amber-400 ${noteOpen ? "rotate-180" : ""}`}
+                className={`shrink-0 text-amber-600 transition-transform dark:text-amber-400 ${noteOpen ? "" : "rotate-180"}`}
               >
                 ⌃
               </span>
