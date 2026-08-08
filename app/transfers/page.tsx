@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase/client";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { AvailabilityBadge } from "@/components/player-status-icons";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
-import { listDrafts, saveDraft } from "@/lib/drafts";
+import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { fullName, matchesPlayerQuery } from "@/lib/player-search";
 import {
   findReplacements,
@@ -125,7 +125,10 @@ export default function TransfersPage() {
     const list = listDrafts();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDrafts(list);
-    setDraftId(list[0]?.draftId ?? null);
+    // Other draft-aware pages can link here with ?draft=<id>; fall back to
+    // the most recently saved draft when the id is absent or stale.
+    const requested = resolveRequestedDraft(list, window.location.search);
+    setDraftId(requested?.draftId ?? null);
   }, []);
 
   useEffect(() => {
@@ -214,7 +217,7 @@ export default function TransfersPage() {
           reason: open
             ? null
             : nextOpen !== undefined
-              ? `No wildcard until GW${nextOpen}`
+              ? `Wildcard opens GW${nextOpen} — FPL doesn't allow it before then.`
               : "No wildcard window covers this gameweek",
         });
 

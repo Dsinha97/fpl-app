@@ -13,6 +13,7 @@ import { chunk } from "../_shared/coerce.ts";
 import {
   applySquadScale,
   availabilityOf,
+  deriveDcEligibleSeasons,
   deriveRatesWithPrior,
   fitRatePriors,
   GOALKEEPER_POSITION_ID,
@@ -209,6 +210,14 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Which seasons actually carry defensive-contribution data — FPL only
+    // introduced the stat for 2024/25, so earlier `player_season_history`
+    // rows read a real 0 rather than a tracked one. Derived once, globally,
+    // over every row just pulled, then threaded into both the prior fit and
+    // each player's own-rate blend below so dc90 is never divided by minutes
+    // that could not have produced a DC point. See `deriveDcEligibleSeasons`.
+    const dcEligibleSeasons = deriveDcEligibleSeasons(fitRows);
+
     // ------------------------------------------------------ fit the priors
     //
     // Fitted in-run and persisted, rather than by a separate scheduled
@@ -216,7 +225,7 @@ Deno.serve(async (req) => {
     // predictions built from them, and storing them keeps a number auditable
     // after the fact. It is ~1,400 rows of aggregation, negligible next to the
     // per-player work below.
-    const priors = fitRatePriors(fitRows);
+    const priors = fitRatePriors(fitRows, dcEligibleSeasons);
 
     const { error: priorError } = await db.from("rate_priors").upsert(
       priors.cells.map((c) => ({
@@ -291,6 +300,7 @@ Deno.serve(async (req) => {
         positionId: p.element_type,
         priceBand: priceBandOf(p.now_cost ?? 0),
         priors,
+        dcEligibleSeasons,
       });
       if (!shrunk) {
         // The one abstention left: no Premier League minutes *and* no prior for

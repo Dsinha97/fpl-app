@@ -11,13 +11,15 @@ import {
   type ScheduleGameweek,
   type ScheduleTeam,
 } from "@/components/fixture-schedule";
+import { ClubTacticsGrid, type ClubTactics } from "@/components/club-tactics";
+import { toTacticalProfile, type PlManagerRow } from "@/lib/tactical-profile";
 
 interface FixtureRow extends ScheduleFixture {
   team_h_difficulty: number | null;
   team_a_difficulty: number | null;
 }
 
-type Tab = "schedule" | "fdr";
+type Tab = "schedule" | "fdr" | "clubs";
 
 export default function FixturesPage() {
   const [teams, setTeams] = useState<ScheduleTeam[]>([]);
@@ -25,6 +27,7 @@ export default function FixturesPage() {
   const [gameweeks, setGameweeks] = useState<ScheduleGameweek[]>([]);
   const [nextGw, setNextGw] = useState<number | null>(null);
   const [tab, setTab] = useState<Tab>("schedule");
+  const [clubTactics, setClubTactics] = useState<ClubTactics[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,10 +43,10 @@ export default function FixturesPage() {
         if (gwError) throw new Error(gwError.message);
         if (!gw) throw new Error("No upcoming gameweek found.");
 
-        const [teamsRes, fixturesRes, gwsRes] = await Promise.all([
+        const [teamsRes, fixturesRes, gwsRes, managersRes] = await Promise.all([
           supabase
             .from("teams")
-            .select("id, code, name, short_name")
+            .select("id, code, name, short_name, tactical_manager_id")
             .eq("season", gw.season)
             .order("name"),
           // No event filter: the schedule tab shows completed gameweeks too.
@@ -58,15 +61,46 @@ export default function FixturesPage() {
             .select("id, name, deadline_time, finished")
             .eq("season", gw.season)
             .order("id"),
+          // Clubs tab (Sprint 12.5) — a 20-club reference, independent of the
+          // schedule/FDR data above.
+          supabase
+            .from("pl_managers")
+            .select(
+              "manager_key, name, current_club, preferred_formation, buildup_style, pressing_intensity, source_file, tactical_traits, modifiers",
+            )
+            .eq("season", gw.season),
         ]);
         if (teamsRes.error) throw new Error(teamsRes.error.message);
         if (fixturesRes.error) throw new Error(fixturesRes.error.message);
         if (gwsRes.error) throw new Error(gwsRes.error.message);
+        if (managersRes.error) throw new Error(managersRes.error.message);
 
-        setTeams((teamsRes.data ?? []) as ScheduleTeam[]);
+        const teamRows = (teamsRes.data ?? []) as (ScheduleTeam & {
+          tactical_manager_id: string | null;
+        })[];
+        setTeams(teamRows);
         setFixtures((fixturesRes.data ?? []) as FixtureRow[]);
         setGameweeks((gwsRes.data ?? []) as ScheduleGameweek[]);
         setNextGw(gw.id);
+
+        const byKey = new Map(
+          ((managersRes.data ?? []) as PlManagerRow[]).map((r) => [r.manager_key, toTacticalProfile(r)]),
+        );
+        const clubs: ClubTactics[] = teamRows
+          .map((t): ClubTactics | null => {
+            const profile = t.tactical_manager_id ? byKey.get(t.tactical_manager_id) : undefined;
+            if (!profile) return null;
+            return {
+              teamId: t.id,
+              teamName: t.name,
+              teamShort: t.short_name,
+              teamCode: t.code ?? null,
+              profile,
+            };
+          })
+          .filter((r): r is ClubTactics => r !== null)
+          .sort((a, b) => a.teamName.localeCompare(b.teamName));
+        setClubTactics(clubs);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -104,6 +138,7 @@ export default function FixturesPage() {
       <div className="mt-4 flex gap-1 rounded-lg border border-zinc-200 p-1 dark:border-purple-900/40">
         {tabButton("schedule", "Schedule", "✓")}
         {tabButton("fdr", "FDR", "▦")}
+        {tabButton("clubs", "Clubs", "🎽")}
       </div>
 
       {error && (
@@ -130,6 +165,12 @@ export default function FixturesPage() {
 
       {!loading && !error && tab === "fdr" && (
         <FdrMatrix teams={teams} fixtures={fixtures} nextGw={nextGw} />
+      )}
+
+      {!loading && !error && tab === "clubs" && (
+        <div className="mt-6">
+          <ClubTacticsGrid clubs={clubTactics} />
+        </div>
       )}
     </main>
   );

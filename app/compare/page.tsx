@@ -8,7 +8,9 @@ import { supabase } from "@/lib/supabase/client";
 import {
   comparePlayers,
   COMPARISON_MODEL_NOTE,
+  MAX_COMPARE,
   RISK_MODEL_NOTE,
+  XDC_MODEL_NOTE,
   fixtureScore,
   riskScore,
   valuePerMillion,
@@ -21,6 +23,7 @@ import {
   seasonHorizonNote,
   type Horizon,
 } from "@/lib/team-state";
+type HorizonXpLite = Record<Horizon, number | null>;
 import { fullName, matchesPlayerQuery } from "@/lib/player-search";
 
 interface PlayerRow {
@@ -51,9 +54,10 @@ interface UpcomingFixture {
 
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
 
-const MAX_COMPARE = 4;
 /** Fallback when `player_xp_horizons` has no rows yet — matches `generate-predictions`' own floor. */
 const FALLBACK_SEASON_WINDOW = 8;
+/** Positions the defensive-contribution threshold can ever apply to — see XDC_MODEL_NOTE. */
+const XDC_POSITIONS = new Set([2, 3]);
 
 /** Higher is better for every metric except risk and price. */
 type Direction = "high" | "low";
@@ -62,6 +66,7 @@ export default function ComparePage() {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [rowById, setRowById] = useState<Map<number, PlayerRow>>(new Map());
   const [scored, setScored] = useState<Map<number, ScoredPlayer>>(new Map());
+  const [xdcById, setXdcById] = useState<Map<number, HorizonXpLite>>(new Map());
   const [upcoming, setUpcoming] = useState<Map<number, UpcomingFixture[]>>(new Map());
   const [teamShort, setTeamShort] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -96,7 +101,7 @@ export default function ComparePage() {
           supabase.from("teams").select("id, short_name").eq("season", gw.season),
           supabase
             .from("player_xp_horizons")
-            .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_19, xp_total, first_event, last_event")
+            .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_19, xp_total, xdc_1, xdc_3, xdc_5, xdc_8, xdc_19, xdc_total, first_event, last_event")
             .eq("season", gw.season)
             .limit(1000),
           supabase
@@ -165,6 +170,7 @@ export default function ComparePage() {
 
         const rows = (playersRes.data ?? []) as PlayerRow[];
         const scoredMap = new Map<number, ScoredPlayer>();
+        const xdcMap = new Map<number, Record<Horizon, number | null>>();
         for (const p of rows) {
           const x = xpById.get(p.id);
           const pred = predById.get(p.id);
@@ -196,11 +202,23 @@ export default function ComparePage() {
             availability,
             fdrRun: (fixtures.get(p.team_id) ?? []).map((f) => f.fdr),
           });
+          // Kept out of ScoredPlayer — only /players and /compare need it, so
+          // adding a field there would ripple into every other consumer of
+          // the type for no reason. See XDC_MODEL_NOTE.
+          xdcMap.set(p.id, {
+            1: x?.xdc_1 ?? null,
+            3: x?.xdc_3 ?? null,
+            5: x?.xdc_5 ?? null,
+            8: x?.xdc_8 ?? null,
+            19: x?.xdc_19 ?? null,
+            season: x?.xdc_total ?? null,
+          });
         }
 
         setPlayers(rows);
         setRowById(new Map(rows.map((p) => [p.id, p])));
         setScored(scoredMap);
+        setXdcById(xdcMap);
         setUpcoming(fixtures);
         setTeamShort(shorts);
 
@@ -279,6 +297,13 @@ export default function ComparePage() {
       dir: "high",
       value: (p) => (p.xp[horizon] === null ? null : valuePerMillion(p, horizon)),
       format: (v) => (v === null ? "—" : v.toFixed(2)),
+    },
+    {
+      label: "xDefcon",
+      dir: "high",
+      value: (p) => (XDC_POSITIONS.has(p.elementType) ? (xdcById.get(p.id)?.[horizon] ?? null) : null),
+      format: (v) => (v === null ? "—" : v.toFixed(2)),
+      hint: XDC_MODEL_NOTE,
     },
     {
       label: "Owned",

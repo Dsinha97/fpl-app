@@ -27,6 +27,7 @@ prediction window past 8 gameweeks, landed 2026-08-06.
 | 12A | Manager Percentile Profile | **Built** — `/team`, `lib/manager-profile.ts` |
 | 12 | Chip Strategy Engine | **Built** — `/chips`, `lib/chips.ts` |
 | 12.5 | PL Team (Club) Manager Intelligence | Not started — **reconciled and scoped down**, see below |
+| 12.6 | Defensive Contribution engine fix, plus five surface fixes | **Built** — see below |
 | 13 | Live Matchday Hub | Not started |
 | 14 | Authentication & Team Sync | Not started |
 | 15 | Action Layer | Not started |
@@ -723,6 +724,107 @@ fails — verified live, all 20 linked correctly including all 7 aliased ones.
 themselves.** If the owner wants to supply it, it should get the same three-check treatment recorded
 under "Cold-Start Patch, phase 2" for the rejected CSV: per-player values (not position archetypes),
 a genuine source, and disclosed provenance — before it is trusted anywhere near a multiplier.
+
+## Sprint 12.6 — Defensive Contribution engine fix, plus five surface fixes (built, 2026-08-08)
+
+Five observations from using the app. Four were small surface fixes; the fifth ("add an xDefcon
+field") uncovered a real deflation bug in the xP engine, so most of this sprint is the fix and its
+backtest gate.
+
+**xDefcon — why it couldn't just be surfaced.** The FPL API only tracks `defensive_contribution`
+from 2024/25 onward; every `player_season_history` row from 2023/24 and earlier reads a real `0`,
+not a missing value. `deriveRates`, `weightedOwnRates` (the path actually used since v1.1.0) and
+`fitRatePriors`'s `metricValue` all blended `dc90` over the *same* multi-season minutes denominator
+as every other rate, so a zero-DC season silently divided the true rate down by its share of the
+blend. Verified before the fix: league-max `dc90` was 10.43 against thresholds of 10 (DEF) / 12
+(MID), and `rate_priors.mu` for `dc90` was 4.51/90 (DEF) and 5.00/90 (MID) — both roughly half of
+what the 2025/26 season alone implies (`sum(defensive_contribution)/minutes*90` over that one season
+tops out near 15/90).
+
+**Fix: `deriveDcEligibleSeasons`** (`supabase/functions/_shared/xp-model.ts`) derives the eligible-
+season set from the data itself (any season where any player recorded `defensive_contribution > 0`)
+rather than hardcoding a season list, so it self-updates as more seasons accumulate real data. `dc90`
+gets its own minutes denominator restricted to that set, in `deriveRates`, `weightedOwnRates` and
+`metricValue` (which now returns `null` — dropping the row — for an ineligible season, rather than
+`0`). Verified live: post-fix `rate_priors.mu` for `dc90` rose to 7.56/90 (DEF) and 8.43/90 (MID).
+
+**Calibration refit, gated on the phase-4 backtest cohort.** Raising `dc90` raises DEF/MID xP, so
+`positionCalibration` needed refitting by the same mean-matching method `docs/phase-4-model.md` §2
+documents. Measured on a 209-player, ≥1200-minute, currently-available cohort against 2025/26 actuals
+(`xp_8/8` vs `total_points/38`) via `execute_sql`, immediately before and after each deploy — not a
+committed harness, following the same discipline as prior refits:
+
+| Metric | Pre-fix (measured) | Post-dc90-fix, pre-refit | Post-refit (v1.4.0) |
+|---|---|---|---|
+| Bias (overall) | −0.115 | −0.060 | **0.000** (by construction) |
+| MAE (overall) | 0.454 | 0.455 | **0.449** |
+| RMSE (overall) | 0.574 | 0.574 | **0.567** |
+| Pearson r (overall) | 0.830 | 0.832 | **0.839** |
+| Pearson r — GKP / DEF / MID / FWD | 0.778 / 0.838 / 0.825 / 0.829 | 0.733 / 0.844 / 0.843 / 0.804 | 0.733 / 0.844 / 0.843 / 0.804 |
+| `squad_consistency_violations` | 24–32 (fluctuates run to run) | 32 | 32 |
+
+Per-position Pearson r is bit-identical between the dc90-only run and the refit — expected, since a
+level correction cannot change within-position ranking. The pre-fix→post-dc90-fix GKP/FWD dip (0.778
+→ 0.733, 0.829 → 0.804) is **not attributable to this change**: `dcThreshold` is 0 for GKP so
+`defensiveContribution` never enters its `predict()` output at all, and `dc90`'s prior importance for
+GKP (`mu = 0`) means it cannot move GKP's `priorWeight` either — the shift is data drift between two
+live runs roughly an hour apart (small-n cohorts, n=18 for both GKP and FWD), not a code effect. DEF
+and MID — the positions the fix actually touches — both improved. Shipped as **xP engine v1.4.0**;
+refit factors `GKP 1.265, DEF 1.2241, MID 1.2238, FWD 1.2576` (from `1.1077 / 1.2224 / 1.2116 /
+1.1972`) — DEF and MID barely moved, since raising `dc90` had already zeroed most of their bias
+before the refit.
+
+**Schema.** `20260808160000_horizon_xdc.sql` adds `xdc_1/3/5/8/19/total` to `player_xp_horizons`,
+same drop-and-recreate pattern as the view's three prior migrations (`CREATE OR REPLACE` cannot
+insert mid-projection columns). Verified live: `xdc_5` matches a hand-summed `player_predictions`
+window for spot-checked players exactly.
+
+**Surfaces.** `xDefcon` column on `/players` (DEF/MID only — GKP/FWD show `—` rather than a
+misleading `0.00`, since `dcThreshold` is 0 for GKP and FWD's own rate is negligible) and a matching
+row on `/compare`, both behind `XDC_MODEL_NOTE` (`lib/scoring.ts`). The note discloses the one gap
+the engine fix does not close: FPL scores defenders on CBIT and midfielders/forwards on CBIRT
+(including recoveries), but the model applies one aggregate `defensive_contribution` count to both,
+because that is the only qualifying-action total the API exposes as a single number.
+`clearances_blocks_interceptions`, `recoveries` and `tackles` are stored in `players` /
+`player_gameweek_stats` / `player_season_history` but read by no code path — a position-correct split
+is separate future work.
+
+**`/players` gained a horizon control** (`HORIZONS` from `lib/team-state.ts`, same button group
+`/compare` already used), retiring the hardcoded `RUN_LENGTH = 5` and the xP column's fixed `xp_5`.
+The horizon now drives the fixture ticker, the xP column and the xDefcon column together. Fixtures
+are fetched unbounded and sliced client-side via `horizonLength`, the same pattern `/compare` already
+uses for the same reason (the horizon can reach "season").
+
+**Select-to-compare.** `/players` rows gained a leading checkbox (up to `MAX_COMPARE`, now a shared
+constant in `lib/scoring.ts` rather than redeclared in both pages — `/compare` imports it too), a
+sticky bottom bar once ≥2 are selected, and a "Compare N players →" link to `/compare?ids=…`, the
+same query param `/compare` already reads for the builder's replacement-finder deep link.
+
+**Chip disclosure.** `lib/chips.ts`'s per-gameweek loop clamped `from = max(def.startEvent,
+windowStart)`, so a gameweek before a chip's own window (Wildcard/Free Hit's `start_event = 2`
+leaving GW1 unplayable) simply had no entry — silently absent rather than shown blocked, unlike the
+"`Predictions only reach GW…`" case three lines above it in the same function. Now emits a
+`blockedValuation` for each such gameweek with reason `"<Chip> opens GW<N>."`, and `/chips`'s
+per-gameweek grid renders it as a titled `—` instead of treating the (previously nonexistent, now
+present-but-blocked) row as a genuine `+0.0`. The GW1 greying itself was correct — `chip_definitions`
+really does say `start_event = 2` for 2026-27 — only the missing disclosure was the bug. `/transfers`'
+matching tooltip now names the rule ("Wildcard opens GW2 — FPL doesn't allow it before then") rather
+than only the gameweek number.
+
+**Draft handoff.** `/builder`'s "Free Hit & Wildcard schedule" link, `/scenarios`' "Chip Strategy"
+link, and any future draft-aware link now carry `?draft=<id>`, read by a new shared
+`resolveRequestedDraft` helper (`lib/drafts.ts`) that both `/chips` and `/transfers` call in their
+init effects — extracted rather than copied a third and fourth time, following `/builder`'s own
+existing `?draft=` pattern. `listDrafts()` sorts by `updatedAt` descending, so without this every
+target page defaulted to whichever draft was most recently *edited*, not the one actually being
+looked at.
+
+**Club tactics moved from `/team` to a third "Clubs" tab on `/fixtures`.** The Sprint 12.5 20-club
+grid was ~160 lines sitting below the "Connect your FPL team" empty state on a page otherwise
+entirely about one manager's squad — a league-wide reference table with no natural home there.
+`/fixtures` already had tab machinery (`schedule | fdr`) and already loaded the `teams` row the grid
+needs; extracted into `components/club-tactics.tsx`, unchanged in content and disclosure
+(`TACTICAL_PROFILE_NOTE`).
 
 ## Cross-cutting
 

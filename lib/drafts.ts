@@ -90,6 +90,23 @@ export function getDraft(draftId: string): TeamState | null {
   return readAll().find((d) => d.draftId === draftId) ?? null;
 }
 
+/**
+ * Resolve which draft a page should open initially: the `?draft=<id>` query
+ * param if present and still valid, else the most recently saved draft, else
+ * none. Shared by every page that can be deep-linked from another draft-aware
+ * page (builder, scenarios, chips, transfers) so "open the squad I was just
+ * looking at" behaves the same everywhere instead of silently falling back to
+ * whichever draft was edited most recently.
+ */
+export function resolveRequestedDraft(
+  list: TeamState[],
+  search: string,
+): TeamState | undefined {
+  const wanted = new URLSearchParams(search).get("draft");
+  const requested = wanted ? list.find((d) => d.draftId === wanted) : undefined;
+  return requested ?? list[0];
+}
+
 export function saveDraft(state: TeamState): TeamState {
   const stamped = { ...state, updatedAt: new Date().toISOString() };
   const drafts = readAll();

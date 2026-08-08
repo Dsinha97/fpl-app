@@ -607,6 +607,15 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
 
   const rebuildCtx: RebuildContext = { team, pool, rules, predAt, availabilityOf };
 
+  // Per chip, the last event a def's blocked-gap fill or valuation loop has
+  // already accounted for. Chip windows are contiguous halves (GW1-19,
+  // GW20-38 today), so only the very first def for a chip can have a real
+  // gap before it (e.g. Wildcard's GW1 before its GW2 open) — without this,
+  // the second half's def would re-run the gap fill from `windowStart` and
+  // overwrite the first half's already-valued gameweeks with a bogus
+  // "opens GW20" reason.
+  const coveredThrough: Partial<Record<ChipKind, number>> = {};
+
   for (const def of chipDefinitions) {
     const chip = def.name as ChipKind;
     if (!CHIP_KINDS.includes(chip)) continue;
@@ -624,6 +633,17 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
     }
 
     windows.push({ chip, label, startEvent: def.startEvent, stopEvent: def.stopEvent, blocked: null });
+
+    // Gameweeks inside the requested window, after whatever this chip's
+    // prior def already covered, but before this def's own window opens
+    // (e.g. Wildcard/Free Hit's first start_event 2 leaving GW1
+    // unplayable): reported blocked with a reason, not silently dropped from
+    // the series — same discipline as the "Predictions only reach…" case
+    // above, and matching transfer-optimizer.ts's wildcard-row precedent.
+    const gapFrom = Math.max(windowStart, (coveredThrough[chip] ?? windowStart - 1) + 1);
+    for (let e = gapFrom; e < Math.min(def.startEvent, windowEnd + 1); e++) {
+      valuationsByChip[chip].push(blockedValuation(chip, e, `${label} opens GW${def.startEvent}.`));
+    }
 
     const from = Math.max(def.startEvent, windowStart);
     const to = Math.min(def.stopEvent, windowEnd);
@@ -645,6 +665,8 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
         valuationsByChip["3xc"].push(tripleCaptainAt(team, e, predAt, availabilityOf, lookup, isPenaltyTaker));
       }
     }
+
+    coveredThrough[chip] = Math.max(coveredThrough[chip] ?? windowStart - 1, to, def.startEvent - 1);
   }
 
   // ---- per-half schedules ------------------------------------------------

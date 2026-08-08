@@ -88,6 +88,17 @@ FWD 1.1972`. The refit restored bias to −0.000, and MAE improved to **0.410** 
 **Pearson r stayed at 0.850**. That last figure is the one that matters: the shrinkage changed the
 level without disturbing the ranking.
 
+**Refitted again for v1.4.0**, after `dc90` (defensive contribution) got its own eligible-minutes
+denominator — see "Sprint 12.6" in [roadmap.md](roadmap.md) for the full gate table. Rerun on a
+209-player, ≥1200-minute, currently-available cohort against 2025/26 actuals:
+`GKP 1.265 · DEF 1.2241 · MID 1.2238 · FWD 1.2576`. DEF and MID barely moved from their v1.1.0
+values — raising `dc90` had already zeroed most of their bias before the refit — while GKP and FWD
+moved more, for reasons unrelated to this fix (GKP's `dcThreshold` is 0, so `dc90` never reaches its
+`predict()` output). Bias returned to 0.000 by construction; Pearson r held per-position and rose
+overall (0.830 → 0.839 on this run's cohort, which is not the same snapshot the v1.1.0 figures above
+were measured against, so the two 0.850/0.830-ish numbers are not directly comparable digit for
+digit — each refit's own before/after pair is the meaningful comparison).
+
 These are readable. Goalkeepers need the least correction because their scoring is the most
 mechanistic — appearance, clean sheet, saves, and little else. Defenders need the most, consistent
 with the Poisson tail under-counting over-dispersed defensive-contribution counts and with
@@ -222,6 +233,16 @@ starters less — is a different algorithm, not a parameter, and is recorded as 
 - **No current-season form.** Rates come entirely from prior seasons. A player whose role has
   changed — new manager, new position, transfer — will be mispriced until in-season data is blended
   in.
+- **`dc90` (defensive contribution) applies one aggregate count to two different FPL rules.** FPL
+  scores defenders on clearances + blocks + interceptions + tackles, and midfielders/forwards on the
+  same four plus recoveries — but the API exposes only the combined `defensive_contribution` total,
+  and the model applies that one number against both thresholds (10 for DEF, 12 for MID). The
+  component stats (`clearances_blocks_interceptions`, `recoveries`, `tackles`) are stored in
+  `players` / `player_gameweek_stats` / `player_season_history` but read by no code path yet — see
+  `XDC_MODEL_NOTE` in `lib/scoring.ts` and "Sprint 12.6" in [roadmap.md](roadmap.md). Fixed
+  separately, in the same sprint: `dc90` previously divided by a multi-season minutes denominator
+  that included pre-2024/25 seasons the FPL API never tracked the stat for, silently halving the
+  rate (`deriveDcEligibleSeasons`, v1.4.0) — that bug is closed; the CBIT/CBIRT split above is not.
 
 ---
 

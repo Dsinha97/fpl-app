@@ -12,7 +12,7 @@ import {
   optimiseLineup,
   type LineupCandidate,
 } from "@/lib/lineup";
-import { cloneDraft, deleteDraft, listDrafts, saveDraft } from "@/lib/drafts";
+import { cloneDraft, deleteDraft, listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import {
   addPlayer,
   blockedReason,
@@ -329,9 +329,8 @@ export default function BuilderPage() {
 
         // Scenario Lab links here with ?draft=<id>; fall back to the most
         // recently saved draft when the id is absent or stale.
-        const wanted = new URLSearchParams(window.location.search).get("draft");
-        const requested = wanted ? existing.find((d) => d.draftId === wanted) : undefined;
-        const initial = requested ?? existing[0] ?? emptyTeamState(loadedRules);
+        const requested = resolveRequestedDraft(existing, window.location.search);
+        const initial = requested ?? emptyTeamState(loadedRules);
         setTeam(initial);
         // Anything that came out of storage is by definition already saved.
         setSavedTeam(existing.some((d) => d.draftId === initial.draftId) ? initial : null);
@@ -1272,7 +1271,7 @@ export default function BuilderPage() {
                   </span>
                 </span>
                 <Link
-                  href="/chips"
+                  href={`/chips?draft=${team.draftId}`}
                   className="ml-auto text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
                 >
                   Free Hit &amp; Wildcard schedule →

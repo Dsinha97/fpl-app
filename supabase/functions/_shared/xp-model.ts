@@ -1,4 +1,4 @@
-// Expected points model, v1.3.0.
+// Expected points model, v1.4.0.
 //
 // v1.1.0 added the cold-start prior layer at the bottom of this file: rates are
 // shrunk toward a fitted position/price prior instead of the player being
@@ -21,6 +21,18 @@
 // (`reconcileClubSquad`/`solveWaterFill`) stays in this file, reachable as the
 // `w=1` special case of the phase 2 solver, in case a future run needs it back.
 //
+// v1.4.0 gives `dc90` its own eligible-minutes denominator (see
+// `deriveDcEligibleSeasons`): FPL only tracks `defensive_contribution` from
+// 2024/25, so every earlier `player_season_history` row reads a real 0 rather
+// than an untracked one. Blending those seasons into dc90's minutes
+// denominator was dividing a genuine rate by minutes that could never have
+// produced a DC point, roughly halving it league-wide (DEF prior mean 4.51 →
+// 7.56 per 90 after the fix, MID 4.99 → 8.43) — see docs/roadmap.md, "xDefcon
+// engine fix". `positionCalibration` refit against the same 207ish-player
+// backtest cohort used for prior refits: DEF and MID barely moved (their bias
+// was already close to zero pre-refit, since raising dc90 alone corrected
+// most of it), GKP and FWD moved more.
+//
 // Implements the nine steps in the build plan. Two deliberate deviations,
 // both of which the plan itself sanctions:
 //
@@ -35,7 +47,7 @@
 // tactical change. Once player_gameweek_stats fills up, current-season form
 // should be blended in and these rates reweighted.
 
-export const MODEL_VERSION = "v1.3.0";
+export const MODEL_VERSION = "v1.4.0";
 
 export const MODEL_PARAMS = {
   // Recency weights applied to prior seasons, most recent first.
@@ -64,11 +76,28 @@ export const MODEL_PARAMS = {
   // GKP x1.0153, DEF x1.0281, MID x1.0365, FWD x1.0277. Pearson r was 0.850
   // before and after, which is the check that matters — a level correction must
   // not disturb the ranking.
+  //
+  // Refitted again for v1.4.0, after `dc90` got its own eligible-minutes
+  // denominator (see the file header and `deriveDcEligibleSeasons`): rerun on
+  // a 209-player, >=1200-minute, currently-available cohort against the most
+  // recent completed season (2025/26), mean-matching predicted to actual
+  // points per gameweek exactly as the v1.1.0 refit did. DEF and MID moved
+  // only fractionally (1.2224 -> 1.2241, 1.2116 -> 1.2238) — raising dc90
+  // already zeroed most of their bias on its own (-0.0611 -> -0.0037 for DEF,
+  // -0.1240 -> -0.0280 for MID, pre-refit). GKP and FWD needed a larger
+  // correction (1.1077 -> 1.2650, 1.1972 -> 1.2576); dc90 does not touch GKP
+  // (dcThreshold 0) so that shift reflects drift in the underlying data since
+  // the v1.1.0 backtest, not this fix. Pearson r held: overall 0.8297 measured
+  // pre-refit (not the 0.850 the v1.1.0 notes above cite off an earlier
+  // cohort snapshot — see docs/roadmap.md for why the two don't match digit
+  // for digit) to 0.8319 after the dc90 fix alone, with per-position r
+  // essentially unchanged by the refit itself, since a level correction by
+  // construction does not touch ranking.
   positionCalibration: {
-    GKP: 1.1077,
-    DEF: 1.2224,
-    MID: 1.2116,
-    FWD: 1.1972,
+    GKP: 1.265,
+    DEF: 1.2241,
+    MID: 1.2238,
+    FWD: 1.2576,
   } as Record<string, number>,
 
   // Fixture sensitivity per FDR step away from average (FDR 3).
@@ -194,10 +223,39 @@ const GAMES_PER_SEASON = 38;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 /**
+ * Which seasons in a history table recorded any defensive-contribution
+ * qualifying action. FPL introduced the stat for 2024/25 — every earlier
+ * `player_season_history` row reads `defensive_contribution: 0` because the
+ * API never tracked it then, not because nobody cleared the threshold.
+ * Blending those seasons into dc90's minutes denominator halves the rate for
+ * every player with a multi-season history, and the empirical-Bayes prior
+ * fitted on the same rows compounds the deflation rather than correcting it.
+ *
+ * Derived from the data rather than hardcoded to a season list, so the set
+ * self-updates as further seasons confirm they carry the stat, the same
+ * discipline `chipModelNote` uses for the blank/double-gameweek finding.
+ */
+export function deriveDcEligibleSeasons(
+  rows: { season_name: string; defensive_contribution: number | null }[],
+): Set<string> {
+  const eligible = new Set<string>();
+  for (const r of rows) {
+    if ((r.defensive_contribution ?? 0) > 0) eligible.add(r.season_name);
+  }
+  return eligible;
+}
+
+/**
  * Blend up to three prior seasons into per-90 rates, weighted toward recent
  * ones. Seasons are matched newest-first by their sort order.
+ *
+ * `dc90` gets its own minutes denominator (`dcMinutes`), restricted to
+ * `dcEligibleSeasons` when supplied — see `deriveDcEligibleSeasons`. Every
+ * other rate keeps sharing `wMinutes`. Omitting the set treats every season
+ * as eligible, matching the old behaviour, so nothing outside the DC path
+ * changes.
  */
-export function deriveRates(rows: SeasonRow[]): Rates | null {
+export function deriveRates(rows: SeasonRow[], dcEligibleSeasons?: Set<string>): Rates | null {
   const sorted = [...rows]
     .filter((r) => (r.minutes ?? 0) > 0)
     .sort((a, b) => b.season_name.localeCompare(a.season_name))
@@ -205,7 +263,7 @@ export function deriveRates(rows: SeasonRow[]): Rates | null {
 
   if (sorted.length === 0) return null;
 
-  let wMinutes = 0, wStarts = 0, wGames = 0;
+  let wMinutes = 0, wStarts = 0, wGames = 0, dcMinutes = 0;
   let xg = 0, xa = 0, bonus = 0, dc = 0, saves = 0, xgc = 0, cs = 0, yellow = 0;
 
   sorted.forEach((r, i) => {
@@ -216,11 +274,14 @@ export function deriveRates(rows: SeasonRow[]): Rates | null {
     xg += w * (r.expected_goals ?? 0);
     xa += w * (r.expected_assists ?? 0);
     bonus += w * (r.bonus ?? 0);
-    dc += w * (r.defensive_contribution ?? 0);
     saves += w * (r.saves ?? 0);
     xgc += w * (r.expected_goals_conceded ?? 0);
     cs += w * (r.clean_sheets ?? 0);
     yellow += w * (r.yellow_cards ?? 0);
+    if (!dcEligibleSeasons || dcEligibleSeasons.has(r.season_name)) {
+      dc += w * (r.defensive_contribution ?? 0);
+      dcMinutes += w * (r.minutes ?? 0);
+    }
   });
 
   // Too little football to build a stable rate from. Returning null is more
@@ -236,7 +297,7 @@ export function deriveRates(rows: SeasonRow[]): Rates | null {
     xg90: per90(xg),
     xa90: per90(xa),
     bonus90: per90(bonus),
-    dc90: per90(dc),
+    dc90: dcMinutes > 0 ? (dc / dcMinutes) * 90 : 0,
     saves90: per90(saves),
     xgc90: per90(xgc),
     cs90: per90(cs),
@@ -305,8 +366,16 @@ export interface FitRow extends SeasonRow {
   priceBand: string;
 }
 
-/** Per-90 (or per-game) value of one metric for a single season. */
-function metricValue(row: SeasonRow, metric: PriorMetric): number | null {
+/**
+ * Per-90 (or per-game) value of one metric for a single season.
+ *
+ * `dcEligibleSeasons`, when supplied, drops `dc90` entirely for a season
+ * outside it — see `deriveDcEligibleSeasons`. Returning `null` here (rather
+ * than `0`) makes `fitRatePriors` skip the row for this metric the same way
+ * it already skips any other missing value, instead of averaging a
+ * before-the-stat-existed zero into the fitted prior.
+ */
+function metricValue(row: SeasonRow, metric: PriorMetric, dcEligibleSeasons?: Set<string>): number | null {
   const minutes = row.minutes ?? 0;
   if (minutes <= 0) return null;
 
@@ -320,6 +389,7 @@ function metricValue(row: SeasonRow, metric: PriorMetric): number | null {
     case "bonus90":
       return per90(row.bonus);
     case "dc90":
+      if (dcEligibleSeasons && !dcEligibleSeasons.has(row.season_name)) return null;
       return per90(row.defensive_contribution);
     case "saves90":
       return per90(row.saves);
@@ -360,7 +430,7 @@ function variance(xs: number[]): number {
  *    is invented: a band with plenty of players speaks for itself, one with six
  *    barely moves the position mean.
  */
-export function fitRatePriors(rows: FitRow[]): PriorSet {
+export function fitRatePriors(rows: FitRow[], dcEligibleSeasons?: Set<string>): PriorSet {
   const cells: PriorCell[] = [];
   const positions = [...new Set(rows.map((r) => r.positionId))];
 
@@ -380,7 +450,7 @@ export function fitRatePriors(rows: FitRow[]): PriorSet {
       // Player -> that player's season values for this metric.
       const byPlayer = new Map<number, { value: number; band: string }[]>();
       for (const row of inPosition) {
-        const value = metricValue(row, metric);
+        const value = metricValue(row, metric, metric === "dc90" ? dcEligibleSeasons : undefined);
         if (value === null || !Number.isFinite(value)) continue;
         const list = byPlayer.get(row.player_code);
         const entry = { value, band: row.priceBand };
@@ -510,9 +580,16 @@ export interface ShrunkRates {
   evidence: RateEvidence;
 }
 
-/** Own per-90 rates from a weighted set of seasons, with the weights applied. */
-function weightedOwnRates(rows: SeasonRow[], weights: number[]) {
-  let wMinutes = 0, wStarts = 0, wGames = 0;
+/**
+ * Own per-90 rates from a weighted set of seasons, with the weights applied.
+ *
+ * `dc90` uses its own minutes denominator (`dcMinutes`), restricted to
+ * `dcEligibleSeasons` when supplied — see `deriveDcEligibleSeasons` on the
+ * same reasoning as `deriveRates`. This is the path actually used since
+ * v1.1.0 (`deriveRatesWithPrior` below calls this, not `deriveRates`).
+ */
+function weightedOwnRates(rows: SeasonRow[], weights: number[], dcEligibleSeasons?: Set<string>) {
+  let wMinutes = 0, wStarts = 0, wGames = 0, dcMinutes = 0;
   const totals: Record<string, number> = {
     xg: 0, xa: 0, bonus: 0, dc: 0, saves: 0, xgc: 0, cs: 0, yellow: 0,
   };
@@ -525,11 +602,14 @@ function weightedOwnRates(rows: SeasonRow[], weights: number[]) {
     totals.xg += w * (r.expected_goals ?? 0);
     totals.xa += w * (r.expected_assists ?? 0);
     totals.bonus += w * (r.bonus ?? 0);
-    totals.dc += w * (r.defensive_contribution ?? 0);
     totals.saves += w * (r.saves ?? 0);
     totals.xgc += w * (r.expected_goals_conceded ?? 0);
     totals.cs += w * (r.clean_sheets ?? 0);
     totals.yellow += w * (r.yellow_cards ?? 0);
+    if (!dcEligibleSeasons || dcEligibleSeasons.has(r.season_name)) {
+      totals.dc += w * (r.defensive_contribution ?? 0);
+      dcMinutes += w * (r.minutes ?? 0);
+    }
   });
 
   const per90 = (total: number) => (wMinutes > 0 ? (total / wMinutes) * 90 : 0);
@@ -540,7 +620,7 @@ function weightedOwnRates(rows: SeasonRow[], weights: number[]) {
       xg90: per90(totals.xg),
       xa90: per90(totals.xa),
       bonus90: per90(totals.bonus),
-      dc90: per90(totals.dc),
+      dc90: dcMinutes > 0 ? (totals.dc / dcMinutes) * 90 : 0,
       saves90: per90(totals.saves),
       xgc90: per90(totals.xgc),
       cs90: per90(totals.cs),
@@ -557,6 +637,8 @@ export interface ShrinkInput {
   /** From the player's *current* price — this is a forward-looking prior. */
   priceBand: string;
   priors: PriorSet;
+  /** See `deriveDcEligibleSeasons`. Omitted treats every season as eligible. */
+  dcEligibleSeasons?: Set<string>;
 }
 
 /**
@@ -567,7 +649,7 @@ export interface ShrinkInput {
  * honest statement of how much of it is the prior talking.
  */
 export function deriveRatesWithPrior(input: ShrinkInput): ShrunkRates | null {
-  const { rows, positionId, priceBand, priors } = input;
+  const { rows, positionId, priceBand, priors, dcEligibleSeasons } = input;
   const P = MODEL_PARAMS;
 
   const played = [...rows]
@@ -581,7 +663,7 @@ export function deriveRatesWithPrior(input: ShrinkInput): ShrunkRates | null {
   let weights: number[] = [...P.seasonWeights];
   let priorSource: PriorSource = "pl_recent";
 
-  let { wMinutes, own } = weightedOwnRates(used, weights);
+  let { wMinutes, own } = weightedOwnRates(used, weights, dcEligibleSeasons);
 
   // Thin recent record but a longer career — Nelson has nine PL seasons and
   // 1,914 minutes and used to get nothing at all, because only three were read.
@@ -593,7 +675,7 @@ export function deriveRatesWithPrior(input: ShrinkInput): ShrunkRates | null {
         : P.seasonWeights[P.seasonWeights.length - 1] *
           P.extendedSeasonDecay ** (i - P.seasonWeights.length + 1)
     );
-    ({ wMinutes, own } = weightedOwnRates(used, weights));
+    ({ wMinutes, own } = weightedOwnRates(used, weights, dcEligibleSeasons));
     priorSource = "pl_extended";
   }
 

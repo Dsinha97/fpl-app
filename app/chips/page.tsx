@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { InfoTooltip } from "@/components/info-tooltip";
-import { listDrafts } from "@/lib/drafts";
+import { listDrafts, resolveRequestedDraft } from "@/lib/drafts";
 import {
   CHIP_LABELS,
   runChipEngine,
@@ -61,7 +61,10 @@ export default function ChipsPage() {
     const list = listDrafts();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDrafts(list);
-    setDraftId(list[0]?.draftId ?? null);
+    // Builder and Scenario Lab link here with ?draft=<id>; fall back to the
+    // most recently saved draft when the id is absent or stale.
+    const requested = resolveRequestedDraft(list, window.location.search);
+    setDraftId(requested?.draftId ?? null);
   }, []);
 
   useEffect(() => {
@@ -513,8 +516,12 @@ export default function ChipsPage() {
                     {CHIP_ORDER.map((chip) => {
                       const v = byChipEvent.get(chip)?.get(event);
                       return (
-                        <td key={chip} className="py-1 pr-2 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
-                          {v ? signed(v.gain) : "—"}
+                        <td
+                          key={chip}
+                          className="py-1 pr-2 text-right tabular-nums text-zinc-700 dark:text-zinc-300"
+                          title={v?.blocked ?? undefined}
+                        >
+                          {v && !v.blocked ? signed(v.gain) : "—"}
                         </td>
                       );
                     })}

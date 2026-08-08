@@ -48,8 +48,10 @@ Precedent: `CAPTAIN_MODEL_NOTE` in `lib/lineup.ts`, `COMPARISON_MODEL_NOTE` and 
 `COLD_START_MODEL_NOTE` in `supabase/functions/_shared/xp-model.ts` (mirrored front-side as
 `COLD_START_NOTE` in `lib/scoring.ts` — the Deno file cannot be imported by Next), and
 `chipModelNote` in `lib/chips.ts` for the flat fixture list every chip is currently valued against,
-and `TACTICAL_PROFILE_NOTE` in `lib/tactical-profile.ts` for PL club tactical data shown as
-disclosed context rather than folded into xP.
+`TACTICAL_PROFILE_NOTE` in `lib/tactical-profile.ts` for PL club tactical data shown as
+disclosed context rather than folded into xP, and `XDC_MODEL_NOTE` in `lib/scoring.ts` for the
+defensive-contribution figure applying one aggregate FPL count to two different qualifying-action
+rules (CBIT for defenders, CBIRT for midfielders/forwards).
 
 **When a term cannot be dropped, make it an input.** Sometimes the missing quantity *is* the
 feature — rolling a transfer is only worth something the frozen projection cannot see, so dropping it
@@ -189,17 +191,20 @@ landing. Not for routine progress.
 
 ## Status
 
-Built: sync pipeline, xP engine **v1.3.0** (component model + empirical-Bayes cold-start priors, so
+Built: sync pipeline, xP engine **v1.4.0** (component model + empirical-Bayes cold-start priors, so
 all 567 players are projected rather than 380, plus squad reconciliation so every club's projected
 starters, goalkeeper and minutes sum to the facts a match enforces — promoted-club squads no longer
 collapse toward zero nor established squads inflate past eleven; v1.3.0 weights that correction by
-each player's evidence rather than applying it uniformly, gated on a backtest — see Status below),
-dark theme, `/players`, `/fixtures` (Schedule + FDR tabs),
+each player's evidence rather than applying it uniformly, gated on a backtest; v1.4.0 gives the
+defensive-contribution rate its own eligible-minutes denominator — see Status below),
+dark theme, `/players` (horizon control, xDefcon, select-to-compare), `/fixtures` (Schedule + FDR +
+Clubs tabs),
 `/builder` (pitch UI, paginated picker, squad optimiser, lineup engine, replacement finder),
-`/compare`, `/scenarios` (draft manager, SquadScore, comparison, timeline), `/transfers`
-(basket simulation with hits, sell prices, armband handling, plus the weekly roll/spend/hit/wildcard
-plan), and `/chips` (per-gameweek value for all four chips over the projected window, plus a joint
-scheduling search). In the revised numbering that covers Sprints 5, 6, 7, 8, 9, 11 and 12.
+`/compare` (now with xDefcon), `/scenarios` (draft manager, SquadScore, comparison, timeline),
+`/transfers` (basket simulation with hits, sell prices, armband handling, plus the weekly
+roll/spend/hit/wildcard plan), and `/chips` (per-gameweek value for all four chips over the projected
+window, plus a joint scheduling search). In the revised numbering that covers Sprints 5, 6, 7, 8, 9,
+11 and 12.
 
 **Sprint 12 — Chip Strategy Engine — built (2026-08-07).** `lib/chips.ts` values Bench Boost, Triple
 Captain, Free Hit and Wildcard per gameweek by reusing `optimiseLineup` and `optimizeSquad` unchanged
@@ -233,9 +238,27 @@ disclosed cost of `consistencyViolations` rising 1.6% → 4.2% of the league).
 `teams.tactical_manager_id` (seeded via migration, alias-mapping the 7 of 20 clubs whose name differs
 from `teams.name` and asserting all 20 linked or failing the migration), `lib/tactical-profile.ts`
 (types + loader only — no scoring function, so nothing here can accidentally multiply into xP), a
-`System` line in the player detail panel, and a full 20-club section on `/team`. The numeric `μ_fit`
+`System` line in the player detail panel, and a full 20-club section (moved to a **Clubs** tab on
+`/fixtures` in Sprint 12.6 — see below; was originally on `/team`). The numeric `μ_fit`
 multiplier and cold-start integration stay blocked on validation, exactly as scoped — see
 [docs/roadmap.md](docs/roadmap.md).
+
+**Sprint 12.6 — Defensive Contribution engine fix, plus five surface fixes — built (2026-08-08).**
+`dc90` was dividing by a minutes denominator that included pre-2024/25 seasons the FPL API never
+tracked `defensive_contribution` for, silently halving the rate for every multi-season player;
+`deriveDcEligibleSeasons` in `supabase/functions/_shared/xp-model.ts` derives the eligible-season set
+from the data and gives `dc90` its own denominator, shipped as **xP engine v1.4.0** with
+`positionCalibration` refit and gated on the phase-4 backtest cohort (Pearson r held per-position,
+rose overall — see the gate table under "Sprint 12.6" in [docs/roadmap.md](docs/roadmap.md)). An
+`xDefcon` column followed on `/players` (which also gained a horizon control, retiring the hardcoded
+5-gameweek fixture run) and `/compare`, behind `XDC_MODEL_NOTE` — which discloses the one gap the
+engine fix does not close: FPL scores defenders and midfielders on different qualifying-action sets
+(CBIT vs CBIRT) but the API exposes only one combined count. Plus: select-to-compare checkboxes on
+`/players` (`?ids=` into `/compare`, `MAX_COMPARE` now shared from `lib/scoring.ts`); `/chips` no
+longer silently omits a gameweek before a chip's own window opens, showing it blocked with a reason
+instead; and every draft-aware page (`/chips`, `/transfers`) now reads the `?draft=<id>` that
+`/builder` and `/scenarios` link with, instead of defaulting to whichever draft was most recently
+edited.
 
 Next: the finishing pass outstanding on Sprint 11 (TeamAttack) remains blocked on team strength.
 Sprints 13 (live match data) and 14 (authentication) are the next substantial pieces of work; both

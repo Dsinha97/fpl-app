@@ -770,7 +770,10 @@ export default function ScenariosPage() {
           <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
             Bench Boost and Triple Captain above are for the next gameweek only. Free Hit and
             Wildcard are full-squad rebuilds, valued for every playable gameweek on the{" "}
-            <Link href="/chips" className="text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]">
+            <Link
+              href={chosen[0] ? `/chips?draft=${chosen[0].draftId}` : "/chips"}
+              className="text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+            >
               Chip Strategy
             </Link>{" "}
             page.

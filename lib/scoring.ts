@@ -63,6 +63,38 @@ export const COLD_START_NOTE =
   "rather than their own Premier League record, so an established starter moves far less than a " +
   "fringe reserve on the same price band, rather than both moving by the same proportion.";
 
+/**
+ * Cap on players held at once by any compare-style UI — /compare's `?ids=`
+ * parsing and /players' select-to-compare checkboxes both read this rather
+ * than each redeclaring `4`, per the project's "one quantity, one
+ * implementation" rule.
+ */
+export const MAX_COMPARE = 4;
+
+/**
+ * xDefcon (Sprint 12.6): expected points from clearing the defensive-
+ * contribution threshold (10 for DEF, 12 for MID — 0 for GKP/FWD, who never
+ * score it), summed over a horizon from `player_xp_horizons.xdc_*`.
+ *
+ * FPL's real rule scores different actions per group — defenders on CBIT
+ * (clearances, blocks, interceptions, tackles), midfielders and forwards on
+ * CBIRT (the same four plus recoveries) — but the model applies the same
+ * aggregate `defensive_contribution` count to both, because that is the only
+ * qualifying-action figure the FPL API exposes as one number.
+ * `clearances_blocks_interceptions`, `recoveries` and `tackles` are stored in
+ * `players` / `player_gameweek_stats` / `player_season_history` but read by
+ * no code path yet — the position-correct split is a separate piece of work.
+ * See docs/roadmap.md.
+ */
+export const XDC_MODEL_NOTE =
+  "Expected points from clearing the defensive-contribution threshold (10 for defenders, 12 for " +
+  "midfielders; forwards and goalkeepers never score it). Modelled as a Poisson tail on a shrunk " +
+  "per-90 rate, gated on an eligible-minutes fix (v1.4.0) since FPL only tracks the stat from " +
+  "2024/25 — see docs/phase-4-model.md. One real gap remains: FPL scores defenders on clearances + " +
+  "blocks + interceptions + tackles and midfielders/forwards on the same four plus recoveries, but " +
+  "this figure applies one aggregate count to both, because that is the only qualifying-action total " +
+  "the API exposes as a single number.";
+
 /** Worded confidence for a projection, for badges and tooltips. */
 export const RELIABILITY_LABELS: Record<"high" | "medium" | "low", string> = {
   high: "Projection rests on this player's own Premier League record.",
