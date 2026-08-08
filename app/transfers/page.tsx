@@ -716,11 +716,11 @@ export default function TransfersPage() {
             <table className="mt-2 w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-[10px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                  <th className="py-1.5">Player</th>
-                  <th className="py-1.5">Pos</th>
-                  <th className="py-1.5">Sell</th>
-                  <th className="py-1.5">{horizonLabel(horizon)}</th>
-                  <th className="py-1.5">
+                  <th className="px-2 py-1.5">Player</th>
+                  <th className="px-2 py-1.5">Pos</th>
+                  <th className="px-2 py-1.5">Sell</th>
+                  <th className="px-2 py-1.5">{horizonLabel(horizon)}</th>
+                  <th className="px-2 py-1.5">
                     <span
                       title={RISK_MODEL_NOTE}
                       className="cursor-help underline decoration-dotted underline-offset-2"
@@ -728,7 +728,7 @@ export default function TransfersPage() {
                       Risk
                     </span>
                   </th>
-                  <th className="py-1.5"></th>
+                  <th className="px-2 py-1.5"></th>
                 </tr>
               </thead>
               <tbody>
@@ -745,7 +745,7 @@ export default function TransfersPage() {
                         move ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
                       }`}
                     >
-                      <td className="py-1.5">
+                      <td className="px-2 py-1.5">
                         <span className="flex items-center gap-1.5">
                           <span
                             className={
@@ -776,19 +776,19 @@ export default function TransfersPage() {
                           )}
                         </span>
                       </td>
-                      <td className="py-1.5 text-xs text-zinc-500">
+                      <td className="px-2 py-1.5 text-xs text-zinc-500">
                         {POSITIONS[s?.elementType ?? 0] ?? "—"}
                       </td>
-                      <td className="py-1.5 text-xs tabular-nums text-zinc-500">
+                      <td className="px-2 py-1.5 text-xs tabular-nums text-zinc-500">
                         {money(pick.purchasePrice)}
                       </td>
-                      <td className="py-1.5 tabular-nums font-semibold text-purple-800 dark:text-[#00FF87]">
+                      <td className="px-2 py-1.5 tabular-nums font-semibold text-purple-800 dark:text-[#00FF87]">
                         {s ? xpFor(s, horizon).toFixed(1) : "—"}
                       </td>
-                      <td className="py-1.5 tabular-nums text-zinc-500">
+                      <td className="px-2 py-1.5 tabular-nums text-zinc-500">
                         {s ? riskScore(s, horizon, seasonWindow) : "—"}
                       </td>
-                      <td className="py-1.5 text-right">
+                      <td className="px-2 py-1.5 text-right">
                         {move ? (
                           <button
                             onClick={() => setMoves((prev) => prev.filter((m) => m.outId !== move.outId))}
@@ -802,9 +802,9 @@ export default function TransfersPage() {
                               setPickingFor(pick.playerId);
                               setSearch("");
                             }}
-                            className="rounded border border-zinc-300 px-2 py-0.5 text-xs font-medium transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+                            className="min-h-9 rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
                           >
-                            Transfer out
+                            Replace
                           </button>
                         )}
                       </td>
@@ -850,7 +850,7 @@ export default function TransfersPage() {
                           onClick={() => addMove(pickingFor, player.id)}
                           className="flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-purple-950/60"
                         >
-                          <span className="min-w-0">
+                          <span className="block min-w-0">
                             <span className="font-medium text-zinc-800 dark:text-zinc-200">
                               {player.webName}
                             </span>
@@ -858,7 +858,7 @@ export default function TransfersPage() {
                               {player.teamShort} · {money(player.price)}
                             </span>
                             {rationale.length > 0 && (
-                              <span className="block text-[11px] text-zinc-500">
+                              <span className="block text-[11px] text-zinc-500 break-words">
                                 {rationale.join(" · ")}
                               </span>
                             )}

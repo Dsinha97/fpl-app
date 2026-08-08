@@ -447,13 +447,17 @@ export default function PlayersPage() {
 
       {!loading && !error && (
         <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[56rem] text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500 dark:border-purple-900/40">
-                <th className="px-3 py-2 uppercase tracking-wide">
-                  <span className="sr-only">Compare</span>
+                {/* Sticky so the player being scanned stays visible while
+                    scrolling the rest of a wide table horizontally on
+                    mobile — the checkbox lives in this same cell (see the
+                    body row below) rather than its own column, so there is
+                    one sticky boundary to reason about, not two. */}
+                <th className="sticky left-0 z-10 bg-white px-3 py-2 uppercase tracking-wide dark:bg-[#1E0234]">
+                  Player
                 </th>
-                <th className="px-3 py-2 uppercase tracking-wide">Player</th>
                 <th className="px-2 py-2 uppercase tracking-wide">Team</th>
                 <th className="px-2 py-2 uppercase tracking-wide">Pos</th>
                 {header("Price", "price")}
@@ -525,18 +529,16 @@ export default function PlayersPage() {
                     key={p.id}
                     className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
                   >
-                    <td className="px-3 py-1.5">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={disableCheckbox}
-                        onChange={() => toggleSelected(p.id)}
-                        aria-label={`Select ${p.web_name} to compare`}
-                        className="h-4 w-4 accent-purple-700 disabled:cursor-not-allowed disabled:opacity-40 dark:accent-[#00FF87]"
-                      />
-                    </td>
-                    <td className="px-3 py-1.5">
+                    <td className="sticky left-0 z-10 bg-white px-3 py-1.5 dark:bg-[#1E0234]">
                       <span className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={disableCheckbox}
+                          onChange={() => toggleSelected(p.id)}
+                          aria-label={`Select ${p.web_name} to compare`}
+                          className="h-4 w-4 shrink-0 accent-purple-700 disabled:cursor-not-allowed disabled:opacity-40 dark:accent-[#00FF87]"
+                        />
                         <span className="font-medium" title={fullName(p) ?? undefined}>
                           {p.web_name}
                         </span>
@@ -585,7 +587,7 @@ export default function PlayersPage() {
                     <td className="px-2 py-1.5 tabular-nums">{h?.expected_goals ?? "—"}</td>
                     <td className="px-2 py-1.5 tabular-nums">{h?.expected_assists ?? "—"}</td>
                     <td className="px-2 py-1.5">
-                      <span className="flex gap-1.5">
+                      <span className="flex flex-wrap gap-1.5">
                         {run.map((c, i) => (
                           <FixtureCell
                             key={i}
@@ -603,7 +605,7 @@ export default function PlayersPage() {
               })}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={14} className="px-3 py-6 text-center text-zinc-500">
+                  <td colSpan={13} className="px-3 py-6 text-center text-zinc-500">
                     No players match the current filters.
                   </td>
                 </tr>

@@ -36,8 +36,8 @@ interface PlayerDetailProps {
   onRemove: (playerId: number) => void;
   /**
    * When the panel is opened from the player picker rather than the pitch, the
-   * player may not be in the squad — the actions become Add and Find
-   * replacement instead of the armband controls.
+   * player may not be in the squad — the actions become Add and Replace
+   * instead of the armband controls.
    */
   owned?: boolean;
   onAdd?: (playerId: number) => void;
@@ -304,9 +304,9 @@ export function PlayerDetail({
       {owned && onFindReplacement && (
         <button
           onClick={() => onFindReplacement(player.id)}
-          className="mt-1.5 w-full rounded border border-zinc-300 px-2 py-1 text-xs font-medium transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+          className="mt-1.5 min-h-9 w-full rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
         >
-          Find replacement
+          Replace
         </button>
       )}
     </div>

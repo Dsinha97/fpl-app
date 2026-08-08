@@ -183,10 +183,19 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
         {player.next_fixture && (
           <FDRBadge
             rating={asRating(player.next_fixture.fdr)}
-            className="px-1 py-0 text-[8px] font-bold"
+            className={`px-1 py-0 text-[8px] font-bold ring-1 ${
+              player.next_fixture.is_home ? "ring-green-400" : "ring-red-400"
+            }`}
           >
             {player.next_fixture.opponent_short_name}
-            {player.next_fixture.is_home ? " (H)" : " (A)"}
+            {/* Home/away as text only from sm up — below that this single span,
+                shown or hidden as a whole, is the only way to keep the venue
+                ring (kept at every width) from also needing wrappable text. A
+                bare " (H)" text node next to the opponent code is a legal
+                line-break point inside this 64px card. */}
+            <span className="hidden sm:inline">
+              {player.next_fixture.is_home ? " (H)" : " (A)"}
+            </span>
           </FDRBadge>
         )}
       </span>

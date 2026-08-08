@@ -452,8 +452,14 @@ export default function ScenariosPage() {
 
   const bestTotal = ranked[0]?.score?.total;
 
+  // Ticking a 2nd draft used to leave the comparison a full page-scroll
+  // below the card grid with no way to jump to it — this ref plus the
+  // sticky bar below fix that, mirroring the pattern app/players/page.tsx
+  // already uses for its own bottom bar.
+  const comparisonRef = useRef<HTMLElement>(null);
+
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+    <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 pb-24">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
@@ -735,7 +741,7 @@ export default function ScenariosPage() {
 
       {/* comparison */}
       {chosen.length >= 2 && (
-        <section className="mt-8">
+        <section ref={comparisonRef} className="mt-8 scroll-mt-4">
           <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
             Comparing {chosen.length} drafts
           </h2>
@@ -785,6 +791,32 @@ export default function ScenariosPage() {
         <p className="mt-6 text-sm text-zinc-500">
           Select one more draft to compare — a single squad has nothing to be measured against.
         </p>
+      )}
+
+      {chosen.length >= 2 && (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-[#1E0234]/95">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+            <span className="text-sm text-zinc-600 dark:text-zinc-400">
+              Comparing {chosen.length} draft{chosen.length === 1 ? "" : "s"}
+            </span>
+            <span className="flex items-center gap-3">
+              <button
+                onClick={() => setSelected([])}
+                className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 dark:hover:text-[#00FF87]"
+              >
+                Clear
+              </button>
+              <button
+                onClick={() =>
+                  comparisonRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+                className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e078]"
+              >
+                Compare {chosen.length} drafts ↓
+              </button>
+            </span>
+          </div>
+        </div>
       )}
     </main>
   );

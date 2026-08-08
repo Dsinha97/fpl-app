@@ -56,6 +56,10 @@ export default function ChipsPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** The inline model-note banner below — collapsed by default so it doesn't
+   * eat the whole screen on mobile. Same text is always in the header
+   * tooltip too; see the comment at the banner itself. */
+  const [noteOpen, setNoteOpen] = useState(false);
 
   useEffect(() => {
     const list = listDrafts();
@@ -361,10 +365,24 @@ export default function ChipsPage() {
 
       {result && team && (
         <>
-          {/* fixture-flatness disclosure, spelled out rather than only in the tooltip */}
-          <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
-            {result.note}
-          </p>
+          {/* fixture-flatness disclosure, spelled out rather than only in the
+              tooltip — collapsed by default so the note doesn't push every
+              schedule below the fold on a phone. */}
+          <div className="mt-4 overflow-hidden rounded-md border border-amber-300 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/40">
+            <button
+              onClick={() => setNoteOpen((v) => !v)}
+              aria-expanded={noteOpen}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs leading-relaxed text-amber-800 dark:text-amber-300"
+            >
+              <span
+                aria-hidden="true"
+                className={`shrink-0 text-amber-600 transition-transform dark:text-amber-400 ${noteOpen ? "rotate-180" : ""}`}
+              >
+                ⌃
+              </span>
+              <span className={`min-w-0 flex-1 ${noteOpen ? "" : "truncate"}`}>{result.note}</span>
+            </button>
+          </div>
 
           {/* per-half schedules — FPL grants each chip once per half, so these
               are two independent decisions, not one combined total. */}

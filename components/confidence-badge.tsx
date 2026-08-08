@@ -9,6 +9,11 @@ const STYLE: Record<Reliability, string> = {
 };
 
 const SHORT: Record<Reliability, string> = { high: "own record", medium: "part prior", low: "prior" };
+/** Below `sm` the full two-word label collides with `RateBand` underneath it
+ * in narrow table cells (see app/players/page.tsx) — the two-letter form
+ * carries the same colour + border channel, and the full sentence is still
+ * in `title`/`aria-label` at every width. */
+const SHORTEST: Record<Reliability, string> = { high: "OR", medium: "PP", low: "PR" };
 
 /**
  * How much of a projection is the player's own record versus a fitted prior.
@@ -36,9 +41,10 @@ export function ConfidenceBadge({
     <span
       title={`${RELIABILITY_LABELS[reliability]}${share ? ` (${share})` : ""}`}
       aria-label={`Projection confidence: ${reliability}${share ? `, ${share}` : ""}`}
-      className={`inline-flex shrink-0 items-center rounded border px-1 py-px text-[9px] font-medium uppercase tracking-wide ${STYLE[reliability]} ${className}`}
+      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded border px-1 py-px text-[9px] font-medium uppercase tracking-wide ${STYLE[reliability]} ${className}`}
     >
-      {SHORT[reliability]}
+      <span className="sm:hidden">{SHORTEST[reliability]}</span>
+      <span className="hidden sm:inline">{SHORT[reliability]}</span>
     </span>
   );
 }
@@ -63,7 +69,7 @@ export function RateBand({
   return (
     <span
       title={COLD_START_NOTE}
-      className={`block cursor-help text-[10px] tabular-nums text-zinc-400 ${className}`}
+      className={`mt-0.5 block cursor-help text-[10px] tabular-nums text-zinc-400 ${className}`}
     >
       {lower.toFixed(1)}–{upper.toFixed(1)}
     </span>

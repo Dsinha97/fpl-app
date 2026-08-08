@@ -15,7 +15,7 @@ export function FDRBadge({ rating, showLabel = false, className = "", children }
   return (
     <span
       title={`FDR ${rating} — ${fdr.label}`}
-      className={`inline-flex items-center justify-center rounded px-2 py-0.5 text-xs font-bold shadow-sm transition-colors ${fdr.bgClass} ${fdr.textClass} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded px-2 py-0.5 text-xs font-bold shadow-sm transition-colors ${fdr.bgClass} ${fdr.textClass} ${className}`}
     >
       {children ?? rating}
       {showLabel && !children && <span className="ml-1 font-semibold">{fdr.label}</span>}

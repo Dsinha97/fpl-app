@@ -236,9 +236,9 @@ function BranchRow({
           title={
             isLoaded ? "Already in the basket" : "Puts these transfers in the basket below to apply"
           }
-          className="mt-1.5 rounded border border-zinc-300 px-2 py-0.5 text-xs font-medium transition-colors hover:border-purple-700 hover:text-purple-700 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 motion-reduce:transition-none dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+          className="mt-1.5 min-h-9 rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 motion-reduce:transition-none dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
         >
-          {isLoaded ? "In the basket" : "Load into basket"}
+          {isLoaded ? "Loaded" : "Load"}
         </button>
       )}
     </li>
