@@ -587,7 +587,11 @@ export default function PlayersPage() {
                     <td className="px-2 py-1.5 tabular-nums">{h?.expected_goals ?? "—"}</td>
                     <td className="px-2 py-1.5 tabular-nums">{h?.expected_assists ?? "—"}</td>
                     <td className="px-2 py-1.5">
-                      <span className="flex flex-wrap gap-1.5">
+                      {/* Wraps to at most 3 rows and grows sideways instead of
+                          down — the table already scrolls horizontally, so a
+                          19 GW or Season run just widens the scroll area
+                          rather than pushing every row's height around. */}
+                      <span className="grid w-max grid-flow-col grid-rows-3 gap-1.5">
                         {run.map((c, i) => (
                           <FixtureCell
                             key={i}

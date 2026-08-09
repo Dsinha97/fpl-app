@@ -709,14 +709,21 @@ export default function TransfersPage() {
       {team && !loading && (
         <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           {/* squad */}
-          <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+          {/* min-w-0: a grid item defaults to min-width:auto, which would let
+              the min-w-[34rem] table below stretch this section (and the
+              page) wide instead of scrolling inside its own overflow-x-auto
+              wrapper. */}
+          <section className="min-w-0 rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               {team.name} · {team.players.length} players
             </h2>
-            <table className="mt-2 w-full text-sm">
+            <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[34rem] text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-[10px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                  <th className="px-2 py-1.5">Player</th>
+                  <th className="sticky left-0 z-10 bg-white px-2 py-1.5 dark:bg-[#1E0234]">
+                    Player
+                  </th>
                   <th className="px-2 py-1.5">Pos</th>
                   <th className="px-2 py-1.5">Sell</th>
                   <th className="px-2 py-1.5">{horizonLabel(horizon)}</th>
@@ -745,7 +752,13 @@ export default function TransfersPage() {
                         move ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
                       }`}
                     >
-                      <td className="px-2 py-1.5">
+                      <td
+                        className={`sticky left-0 z-10 px-2 py-1.5 ${
+                          move
+                            ? "bg-amber-50 dark:bg-[#2a1f0a]"
+                            : "bg-white dark:bg-[#1E0234]"
+                        }`}
+                      >
                         <span className="flex items-center gap-1.5">
                           <span
                             className={
@@ -813,6 +826,7 @@ export default function TransfersPage() {
                 })}
               </tbody>
             </table>
+            </div>
 
             {/* candidate picker */}
             {pickingFor !== null && (

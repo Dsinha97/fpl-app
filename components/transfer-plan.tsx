@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   DEFAULT_DECISION_MARGIN,
   type Branch,
@@ -62,6 +63,11 @@ export function TransferPlan({
   loadedSignature,
   loading,
 }: TransferPlanProps) {
+  // Collapsed by default — TRANSFER_MODEL_NOTE runs to a full paragraph and
+  // ate the whole screen below the branch list on mobile. Same idiom as the
+  // chips page's model-note banner.
+  const [noteOpen, setNoteOpen] = useState(false);
+
   return (
     <section className="mt-5 rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -138,10 +144,24 @@ export function TransferPlan({
             ))}
           </ul>
 
-          <p className="mt-3 text-[10px] leading-relaxed text-zinc-400">
-            Free transfers next gameweek if you spend none now: {result.accruedFreeTransfers}.{" "}
-            {result.note}
-          </p>
+          <div className="mt-3 overflow-hidden rounded-md border border-zinc-200 dark:border-purple-900/40">
+            <button
+              onClick={() => setNoteOpen((v) => !v)}
+              aria-expanded={noteOpen}
+              className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400"
+            >
+              <span
+                aria-hidden="true"
+                className={`shrink-0 text-zinc-400 transition-transform ${noteOpen ? "" : "rotate-180"}`}
+              >
+                ⌃
+              </span>
+              <span className={`min-w-0 flex-1 ${noteOpen ? "" : "truncate"}`}>
+                Free transfers next gameweek if you spend none now: {result.accruedFreeTransfers}.{" "}
+                {result.note}
+              </span>
+            </button>
+          </div>
         </>
       )}
     </section>
