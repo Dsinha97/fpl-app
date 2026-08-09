@@ -955,6 +955,41 @@ Both functions are deployed. **One step only the owner can do**: set the
 or CLI — until then `fpl-session` fails closed with "Server is not configured to store this
 yet" rather than storing anything unencrypted.
 
+### Sprint 14.1 — Google sign-in, and an honest rate-limit error (built, 2026-08-09)
+
+The first real sign-in attempt failed: `auth` logs showed `error_code:
+"over_email_send_rate_limit"` on `/otp`, from Sprint 14's own verification round-trips
+exhausting Supabase's built-in email sender's quota. That sender's cap is **a
+project-wide, rolling hourly token bucket** — Supabase's own rate-limits docs are explicit
+that it is changeable *only* by adding custom SMTP, which this app deliberately doesn't
+have (sender verification wants a domain the app doesn't own; it lives on `workers.dev`).
+There is no dashboard setting that raises the built-in cap, and no "used up permanently"
+state — it refills continuously, confirmed by triggering the same 429 again with the exact
+same error code an hour into the same session.
+
+**Google became the primary sign-in path** (`app/signin/page.tsx`), sending no email at all
+so the quota never applies to it. `app/auth/callback/page.tsx` needed no change for the
+happy path — `flowType: "pkce"` / `detectSessionInUrl: true` exchange a Google `?code=`
+identically to a magic-link one. It did need a genuine fix: cancelling at Google's consent
+screen redirects back with `?error=access_denied&error_description=…` and no code, which
+the callback page previously had no path for and would spin on "Signing you in…" forever.
+Reading that off the URL had to go in a `useEffect`, not a `useState` lazy initializer — the
+page is statically prerendered (no `window` at build time), so a lazy initializer produces a
+genuine hydration mismatch between the prerendered "Signing you in…" and the client's
+immediate error render. Caught by testing the exact cancelled-consent URL shape in the
+browser, not by inspection — the mismatch only shows up once the client actually hydrates.
+
+Magic link stays as the fallback (kept deliberately, not removed, once the mechanism was
+confirmed to be a renewing hourly limit rather than a one-time cap) with its two most common
+Supabase error codes explained in place of the raw string:
+`over_email_send_rate_limit` points at the Google button; `email_address_invalid` (hit
+during Sprint 14's own testing with `@example.com`) says the address was rejected rather
+than echoing Supabase's bare message.
+
+**Testing note, since this quota is genuinely easy to exhaust by hand**: send at most one
+real magic-link OTP per testing session and prefer the Google button for anything repeated
+— see CLAUDE.md, "Magic-link testing shares one project-wide email quota".
+
 ## Cross-cutting
 
 **Risk formula** (revised spec):

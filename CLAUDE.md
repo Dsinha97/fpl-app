@@ -48,6 +48,19 @@ login is blocked", for the full probe table. Built instead: a session handoff
 in to FPL in their own browser and pastes the resulting session, which is AES-256-GCM
 encrypted at rest under the `FPL_SESSION_ENC_KEY` Edge secret.
 
+**Magic-link testing shares one project-wide email quota — throttle yourself, not just the
+user.** Supabase's built-in email sender enforces `over_email_send_rate_limit` as a rolling
+*hourly* token bucket (confirmed in `auth` logs and Supabase's own rate-limits docs — it
+refills continuously, there is no one-time or daily cap to "use up permanently"), shared
+across every `/auth/v1/otp` call project-wide regardless of which email address is used.
+Sprint 14's own verification exhausted it twice in one session. **In any testing session,
+send at most one real magic-link OTP** — that's already close to 20% of a typical low
+default (2–4/hour is common on the built-in sender); a second or third "let me just
+double-check" send is what actually causes the 429, not real usage. The exact configured
+number is Authentication → Rate Limits in the Supabase dashboard, not visible to any tool
+here. `app/signin/page.tsx`'s Google button exists precisely so verifying sign-in doesn't
+have to touch this quota at all — prefer it for repeat testing.
+
 **Row Level Security is a real access boundary here, not a formality — verify it, don't
 just enable it.** Every table with a `user_id` (`user_profiles`, `team_drafts`,
 `draft_snapshots`, `manager_rivals`, added Sprint 14) is scoped `auth.uid() = user_id` in

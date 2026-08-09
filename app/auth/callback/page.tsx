@@ -5,16 +5,37 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 /**
- * Landing page for the magic-link redirect. `detectSessionInUrl: true` (see
- * lib/supabase/client.ts) makes supabase-js exchange the PKCE code in the URL
- * for a session automatically on load — this page just waits for that to
- * land via onAuthStateChange, rather than re-implementing the exchange.
+ * Landing page for both the magic-link and Google redirects.
+ * `detectSessionInUrl: true` (see lib/supabase/client.ts) makes supabase-js
+ * exchange the PKCE code in the URL for a session automatically on load —
+ * this page just waits for that to land via onAuthStateChange, rather than
+ * re-implementing the exchange.
  */
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Magic link has no "decline" — Google does: cancelling at the consent
+    // screen redirects here with ?error=access_denied&error_description=…
+    // and no code at all, so neither onAuthStateChange nor getSession below
+    // would ever fire, leaving "Signing you in…" spinning forever without
+    // this check.
+    //
+    // This has to run inside the effect, not a useState lazy initializer:
+    // the page is statically prerendered (no `window` at build time), so a
+    // lazy initializer that reads location.search renders the error
+    // synchronously on the client's first paint while the prerendered HTML
+    // still says "Signing you in…" — a genuine hydration mismatch, caught by
+    // testing this exact URL shape in the browser rather than assumed safe.
+    const params = new URLSearchParams(window.location.search);
+    const oauthError = params.get("error_description") ?? params.get("error");
+    if (oauthError) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setError(decodeURIComponent(oauthError.replace(/\+/g, " ")));
+      return;
+    }
+
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) router.replace("/team/");
     });
