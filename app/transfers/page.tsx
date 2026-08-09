@@ -718,14 +718,14 @@ export default function TransfersPage() {
               {team.name} · {team.players.length} players
             </h2>
             <div className="mt-2 overflow-x-auto">
-            <table className="w-full min-w-[34rem] text-sm">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-[10px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
                   <th className="sticky left-0 z-10 bg-white px-2 py-1.5 dark:bg-[#1E0234]">
                     Player
                   </th>
-                  <th className="px-2 py-1.5">Pos</th>
-                  <th className="px-2 py-1.5">Sell</th>
+                  <th className="hidden px-2 py-1.5 sm:table-cell">Pos</th>
+                  <th className="hidden px-2 py-1.5 sm:table-cell">Sell</th>
                   <th className="px-2 py-1.5">{horizonLabel(horizon)}</th>
                   <th className="px-2 py-1.5">
                     <span
@@ -759,13 +759,13 @@ export default function TransfersPage() {
                             : "bg-white dark:bg-[#1E0234]"
                         }`}
                       >
-                        <span className="flex items-center gap-1.5">
+                        <span className="flex max-w-[7.5rem] items-center gap-1.5 sm:max-w-none">
                           <span
-                            className={
+                            className={`min-w-0 truncate ${
                               move
                                 ? "text-zinc-400 line-through"
                                 : "font-medium text-zinc-800 dark:text-zinc-200"
-                            }
+                            }`}
                             title={row ? (fullName(row) ?? undefined) : undefined}
                           >
                             {s?.webName ?? `#${pick.playerId}`}
@@ -778,21 +778,23 @@ export default function TransfersPage() {
                               size="w-3.5 h-3.5"
                             />
                           )}
-                          {team.captain === pick.playerId && <CaptainBadge className="h-4 w-4" />}
+                          {team.captain === pick.playerId && (
+                            <CaptainBadge className="h-4 w-4 shrink-0" />
+                          )}
                           {team.viceCaptain === pick.playerId && (
-                            <ViceCaptainBadge className="h-4 w-4" />
+                            <ViceCaptainBadge className="h-4 w-4 shrink-0" />
                           )}
                           {incoming && (
-                            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                            <span className="truncate text-xs font-medium text-emerald-700 dark:text-emerald-400">
                               → {incoming.webName}
                             </span>
                           )}
                         </span>
                       </td>
-                      <td className="px-2 py-1.5 text-xs text-zinc-500">
+                      <td className="hidden px-2 py-1.5 text-xs text-zinc-500 sm:table-cell">
                         {POSITIONS[s?.elementType ?? 0] ?? "—"}
                       </td>
-                      <td className="px-2 py-1.5 text-xs tabular-nums text-zinc-500">
+                      <td className="hidden px-2 py-1.5 text-xs tabular-nums text-zinc-500 sm:table-cell">
                         {money(pick.purchasePrice)}
                       </td>
                       <td className="px-2 py-1.5 tabular-nums font-semibold text-purple-800 dark:text-[#00FF87]">
