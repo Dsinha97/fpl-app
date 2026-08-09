@@ -51,6 +51,7 @@ Deno.serve(async (req) => {
       {
         ok: false,
         error: "lapsed",
+        reason: "no_session_saved",
         message: "No FPL session saved yet — add one in Settings → FPL Account.",
       },
       401,
@@ -83,10 +84,19 @@ Deno.serve(async (req) => {
   // that would make an imported squad's sell prices quietly wrong.
   const contentType = res.headers.get("content-type") ?? "";
   if (res.status === 401 || res.status === 403 || !contentType.includes("application/json")) {
+    // Diagnostics only — upstream status and content-type, never the cookie
+    // or FPL's response body, which could itself carry account-identifying
+    // detail. This is temporary instrumentation to tell apart "the cookie
+    // is genuinely stale" from "FPL is rejecting the request for some other
+    // reason (missing header, IP/session binding, etc.)" — the two look
+    // identical from the outside otherwise.
     return jsonResponse(
       {
         ok: false,
         error: "lapsed",
+        reason: "fpl_rejected",
+        upstream_status: res.status,
+        upstream_content_type: contentType,
         message: "Your FPL session has expired — paste a fresh one in Settings → FPL Account.",
       },
       401,

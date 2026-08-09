@@ -86,7 +86,18 @@ export default function FplSettingsPage() {
             `${result.myTeam?.transfers?.limit ?? "?"} free transfer(s).`,
         });
       } else if (result.error === "lapsed") {
-        setStatus({ kind: "error", message: result.message ?? "Session has lapsed — paste a fresh one." });
+        // Temporary diagnostics from fpl-my-team while the paste-a-cookie
+        // flow is new — upstream status/content-type only, never the cookie
+        // or FPL's response body.
+        const diag = result.upstream_status
+          ? ` (FPL responded ${result.upstream_status}, content-type "${result.upstream_content_type}")`
+          : result.reason === "no_session_saved"
+            ? " (nothing saved server-side yet)"
+            : "";
+        setStatus({
+          kind: "error",
+          message: (result.message ?? "Session has lapsed — paste a fresh one.") + diag,
+        });
       } else {
         setStatus({ kind: "error", message: result.message ?? result.error ?? "Test failed" });
       }
