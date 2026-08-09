@@ -2,13 +2,23 @@ import type { TeamState } from "./team-state";
 
 // Draft persistence.
 //
-// localStorage for now, which is the build plan's stated initial strategy: no
-// login, instant load, easy testing. Cloud sync arrives with Supabase Auth in
-// a later sprint; because drafts are plain serialised TeamState objects, that
-// migration is a transport change rather than a data-model change.
+// localStorage is the working copy — instant load, works signed out, and
+// every page that touches a draft (builder, scenarios, transfers, chips)
+// reads/writes through this synchronous API unchanged. Sprint 14 adds
+// lib/draft-sync.ts as a replica on top: it pulls from and pushes to
+// team_drafts using the exact same TeamState shape and the mergeDrafts rule
+// below, so the cloud layer is a transport change, not a data-model one.
 
 const KEY = "fpl_drafts_v1";
 const HISTORY_KEY = "fpl_draft_history_v1";
+/**
+ * Deletes made while offline (or before Sprint 14's cloud sync exists) have
+ * to survive a later pull from the cloud, or the next sync would resurrect
+ * whatever the server still has under that id. Recorded locally as
+ * draftId -> deletedAt; lib/draft-sync.ts reads this to push a tombstone and
+ * clears the entry once the cloud row is confirmed gone.
+ */
+const TOMBSTONE_KEY = "fpl_draft_tombstones_v1";
 
 /**
  * Saves retained per draft.
@@ -43,8 +53,25 @@ function readAll(): TeamState[] {
   }
 }
 
+// Notified on every local mutation (save, delete, import), so
+// lib/draft-sync.ts can debounce a push without lib/drafts.ts knowing
+// anything about Supabase or auth — this module stays a pure localStorage
+// store, sync is layered on top rather than mixed in.
+type Listener = () => void;
+const listeners = new Set<Listener>();
+
+export function onDraftsChanged(cb: Listener): () => void {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+}
+
+function notifyChanged() {
+  for (const cb of listeners) cb();
+}
+
 function writeAll(drafts: TeamState[]) {
   window.localStorage.setItem(KEY, JSON.stringify(drafts));
+  notifyChanged();
 }
 
 function readHistory(): Record<string, DraftSnapshot[]> {
@@ -63,6 +90,36 @@ function readHistory(): Record<string, DraftSnapshot[]> {
 
 function writeHistory(history: Record<string, DraftSnapshot[]>) {
   window.localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+}
+
+function readTombstones(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(TOMBSTONE_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, string>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeTombstones(tombstones: Record<string, string>) {
+  window.localStorage.setItem(TOMBSTONE_KEY, JSON.stringify(tombstones));
+}
+
+/** Draft ids deleted locally, with when — for lib/draft-sync.ts to push as cloud deletes. */
+export function pendingTombstones(): Record<string, string> {
+  return readTombstones();
+}
+
+/** Called once a tombstone has been pushed (or confirmed already applied) in the cloud. */
+export function clearTombstone(draftId: string) {
+  const tombstones = readTombstones();
+  delete tombstones[draftId];
+  writeTombstones(tombstones);
 }
 
 const snapshotOf = (state: TeamState): DraftSnapshot => ({
@@ -138,6 +195,10 @@ export function deleteDraft(draftId: string) {
   const history = readHistory();
   delete history[draftId];
   writeHistory(history);
+
+  const tombstones = readTombstones();
+  tombstones[draftId] = new Date().toISOString();
+  writeTombstones(tombstones);
 }
 
 export function renameDraft(draftId: string, name: string): TeamState | null {
@@ -200,6 +261,39 @@ export interface ImportResult {
   error: string | null;
 }
 
+export interface MergeResult {
+  merged: TeamState[];
+  /** Ids that won — either new to `local` or newer by `updatedAt`. */
+  addedIds: string[];
+  added: number;
+  skipped: number;
+}
+
+/**
+ * The merge rule both file import and cloud sync (lib/draft-sync.ts) run on:
+ * a draft this side has never seen always wins; otherwise the newer save
+ * wins by `updatedAt`. Pulled out so the two callers cannot silently
+ * disagree about which copy of a draft is correct — CLAUDE.md's "one
+ * quantity, one implementation".
+ */
+export function mergeDrafts(local: TeamState[], incoming: TeamState[]): MergeResult {
+  const byId = new Map(local.map((d) => [d.draftId, d]));
+  const addedIds: string[] = [];
+  let skipped = 0;
+
+  for (const inc of incoming) {
+    const current = byId.get(inc.draftId);
+    if (!current || inc.updatedAt > current.updatedAt) {
+      byId.set(inc.draftId, inc);
+      addedIds.push(inc.draftId);
+    } else {
+      skipped++;
+    }
+  }
+
+  return { merged: [...byId.values()], addedIds, added: addedIds.length, skipped };
+}
+
 /**
  * Restore drafts from a previously exported file.
  *
@@ -249,29 +343,21 @@ export function importDrafts(json: string, mode: "merge" | "replace"): ImportRes
     return { added: drafts.length, skipped: envelope.drafts.length - drafts.length, error: null };
   }
 
-  const byId = new Map(readAll().map((d) => [d.draftId, d]));
-  const history = readHistory();
-  let added = 0;
-  let skipped = 0;
-
-  for (const incoming of envelope.drafts) {
-    if (!isDraft(incoming)) {
-      skipped++;
-      continue;
-    }
-    const current = byId.get(incoming.draftId);
-    // A draft this browser has never seen always wins; otherwise the newer
-    // save wins, so reimporting an old backup can't clobber later work.
-    if (!current || incoming.updatedAt > current.updatedAt) {
-      byId.set(incoming.draftId, incoming);
-      if (incomingHistory[incoming.draftId]) history[incoming.draftId] = incomingHistory[incoming.draftId];
-      added++;
-    } else {
-      skipped++;
-    }
+  const validDrafts: TeamState[] = [];
+  let invalidCount = 0;
+  for (const d of envelope.drafts) {
+    if (isDraft(d)) validDrafts.push(d);
+    else invalidCount++;
   }
 
-  writeAll([...byId.values()]);
+  const { merged, addedIds, added, skipped } = mergeDrafts(readAll(), validDrafts);
+
+  const history = readHistory();
+  for (const id of addedIds) {
+    if (incomingHistory[id]) history[id] = incomingHistory[id];
+  }
+
+  writeAll(merged);
   writeHistory(history);
-  return { added, skipped, error: null };
+  return { added, skipped: skipped + invalidCount, error: null };
 }

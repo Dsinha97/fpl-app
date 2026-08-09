@@ -28,8 +28,8 @@ prediction window past 8 gameweeks, landed 2026-08-06.
 | 12 | Chip Strategy Engine | **Built** — `/chips`, `lib/chips.ts` |
 | 12.5 | PL Team (Club) Manager Intelligence | Not started — **reconciled and scoped down**, see below |
 | 12.6 | Defensive Contribution engine fix, plus five surface fixes | **Built** — see below |
-| 13 | Live Matchday Hub | Not started |
-| 14 | Authentication & Team Sync | Not started |
+| 13 | Live Matchday Hub | Not started — **staged for GW1**, see below |
+| 14 | Authentication & Team Sync | **Built** — see below |
 | 15 | Action Layer | Not started |
 | 16 | Notifications & Automation | Not started |
 | 17 | Historical Analytics & ML | Not started |
@@ -642,13 +642,10 @@ fixture's FDR) — no new fetch. Free Hit and Wildcard stay off both pages: each
 rebuild search that already takes several seconds on `/chips` alone, and running it on every builder
 edit would make the page unusable — both pages link to `/chips` for them instead.
 
-## Sprints 13–17
+## Sprints 15–17
 
-- **13 Live Matchday Hub** — a `GameweekState` object: live score, bonus, live rank, pending auto
-  subs, captain EO, safety score. Depends on `sync-live-gameweek`'s row-writing path, which has never
-  executed — there have been no live matches.
-- **14 Authentication & Team Sync** — Supabase Auth, FPL login through an Edge Function, import team,
-  compare draft against live. Drafts migrate off `localStorage` here.
+Sprints 13 and 14 have their own sections below (13 staged for GW1, 14 built).
+
 - **15 Action Layer** — submit lineup, captain, transfers, chips. Always with explicit confirmation;
   credentials server-side only.
 - **16 Notifications** — deadline, injury, suspension, price change, fixture change, new
@@ -825,6 +822,138 @@ entirely about one manager's squad — a league-wide reference table with no nat
 `/fixtures` already had tab machinery (`schedule | fdr`) and already loaded the `teams` row the grid
 needs; extracted into `components/club-tactics.tsx`, unchanged in content and disclosure
 (`TACTICAL_PROFILE_NOTE`).
+
+## Sprint 13 — Live Matchday Hub (staged, not built, 2026-08-09)
+
+Not started, deliberately: GW1's deadline is 2026-08-21, and `sync-live-gameweek`'s
+row-writing path has never executed in production — it skips whenever there is no current
+gameweek or no live fixture (`docs/architecture.md`), and both guards have been true every
+day since the pipeline shipped. Code and a UI written against an unexercised write path
+would be unverifiable until a real match kicks off, so Sprint 14 was taken first and this
+sprint's groundwork was limited to what costs nothing and needs no live data to be correct:
+
+- **`player_live_stats`'s row count is now visible on `/status`** (`app/status/page.tsx`),
+  closing the one observability gap the exploration found — previously the table wasn't in
+  the warehouse-contents grid at all, so there was no way to see the write path finally
+  fire without querying the database directly.
+
+**What Sprint 13 builds, once GW1 is live** — a `GameweekState` object surfaced on `/team`
+(or a new `/live` page): live score, provisional bonus, live overall rank, pending
+auto-substitutions, captain effective ownership, and a "safety score" for the bench/captain
+decision already locked in. Every field is already in `player_live_stats` (`bonus`, `bps`,
+`in_dreamteam`, the live per-gameweek aggregate) or reachable from `manager_gameweek_history`
+— this is a read/render sprint, not a new sync.
+
+**GW1 dry-run checklist**, to run the moment the first fixture kicks off:
+
+1. Confirm `sync-live-gameweek` actually leaves its `skipped` branch — `/status`'s "Last run
+   per function" row should read `success`, not `skipped`, and the new "Live-gameweek rows"
+   count on the warehouse-contents grid should move off zero.
+2. Spot-check one player's `player_live_stats` row against the FPL app's own live score for
+   the same fixture — `bonus`/`bps` are provisional mid-match and can still move.
+3. Only after that passes: build the `GameweekState` render layer against real rows, not
+   `?force=1` synthetic ones — a shape that looks right against a forced dry run can still
+   be wrong against what a live match actually populates (see CLAUDE.md's "verify engine
+   changes against live data" precedent from the squad-optimiser and beam-search bugs).
+
+## Sprint 14 — Authentication & Team Sync (built, 2026-08-09)
+
+Supabase Auth (magic link / email OTP), owned cloud storage for drafts, real-FPL-squad
+import, and a session handoff standing in for the FPL login the roadmap originally
+specified — see "FPL login is blocked" below for why. This is the item Sprint 8 recorded as
+a gap ("a real-FPL-squad starting point waits on Sprint 14") and the item `lib/drafts.ts`
+recorded as waiting on ("Cloud sync arrives with Supabase Auth in a later sprint").
+
+**Auth.** Passwordless: `signInWithOtp` + a PKCE callback (`app/signin`, `app/auth/callback`),
+mirrored into a `components/auth-provider.tsx` context every page reads. No password is ever
+set, stored, or reset for the app's own accounts either — the static export has no server to
+hash one against, and it sidesteps building a reset flow for no benefit at one owner's scale.
+
+**Ownership schema — the first RLS beyond "Public read" in this project.**
+`user_profiles` / `team_drafts` / `draft_snapshots` / `manager_rivals`, every one scoped
+`auth.uid() = user_id` in both directions, migration `20260809190000_sprint14_auth_ownership.sql`.
+Verified live, not just read from the policy definitions: with two throwaway `auth.users` rows
+in a rolled-back transaction, user B's `select count(*)` against all three RLS-scoped tables
+returned 0, and B's `update ... where draft_id = <A's known id>` affected 0 rows — A's row was
+provably untouched afterward. `team_drafts.players` is `jsonb`, not the roadmap's original
+`team_drafts` / `draft_players` / `draft_lineups` split — a draft is always read and written
+whole, so a normalised child table would buy nothing but a hard FK to `players(season, id)`
+that a season rollover would strand, the exact trap `manager_picks` already carries.
+
+**Draft sync stays local-first.** `lib/drafts.ts`'s synchronous localStorage API is
+unchanged — every existing page (`/builder`, `/scenarios`, `/transfers`, `/chips`) still
+works signed out, exactly as before. `lib/draft-sync.ts` layers a replica on top: pulls on
+sign-in, pushes on a 2s debounce after any local mutation (`onDraftsChanged`, a small
+pub-sub `lib/drafts.ts` now exposes so it stays framework- and auth-agnostic), and merges
+via `mergeDrafts` — the exact rule `importDrafts`'s merge branch already used (unseen draft
+wins, else newer `updatedAt` wins), pulled out into its own export specifically so file
+import and cloud sync cannot disagree about which copy of a draft is correct. Deletes are
+tombstoned locally (`fpl_draft_tombstones_v1`) before being pushed as `team_drafts.deleted_at`,
+so a delete on one device is not resurrected by a pull on another.
+
+**Real squad import.** `lib/fpl-squad.ts`'s `teamStateFromPicks` turns one gameweek's
+`manager_picks` into a `TeamState` with `source: "fpl"` — the value `TeamSource` has carried
+unused since it was declared. `manager_picks` has no purchase price, so it falls back to
+`now_cost`; `IMPORTED_SQUAD_NOTE` discloses this next to the "Import as draft →" button on
+`/team`, following the same disclosure pattern as `SEASON_HORIZON_NOTE` and
+`TRANSFER_MODEL_NOTE`. The fallback is exact for every player pre-GW1 (no price has moved
+yet), which is why §F below is sequenced last rather than blocking this.
+
+**Rivals leak closed.** `app/team/page.tsx`'s rivals table previously scanned every row in
+`managers` (`.neq("entry_id", ...)`) — every manager anyone had ever connected on the
+deployment, harmless with one user and wrong the instant there are accounts, since it would
+show every user's claimed entry to every other user. Replaced with `manager_rivals`, an
+explicitly-added set with an "Add rival by Manager ID" control and per-rival remove buttons.
+
+### FPL login is blocked — automated credential login, not the session handoff
+
+The roadmap originally specified "FPL login through an Edge Function". Probed read-only on
+2026-08-09 after being asked to build password login specifically (the owner's FPL account
+is Google-federated, but a password may also exist — the finding below turned out not to
+depend on which): FPL's identity provider is **PingOne**
+(`auth.pingone.eu`, environment `68340de1-dfb9-412e-937c-20172986d129`), found from the
+config block in `fantasy.premierleague.com`'s own HTML.
+
+| Route | Result |
+|---|---|
+| `users.premierleague.com/accounts/login/` — the classic form POST, and the exact method in the widely-cited [2019 Medium guide](https://medium.com/@bram.vanherle1/fantasy-premier-league-api-authentication-guide-2f7aeb2382e4) | **NXDOMAIN**, confirmed against Cloudflare's public resolver — a dangling CNAME to `plusers.ismfg.net`. |
+| OIDC `password` / ROPC grant | **Not offered.** `grant_types_supported` has no `password` entry at all — there is nowhere to send a password, full stop. |
+| `authorization_code` + PKCE with our own redirect URI | `"Redirect URI mismatch"` — the client belongs to the Premier League; a third party cannot register a callback on it. |
+| `device_code` grant | `"Client is missing required grant type: DEVICE_CODE"`. |
+| `response_mode=pi.flow` (DaVinci, no redirect URI needed) | **200, a live flow** — but its first node is a PingOne Protect **Protect Payload**, a device/bot-detection signal. No credential screen is reachable before it. |
+
+Every standards-based door is shut by the client's own configuration, and the one reachable
+flow opens with bot detection — automating past that is bot-detection bypass, out of scope
+regardless of whether a password exists to send. Recorded as blocked with this evidence,
+next to team strength and league 314, rather than worked around.
+
+**Built instead — §F, the session handoff.** `app/settings/fpl` lets the signed-in owner
+paste the `Cookie` header their own browser sends to `fantasy.premierleague.com` after
+signing in normally (Google, 2FA, whatever — no bot to detect because it really is a human).
+`supabase/functions/fpl-session` verifies the caller's Supabase JWT (unlike `sync-manager`,
+which writes only public data and skips this) and encrypts the pasted value at rest
+(AES-256-GCM, Web Crypto, `supabase/functions/_shared/crypto.ts`) under the
+`FPL_SESSION_ENC_KEY` Edge secret. `fpl_sessions` has RLS **enabled with zero policies** —
+verified live: even the row's own owner, authenticated as themselves, gets `count = 0`
+through the anon/authenticated client. Only the service-role client inside an Edge Function
+can reach it.
+
+`supabase/functions/fpl-my-team` decrypts the session and calls the endpoint this probe
+verified live and working: `GET https://fantasy.premierleague.com/api/my-team/{entry_id}/`,
+which returns `403 {"detail":"Authentication credentials were not provided."}`
+unauthenticated — a genuine Django-REST endpoint needing only a session. **Deliberately not**
+`/drf/my-team/<id>`, the path the 2019 guide uses: that prefix is dead and returns a
+misleading `200` — a 10,032-byte SPA shell with `content-type: text/html`, Fastly's response
+for any unmatched path on that host, not data. `fpl-my-team` checks content-type as well as
+status for exactly this reason. A lapsed session (expired cookie, or that same HTML-shell
+trap) is treated as its own first-class state — `{ error: "lapsed" }` — never silently
+folded into "no data," which would otherwise let an imported squad's sell prices go quietly
+wrong instead of visibly asking for a fresh paste.
+
+Both functions are deployed. **One step only the owner can do**: set the
+`FPL_SESSION_ENC_KEY` Edge secret (a 32-byte key, base64-encoded) via the Supabase dashboard
+or CLI — until then `fpl-session` fails closed with "Server is not configured to store this
+yet" rather than storing anything unencrypted.
 
 ## Cross-cutting
 

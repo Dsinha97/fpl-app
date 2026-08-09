@@ -60,6 +60,20 @@ table with no owning user column would only have to be rebuilt once auth arrives
 | `sync-live-gameweek` | `*/2 * * * *` | `event/{gw}/live` | `player_live_stats` |
 | `sync-manager` | manual | `entry/{id}` + `/history` `/picks` `/transfers` | `managers`, `manager_*` |
 | `generate-predictions` | `5,35 * * * *` | Postgres only | `player_predictions` |
+| `fpl-session` | manual | — | `fpl_sessions` (encrypted) |
+| `fpl-my-team` | manual | `api/my-team/{id}` (session-authenticated) | reads only |
+
+`fpl-session` and `fpl-my-team` (Sprint 14, §F) are the two exceptions to "any caller can
+trigger a sync harmlessly" — both verify the caller's Supabase JWT (`_shared/auth.ts`)
+before touching anything, since they read/write a table keyed by Supabase user rather than
+public FPL data. `fpl-session` encrypts the owner's pasted FPL session (AES-256-GCM,
+`_shared/crypto.ts`, under the `FPL_SESSION_ENC_KEY` secret) into `fpl_sessions`, whose RLS
+has **zero policies** — not even the row's owner can read it through the anon/authenticated
+client, only the service-role client inside an Edge Function. `fpl-my-team` decrypts it and
+calls `GET /api/my-team/{entry_id}/`, the auth-gated endpoint that returns real purchase
+prices, bank and free transfers — verified live and distinct from the dead `/drf/my-team/<id>`
+path older guides use, which 200s with an HTML shell instead of 404ing. See docs/roadmap.md,
+"Sprint 14", for the full PingOne probe that ruled out an actual login endpoint.
 
 `public.invoke_sync(text)` is the pg_cron entry point (pg_net POST, service role, revoked
 from `anon`/`authenticated`). Every run writes a `sync_runs` row —
@@ -121,7 +135,15 @@ cannot see past the window, which is why the value of waiting for news is an exp
 `chip_definitions` is load-bearing rather than decorative: the transfer optimiser reads the real
 wildcard window from it (wildcard #1 runs GW2–19), so the option is correctly unavailable in GW1.
 
-RLS: anon `SELECT` on reference and derived tables, writes service-role only.
+RLS: anon `SELECT` on reference and derived tables, writes service-role only. **Sprint 14
+adds a second RLS shape.** `user_profiles`, `team_drafts`, `draft_snapshots` and
+`manager_rivals` carry a `user_id` and are scoped `auth.uid() = user_id` in both directions —
+no anon access, and no cross-user access even when authenticated. `fpl_sessions` goes
+further still: RLS enabled, **zero policies**, so no role at all (not even the row's owner)
+can read it outside a service-role Edge Function. `team_drafts.players` is stored as
+`jsonb` mirroring `lib/team-state.ts`'s `TeamState` rather than a normalised child table —
+a draft is always read and written whole, so a `draft_players` table would only add a hard
+FK to `players(season, id)` that a season rollover would strand, same as `manager_picks`.
 
 ## Routes
 
@@ -131,7 +153,9 @@ Static export, so no server components fetching at request time, no route handle
 | Route | What it is |
 |---|---|
 | `/` | Landing and status summary |
-| `/team` | The owner's real FPL squad. Empty until the first deadline — `manager_picks` has no rows yet |
+| `/team` | The owner's real FPL squad (empty until the first deadline — `manager_picks` has no rows yet), plus "Import as draft" (Sprint 14, `lib/fpl-squad.ts`) and rival management |
+| `/signin`, `/auth/callback` | Magic-link sign-in and its PKCE callback (Sprint 14) |
+| `/settings/fpl` | Paste an FPL session for real purchase prices/bank (Sprint 14, §F) — the alternative to the blocked automated login, see docs/roadmap.md |
 | `/players` | Explorer: paginated, searchable, position/team/price filters |
 | `/fixtures` | Schedule and FDR matrix sub-tabs |
 | `/changes` | The `change_feed` view — prices, ownership, status, news, fixture changes |

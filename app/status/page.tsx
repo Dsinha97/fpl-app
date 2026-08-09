@@ -25,6 +25,14 @@ interface Counts {
   seasonHistory: number;
   gameweekStats: number;
   fixtureChanges: number;
+  /**
+   * Sprint 13 staging — the one observability gap the Sprint 14 exploration
+   * found: sync-live-gameweek's row-writing path has never executed (no
+   * current gameweek has had a live fixture yet), and this table's row count
+   * was invisible here. Surfacing it costs nothing and gives GW1 kickoff a
+   * place to watch the write path actually run for the first time.
+   */
+  liveStats: number;
 }
 
 const FUNCTIONS = [
@@ -84,13 +92,13 @@ export default function StatusPage() {
 
     const [
       players, teams, fixtures, gameweeks, priceHistory, statusHistory,
-      news, ownership, seasonHistory, gameweekStats, fixtureChanges,
+      news, ownership, seasonHistory, gameweekStats, fixtureChanges, liveStats,
     ] = await Promise.all([
       countOf("players"), countOf("teams"), countOf("fixtures"), countOf("gameweeks"),
       countOf("player_price_history"), countOf("player_status_history"),
       countOf("player_news"), countOf("player_ownership_history"),
       countOf("player_season_history"), countOf("player_gameweek_stats"),
-      countOf("fixture_changes"),
+      countOf("fixture_changes"), countOf("player_live_stats"),
     ]);
 
     setCounts({
@@ -105,6 +113,7 @@ export default function StatusPage() {
       seasonHistory: seasonHistory.count ?? 0,
       gameweekStats: gameweekStats.count ?? 0,
       fixtureChanges: fixtureChanges.count ?? 0,
+      liveStats: liveStats.count ?? 0,
     });
 
     setRuns(latest.filter((r): r is RunRow => r !== null));
@@ -203,6 +212,7 @@ export default function StatusPage() {
               { label: "Prior-season records", value: counts.seasonHistory },
               { label: "Gameweek stats", value: counts.gameweekStats },
               { label: "Fixture changes", value: counts.fixtureChanges },
+              { label: "Live-gameweek rows", value: counts.liveStats },
             ].map((c) => (
               <div
                 key={c.label}

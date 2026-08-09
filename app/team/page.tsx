@@ -1,12 +1,18 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { CountryFlag, flagCode, SeasonsBadge, TeamCrest } from "@/components/identity";
 import { ManagerProfileCard, RivalTable } from "@/components/manager-profile-card";
 import { buildManagerProfile, compareToRival, type ManagerProfile, type RivalComparison } from "@/lib/manager-profile";
+import { IMPORTED_SQUAD_NOTE, teamStateFromPicks } from "@/lib/fpl-squad";
+import { saveDraft } from "@/lib/drafts";
+import { DEFAULT_RULES, type SquadRules } from "@/lib/team-state";
+import { InfoTooltip } from "@/components/info-tooltip";
+import { useAuth } from "@/components/auth-provider";
 
 /** Separator between identity badges in the profile line. */
 const Dot = () => <span className="text-zinc-300 dark:text-purple-700">•</span>;
@@ -116,11 +122,15 @@ const POSITION_LABELS: Record<number, string> = {
 // ----------------------------------------------------------------- page
 
 export default function TeamPage() {
+  const router = useRouter();
   const [inputId, setInputId] = useState("");
   const [savedId, setSavedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<TeamData | null>(null);
+  const [importing, setImporting] = useState(false);
+
+  const { user, loading: authLoading } = useAuth();
 
   const connect = useCallback(async (entryId: number) => {
     setInputId(String(entryId));
@@ -179,15 +189,26 @@ export default function TeamPage() {
           .map((s) => ({ seasonName: s.season_name, rankPercentage: s.rank_percentage! })),
       );
 
-      // Rivals: every other manager already loaded, compared on career
-      // median. No league lookup or new sync — these are the entries whose
-      // owners have already connected on this deployment.
+      // Rivals: an explicitly-added set (manager_rivals), scoped to the
+      // signed-in user — replaces the earlier "every manager anyone has ever
+      // connected on this deployment" scan, which was fine with one user and
+      // wrong the moment there are accounts. Signed-out visitors simply see
+      // no rivals rather than a stale global list.
       let rivals: RivalComparison[] = [];
-      if (profile) {
+      let rivalEntryIds: number[] = [];
+      if (user) {
+        const { data: rivalRows } = await supabase
+          .from("manager_rivals")
+          .select("entry_id")
+          .eq("user_id", user.id);
+        rivalEntryIds = (rivalRows ?? []).map((r) => r.entry_id as number);
+      }
+
+      if (profile && rivalEntryIds.length > 0) {
         const { data: otherManagers } = await supabase
           .from("managers")
           .select("entry_id, team_name")
-          .neq("entry_id", entryId);
+          .in("entry_id", rivalEntryIds);
 
         if (otherManagers && otherManagers.length > 0) {
           const { data: rivalSeasons } = await supabase
@@ -269,21 +290,143 @@ export default function TeamPage() {
       });
       setSavedId(entryId);
       localStorage.setItem("fpl_manager_id", String(entryId));
+
+      // Signed in: this is the entry the user has claimed, so it survives
+      // across devices instead of living only in this browser's storage.
+      if (user) {
+        const { error: profileError } = await supabase
+          .from("user_profiles")
+          .upsert({ user_id: user.id, entry_id: entryId }, { onConflict: "user_id" });
+        if (profileError) console.error(`user_profiles upsert failed: ${profileError.message}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
+
+  // Sprint 14 — pull one gameweek's picks into a TeamState the builder,
+  // optimiser, and transfer/chip engines can all treat like any manual
+  // draft. Rules are fetched lazily here, on click, rather than on every
+  // page load — the same "only when the panel is opened" pattern the
+  // replacement finder's SquadBalance already uses.
+  const handleImport = useCallback(async () => {
+    if (!data || data.picks.length === 0 || !data.nextGw) return;
+    setImporting(true);
+    setError(null);
+
+    try {
+      const season = data.nextGw.season;
+      const [settingsRes, typesRes] = await Promise.all([
+        supabase
+          .from("game_settings")
+          .select("key, value")
+          .eq("season", season)
+          .in("key", ["squad_total_spend", "squad_team_limit", "squad_squadsize"]),
+        supabase.from("element_types").select("id, squad_select").eq("season", season),
+      ]);
+
+      const settings = new Map(
+        (settingsRes.data ?? []).map((s) => [s.key as string, Number(s.value)]),
+      );
+      const quota: Record<number, number> = {};
+      for (const t of typesRes.data ?? []) quota[t.id as number] = Number(t.squad_select ?? 0);
+
+      const rules: SquadRules = {
+        totalSpend: settings.get("squad_total_spend") ?? DEFAULT_RULES.totalSpend,
+        teamLimit: settings.get("squad_team_limit") ?? DEFAULT_RULES.teamLimit,
+        squadSize: settings.get("squad_squadsize") ?? DEFAULT_RULES.squadSize,
+        positionQuota: Object.keys(quota).length > 0 ? quota : DEFAULT_RULES.positionQuota,
+      };
+
+      const latestEvent = data.picks[0].event;
+      const gw = data.gwHistory.find((g) => g.event === latestEvent);
+
+      const state = teamStateFromPicks(
+        data.picks,
+        (id) => data.players.get(id)?.now_cost ?? undefined,
+        {
+          entryId: data.manager.entry_id,
+          event: latestEvent,
+          activeChip: gw?.active_chip ?? null,
+          bank: data.manager.last_deadline_bank,
+          value: data.manager.last_deadline_value,
+        },
+        rules,
+        `${data.manager.team_name ?? `Entry ${data.manager.entry_id}`} (FPL)`,
+      );
+
+      const saved = saveDraft(state);
+      router.push(`/builder/?draft=${saved.draftId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setImporting(false);
+    }
+  }, [data, router]);
 
   useEffect(() => {
-    // Restore the persisted Manager ID and auto-connect on first mount.
-    // localStorage is only readable client-side, so an effect is the right
-    // place despite the set-state-in-effect lint preference.
-    const stored = localStorage.getItem("fpl_manager_id");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (stored) void connect(Number(stored));
-  }, [connect]);
+    // Auto-connect on first mount (and once more if sign-in status changes
+    // after mount). Signed in: the claimed entry_id from user_profiles wins,
+    // since that's what "claim your team" persisted across devices; signed
+    // out (or never claimed): fall back to the localStorage id, same as
+    // before Sprint 14.
+    if (authLoading) return;
+
+    (async () => {
+      if (user) {
+        const { data: profileRow } = await supabase
+          .from("user_profiles")
+          .select("entry_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (profileRow?.entry_id) {
+          void connect(profileRow.entry_id);
+          return;
+        }
+      }
+      const stored = localStorage.getItem("fpl_manager_id");
+      if (stored) void connect(Number(stored));
+    })();
+  }, [connect, user, authLoading]);
+
+  // Rivals are an explicitly-added set now (manager_rivals), not a scan of
+  // every manager anyone has connected — see the comment in connect() above.
+  // Adding/removing just re-runs connect() to refresh the whole page's data,
+  // the same as the existing Refresh button, rather than a second code path
+  // that recomputes just the rivals table.
+  const [rivalInput, setRivalInput] = useState("");
+  const [rivalBusy, setRivalBusy] = useState(false);
+
+  const addRival = useCallback(async () => {
+    const id = Number(rivalInput.trim());
+    if (!user || !savedId || !Number.isInteger(id) || id <= 0) return;
+    setRivalBusy(true);
+    try {
+      await supabase
+        .from("manager_rivals")
+        .upsert({ user_id: user.id, entry_id: id }, { onConflict: "user_id,entry_id" });
+      setRivalInput("");
+      await connect(savedId);
+    } finally {
+      setRivalBusy(false);
+    }
+  }, [user, savedId, rivalInput, connect]);
+
+  const removeRival = useCallback(
+    async (entryId: number) => {
+      if (!user || !savedId) return;
+      setRivalBusy(true);
+      try {
+        await supabase.from("manager_rivals").delete().eq("user_id", user.id).eq("entry_id", entryId);
+        await connect(savedId);
+      } finally {
+        setRivalBusy(false);
+      }
+    },
+    [user, savedId, connect],
+  );
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -425,7 +568,25 @@ export default function TeamPage() {
 
           {/* --------------------------------------------------- squad */}
           <section className="mt-8">
-            <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Squad</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Squad</h2>
+              {data && data.picks.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void handleImport()}
+                  disabled={importing}
+                  className="rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                >
+                  {importing ? "Importing…" : "Import as draft →"}
+                </button>
+              )}
+            </div>
+            {data && data.picks.length > 0 && (
+              <p className="mt-1.5 flex items-start gap-1 text-xs text-zinc-500">
+                <InfoTooltip label="About the imported squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>
+                Opens this squad in the Builder as a new, independent draft.
+              </p>
+            )}
             {data && data.picks.length > 0 ? (
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
                 {[1, 2, 3, 4].map((type) => {
@@ -608,7 +769,58 @@ export default function TeamPage() {
               </h2>
               <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
                 <ManagerProfileCard profile={data.profile} />
-                <RivalTable rivals={data.rivals} />
+                <div>
+                  <RivalTable rivals={data.rivals} />
+
+                  {/* The comparison set is whichever rivals you've chosen —
+                      not every manager anyone has ever connected here. */}
+                  {user ? (
+                    <div className="mt-3 rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          value={rivalInput}
+                          onChange={(e) => setRivalInput(e.target.value)}
+                          inputMode="numeric"
+                          placeholder="Add rival by Manager ID"
+                          className="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus:border-[#00FF87]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void addRival()}
+                          disabled={rivalBusy || !rivalInput.trim()}
+                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      {data.rivals.length > 0 && (
+                        <ul className="mt-2 flex flex-wrap gap-1.5">
+                          {data.rivals.map((r) => (
+                            <li
+                              key={r.entryId}
+                              className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-purple-950/50 dark:text-zinc-300"
+                            >
+                              {r.teamName}
+                              <button
+                                type="button"
+                                onClick={() => void removeRival(r.entryId)}
+                                disabled={rivalBusy}
+                                aria-label={`Remove ${r.teamName} as a rival`}
+                                className="text-zinc-400 hover:text-red-600 disabled:opacity-50 dark:hover:text-red-400"
+                              >
+                                ×
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-zinc-400">
+                      Sign in to add rivals to compare against.
+                    </p>
+                  )}
+                </div>
               </div>
             </section>
           )}

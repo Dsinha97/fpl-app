@@ -31,11 +31,35 @@ cache — delete `.next` and restart.
 
 ## Ground rules
 
-**Secrets.** Never ask for, store, or accept the Supabase DB password. Migrations and
-function deploys go through the Supabase MCP OAuth integration; the browser client uses
-only the project URL and publishable key. `.env*` and `.claude/` are gitignored, and
-secrets belong in `.env.local`, GitHub Secrets (for `ci.yml`) or Cloudflare Build variables
-(for the deploy) — referenced by name, never pasted into chat or a commit.
+**Secrets.** Never ask for, store, or accept the Supabase DB password — or, since Sprint 14,
+an FPL password. Migrations and function deploys go through the Supabase MCP OAuth
+integration; the browser client uses only the project URL and publishable key. `.env*` and
+`.claude/` are gitignored, and secrets belong in `.env.local`, GitHub Secrets (for `ci.yml`)
+or Cloudflare Build variables (for the deploy) — referenced by name, never pasted into chat
+or a commit.
+
+**FPL authentication is PingOne, and automated credential login is blocked — don't
+re-derive this.** Probed 2026-08-09: `auth.pingone.eu`'s OAuth client offers no password
+grant at all, a third party cannot register a redirect URI on the Premier League's client,
+and the one reachable flow (`response_mode=pi.flow`) opens with a PingOne Protect
+bot-detection node before any credential screen. See docs/roadmap.md, "Sprint 14 — FPL
+login is blocked", for the full probe table. Built instead: a session handoff
+(`app/settings/fpl`, `supabase/functions/fpl-session` / `fpl-my-team`) where the owner signs
+in to FPL in their own browser and pastes the resulting session, which is AES-256-GCM
+encrypted at rest under the `FPL_SESSION_ENC_KEY` Edge secret.
+
+**Row Level Security is a real access boundary here, not a formality — verify it, don't
+just enable it.** Every table with a `user_id` (`user_profiles`, `team_drafts`,
+`draft_snapshots`, `manager_rivals`, added Sprint 14) is scoped `auth.uid() = user_id` in
+both directions; `fpl_sessions` has RLS enabled with **zero policies**, so not even its own
+owner can read it outside a service-role Edge Function. Before trusting a new policy,
+simulate a second user with `set_config('request.jwt.claims', ...)` inside a rolled-back
+`execute_sql` transaction and confirm they get zero rows and zero affected writes against
+someone else's data — a policy that is present but permissive looks identical to a correct
+one until tested from the other side. Every table before Sprint 14 uses the older
+public-read / service-write-only shape (`for select to anon, authenticated using (true)`);
+don't apply the newer per-user shape to those without a reason, and don't apply the older
+shape to anything new that has an owner.
 
 **Missing pre-season data — drop, renormalise, disclose.** Several formulas in the plan
 reference fields FPL zeroes between seasons (team attack/defence strength, `players.form`).
@@ -260,9 +284,26 @@ instead; and every draft-aware page (`/chips`, `/transfers`) now reads the `?dra
 `/builder` and `/scenarios` link with, instead of defaulting to whichever draft was most recently
 edited.
 
+**Sprint 14 — Authentication & Team Sync — built (2026-08-09).** Magic-link Supabase Auth;
+owned cloud storage for drafts (`user_profiles`, `team_drafts`, `draft_snapshots`,
+`manager_rivals` — the first RLS in this schema beyond public-read, verified live with a
+two-account cross-read test rather than just read from the policy definitions);
+`lib/draft-sync.ts` layering local-first cloud sync on top of `lib/drafts.ts`'s unchanged
+localStorage API; `lib/fpl-squad.ts` turning `manager_picks` into a `TeamState` (`source:
+"fpl"`, the value `TeamSource` had carried unused since Sprint 5) with an "Import as draft"
+button on `/team` and `IMPORTED_SQUAD_NOTE` disclosing that purchase price falls back to
+`now_cost`; and the rivals table on `/team` replaced with an explicitly-added
+`manager_rivals` set, closing a leak where every connected manager's entry was visible to
+every other user. Automated FPL credential login — what the roadmap originally specified —
+turned out to be blocked by the identity provider's own configuration (PingOne, no password
+grant, bot-detection on the one reachable flow); built a session handoff instead
+(`app/settings/fpl`, `fpl-session`/`fpl-my-team` Edge Functions, `fpl_sessions` with RLS
+enabled and zero policies). Full detail in docs/roadmap.md, "Sprint 14".
+
 Next: the finishing pass outstanding on Sprint 11 (TeamAttack) remains blocked on team strength.
-Sprints 13 (live match data) and 14 (authentication) are the next substantial pieces of work; both
-are otherwise unblocked.
+Sprint 13 (live match data) is staged — `sync-live-gameweek`'s write path still cannot be verified
+before a real fixture kicks off (GW1 deadline 2026-08-21) — and is the next substantial piece of
+work once it can be. Sprint 15 (Action Layer) is next after that.
 
 Carried knowingly: **1 `npm audit` advisory** (moderate — `hono`, via `shadcn`'s own dev-time
 dependency tree, unreachable from the app). The 3 high advisories (`postcss`, `sharp`, `next`) cleared
@@ -274,6 +315,9 @@ Blocked, with the reason recorded rather than worked around:
 - **Team strength is 0 for all 20 clubs** pre-season → custom FDR and the `TeamAttackStrength` term.
 - **League 314 standings are empty** pre-season → all of Sprint 10 (EO, template, rank gain).
 - **`sync-live-gameweek`'s row-writing path has never executed** — no live matches yet.
+- **Automated FPL credential login** → PingOne (the identity provider behind
+  `fantasy.premierleague.com`) offers no password grant and the one reachable OAuth flow opens with
+  bot-detection. Built a session handoff instead (Sprint 14, §F) — see docs/roadmap.md.
 - **xP `positionCalibration` is fitted in-sample.** The backtest proves arithmetic consistency, not
   predictive accuracy; refit against real 2026/27 results. Refitted once already for v1.1.0
   (GKP 1.1077 / DEF 1.2224 / MID 1.2116 / FWD 1.1972) after shrinkage moved the level.

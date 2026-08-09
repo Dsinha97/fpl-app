@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AuthProvider } from "@/components/auth-provider";
+import { DraftSyncProvider } from "@/components/draft-sync-provider";
 import { Monogram, Wordmark } from "@/components/brand";
 import { NavLinks } from "@/components/nav-links";
+import { AuthStatus } from "@/components/auth-status";
 import { THEME_BOOT_SCRIPT, ThemeToggle } from "@/components/theme";
 import "./globals.css";
 
@@ -42,19 +45,23 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col bg-zinc-50 dark:bg-[#0E0118]">
-        <header className="border-b border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
-          <nav className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 px-4">
-            <Link href="/" className="flex shrink-0 items-center gap-2.5">
-              <Monogram size={30} />
-              <Wordmark />
-            </Link>
-            <NavLinks />
-            <div className="ml-auto shrink-0">
-              <ThemeToggle />
-            </div>
-          </nav>
-        </header>
-        <div className="flex flex-1 flex-col">{children}</div>
+        <AuthProvider>
+          <DraftSyncProvider />
+          <header className="border-b border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+            <nav className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 px-4">
+              <Link href="/" className="flex shrink-0 items-center gap-2.5">
+                <Monogram size={30} />
+                <Wordmark />
+              </Link>
+              <NavLinks />
+              <div className="ml-auto flex shrink-0 items-center gap-3">
+                <AuthStatus />
+                <ThemeToggle />
+              </div>
+            </nav>
+          </header>
+          <div className="flex flex-1 flex-col">{children}</div>
+        </AuthProvider>
       </body>
     </html>
   );
