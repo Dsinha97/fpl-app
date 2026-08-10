@@ -662,7 +662,14 @@ export default function TeamPage() {
                       minute: "2-digit",
                     })}`
                   : ""}
-                . Your team will appear here automatically once the season starts.
+                . Your team will appear here automatically once the season starts. Until then,{" "}
+                <a
+                  href="/settings/fpl/"
+                  className="text-purple-800 underline dark:text-[#00FF87]"
+                >
+                  import your squad from FPL directly
+                </a>{" "}
+                to get real purchase prices and start using the Builder now.
               </p>
             )}
           </section>

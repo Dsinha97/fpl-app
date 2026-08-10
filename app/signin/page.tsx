@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AuthError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
@@ -42,8 +42,15 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [googleBusy, setGoogleBusy] = useState(false);
 
+  // A redirect belongs in an effect, not the render body — calling
+  // router.replace() while rendering is a setState-on-a-different-component
+  // during render, which React flags (and which a signed-out-only test pass
+  // never exercises, since it only fires on the "already signed in" branch).
+  useEffect(() => {
+    if (!loading && user) router.replace("/team/");
+  }, [loading, user, router]);
+
   if (!loading && user) {
-    router.replace("/team/");
     return null;
   }
 

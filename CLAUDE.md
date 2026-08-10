@@ -43,10 +43,21 @@ re-derive this.** Probed 2026-08-09: `auth.pingone.eu`'s OAuth client offers no 
 grant at all, a third party cannot register a redirect URI on the Premier League's client,
 and the one reachable flow (`response_mode=pi.flow`) opens with a PingOne Protect
 bot-detection node before any credential screen. See docs/roadmap.md, "Sprint 14 — FPL
-login is blocked", for the full probe table. Built instead: a session handoff
-(`app/settings/fpl`, `supabase/functions/fpl-session` / `fpl-my-team`) where the owner signs
-in to FPL in their own browser and pastes the resulting session, which is AES-256-GCM
-encrypted at rest under the `FPL_SESSION_ENC_KEY` Edge secret.
+login is blocked", for the full probe table.
+
+**A pasted FPL cookie authenticates nothing — don't re-derive this either.** `/api/`
+endpoints moved to a bearer token (`X-API-Authorization: Bearer …`) minted from an OIDC
+refresh token that lives only in the browser's `localStorage`, never in a cookie —
+confirmed live (Sprint 14.2): saving a cookie via `fpl-session` succeeds, but every call to
+`fpl-my-team` 401s. Exchanging the refresh token server-side was considered and rejected —
+FPL rotates it on first use, risking a silent sign-out of the owner's real FPL session — and
+turned out to buy nothing anyway: pre-season, `purchase_price` equals current price for
+every player, so the whole authenticated endpoint was worth zero right now. `app/settings/fpl`
+and `supabase/functions/fpl-session` / `fpl-my-team` are **superseded, not removed** — kept
+deployed and dormant in case a future season makes the token route worth revisiting. Real
+purchase prices come instead from `app/settings/fpl`'s current form: the owner pastes the
+`my-team` JSON they fetch themselves while signed in, parsed by
+`teamStateFromMyTeamJson` (`lib/fpl-squad.ts`) — no credential the app has to hold at all.
 
 **Magic-link testing shares one project-wide email quota — throttle yourself, not just the
 user.** Supabase's built-in email sender enforces `over_email_send_rate_limit` as a rolling
@@ -309,9 +320,17 @@ button on `/team` and `IMPORTED_SQUAD_NOTE` disclosing that purchase price falls
 `manager_rivals` set, closing a leak where every connected manager's entry was visible to
 every other user. Automated FPL credential login — what the roadmap originally specified —
 turned out to be blocked by the identity provider's own configuration (PingOne, no password
-grant, bot-detection on the one reachable flow); built a session handoff instead
-(`app/settings/fpl`, `fpl-session`/`fpl-my-team` Edge Functions, `fpl_sessions` with RLS
-enabled and zero policies). Full detail in docs/roadmap.md, "Sprint 14".
+grant, bot-detection on the one reachable flow); a session-cookie handoff was built as the
+alternative but, tested live, also failed — FPL authenticates with a bearer token, not a
+cookie (Sprint 14.2, below). Full detail in docs/roadmap.md, "Sprint 14".
+
+**Sprint 14.2 — the session handoff replaced with a paste-the-JSON import (built,
+2026-08-09).** `app/settings/fpl` now parses a pasted `my-team` API response
+(`teamStateFromMyTeamJson`, `lib/fpl-squad.ts`) instead of asking for a cookie — the owner
+fetches it themselves, already signed in, so the app never touches a credential. Carries
+FPL's real `purchase_price`/`selling_price` per pick, cross-checked against
+`lib/transfers.ts`'s `sellPrice` rather than stored a second time. `fpl-session` /
+`fpl-my-team` stay deployed but dormant. Full detail in docs/roadmap.md, "Sprint 14.2".
 
 Next: the finishing pass outstanding on Sprint 11 (TeamAttack) remains blocked on team strength.
 Sprint 13 (live match data) is staged — `sync-live-gameweek`'s write path still cannot be verified

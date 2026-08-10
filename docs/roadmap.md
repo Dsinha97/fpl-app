@@ -990,6 +990,86 @@ than echoing Supabase's bare message.
 real magic-link OTP per testing session and prefer the Google button for anything repeated
 — see CLAUDE.md, "Magic-link testing shares one project-wide email quota".
 
+### Sprint 14.2 — the §F session handoff doesn't work; replaced with a paste-the-JSON import (built, 2026-08-09)
+
+The owner tested §F end to end: Save succeeded (`fpl-session` returned 200, a row existed
+with a real ciphertext) but Test connection failed every time (`fpl-my-team` returned 401).
+The cause is not a bug in either function — **FPL no longer authenticates `/api/` calls
+with cookies at all.** Verified via `auth`/`edge-function` logs and live probes:
+
+| Check | Result |
+|---|---|
+| `fpl-session` POST | 200, every time — Save and encryption both work |
+| `fpl-my-team` GET | 401, every time, seconds after each successful Save |
+| `fpl_sessions` row | Exists, `ciphertext` present, `entry_id` correctly set to 274486 |
+
+A description of how a third-party FPL app ("Fantasy Football Manager") authenticates was
+supplied as a possible fix. Checked rather than trusted, because one of its claims was
+falsifiable in seconds:
+
+| Claim in that description | Result |
+|---|---|
+| Posts credentials to `users.premierleague.com/options/login/` | Host is **NXDOMAIN** (Cloudflare public resolver, not just local) — a dangling CNAME to `plusers.ismfg.net`; the exact URL cannot open a connection |
+| FPL returns `sessionid` cookies used for API auth | Contradicted directly by the 401s above |
+| `GET /api/my-team/{id}/` needs auth | True — live, `403 {"detail":"Authentication credentials were not provided."}` unauthenticated |
+
+That write-up describes the pre-PingOne world (it names `/options/login/` where the 2019
+Medium guide named `/accounts/login/` — two variants of the same dead host). A web search
+for the real, current mechanism turned up prior art (a working FPL MCP server) confirming
+what the 401s already implied: FPL authenticates `/api/` calls with **a bearer token**,
+sent as `X-API-Authorization: Bearer <token>`, minted from an **OIDC refresh token** that
+lives only in the browser's `localStorage` (key `oidc.user:…`) — never in a cookie.
+Escalating to implement that exchange (POST the refresh token to PingOne's token endpoint,
+store the access token) was considered and declined: **the refresh token rotates on first
+exchange**, retiring whichever copy the browser is still holding, so a server-side exchange
+risks silently signing the owner out of their own FPL session or forcing a background
+re-auth. Not a risk this app should take for a token whose payoff, measured against real
+data, turned out to be zero anyway (next paragraph).
+
+**The decisive finding was in the owner's own data.** Manually fetching
+`/api/my-team/274486/` in a real logged-in browser (which works — the endpoint itself was
+never the problem) returned all 15 picks with `purchase_price` identical to
+`selling_price` and to current price (45/45, 120/120, 155/155, …), `bank: 0`, `value: 1000`.
+Pre-season, no price has moved, so **the authenticated endpoint currently returns nothing
+`now_cost` doesn't already give for free** — confirmed independently by the warehouse
+(`manager_transfers`: 0 rows, `manager_picks`: 0 rows, next gameweek: 1). The whole token
+chase was pointed at zero present value.
+
+**What shipped instead — paste the response, skip the credential entirely.** The owner is
+already signed in, in their own browser; fetching the JSON there and pasting it into the app
+needs no cookie, no bearer token, no rotation risk, and nothing secret held server-side.
+`teamStateFromMyTeamJson` (`lib/fpl-squad.ts`) parses and validates it (mirroring
+`importDrafts`'s idiom in `lib/drafts.ts` — try/catch, shape guard, per-entry checks, plain
+English errors) into a `TeamState` with FPL's **real** `purchase_price` per pick — strictly
+better data than `manager_picks` will ever carry, since it also has `selling_price`,
+`transfers.bank/value/limit`, and chip availability. `app/settings/fpl/page.tsx` is now this
+importer rather than the dead cookie form.
+
+Two decisions worth keeping:
+
+- **`selling_price` is read but not stored.** `sellPrice` (`lib/transfers.ts:118`) is the
+  one implementation of that rule (CLAUDE.md's "one quantity, one implementation"), so a
+  second stored value would let the two disagree. Instead the pasted `selling_price` is a
+  **cross-check**: recompute from the pasted `purchase_price` and flag a mismatch as a
+  warning, never a silent override. Verified with a harness against the real payload (all
+  15 agree) and a deliberately-wrong payload (the one mutated pick is caught, the other 14
+  are not) — a genuinely new test of `sellPrice` against real data, which nothing else
+  exercises it against.
+- **`transfers.limit: null` + `status: "unlimited"`** is what pre-deadline looks like
+  (confirmed in the real payload) and maps to `rules.squadSize` free transfers, not a
+  default of 1 — a default of 1 would let `simulateTransfers` invent a −4 hit FPL would
+  never actually charge pre-deadline.
+
+**Superseded, not deleted.** `supabase/functions/fpl-session` and `fpl-my-team` stay
+deployed but dormant — a working, JWT-gated, encrypted implementation, reversible for free
+if a future season's data ever makes the bearer-token route worth the rotation risk; the
+one stored row was deleted (`delete from fpl_sessions`) since a cookie it holds can never
+authenticate anything. `IMPORTED_SQUAD_NOTE` (`lib/fpl-squad.ts`) — which used to end
+*"Connecting your FPL session (Settings → FPL Account) replaces this with your real purchase
+prices,"* a sentence that stopped being true the moment §F's design was disproven — now
+correctly distinguishes the two import paths: `manager_picks` (today's price, exact
+pre-GW1) versus a pasted `my-team` response (FPL's real purchase price, always).
+
 ## Cross-cutting
 
 **Risk formula** (revised spec):
