@@ -91,6 +91,7 @@ export default function ScenariosPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
   const [timelineFor, setTimelineFor] = useState<string | null>(null);
   const [history, setHistory] = useState<DraftSnapshot[]>([]);
   /** Delete is permanent, so it takes a second click to confirm. */
@@ -432,8 +433,20 @@ export default function ScenariosPage() {
   };
 
   const commitRename = (draftId: string) => {
-    if (renameValue.trim().length > 0) renameDraft(draftId, renameValue);
+    if (renameValue.trim().length === 0) {
+      setRenaming(null);
+      setRenameError(null);
+      return;
+    }
+    const result = renameDraft(draftId, renameValue);
+    if (result.error) {
+      // Keep the input open so the collision is visible and correctable,
+      // rather than silently discarding the attempted rename.
+      setRenameError(result.error);
+      return;
+    }
     setRenaming(null);
+    setRenameError(null);
     refresh();
   };
 
@@ -582,23 +595,35 @@ export default function ScenariosPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     {renaming === draft.draftId ? (
-                      <input
-                        autoFocus
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onBlur={() => commitRename(draft.draftId)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") commitRename(draft.draftId);
-                          if (e.key === "Escape") setRenaming(null);
-                        }}
-                        aria-label="Draft name"
-                        className="w-full rounded border border-purple-400 bg-white px-1.5 py-0.5 text-sm font-semibold text-zinc-900 outline-none dark:border-[#00FF87] dark:bg-[#2A0A45] dark:text-zinc-100"
-                      />
+                      <>
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onChange={(e) => {
+                            setRenameValue(e.target.value);
+                            if (renameError) setRenameError(null);
+                          }}
+                          onBlur={() => commitRename(draft.draftId)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") commitRename(draft.draftId);
+                            if (e.key === "Escape") {
+                              setRenaming(null);
+                              setRenameError(null);
+                            }
+                          }}
+                          aria-label="Draft name"
+                          className="w-full rounded border border-purple-400 bg-white px-1.5 py-0.5 text-sm font-semibold text-zinc-900 outline-none dark:border-[#00FF87] dark:bg-[#2A0A45] dark:text-zinc-100"
+                        />
+                        {renameError && (
+                          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{renameError}</p>
+                        )}
+                      </>
                     ) : (
                       <button
                         onClick={() => {
                           setRenaming(draft.draftId);
                           setRenameValue(draft.name);
+                          setRenameError(null);
                         }}
                         title="Rename"
                         className="max-w-full truncate text-left text-sm font-semibold text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"

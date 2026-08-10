@@ -5,8 +5,8 @@ import { AuthProvider } from "@/components/auth-provider";
 import { DraftSyncProvider } from "@/components/draft-sync-provider";
 import { Monogram, Wordmark } from "@/components/brand";
 import { NavLinks } from "@/components/nav-links";
-import { AuthStatus } from "@/components/auth-status";
-import { THEME_BOOT_SCRIPT, ThemeToggle } from "@/components/theme";
+import { AccountMenu } from "@/components/account-menu";
+import { THEME_BOOT_SCRIPT } from "@/components/theme";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -55,8 +55,7 @@ export default function RootLayout({
               </Link>
               <NavLinks />
               <div className="ml-auto flex shrink-0 items-center gap-3">
-                <AuthStatus />
-                <ThemeToggle />
+                <AccountMenu />
               </div>
             </nav>
           </header>

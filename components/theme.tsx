@@ -8,8 +8,14 @@ import { useCallback, useEffect, useState } from "react";
 // toggling `.dark` on <html>. A no-FOUC boot script in the root layout applies
 // the stored preference before first paint; this component only handles
 // changes after hydration.
+//
+// Sprint 14.3 — the cycling ThemeToggle button was replaced by three
+// explicit choices inside components/account-menu.tsx's dropdown, so the
+// state/localStorage logic here is exposed as useThemeMode() rather than
+// wrapped in a single button component. applyMode and THEME_BOOT_SCRIPT are
+// unchanged and still the source of truth for "what does .dark mean".
 
-type ThemeMode = "light" | "dark" | "system";
+export type ThemeMode = "light" | "dark" | "system";
 
 const STORAGE_KEY = "theme";
 
@@ -27,19 +33,13 @@ export const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem(${J
   STORAGE_KEY,
 )});var d=t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d)}catch(e){}})()`;
 
-const CYCLE: Record<ThemeMode, ThemeMode> = {
-  system: "dark",
-  dark: "light",
-  light: "system",
+export const THEME_LABEL: Record<ThemeMode, string> = {
+  system: "System",
+  dark: "Dark",
+  light: "Light",
 };
 
-const LABEL: Record<ThemeMode, string> = {
-  system: "Theme: follows your system setting. Click for dark.",
-  dark: "Theme: dark. Click for light.",
-  light: "Theme: light. Click to follow your system setting.",
-};
-
-function ModeIcon({ mode }: { mode: ThemeMode }) {
+export function ThemeModeIcon({ mode }: { mode: ThemeMode }) {
   // 16px inline glyphs; stroke inherits text colour.
   if (mode === "light") {
     return (
@@ -64,17 +64,20 @@ function ModeIcon({ mode }: { mode: ThemeMode }) {
   );
 }
 
-export function ThemeToggle() {
-  const [mode, setMode] = useState<ThemeMode>("system");
+/**
+ * Reads/writes the stored theme preference and keeps `.dark` in sync.
+ * `mounted` lets a caller render a fixed placeholder until hydration, since
+ * localStorage is client-only — same reasoning ThemeToggle used to apply
+ * inline.
+ */
+export function useThemeMode(): { mode: ThemeMode; mounted: boolean; setMode: (m: ThemeMode) => void } {
+  const [mode, setModeState] = useState<ThemeMode>("system");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // localStorage is client-only, so the stored preference can only be read
-    // after mount. The boot script has already applied it visually; this just
-    // syncs the button's glyph.
     const stored = localStorage.getItem(STORAGE_KEY);
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (stored === "light" || stored === "dark") setMode(stored);
+    if (stored === "light" || stored === "dark") setModeState(stored);
     setMounted(true);
   }, []);
 
@@ -87,30 +90,12 @@ export function ThemeToggle() {
     return () => mq.removeEventListener("change", onChange);
   }, [mode]);
 
-  const cycle = useCallback(() => {
-    // Read the live preference rather than the rendered `mode`: two clicks
-    // inside one React batch would otherwise both see the pre-batch value and
-    // land on the same theme.
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const current: ThemeMode = stored === "light" || stored === "dark" ? stored : "system";
-
-    const next = CYCLE[current];
+  const setMode = useCallback((next: ThemeMode) => {
     if (next === "system") localStorage.removeItem(STORAGE_KEY);
     else localStorage.setItem(STORAGE_KEY, next);
     applyMode(next);
-    setMode(next);
+    setModeState(next);
   }, []);
 
-  return (
-    <button
-      type="button"
-      onClick={cycle}
-      title={mounted ? LABEL[mode] : "Theme"}
-      aria-label={mounted ? LABEL[mode] : "Theme"}
-      className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 text-zinc-600 transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
-    >
-      {/* Render a fixed glyph until mounted so server and client HTML match. */}
-      {mounted ? <ModeIcon mode={mode} /> : <ModeIcon mode="system" />}
-    </button>
-  );
+  return { mode: mounted ? mode : "system", mounted, setMode };
 }

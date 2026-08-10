@@ -201,17 +201,49 @@ export function deleteDraft(draftId: string) {
   writeTombstones(tombstones);
 }
 
-export function renameDraft(draftId: string, name: string): TeamState | null {
+export interface RenameResult {
+  state: TeamState | null;
+  error: string | null;
+}
+
+/**
+ * Rejects a collision with a clear error rather than silently renumbering —
+ * a name the user typed deliberately deserves a reason it didn't stick, not
+ * a surprise "(2)" they didn't ask for. Automatic disambiguation is
+ * `uniqueDraftName`, below, for callers naming a draft from external data.
+ */
+export function renameDraft(draftId: string, name: string): RenameResult {
   const trimmed = name.trim();
-  if (trimmed.length === 0) return null;
+  if (trimmed.length === 0) return { state: null, error: "Name can't be empty." };
+
   const drafts = readAll();
   const index = drafts.findIndex((d) => d.draftId === draftId);
-  if (index < 0) return null;
+  if (index < 0) return { state: null, error: "Draft not found." };
+
+  const collision = drafts.some((d) => d.draftId !== draftId && d.name === trimmed);
+  if (collision) return { state: null, error: `A draft called "${trimmed}" already exists.` };
+
   const renamed = { ...drafts[index], name: trimmed, updatedAt: new Date().toISOString() };
   drafts[index] = renamed;
   writeAll(drafts);
   recordSnapshot(renamed);
-  return renamed;
+  return { state: renamed, error: null };
+}
+
+/**
+ * Appends " (2)", " (3)", … until `base` doesn't collide with an existing
+ * draft name. Used by `cloneDraft` below (replacing its old unconditional
+ * " (copy)" suffix, which happily produced two identically-named drafts on a
+ * second clone) and by the squad importer (`app/settings/fpl/page.tsx`),
+ * which names a new draft from the FPL team name — a name that repeats on
+ * every re-import.
+ */
+export function uniqueDraftName(base: string): string {
+  const existing = new Set(readAll().map((d) => d.name));
+  if (!existing.has(base)) return base;
+  let n = 2;
+  while (existing.has(`${base} (${n})`)) n++;
+  return `${base} (${n})`;
 }
 
 export function cloneDraft(state: TeamState): TeamState {
@@ -219,7 +251,7 @@ export function cloneDraft(state: TeamState): TeamState {
   const copy: TeamState = {
     ...state,
     draftId: crypto.randomUUID(),
-    name: `${state.name} (copy)`,
+    name: uniqueDraftName(`${state.name} (copy)`),
     createdAt: now,
     updatedAt: now,
   };

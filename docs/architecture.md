@@ -154,8 +154,8 @@ Static export, so no server components fetching at request time, no route handle
 |---|---|
 | `/` | Landing and status summary |
 | `/team` | The owner's real FPL squad (empty until the first deadline — `manager_picks` has no rows yet), plus "Import as draft" (Sprint 14, `lib/fpl-squad.ts`) and rival management |
-| `/signin`, `/auth/callback` | Magic-link sign-in and its PKCE callback (Sprint 14) |
-| `/settings/fpl` | Paste an FPL session for real purchase prices/bank (Sprint 14, §F) — the alternative to the blocked automated login, see docs/roadmap.md |
+| `/signin`, `/auth/callback` | Magic-link and Google sign-in, and the shared PKCE callback (Sprint 14, 14.1) |
+| `/settings` | Account details (link a Manager ID) and Import squad (paste `my-team` JSON) tabs (Sprint 14.3). `/settings/fpl` is a redirect to `?tab=import`, kept for old links |
 | `/players` | Explorer: paginated, searchable, position/team/price filters |
 | `/fixtures` | Schedule and FDR matrix sub-tabs |
 | `/changes` | The `change_feed` view — prices, ownership, status, news, fixture changes |

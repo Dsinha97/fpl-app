@@ -1070,6 +1070,66 @@ prices,"* a sentence that stopped being true the moment §F's design was disprov
 correctly distinguishes the two import paths: `manager_picks` (today's price, exact
 pre-GW1) versus a pasted `my-team` response (FPL's real purchase price, always).
 
+### Sprint 14.3 — a signed-in-only pipeline bug, squad naming, and an account menu (built, 2026-08-10)
+
+Using the Sprint 14.2 import end to end surfaced three issues, the first a genuine
+regression every earlier verification pass ran signed out and so never hit.
+
+**"Data pipeline: unreachable" for any signed-in visitor.** `app/page.tsx` queries
+`health_check` with `.single()`. That table's RLS policy
+(`20260802234938_create_health_check.sql`, the very first migration) granted `SELECT`
+**`to anon` only** — written before the `to anon, authenticated` convention every later
+table follows. Signing in flips the client's role from `anon` to `authenticated`, the
+policy stops matching, and the query returns zero rows. Proven by running the exact query
+as both roles before and after: `anon` saw 1 row throughout; `authenticated` saw 0, then 1
+after `sprint14_3_fix_health_check_rls` recreated the policy as `to anon, authenticated`.
+A sweep of every RLS-enabled public table for the same shape (`SELECT` granted to `anon`
+without `authenticated`) found exactly one other case — `fpl_sessions`, which has **zero**
+policies by design (not even `anon`) — so this was a one-table fix, not a systemic pattern.
+
+**Every import was named "Imported squad", identically, forever.** `lib/drafts.ts` gains
+`uniqueDraftName(base)`, appending ` (2)`, ` (3)` … on a collision, used by both the
+importer (named from the linked FPL team, e.g. "DS United", falling back to "Imported
+squad" if no Manager ID is linked yet) and by `cloneDraft`, which had the identical latent
+bug — its old unconditional `" (copy)"` suffix collided on a second clone of the same
+draft. `renameDraft`'s return type changed from `TeamState | null` to
+`{ state, error }`: a collision is now a clear message ("A draft called \"X\" already
+exists") with the rename input left open to correct, rather than `null` indistinguishable
+from every other rejection reason and silently discarded by its one caller
+(`app/scenarios/page.tsx`, which previously never checked the return value at all).
+
+**The header carried four separate controls** (email, "FPL Account" link, Sign out, theme
+toggle) once sign-in existed to add them. Replaced with one circular `AccountMenu`
+(`components/account-menu.tsx`) — initials from the linked FPL team name, a generic icon
+otherwise — reusing the click-toggle / outside-click / Escape popover convention
+`components/nav-links.tsx` and `info-tooltip.tsx` already share rather than inventing a
+fourth version of it. The menu is **always rendered**, signed in or out, specifically so
+theme switching is never unreachable — signed out it holds Theme + Sign in; signed in,
+Manage account + Theme + Sign out. `components/theme.tsx`'s cycling `ThemeToggle` button
+became a `useThemeMode()` hook (three explicit choices needed a different shape than a
+cycle), and `components/auth-provider.tsx` now loads the claimed profile
+(`user_profiles.entry_id` → `managers.team_name`) once per session alongside the existing
+`user`/`session`, exposed as `entryId`/`teamName`/`refreshProfile()` — the header, `/team`,
+and the settings page all need the same two fields, so fetching them per-component would
+mean three queries doing the same join on every page load.
+
+**"Manage account" lands on `/settings`**, a single page with two tabs
+(Account details, Import squad) using the tab pattern already built on `/fixtures`
+(`tabButton`/`type Tab`/`aria-current`) rather than a new mechanism, with the active tab
+read from `window.location.search` — not `useSearchParams`, which every other
+`?draft=`-reading page already avoids for the same reason: it needs a Suspense boundary
+this static export has no existing precedent for. `/settings/fpl` (the Sprint 14.2 route)
+is now a redirect to `/settings/?tab=import`, kept rather than deleted so the link already
+placed on `/team`'s empty state, and any existing bookmark, doesn't 404.
+
+**A React warning caught by testing the account menu, not assumed clean**: both
+`/signin` and (at the time) `/settings/fpl` called `router.replace()` directly in the
+render body rather than an effect — a real "setState on a different component during
+render" warning that only fires on the branch each page redirects *from*, which every
+earlier signed-out-only or signed-in-only test pass had never exercised. Fixed with
+`useEffect` in both places, and in `/settings`'s own redirect gate, re-verified clean on a
+fresh tab.
+
 ## Cross-cutting
 
 **Risk formula** (revised spec):

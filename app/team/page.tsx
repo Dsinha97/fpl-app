@@ -664,7 +664,7 @@ export default function TeamPage() {
                   : ""}
                 . Your team will appear here automatically once the season starts. Until then,{" "}
                 <a
-                  href="/settings/fpl/"
+                  href="/settings/?tab=import"
                   className="text-purple-800 underline dark:text-[#00FF87]"
                 >
                   import your squad from FPL directly

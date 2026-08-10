@@ -208,6 +208,19 @@ or `tsc --noEmit` breaks on Deno globals.
   Club crests are `resources.premierleague.com/premierleague/badges/70/t{team_code}.png`.
   FPL region codes aren't all ISO — EN/S1/WA/NI map to flagcdn `gb-eng`/`gb-sct`/`gb-wls`/`gb-nir`.
 - Don't touch refs inside an IIFE in JSX; hoist into a `useMemo` or React lints it.
+- **A page tested only signed-out can hide an RLS policy that only covers `anon`.** The very
+  first migration's `health_check` policy granted `SELECT to anon`, and every page reading it
+  worked fine — until Sprint 14 added sign-in, which flips the client's role to
+  `authenticated` and the landing page started reading "Data pipeline: unreachable" for
+  anyone signed in. Every "public read" table added since follows `to anon, authenticated`;
+  when touching RLS, simulate both roles (`set local role …` + `request.jwt.claims` in
+  `execute_sql`), not just the one the feature you're building happens to exercise.
+- **`router.replace()` called directly in a render body, not an effect, is a real React
+  warning** ("setState on a different component during render") — and it only fires on the
+  branch a page redirects *from*, so a test pass that only ever visits the page in its
+  already-redirected state (signed in only, or signed out only) never triggers it. Bit
+  `/signin` and `/settings` both in Sprint 14.x; the fix is always the same `useEffect`
+  wrapper.
 - **Filling a budget-constrained squad greedily by raw score is wrong**, and it looked right for two
   sprints: `max_points` returned 257.8 xP where `value` returned 311.6, because taking the highest
   xP first buys five premiums and leaves ten slots for whatever the budget reserve still permits. It
