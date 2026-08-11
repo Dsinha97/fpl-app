@@ -7,7 +7,7 @@ import React from "react";
  */
 export const InteractivePitch = ({ children }: { children?: React.ReactNode }) => {
   return (
-    <div className="relative w-full aspect-[7/10] overflow-hidden rounded-2xl border-2 border-purple-800/80 shadow-2xl transition-colors sm:aspect-[4/3] dark:border-purple-600/60">
+    <div className="relative mx-auto w-full max-h-[70vh] aspect-[7/10] overflow-hidden rounded-2xl border-2 border-purple-800/80 shadow-2xl transition-colors sm:aspect-[4/3] dark:border-purple-600/60">
       {/* Green pitch background */}
       <div className="absolute inset-0 bg-emerald-600 transition-colors dark:bg-[#082015]" />
 

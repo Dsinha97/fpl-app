@@ -950,7 +950,7 @@ export default function BuilderPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <p className="text-sm text-zinc-500">Loading player pool…</p>
       </main>
     );
@@ -958,7 +958,7 @@ export default function BuilderPage() {
 
   if (error) {
     return (
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
           {error}
         </p>
@@ -1054,7 +1054,7 @@ export default function BuilderPage() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
+    <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
@@ -1183,9 +1183,9 @@ export default function BuilderPage() {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* ============================================ pitch column */}
-        <section className="space-y-4">
+        <section className="min-w-0 space-y-4">
           {/* prominent xP panel */}
           <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
             <div className="flex flex-wrap items-end gap-6">
@@ -1293,7 +1293,7 @@ export default function BuilderPage() {
         </section>
 
         {/* ========================================== selector column */}
-        <section className="space-y-4">
+        <section className="min-w-0 space-y-4">
           {/* Sprint 3: lineup + armband recommendation */}
           {lineup && (
             <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">

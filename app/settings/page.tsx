@@ -160,10 +160,12 @@ type ImportStatus =
       mismatches: SellPriceMismatch[];
     };
 
-const MY_TEAM_URL_HINT = "fantasy.premierleague.com/api/my-team/<your Manager ID>/";
+function myTeamUrlHint(entryId: number | null): string {
+  return `fantasy.premierleague.com/api/my-team/${entryId ?? "<your Manager ID>"}/`;
+}
 
 function ImportTab() {
-  const { teamName } = useAuth();
+  const { teamName, entryId } = useAuth();
   const [raw, setRaw] = useState("");
   const [status, setStatus] = useState<ImportStatus>({ kind: "idle" });
 
@@ -257,22 +259,42 @@ function ImportTab() {
           needs no credential at all.
         </InfoTooltip>
       </h2>
+      <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+        Opening{" "}
+        <code className="rounded bg-zinc-100 px-1 text-[11px] dark:bg-[#2A0A45]">
+          {myTeamUrlHint(entryId)}
+        </code>{" "}
+        directly in a tab won&apos;t work even signed in — it returns an &quot;Authentication
+        credentials were not provided&quot; error, because that bearer token is only ever sent from
+        inside the FPL app itself. The DevTools Network tab below reads the same response the FPL
+        app already has it send.
+      </p>
 
       <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-zinc-600 dark:text-zinc-300">
         <li>
-          While signed in at{" "}
+          Open and sign in at{" "}
           <a
             href="https://fantasy.premierleague.com/my-team"
             target="_blank"
             rel="noreferrer"
             className="text-purple-800 underline dark:text-[#00FF87]"
           >
-            fantasy.premierleague.com
+            fantasy.premierleague.com/my-team
           </a>
-          , open a new tab to{" "}
-          <code className="rounded bg-zinc-100 px-1 text-xs dark:bg-[#2A0A45]">{MY_TEAM_URL_HINT}</code>
+          .
         </li>
-        <li>Select all the JSON that page shows and copy it.</li>
+        <li>
+          Open DevTools (<code className="rounded bg-zinc-100 px-1 text-xs dark:bg-[#2A0A45]">F12</code>)
+          and select the <strong>Network</strong> tab.
+        </li>
+        <li>Reload the page, then filter the request list for &quot;my-team&quot;.</li>
+        <li>
+          Click the request ending in{" "}
+          <code className="rounded bg-zinc-100 px-1 text-xs dark:bg-[#2A0A45]">
+            {myTeamUrlHint(entryId)}
+          </code>
+          , open its <strong>Response</strong> tab, and copy the whole JSON body.
+        </li>
         <li>Paste it below and import.</li>
       </ol>
 

@@ -57,7 +57,7 @@ export interface FplSquadMeta {
 export const IMPORTED_SQUAD_NOTE =
   "manager_picks doesn't carry what you actually paid for each player, so purchase price here is " +
   "today's price — exact until a price moves, after which sell values will read slightly off. " +
-  "Pasting your squad from fantasy.premierleague.com/api/my-team/<id>/ (Settings → FPL Account) " +
+  "Pasting your squad from fantasy.premierleague.com/api/my-team/<id>/ (Settings → Import squad) " +
   "carries your real purchase prices instead.";
 
 /**
@@ -206,17 +206,41 @@ export function teamStateFromMyTeamJson(
     };
   }
 
+  // A tab opened directly on /api/my-team/<id>/ returns this shape, not a
+  // squad — the endpoint wants a bearer token a plain navigation never
+  // sends (see the file header note). Caught here, before the generic shape
+  // guard below, so the user gets the actual explanation rather than a
+  // generic "doesn't look like a squad" message for the exact mistake the
+  // in-app instructions used to cause.
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    !Array.isArray((parsed as { picks?: unknown }).picks) &&
+    typeof (parsed as { detail?: unknown }).detail === "string"
+  ) {
+    return {
+      state: null,
+      error:
+        "That's FPL's \"not signed in\" response, not your squad — the /api/ URL needs a bearer " +
+        "token a plain browser tab doesn't send. Copy the response from DevTools → Network instead " +
+        "(see the steps above).",
+      sellPriceMismatches: [],
+    };
+  }
+
   if (
     !parsed ||
     typeof parsed !== "object" ||
     !Array.isArray((parsed as { picks?: unknown }).picks) ||
+    (parsed as { transfers?: unknown }).transfers === null ||
     typeof (parsed as { transfers?: unknown }).transfers !== "object"
   ) {
     return {
       state: null,
       error:
-        'Doesn\'t look like an FPL my-team response — expected "picks" and "transfers". Fetch ' +
-        "https://fantasy.premierleague.com/api/my-team/<your id>/ while signed in and paste that.",
+        'Doesn\'t look like an FPL my-team response — expected "picks" and "transfers". Copy the ' +
+        "response from DevTools → Network instead of opening the /api/ URL directly (see the steps " +
+        "above).",
       sellPriceMismatches: [],
     };
   }
@@ -283,7 +307,9 @@ export function teamStateFromMyTeamJson(
   // as active only on an explicit "active" status rather than guessed from
   // is_pending, so a wrong guess fails closed (activeChip: null) rather
   // than falsely claiming a chip is in play.
-  const activeChip = data.chips.find((c) => c.status_for_entry === "active")?.name ?? null;
+  const activeChip =
+    (Array.isArray(data.chips) ? data.chips : []).find((c) => c.status_for_entry === "active")
+      ?.name ?? null;
 
   const base = emptyTeamState(rules, name);
 
