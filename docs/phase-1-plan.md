@@ -1,6 +1,6 @@
 # Phase 1 — FPL Data Ingestion
 
-Detailed build plan for Phase 1 of [the phase-wise build plan](../fpl_app_phase_wise_build_plan.md).
+Detailed build plan for Phase 1 of [the phase-wise build plan](fpl_app_phase_wise_build_plan.md).
 
 **Status:** complete — all five steps built, deployed, and verified on 2026-08-02
 **Drafted:** 2026-08-02

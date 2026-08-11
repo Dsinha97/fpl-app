@@ -3,6 +3,23 @@
 **Version:** Patch v1.0  
 **Applies After:** Sprint 12 (Chip Strategy)
 
+> **Status: the buildable slice shipped as Sprint 12.5 (2026-08-07), scoped down.** See "Sprint
+> 12.5 — PL Team (Club) Manager Intelligence" in
+> [sprints/sprint-12.md](sprints/sprint-12.md#sprint-125--pl-team-club-manager-intelligence-buildable-slice-built-2026-08-07)
+> for what shipped and why. Briefly:
+>
+> - **Phases 1, 2, 7–9 (database, tactical knowledge base, UI surfaces) are built** — as disclosed,
+>   non-multiplicative context, not as a term inside xP.
+> - **Phases 3–6 (the `μ_fit` multiplier, xP integration, cold-start `C_manager` scaling,
+>   Replacement Finder score) are blocked on validation.** The tactical modifiers are transcribed
+>   opinion (video/article titles turned into numbers), not measured data — the same risk class as
+>   a rejected cold-start data drop. They need a real per-player role source and a backtest before
+>   multiplying into xP.
+> - **Phase 10 (research pipeline) is deferred** — a process question, not a build item.
+> - **A naming collision was resolved**: this plan's "manager" (a PL head coach) is shipped as
+>   `pl_managers`/`tactical_manager_id`/`lib/tactical-profile.ts`, distinct from this app's existing
+>   "manager" (the FPL fantasy manager, Sprint 12A).
+
 ## Objective
 Introduce a Premier League Team Manager Intelligence layer that models how each manager's tactical system affects player output.
 

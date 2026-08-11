@@ -223,7 +223,8 @@ export default function TransfersPage() {
 
         // Paged deliberately — see PAGE_ROWS. No upper `event` bound either:
         // rows only exist through whatever window generate-predictions last
-        // ran (see A1 in docs/roadmap.md), so this naturally tracks that
+        // ran (see "Prediction window extended" in
+        // docs/sprints/additional-info.md), so this naturally tracks that
         // window rather than needing to be told it.
         const series = new Map<number, XpByEvent>();
         for (let from = 0; ; from += PAGE_ROWS) {

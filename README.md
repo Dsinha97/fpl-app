@@ -13,8 +13,8 @@ Live at [fpl-app.deepayansinha.workers.dev](https://fpl-app.deepayansinha.worker
 - [docs/phase-4-model.md](./docs/phase-4-model.md) — the xP model's method, calibration and backtest
 - [docs/updated-plan.md](./docs/updated-plan.md) — formula and method reference. Its roadmap table is
   superseded by `roadmap.md`, as is
-  [fpl_app_phase_wise_build_plan.md](./fpl_app_phase_wise_build_plan.md), the original architecture
-  document phases 0–4 were built from
+  [docs/fpl_app_phase_wise_build_plan.md](./docs/fpl_app_phase_wise_build_plan.md), the original
+  architecture document phases 0–4 were built from
 - [docs/phase-1-plan.md](./docs/phase-1-plan.md) — the data-ingestion plan
 - [CLAUDE.md](./CLAUDE.md) — working conventions and the gotchas that have already cost time
 
