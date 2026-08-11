@@ -119,6 +119,17 @@ Not started. Findings that shape it, verified rather than assumed:
 - Free tier is 100 requests/day and `/players` paginates at 20, so a Championship season is ~36
   requests: enough for a seasonal backfill, never for anything live.
 
+**Closed, not just deferred, as of 2026-08-11.** `worldfootballR` / `worldfootballR_data`
+(FBref/Transfermarkt/Understat wrapper) was investigated as a phase-2 candidate and rejected on
+three independent, individually fatal grounds — see
+[hidden-gems.md](hidden-gems.md#why-this-exists) for the checks: the data repo and package were
+archived 18 Sept 2025 and will not be maintained further; the player-level advanced data is Big-5
+leagues only, missing the Championship where the largest newcomer cluster sits (54 of 99
+zero-PL-minutes players are at COV/HUL/IPS); and on 20 Jan 2026 Sports Reference deleted all
+Opta-sourced advanced data from FBref and Stathead, including history, after its data provider
+terminated the feed. Recorded here so FBref is not re-surveyed as a candidate later — the underlying
+data genuinely no longer exists, not merely hard to reach.
+
 **A candidate data drop was rejected, measured rather than assumed (2026-08-05).**
 `../Promoted Team Data/premier_league_new_players_analytics.csv` was supplied as per-player
 minutes/appearances/xG/xA data for players new to the league, intended to feed the cold-start prior.

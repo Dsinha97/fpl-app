@@ -27,6 +27,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 12.6 | Defensive Contribution engine fix, plus five surface fixes | **Built** — xP engine v1.4.0 | [sprints/sprint-12.md](sprints/sprint-12.md#sprint-126--defensive-contribution-engine-fix-plus-five-surface-fixes-built-2026-08-08) |
 | 13 | Live Matchday Hub | Not started — **staged for GW1** | [sprints/sprint-13.md](sprints/sprint-13.md) |
 | 14 | Authentication & Team Sync | **Built**, plus 14.1–14.4 | [sprints/sprint-14.md](sprints/sprint-14.md) |
+| 15.5 | Hidden Gems (value-discovery filter) | **Built** — `player_rate_profile`, `lib/hidden-gems.ts`, `/players` + builder filters | [sprints/hidden-gems.md](sprints/hidden-gems.md) |
 | 15 | Action Layer | Not started | below |
 | 16 | Notifications & Automation | Not started | below |
 | 17 | Historical Analytics & ML | Not started | below |

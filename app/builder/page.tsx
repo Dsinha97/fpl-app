@@ -53,6 +53,16 @@ import {
   type Replacement,
   type ScoredPlayer,
 } from "@/lib/scoring";
+import {
+  DEFAULT_GEM_CUTS,
+  detectGems,
+  GEM_ARCHETYPE_LABELS,
+  GEMS_MODEL_NOTE,
+  type GemArchetype,
+  type GemCandidate,
+} from "@/lib/hidden-gems";
+import { GemBadge } from "@/components/gem-badge";
+import { InfoTooltip } from "@/components/info-tooltip";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { fullName, matchesPlayerQuery } from "@/lib/player-search";
 import { ActionMenu } from "@/components/ui/action-menu";
@@ -62,6 +72,7 @@ import { benchBoostAt, tripleCaptainAt } from "@/lib/chips";
 
 interface PlayerRow {
   id: number;
+  code: number;
   web_name: string;
   first_name: string | null;
   second_name: string | null;
@@ -105,6 +116,16 @@ interface PredictionRow {
   start_probability: number | null;
 }
 
+/** One row of `player_rate_profile` — see that migration for how it's derived. */
+interface RateProfileRow {
+  player_code: number;
+  observed_minutes: number | null;
+  dc90: number | null;
+  cbit90: number | null;
+  cbirt90: number | null;
+  xgi90: number | null;
+}
+
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
 const PAGE_SIZE = 10;
 /** Replacement finder result-count choices. 10 is the default — the spec's number. */
@@ -136,6 +157,7 @@ export default function BuilderPage() {
   const [xp, setXp] = useState<Map<number, XpRow>>(new Map());
   const [upcoming, setUpcoming] = useState<Map<number, UpcomingFixture[]>>(new Map());
   const [predictions, setPredictions] = useState<Map<number, PredictionRow>>(new Map());
+  const [rateProfile, setRateProfile] = useState<Map<number, RateProfileRow>>(new Map());
   const [rules, setRules] = useState<SquadRules>(DEFAULT_RULES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -194,12 +216,12 @@ export default function BuilderPage() {
         setSeason(gw.season);
         setNextEvent(gw.id);
 
-        const [playersRes, teamsRes, typesRes, settingsRes, xpRes, fixturesRes, predsRes, tacticalRes] =
+        const [playersRes, teamsRes, typesRes, settingsRes, xpRes, fixturesRes, predsRes, tacticalRes, rateProfileRes] =
           await Promise.all([
             supabase
               .from("players")
               .select(
-                "id, web_name, first_name, second_name, known_name, team_id, team_code, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, points_per_game",
+                "id, code, web_name, first_name, second_name, known_name, team_id, team_code, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, points_per_game",
               )
               .eq("season", gw.season)
               .limit(1000),
@@ -243,6 +265,11 @@ export default function BuilderPage() {
                 "manager_key, name, current_club, preferred_formation, buildup_style, pressing_intensity, source_file, tactical_traits, modifiers",
               )
               .eq("season", gw.season),
+            // Hidden Gems (Sprint 15.5) — not season-scoped, keyed by player_code.
+            supabase
+              .from("player_rate_profile")
+              .select("player_code, observed_minutes, dc90, cbit90, cbirt90, xgi90")
+              .limit(1000),
           ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
         if (teamsRes.error) throw new Error(teamsRes.error.message);
@@ -321,6 +348,9 @@ export default function BuilderPage() {
         setUpcoming(fixtures);
         setPredictions(
           new Map(((predsRes.data ?? []) as PredictionRow[]).map((r) => [r.player_id, r])),
+        );
+        setRateProfile(
+          new Map(((rateProfileRes.data ?? []) as RateProfileRow[]).map((r) => [r.player_code, r])),
         );
         setRules(loadedRules);
 
@@ -762,11 +792,41 @@ export default function BuilderPage() {
     return m;
   }, [players, xp, teamShort, predictions, upcoming, availabilityOf]);
 
+  // Hidden Gems (Sprint 15.5) — computed once over the whole pool, same
+  // `scoredById` every other ranking here uses, joined to `player_rate_profile`
+  // via each row's `code`.
+  const gemCandidates = useMemo<GemCandidate[]>(
+    () =>
+      players.flatMap((p) => {
+        const player = scoredById.get(p.id);
+        if (!player) return [];
+        const rp = rateProfile.get(p.code);
+        return [
+          {
+            player,
+            rates: {
+              observedMinutes: rp?.observed_minutes ?? null,
+              dc90: rp?.dc90 ?? null,
+              positionDc90: p.element_type === 2 ? rp?.cbit90 ?? null : rp?.cbirt90 ?? null,
+              xgi90: rp?.xgi90 ?? null,
+            },
+          },
+        ];
+      }),
+    [players, scoredById, rateProfile],
+  );
+
+  const gemsById = useMemo(() => {
+    const verdicts = detectGems(gemCandidates, horizon, DEFAULT_GEM_CUTS, seasonWindow);
+    return new Map(verdicts.map((v) => [v.playerId, v]));
+  }, [gemCandidates, horizon, seasonWindow]);
+
   const [replaceFor, setReplaceFor] = useState<number | null>(null);
   /** Replacement finder filters — each defaults to today's hardcoded value. */
   const [replaceLimit, setReplaceLimit] = useState<(typeof REPLACEMENT_LIMITS)[number]>(10);
   const [minStartOverride, setMinStartOverride] = useState(MINUTES_FLOOR);
   const [includeUnavailable, setIncludeUnavailable] = useState(false);
+  const [replaceArchetype, setReplaceArchetype] = useState<GemArchetype | 0>(0);
   /** null = no cap beyond what selling the outgoing player affords. */
   const [maxPriceOverride, setMaxPriceOverride] = useState<number | null>(null);
 
@@ -893,6 +953,13 @@ export default function BuilderPage() {
           }
         : undefined;
 
+    const archetypeIds =
+      replaceArchetype !== 0
+        ? new Set(
+            [...gemsById.values()].filter((v) => v.archetype === replaceArchetype).map((v) => v.playerId),
+          )
+        : undefined;
+
     return findReplacements(
       target,
       [...scoredById.values()],
@@ -907,6 +974,7 @@ export default function BuilderPage() {
         maxPrice: maxPriceOverride ?? undefined,
         seasonWindow,
         squadBalance,
+        archetypeIds,
       },
     );
   }, [
@@ -917,6 +985,8 @@ export default function BuilderPage() {
     lookup,
     horizon,
     replaceLimit,
+    replaceArchetype,
+    gemsById,
     minStartOverride,
     includeUnavailable,
     maxPriceOverride,
@@ -1565,6 +1635,28 @@ export default function BuilderPage() {
                     </button>
                   ))}
                 </div>
+                <label className="flex items-center gap-1.5">
+                  <span>Archetype</span>
+                  <select
+                    value={replaceArchetype}
+                    onChange={(e) =>
+                      setReplaceArchetype(e.target.value === "0" ? 0 : (e.target.value as GemArchetype))
+                    }
+                    className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                  >
+                    <option value={0}>Any</option>
+                    {(Object.entries(GEM_ARCHETYPE_LABELS) as [GemArchetype, string][]).map(([id, label]) => (
+                      <option key={id} value={id}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <InfoTooltip label="What is a Hidden Gem?" align="right">
+                    <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                      {GEMS_MODEL_NOTE}
+                    </p>
+                  </InfoTooltip>
+                </label>
               </div>
 
               {replacements.length === 0 ? (
@@ -1588,11 +1680,12 @@ export default function BuilderPage() {
                         className="flex items-start justify-between gap-2 rounded-md border border-zinc-200 px-2 py-1.5 text-xs dark:border-purple-900/40"
                       >
                         <div className="min-w-0">
-                          <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                          <p className="flex items-center gap-1.5 font-medium text-zinc-900 dark:text-zinc-100">
                             {r.player.webName}
-                            <span className="ml-1.5 font-normal text-zinc-500">
+                            <span className="font-normal text-zinc-500">
                               {r.player.teamShort} · £{(r.player.price / 10).toFixed(1)}m
                             </span>
+                            <GemBadge verdict={gemsById.get(r.player.id)} />
                           </p>
                           <p className="mt-0.5 text-[11px] text-zinc-500">
                             {r.rationale.join(" · ")}

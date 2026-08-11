@@ -347,6 +347,15 @@ export interface ReplacementFilters {
     /** Absolute event ids the horizon covers, e.g. [gw, gw+1, ...]. */
     windowEvents: number[];
   };
+  /**
+   * Restrict candidates to a Hidden Gems archetype (lib/hidden-gems.ts),
+   * supplied as the set of player ids `detectGems` flagged. A set rather
+   * than an archetype name: `findReplacements` operates on `ScoredPlayer`,
+   * which carries no per-90 rate data, so recomputing archetypes in here
+   * would be a second implementation of `detectGems`'s own filtering. The
+   * caller runs `detectGems` once and passes the resulting ids through.
+   */
+  archetypeIds?: Set<number>;
 }
 
 /** Population coefficient of variation — 0 for a constant series, undefined for a zero mean. */
@@ -419,6 +428,7 @@ export function findReplacements(
       if (c.id === target.id || owned.has(c.id)) return false;
       if (c.elementType !== target.elementType) return false;
       if (c.price > priceCeiling) return false;
+      if (filters.archetypeIds && !filters.archetypeIds.has(c.id)) return false;
       if ((clubCounts.get(c.teamId) ?? 0) >= rules.teamLimit) return false;
       if (
         !filters.includeUnavailable &&
@@ -455,6 +465,7 @@ export function findReplacements(
       // promoted-club player can out-score an established one on paper purely
       // because his number is the average for his price bracket.
       if (c.reliability === "low") rationale.push("prior-based, little PL record");
+      if (filters.archetypeIds?.has(c.id)) rationale.push("matches the Hidden Gems filter");
       // Only reachable with includeUnavailable set — the default filter
       // already excludes anyone below the floor, so this only ever fires
       // when the caller deliberately asked to see them anyway.

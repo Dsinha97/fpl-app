@@ -7,9 +7,18 @@ import { FixtureCell } from "@/components/fdr-badge";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { ConfidenceBadge, RateBand } from "@/components/confidence-badge";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
+import { GemBadge } from "@/components/gem-badge";
 import { fullName, matchesPlayerQuery } from "@/lib/player-search";
 import { RangeSlider } from "@/components/ui/range-slider";
-import { MAX_COMPARE, XDC_MODEL_NOTE } from "@/lib/scoring";
+import { MAX_COMPARE, valuePerMillion, XDC_MODEL_NOTE, type ScoredPlayer } from "@/lib/scoring";
+import {
+  DEFAULT_GEM_CUTS,
+  detectGems,
+  GEM_ARCHETYPE_LABELS,
+  GEMS_MODEL_NOTE,
+  type GemArchetype,
+  type GemCandidate,
+} from "@/lib/hidden-gems";
 import {
   HORIZONS,
   horizonLabel,
@@ -43,6 +52,16 @@ interface HistoryRow {
   minutes: number | null;
   expected_goals: number | null;
   expected_assists: number | null;
+}
+
+/** One row of `player_rate_profile` — see that migration for how it's derived. */
+interface RateProfileRow {
+  player_code: number;
+  observed_minutes: number | null;
+  dc90: number | null;
+  cbit90: number | null;
+  cbirt90: number | null;
+  xgi90: number | null;
 }
 
 interface RunCell {
@@ -139,6 +158,7 @@ export default function PlayersPage() {
   const [teamShort, setTeamShort] = useState<Map<number, string>>(new Map());
   const [runs, setRuns] = useState<Map<number, RunCell[]>>(new Map());
   const [xp, setXp] = useState<Map<number, XpRow>>(new Map());
+  const [rateProfile, setRateProfile] = useState<Map<number, RateProfileRow>>(new Map());
   const [historySeason, setHistorySeason] = useState<string>("");
   const [seasonWindow, setSeasonWindow] = useState(FALLBACK_SEASON_WINDOW);
   const [loading, setLoading] = useState(true);
@@ -152,6 +172,8 @@ export default function PlayersPage() {
   const [sortKey, setSortKey] = useState<SortKey>("price");
   const [sortDesc, setSortDesc] = useState(true);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [gemsOnly, setGemsOnly] = useState(false);
+  const [gemArchetype, setGemArchetype] = useState<GemArchetype | 0>(0);
 
   useEffect(() => {
     (async () => {
@@ -165,7 +187,7 @@ export default function PlayersPage() {
         if (gwError) throw new Error(gwError.message);
         if (!gw) throw new Error("No upcoming gameweek found.");
 
-        const [playersRes, teamsRes, fixturesRes, latestSeasonRes] = await Promise.all([
+        const [playersRes, teamsRes, fixturesRes, latestSeasonRes, rateProfileRes] = await Promise.all([
           supabase
             .from("players")
             .select(
@@ -190,6 +212,13 @@ export default function PlayersPage() {
             .order("season_name", { ascending: false })
             .limit(1)
             .maybeSingle(),
+          // Not season-scoped — player_rate_profile is keyed by player_code
+          // off the whole player_season_history table, same as the model's
+          // own recency-weighted rates.
+          supabase
+            .from("player_rate_profile")
+            .select("player_code, observed_minutes, dc90, cbit90, cbirt90, xgi90")
+            .limit(1000),
         ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
         if (teamsRes.error) throw new Error(teamsRes.error.message);
@@ -243,11 +272,13 @@ export default function PlayersPage() {
           .limit(1000);
 
         const xpList = (xpRows ?? []) as XpRow[];
+        const rateProfileList = (rateProfileRes.data ?? []) as RateProfileRow[];
         setPlayers((playersRes.data ?? []) as PlayerRow[]);
         setTeamShort(shorts);
         setRuns(runMap);
         setXp(new Map(xpList.map((r) => [r.player_id, r])));
         setHistory(new Map(historyRows.map((h) => [h.player_code, h])));
+        setRateProfile(new Map(rateProfileList.map((r) => [r.player_code, r])));
 
         // first_event/last_event are constant across every row for one
         // season/model_version — any row gives the real prediction window.
@@ -269,6 +300,80 @@ export default function PlayersPage() {
     return cells.reduce((a, c) => a + c.fdr, 0) / cells.length;
   };
 
+  /**
+   * Availability from status/chance-of-playing, same formula
+   * `app/builder/page.tsx`'s `availabilityOf` uses. `/players` doesn't fetch
+   * `player_predictions.start_probability`, so this is the best minutes
+   * signal available here and doubles as the Hidden Gems evidence floor.
+   */
+  const availabilityOf = (p: PlayerRow): number => {
+    if (p.chance_of_playing_next_round !== null) {
+      return Math.max(0, Math.min(1, p.chance_of_playing_next_round / 100));
+    }
+    return p.status === "a" ? 1 : 0;
+  };
+
+  /** Builds the minimal ScoredPlayer this page can support (no start_probability — see `availabilityOf`). */
+  const toScoredPlayer = (p: PlayerRow, x: XpRow | undefined): ScoredPlayer => ({
+    id: p.id,
+    webName: p.web_name,
+    elementType: p.element_type,
+    teamId: p.team_id,
+    teamShort: teamShort.get(p.team_id) ?? null,
+    price: p.now_cost ?? 0,
+    ownership: p.selected_by_percent,
+    pointsPerGame: null,
+    xp: {
+      1: x?.xp_1 ?? null,
+      3: x?.xp_3 ?? null,
+      5: x?.xp_5 ?? null,
+      8: x?.xp_8 ?? null,
+      19: x?.xp_19 ?? null,
+      season: x?.xp_total ?? null,
+    },
+    reliability: x?.reliability ?? undefined,
+    priorWeight: x?.prior_weight ?? null,
+    expectedMinutes: null,
+    startProbability: null,
+    availability: availabilityOf(p),
+    fdrRun: (runs.get(p.team_id) ?? []).map((c) => c.fdr),
+  });
+
+  /**
+   * xP per £m for one row at the selected horizon. Delegates to
+   * `valuePerMillion` (lib/scoring.ts) rather than recomputing
+   * `xpH / (now_cost / 10)` independently — this file previously did that
+   * twice (once for sorting, once for display), a second implementation of
+   * a number the rest of the app already owns.
+   */
+  const valueOf = (p: PlayerRow, x: XpRow | undefined): number | null => {
+    if (xpForHorizon(x, horizon) === null || !p.now_cost) return null;
+    return valuePerMillion(toScoredPlayer(p, x), horizon);
+  };
+
+  const gemCandidates = useMemo<GemCandidate[]>(
+    () =>
+      players.map((p) => {
+        const rp = rateProfile.get(p.code);
+        return {
+          player: toScoredPlayer(p, xp.get(p.id)),
+          rates: {
+            observedMinutes: rp?.observed_minutes ?? null,
+            dc90: rp?.dc90 ?? null,
+            positionDc90: p.element_type === 2 ? rp?.cbit90 ?? null : rp?.cbirt90 ?? null,
+            xgi90: rp?.xgi90 ?? null,
+          },
+        };
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [players, rateProfile, xp, teamShort, runs],
+  );
+
+  const gemsById = useMemo(() => {
+    const verdicts = detectGems(gemCandidates, horizon, DEFAULT_GEM_CUTS, seasonWindow);
+    return new Map(verdicts.map((v) => [v.playerId, v]));
+  }, [gemCandidates, horizon, seasonWindow]);
+
   const visible = useMemo(() => {
     const q = search.trim();
 
@@ -278,6 +383,11 @@ export default function PlayersPage() {
       if (teamFilter !== 0 && p.team_id !== teamFilter) return false;
       const cost = p.now_cost ?? 0;
       if (cost < priceRange[0] || cost > priceRange[1]) return false;
+      if (gemsOnly) {
+        const gem = gemsById.get(p.id);
+        if (!gem) return false;
+        if (gemArchetype !== 0 && gem.archetype !== gemArchetype) return false;
+      }
       return true;
     });
 
@@ -291,10 +401,8 @@ export default function PlayersPage() {
           return xpForHorizon(x, horizon) ?? -1;
         case "xdc":
           return XDC_POSITIONS.has(p.element_type) ? (xdcForHorizon(x, horizon) ?? -1) : -1;
-        case "value": {
-          const xpH = xpForHorizon(x, horizon);
-          return xpH && p.now_cost ? xpH / (p.now_cost / 10) : -1;
-        }
+        case "value":
+          return valueOf(p, x) ?? -1;
         case "price":
           return p.now_cost ?? -1;
         case "ownership":
@@ -314,7 +422,23 @@ export default function PlayersPage() {
     rows.sort((a, b) => (sortDesc ? value(b) - value(a) : value(a) - value(b)));
     return rows.slice(0, 100);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, history, runs, xp, search, position, teamFilter, priceRange, sortKey, sortDesc, horizon, seasonWindow]);
+  }, [
+    players,
+    history,
+    runs,
+    xp,
+    search,
+    position,
+    teamFilter,
+    priceRange,
+    sortKey,
+    sortDesc,
+    horizon,
+    seasonWindow,
+    gemsOnly,
+    gemArchetype,
+    gemsById,
+  ]);
 
   const header = (label: string, key: SortKey) => (
     <th className="px-2 py-2">
@@ -436,6 +560,34 @@ export default function PlayersPage() {
             </button>
           )}
         </label>
+        <span className="flex items-center gap-1.5 border-l border-zinc-200 pl-3 dark:border-purple-900/40">
+          <label className="flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={gemsOnly}
+              onChange={(e) => setGemsOnly(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-zinc-300 text-purple-700 focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-purple-800/50 dark:text-[#00FF87]"
+            />
+            Gems only
+          </label>
+          {gemsOnly && (
+            <select
+              value={gemArchetype}
+              onChange={(e) => setGemArchetype(e.target.value === "0" ? 0 : (e.target.value as GemArchetype))}
+              className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+            >
+              <option value={0}>Any archetype</option>
+              {(Object.entries(GEM_ARCHETYPE_LABELS) as [GemArchetype, string][]).map(([id, label]) => (
+                <option key={id} value={id}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          )}
+          <InfoTooltip label="What is a Hidden Gem?">
+            <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{GEMS_MODEL_NOTE}</p>
+          </InfoTooltip>
+        </span>
       </div>
 
       {error && (
@@ -552,6 +704,7 @@ export default function PlayersPage() {
                           freeKickOrder={p.direct_freekicks_order}
                           cornerOrder={p.corners_and_indirect_freekicks_order}
                         />
+                        <GemBadge verdict={gemsById.get(p.id)} />
                       </span>
                     </td>
                     <td className="px-2 py-1.5 text-zinc-500">{teamShort.get(p.team_id)}</td>
@@ -575,10 +728,7 @@ export default function PlayersPage() {
                         : "—"}
                     </td>
                     <td className="px-2 py-1.5 tabular-nums">
-                      {(() => {
-                        const xpH = xpForHorizon(x, horizon);
-                        return xpH && p.now_cost ? (xpH / (p.now_cost / 10)).toFixed(2) : "—";
-                      })()}
+                      {valueOf(p, x)?.toFixed(2) ?? "—"}
                     </td>
                     <td className="px-2 py-1.5 tabular-nums">
                       {p.selected_by_percent !== null ? `${p.selected_by_percent}%` : "—"}
