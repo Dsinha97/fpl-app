@@ -28,6 +28,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 13 | Live Matchday Hub | Not started — **staged for GW1** | [sprints/sprint-13.md](sprints/sprint-13.md) |
 | 14 | Authentication & Team Sync | **Built**, plus 14.1–14.4 | [sprints/sprint-14.md](sprints/sprint-14.md) |
 | 15.5 | Hidden Gems (value-discovery filter) | **Built** — `player_rate_profile`, `lib/hidden-gems.ts`, `/players` + builder filters | [sprints/hidden-gems.md](sprints/hidden-gems.md) |
+| 15.6 | Championship cold-start priors (FootyStats PDF drop) | **Built** — xP engine v1.5.0, `external_player_seasons`, 33 players re-primed | [sprints/championship-priors.md](sprints/championship-priors.md) |
 | 15 | Action Layer | Not started | below |
 | 16 | Notifications & Automation | Not started | below |
 | 17 | Historical Analytics & ML | Not started | below |
@@ -66,8 +67,8 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 | `sync-live-gameweek` write path | Never executed — no live fixture yet | [sprints/sprint-13.md](sprints/sprint-13.md) |
 | Automated FPL credential login | PingOne offers no password grant; the one reachable flow opens with bot detection | [sprints/sprint-14.md](sprints/sprint-14.md#fpl-login-is-blocked--automated-credential-login-not-the-session-handoff) |
 | `positionCalibration` | Fitted in-sample; needs a refit against real 2026/27 results | — |
-| Cold-Start phase 2 (external-league enrichment) | No usable data source — see the file for the three rejected candidates | [sprints/cold-start-patch.md](sprints/cold-start-patch.md#phase-2--external-league-enrichment-deferred-gated) |
-| Sprint 12.5 phases 3–6 (System Fit multiplier) | Tactical modifiers are transcribed opinion, not measured data — needs a validated per-player role source | [sprints/sprint-12.md](sprints/sprint-12.md#sprint-125--pl-team-club-manager-intelligence-buildable-slice-built-2026-08-07) |
+| Cold-Start phase 2, remaining 66 players + `dc90` | Sprint 15.6 covered 33 of 99 (COV/HUL/IPS, xg90/xa90/yellow90 only) via a one-shot PDF drop; the other 66 (overseas/academy) and `dc90` for all 33 have no fittable source | [sprints/championship-priors.md](sprints/championship-priors.md) |
+| Sprint 12.5 phases 3–6 (System Fit multiplier) | **Half-unblocked by Sprint 15.6**: player-side rates (crosses/90, tackles/90, etc.) are now measured for the 58 FootyStats-covered players, but manager-side tactical thresholds are still transcribed opinion, not measured data — the block stands for that reason specifically now, not by default | [sprints/sprint-12.md](sprints/sprint-12.md#sprint-125--pl-team-club-manager-intelligence-buildable-slice-built-2026-08-07) |
 | Manager behavioural history (transfers, captains, chips) | FPL API exposes none for past seasons; `manager_picks` FKs to the current season only | [sprints/sprint-12.md](sprints/sprint-12.md#sprint-12a--manager-percentile-profile-built) |
 
 ## Decisions that still bind
@@ -89,7 +90,11 @@ not a copy.
   [sprints/sprint-12.md](sprints/sprint-12.md#sprint-126--defensive-contribution-engine-fix-plus-five-surface-fixes-built-2026-08-08)
 - **Three-check gate for any new external data drop** (per-player values, genuine origin, no
   overlap with players who already carry PL minutes) —
-  [sprints/cold-start-patch.md](sprints/cold-start-patch.md#phase-2--external-league-enrichment-deferred-gated)
+  [sprints/cold-start-patch.md](sprints/cold-start-patch.md#phase-2--external-league-enrichment-partially-delivered-2026-08-11)
+- **A league-translation λ is fitted per metric off a real cross-league cohort, never invented or
+  shared across metrics** (xg90 0.200 / xa90 0.280 / yellow90 0.844; a metric with no fittable
+  cohort — `dc90` — is left untranslated rather than guessed) —
+  [sprints/championship-priors.md](sprints/championship-priors.md)
 - **`mergeDrafts`** (unseen draft wins, else newer `updatedAt` wins) — the one merge rule shared by
   file import and cloud sync — [sprints/sprint-14.md](sprints/sprint-14.md)
 

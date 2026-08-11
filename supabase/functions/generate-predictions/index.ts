@@ -24,6 +24,7 @@ import {
   ratesAtBound,
   reconcileClubSquadWeighted,
   type FitRow,
+  type PriorMetric,
   type Rates,
   type RateEvidence,
   type ScoringRules,
@@ -87,7 +88,11 @@ Deno.serve(async (req) => {
         "so an established starter moves far less than a fringe reserve on the same " +
         "price band — gated on a backtest against the phase-4 cohort before shipping " +
         "(Pearson r 0.774 to 0.830, recovering most of the gap to the 0.851 figure with " +
-        "no reconciliation at all; see docs/roadmap.md). The prediction window runs from " +
+        "no reconciliation at all; see docs/roadmap.md). v1.5.0 adds a one-shot external " +
+        "prior for 33 zero-PL-minute players at the three promoted clubs, from real " +
+        "2025/26 Championship stats translated by a fitted per-metric lambda — replacing " +
+        "the position/price prior mean for xg90/xa90/yellow90 only, never touching " +
+        "n_eff or the shrinkage weight itself. The prediction window runs from " +
         "the next gameweek through the season's last gameweek (floored at 8).",
       params: MODEL_PARAMS,
     }, { onConflict: "version" });
@@ -129,7 +134,7 @@ Deno.serve(async (req) => {
     const finalGameweek = (lastGwRes.data?.id as number | undefined) ?? firstEvent + MIN_HORIZON - 1;
     const lastEvent = Math.max(finalGameweek, firstEvent + MIN_HORIZON - 1);
 
-    const [playersRes, typesRes, fixturesRes, squadplayRes] = await Promise.all([
+    const [playersRes, typesRes, fixturesRes, squadplayRes, externalRes] = await Promise.all([
       db.from("players")
         .select("id, code, team_id, element_type, status, chance_of_playing_next_round, now_cost")
         .eq("season", season)
@@ -149,12 +154,40 @@ Deno.serve(async (req) => {
         .eq("season", season)
         .eq("key", "squad_squadplay")
         .maybeSingle(),
+      // v1.5.0 — the one-shot Championship prior drop (see xp-model.ts's
+      // header note and docs/sprints/championship-priors.md). Filtered to
+      // matched, non-null player_code rows here rather than in xp-model.ts,
+      // so the model layer never has to know this table exists.
+      db.from("external_player_seasons")
+        .select("player_code, xg90, xa90, cards90")
+        .eq("season", "2025/26")
+        .eq("league", "EFL Championship")
+        .neq("matched_by", "unmatched")
+        .not("player_code", "is", null),
     ]);
     if (playersRes.error) throw new Error(`players: ${playersRes.error.message}`);
     if (typesRes.error) throw new Error(`element_types: ${typesRes.error.message}`);
     if (fixturesRes.error) throw new Error(`fixtures: ${fixturesRes.error.message}`);
     if (squadplayRes.error) throw new Error(`game_settings: ${squadplayRes.error.message}`);
     if (!squadplayRes.data) throw new Error("game_settings: squad_squadplay missing");
+    if (externalRes.error) throw new Error(`external_player_seasons: ${externalRes.error.message}`);
+
+    // player_code -> raw (untranslated) Championship per-90 rates, restricted
+    // to the metrics xp-model.ts has a fitted lambda for (yellow90 is the
+    // model's name for the PDF's "cards90"). A player carrying real Premier
+    // League minutes ignores this map entirely inside deriveRatesWithPrior —
+    // it is only ever consulted on the zero-evidence branch — so passing it
+    // for every player, cold-start or not, is harmless and keeps this block
+    // from needing to know which 33 players actually qualify.
+    const externalRatesByCode = new Map<number, Partial<Record<PriorMetric, number>>>();
+    for (const row of externalRes.data ?? []) {
+      const code = row.player_code as number;
+      const rates: Partial<Record<PriorMetric, number>> = {};
+      if (row.xg90 !== null) rates.xg90 = Number(row.xg90);
+      if (row.xa90 !== null) rates.xa90 = Number(row.xa90);
+      if (row.cards90 !== null) rates.yellow90 = Number(row.cards90);
+      externalRatesByCode.set(code, rates);
+    }
 
     const positionCode = new Map(
       (typesRes.data ?? []).map((t) => [t.id as number, t.singular_name_short as string]),
@@ -301,6 +334,7 @@ Deno.serve(async (req) => {
         priceBand: priceBandOf(p.now_cost ?? 0),
         priors,
         dcEligibleSeasons,
+        externalRates: externalRatesByCode.get(p.code),
       });
       if (!shrunk) {
         // The one abstention left: no Premier League minutes *and* no prior for

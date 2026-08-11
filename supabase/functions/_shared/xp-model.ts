@@ -1,4 +1,4 @@
-// Expected points model, v1.4.0.
+// Expected points model, v1.5.0.
 //
 // v1.1.0 added the cold-start prior layer at the bottom of this file: rates are
 // shrunk toward a fitted position/price prior instead of the player being
@@ -42,12 +42,31 @@
 //  * Availability flows through expected minutes instead of a trailing
 //    multiplier — the plan's step 9 notes this is the more complete form.
 //
+// v1.5.0 adds a sixth prior rung, "external_measured", for a one-shot manual
+// data drop: real per-player Championship 2025/26 stats scraped from
+// FootyStats PDFs for the three promoted clubs (docs/Promoted Team Data/,
+// scripts/extract-footystats.ts), ingested into `external_player_seasons`.
+// It replaces the position×price prior *mean* only, for the metrics a
+// translation factor could actually be fitted for (xg90, xa90, yellow90 —
+// see `leagueTranslation` below) and only for the 33 players with zero
+// Premier League minutes in `player_season_history` — never for a player who
+// already has PL evidence, and never touching sigma2/tau2/n_eff/the
+// shrinkage weight itself, so a covered player keeps `reliability: "low"`
+// and `n_eff` unmoved: the number gets better, the stated confidence does
+// not overclaim it. `dc90` was deliberately left out — the Championship side
+// is measurable (the PDFs carry the full CBIT breakdown), but
+// `player_season_history` has no `clearances_blocks_interceptions`/`tackles`
+// for 2024/25 to fit a translation factor against, so it stays on the
+// existing position_price rung rather than trusting an unfitted number.
+// See docs/sprints/championship-priors.md for the three-check gate re-run,
+// the lambda fit, and its disclosed survivor-bias direction.
+
 // Everything is derived from prior-season per-90 rates. That is the honest
 // limit of a pre-season model: it cannot know about a new signing's role or a
 // tactical change. Once player_gameweek_stats fills up, current-season form
 // should be blended in and these rates reweighted.
 
-export const MODEL_VERSION = "v1.4.0";
+export const MODEL_VERSION = "v1.5.0";
 
 export const MODEL_PARAMS = {
   // Recency weights applied to prior seasons, most recent first.
@@ -138,6 +157,41 @@ export const MODEL_PARAMS = {
   // player's own record, above 0.50 it is mostly the prior talking.
   reliabilityHighBelow: 0.1,
   reliabilityLowAbove: 0.5,
+
+  // ---- Championship -> Premier League translation (v1.5.0) --------------
+  //
+  // Fitted, not invented: a supplied CSV of this exact shape hardcoded a
+  // single 0.65 "league_lambda" applied uniformly to every metric and every
+  // position. Checked against real data, that number is wrong in both
+  // directions at once — Leif Davis's actual PL-2024/25-vs-Championship-
+  // 2025/26 ratio is 0.40 for xG and 0.78 for xA, not one shared 0.65.
+  //
+  // Pooled-rate estimator (sum of PL output / sum of Championship output,
+  // minutes-weighted, not a mean of per-player ratios) over the 12 players
+  // who hold both a 450+ minute PL 2024/25 season and a 2025/26 Championship
+  // PDF — Ipswich's PL -> Championship -> PL path is what makes this cohort
+  // exist at all. See scripts/fit-lambda.ts and
+  // docs/sprints/championship-priors.md for the full per-player breakdown.
+  //
+  // Disclosed survivor bias, by direction: this cohort is players good
+  // enough to have played the Premier League who then played the
+  // Championship — better than a random Championship player, so a lambda
+  // fitted on them is biased *optimistic* (translates a Championship rate up
+  // too generously). That is the direction that hurts a manager who trusts
+  // the number, the same asymmetry cold-start-patch.md's own translation
+  // discussion already flags for a relegation cohort applied to promotion.
+  //
+  // Only the metrics with a *fittable* comparison are here. `dc90` has no
+  // entry — `player_season_history` carries no
+  // `clearances_blocks_interceptions`/`tackles` for 2024/25 to compare
+  // against, so it is not guessed at; a metric absent from this map simply
+  // is not translated, and that player's dc90 stays on the position_price
+  // rung exactly as before this change.
+  leagueTranslation: {
+    xg90: 0.2,
+    xa90: 0.28,
+    yellow90: 0.844,
+  } as Partial<Record<PriorMetric, number>>,
 } as const;
 
 /**
@@ -559,6 +613,7 @@ export function fitRatePriors(rows: FitRow[], dcEligibleSeasons?: Set<string>): 
 export type PriorSource =
   | "pl_recent"
   | "pl_extended"
+  | "external_measured"
   | "position_price"
   | "position_baseline";
 
@@ -639,6 +694,16 @@ export interface ShrinkInput {
   priors: PriorSet;
   /** See `deriveDcEligibleSeasons`. Omitted treats every season as eligible. */
   dcEligibleSeasons?: Set<string>;
+  /**
+   * Raw (untranslated) Championship per-90 rates from `external_player_seasons`
+   * (v1.5.0), for a player with zero Premier League evidence. Only present
+   * for the metrics `MODEL_PARAMS.leagueTranslation` has a fitted factor
+   * for — a metric absent here falls straight back to the position_price
+   * rung, same as before this feature existed. Only consulted when the
+   * player has no PL evidence at all; a player with any real record ignores
+   * this entirely, by design — see the v1.5.0 header note.
+   */
+  externalRates?: Partial<Record<PriorMetric, number>>;
 }
 
 /**
@@ -649,7 +714,7 @@ export interface ShrinkInput {
  * honest statement of how much of it is the prior talking.
  */
 export function deriveRatesWithPrior(input: ShrinkInput): ShrunkRates | null {
-  const { rows, positionId, priceBand, priors, dcEligibleSeasons } = input;
+  const { rows, positionId, priceBand, priors, dcEligibleSeasons, externalRates } = input;
   const P = MODEL_PARAMS;
 
   const played = [...rows]
@@ -682,6 +747,19 @@ export function deriveRatesWithPrior(input: ShrinkInput): ShrunkRates | null {
   const hasEvidence = wMinutes > 0;
   const nEff = wMinutes / 90;
 
+  // Championship rate x fitted lambda, per metric — only for the metrics a
+  // translation factor exists for (see MODEL_PARAMS.leagueTranslation) and
+  // only when there is no Premier League evidence at all. A player with any
+  // real PL record never reaches this, by construction of the caller.
+  const externalMu: Partial<Record<PriorMetric, number>> = {};
+  if (!hasEvidence && externalRates) {
+    for (const metric of PRIOR_METRICS) {
+      const rate = externalRates[metric];
+      const lambda = P.leagueTranslation[metric];
+      if (rate !== undefined && lambda !== undefined) externalMu[metric] = rate * lambda;
+    }
+  }
+
   if (!hasEvidence) {
     // No Premier League football at all. The prior is the whole estimate, so
     // name the rung after where it came from.
@@ -690,6 +768,12 @@ export function deriveRatesWithPrior(input: ShrinkInput): ShrunkRates | null {
     priorSource = probe.priceBand === POSITION_FALLBACK_BAND
       ? "position_baseline"
       : "position_price";
+    // A measured Championship rate outranks the position/price average for
+    // whichever metrics it covers — the player-level number replaces the
+    // population-level guess. Metrics outside `externalMu` (dc90, etc.)
+    // still come from the rung named above; this only relabels the source
+    // when at least one metric actually used a measured value.
+    if (Object.keys(externalMu).length > 0) priorSource = "external_measured";
   }
 
   const posterior: Record<string, number> = {};
@@ -713,7 +797,11 @@ export function deriveRatesWithPrior(input: ShrinkInput): ShrunkRates | null {
       continue;
     }
 
-    const { mu, sigma2, tau2 } = cell;
+    // A measured Championship rate (translated by the fitted lambda) takes
+    // this cell's mu's place when available — sigma2/tau2, and so the whole
+    // shrinkage weight below, are untouched, per the v1.5.0 header note.
+    const mu = externalMu[metric] ?? cell.mu;
+    const { sigma2, tau2 } = cell;
 
     // Degenerate metric: every player in the position records the same value,
     // so there is nothing to shrink and nothing to divide by. A keeper's xg90
@@ -817,9 +905,14 @@ export const COLD_START_MODEL_NOTE =
   "Players with little or no Premier League record are projected by shrinking their own rates toward " +
   "a prior fitted from position and price, weighted by how many minutes they have actually played. " +
   "The low and high figures are a rate-uncertainty band, not a prediction interval — they ignore " +
-  "match-to-match variance and are therefore narrower than real outcomes. No external-league data is " +
-  "used yet, so a promoted-club player's prior rests on position, price and role alone, and team " +
-  "attacking strength is omitted entirely because the API reports it as zero for all twenty clubs " +
+  "match-to-match variance and are therefore narrower than real outcomes. Since v1.5.0, 33 players at " +
+  "the three promoted clubs use a real 2025/26 Championship rate (attack and discipline metrics only, " +
+  "translated by a lambda fitted against the 12 players with both a Premier League and a Championship " +
+  "season on record) in place of the position/price average — everyone else's prior still rests on " +
+  "position, price and role alone, since no other external-league data is in use. This does not raise " +
+  "a covered player's confidence label: the shrinkage weight is unchanged, only which number sits at " +
+  "the fully-prior end of it. Team attacking strength is omitted entirely because the API reports it " +
+  "as zero for all twenty clubs " +
   "pre-season. Since v1.2.0, every club's squad is also reconciled so exactly eleven players and one " +
   "goalkeeper start each fixture, so a player's number now depends on their team-mates too — where a " +
   "squad's raw numbers fall short of eleven (promoted clubs, mainly) or run past it (deep, expensive " +

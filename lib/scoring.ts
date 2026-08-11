@@ -49,9 +49,14 @@ export const COLD_START_NOTE =
   "Players with little or no Premier League record are projected by shrinking their own rates toward " +
   "a prior fitted from position and price, weighted by how many minutes they have actually played. " +
   "The low and high figures are a rate-uncertainty band, not a prediction interval — they ignore " +
-  "match-to-match variance and are therefore narrower than real outcomes. No external-league data is " +
-  "used yet, so a promoted-club player's prior rests on position, price and role alone, and team " +
-  "attacking strength is omitted entirely because the API reports it as zero for all twenty clubs " +
+  "match-to-match variance and are therefore narrower than real outcomes. Since v1.5.0, 33 players at " +
+  "the three promoted clubs use a real 2025/26 Championship rate (attack and discipline metrics only, " +
+  "translated by a lambda fitted against the 12 players with both a Premier League and a Championship " +
+  "season on record) in place of the position/price average — everyone else's prior still rests on " +
+  "position, price and role alone, since no other external-league data is in use. This does not raise " +
+  "a covered player's confidence label: the shrinkage weight is unchanged, only which number sits at " +
+  "the fully-prior end of it. Team attacking strength is omitted entirely because the API reports it " +
+  "as zero for all twenty clubs " +
   "pre-season. Since v1.2.0, every club's squad is also reconciled so exactly eleven players and one " +
   "goalkeeper start each fixture, so a player's number now depends on their team-mates too — where a " +
   "squad's raw numbers fall short of eleven (promoted clubs, mainly) or run past it (deep, expensive " +

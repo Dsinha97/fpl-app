@@ -28,7 +28,9 @@ file, not separate files.
 | [sprints/sprint-12.md](sprints/sprint-12.md) | historical | Chip Strategy Engine + §12A (Manager Percentile Profile) + §12.5 (PL Team Manager Intelligence) + §12.6 (Defensive Contribution fix). |
 | [sprints/sprint-13.md](sprints/sprint-13.md) | live (staged) | Live Matchday Hub — not built; the GW1 dry-run checklist. |
 | [sprints/sprint-14.md](sprints/sprint-14.md) | historical | Authentication & Team Sync + §14.1–§14.4 + the FPL-login probe. |
-| [sprints/cold-start-patch.md](sprints/cold-start-patch.md) | mixed | Phase 1 (empirical-Bayes rate priors) historical; phase 2 (external-league enrichment) live — deferred, gated, findings still current. |
+| [sprints/cold-start-patch.md](sprints/cold-start-patch.md) | mixed | Phase 1 (empirical-Bayes rate priors) historical; phase 2 (external-league enrichment) partially delivered by Sprint 15.6, rest deferred/gated, findings still current. |
+| [sprints/hidden-gems.md](sprints/hidden-gems.md) | historical | Sprint 15.5 — value-discovery archetype filter (`player_rate_profile`, `lib/hidden-gems.ts`); also records why `worldfootballR` doesn't help cold-start. |
+| [sprints/championship-priors.md](sprints/championship-priors.md) | historical | Sprint 15.6 — 33 zero-PL-minute players re-primed from real Championship stats, xP engine v1.5.0. |
 | [sprints/squad-reconciliation.md](sprints/squad-reconciliation.md) | historical | Start/minutes water-fill, phases 1 (v1.2.0) and 2 (v1.3.0). |
 | [sprints/additional-info.md](sprints/additional-info.md) | historical | Ops log: hosting follow-ups, dependency advisories, small queued items. |
 
@@ -57,5 +59,5 @@ documentation.
 | Asset | What it is |
 |---|---|
 | [pl-manager-profiles.json](pl-manager-profiles.json) | 20 PL club tactical profiles, seeded into `pl_managers` by a migration (Sprint 12.5). |
-| `Promoted Team Data/` | Scouting PDFs/CSVs for promoted clubs, gitignored (see `.gitignore` for why one candidate CSV was rejected — findings recorded in [sprints/cold-start-patch.md](sprints/cold-start-patch.md)). |
+| `Promoted Team Data/` | Raw scouting PDFs/CSVs for promoted clubs, gitignored (see `.gitignore` for why one candidate CSV was rejected — findings in [sprints/cold-start-patch.md](sprints/cold-start-patch.md)). `Promoted Team Data/extracted/` (tracked, not gitignored) holds the derived, auditable output of `scripts/extract-footystats.ts` — see [sprints/championship-priors.md](sprints/championship-priors.md). |
 | `API-Football - Documentation.pdf` | Third-party API docs, gitignored, referenced in the cold-start phase 2 findings. |

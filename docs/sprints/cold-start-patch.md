@@ -1,7 +1,7 @@
 # Cold-Start Patch
 
-**Status: phase 1 built; phase 2 deferred, gated.** See [../roadmap.md](../roadmap.md) for the
-sprint index.
+**Status: phase 1 built; phase 2 partially delivered (Sprint 15.6), rest deferred/gated.** See
+[../roadmap.md](../roadmap.md) for the sprint index.
 
 ## Phase 1 — empirical-Bayes rate priors (built)
 
@@ -98,9 +98,14 @@ Recorded because the document is kept unedited as the owner's source:
 5. **The Sprint A→G order is inverted for this repo** — it leads with provider integration, which is
    partly unobtainable, and ships nothing until Sprint E while half the gap needed no external data.
 
-## Phase 2 — external-league enrichment (deferred, gated)
+## Phase 2 — external-league enrichment (partially delivered 2026-08-11)
 
-Not started. Findings that shape it, verified rather than assumed:
+**Sprint 15.6 delivered a first slice: 33 of the 99 zero-PL-minute players now carry a measured
+Championship rate for `xg90`/`xa90`/`yellow90`, via a one-shot FootyStats PDF drop.** See
+[championship-priors.md](championship-priors.md) for the full account — the three-check gate
+re-run, the fitted (not invented) translation λ, and the verification against live data. `dc90`
+stays on `position_price`; no automated leagues (API-Football, soccerdata, etc.) below are in use.
+The rest of this section is the pre-Sprint-15.6 survey and stays accurate for everything it covers.
 
 - **API-Football has no expected goals** — "xG" appears zero times in its 139-page documentation.
   `/players` gives goals, assists, shots, passes, tackles and a composite rating. It cannot satisfy

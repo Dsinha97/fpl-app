@@ -1,0 +1,520 @@
+{
+  "matched": [
+    {
+      "player_name": "Bobby Thomas",
+      "player_code": 461102,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Brandon Thomas Asante",
+      "player_code": 230730,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Carl Rushworth",
+      "player_code": 472739,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Ellis Simms",
+      "player_code": 218997,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 280,
+      "pl_minutes_2024_25": 0,
+      "bucket": "excluded"
+    },
+    {
+      "player_name": "Ephron Mason Clark",
+      "player_code": 241293,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Frank Onyeka",
+      "player_code": 428580,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 3135,
+      "pl_minutes_2024_25": 23,
+      "bucket": "excluded"
+    },
+    {
+      "player_name": "Haji Wright",
+      "player_code": 176412,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Jack Rudoni",
+      "player_code": 480457,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Jahnoah Markelo",
+      "player_code": 551262,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Jake Bidwell",
+      "player_code": 80178,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Jay Dasilva",
+      "player_code": 173878,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Joel Latibeaudiere",
+      "player_code": 204813,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Josh Eccles",
+      "player_code": 439668,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Kai Andrews",
+      "player_code": 629397,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Kaine Kessler",
+      "player_code": 465390,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 5,
+      "pl_minutes_2024_25": 0,
+      "bucket": "excluded"
+    },
+    {
+      "player_name": "Liam Kitching",
+      "player_code": 436761,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Luke Woolfenden",
+      "player_code": 220583,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 1187,
+      "pl_minutes_2024_25": 1187,
+      "bucket": "lambda_cohort"
+    },
+    {
+      "player_name": "Matt Grimes",
+      "player_code": 168144,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 134,
+      "pl_minutes_2024_25": 0,
+      "bucket": "excluded"
+    },
+    {
+      "player_name": "Miguel Angel Brau Blanquez",
+      "player_code": 577411,
+      "club": "Coventry City",
+      "confidence": "medium",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Milan van Ewijk",
+      "player_code": 451284,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Raphael Borges Rodrigues",
+      "player_code": 492498,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Tatsuhiro Sakamoto",
+      "player_code": 501459,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Victor Torp",
+      "player_code": 226965,
+      "club": "Coventry City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Abu Kamara",
+      "player_code": 490161,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Babajide David Akintola",
+      "player_code": 213292,
+      "club": "Hull City",
+      "confidence": "medium",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Cathal McCarthy",
+      "player_code": 661800,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Darko Gyabi",
+      "player_code": 470294,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 7,
+      "pl_minutes_2024_25": 0,
+      "bucket": "excluded"
+    },
+    {
+      "player_name": "Dillon Phillips",
+      "player_code": 167825,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Eliot Matazo",
+      "player_code": 465525,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Enis Destan",
+      "player_code": 500957,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "John Egan",
+      "player_code": 108416,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 6297,
+      "pl_minutes_2024_25": 0,
+      "bucket": "excluded"
+    },
+    {
+      "player_name": "Kieran Dowell",
+      "player_code": 171270,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 977,
+      "pl_minutes_2024_25": 0,
+      "bucket": "excluded"
+    },
+    {
+      "player_name": "Matty Crooks",
+      "player_code": 101282,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Matty Jacob",
+      "player_code": 449428,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Mohamed Elbachir Belloumi",
+      "player_code": 540324,
+      "club": "Hull City",
+      "confidence": "medium",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Oliver McBurnie",
+      "player_code": 169432,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 5049,
+      "pl_minutes_2024_25": 0,
+      "bucket": "excluded"
+    },
+    {
+      "player_name": "Oluwasemilogo Adesewo Ibidapo Ajayi",
+      "player_code": 146426,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 2779,
+      "pl_minutes_2024_25": 0,
+      "bucket": "excluded"
+    },
+    {
+      "player_name": "Paddy McNair",
+      "player_code": 160817,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 1696,
+      "pl_minutes_2024_25": 0,
+      "bucket": "excluded"
+    },
+    {
+      "player_name": "Regan Slater",
+      "player_code": 243413,
+      "club": "Hull City",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Alex Palmer",
+      "player_code": 112520,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 1170,
+      "pl_minutes_2024_25": 1170,
+      "bucket": "lambda_cohort"
+    },
+    {
+      "player_name": "Anis Mehmeti",
+      "player_code": 232457,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Azor Matusiwa",
+      "player_code": 241117,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Ben Johnson",
+      "player_code": 222018,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 4989,
+      "pl_minutes_2024_25": 1346,
+      "bucket": "lambda_cohort"
+    },
+    {
+      "player_name": "Cedric Kipre",
+      "player_code": 183015,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Christian Walton",
+      "player_code": 108813,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 630,
+      "pl_minutes_2024_25": 630,
+      "bucket": "lambda_cohort"
+    },
+    {
+      "player_name": "Chuba Akpom",
+      "player_code": 147675,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 31,
+      "pl_minutes_2024_25": 0,
+      "bucket": "excluded"
+    },
+    {
+      "player_name": "Dara OShea",
+      "player_code": 216616,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 8113,
+      "pl_minutes_2024_25": 3122,
+      "bucket": "lambda_cohort"
+    },
+    {
+      "player_name": "Darnell Furlong",
+      "player_code": 176420,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 3156,
+      "pl_minutes_2024_25": 0,
+      "bucket": "excluded"
+    },
+    {
+      "player_name": "George Hirst",
+      "player_code": 222625,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 654,
+      "pl_minutes_2024_25": 645,
+      "bucket": "lambda_cohort"
+    },
+    {
+      "player_name": "Jack Clarke",
+      "player_code": 443261,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 1161,
+      "pl_minutes_2024_25": 1161,
+      "bucket": "lambda_cohort"
+    },
+    {
+      "player_name": "Jack Taylor",
+      "player_code": 231899,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 837,
+      "pl_minutes_2024_25": 837,
+      "bucket": "lambda_cohort"
+    },
+    {
+      "player_name": "Jaden Philogene Bidace",
+      "player_code": 481624,
+      "club": "Ipswich Town",
+      "confidence": "medium",
+      "total_pl_minutes": 804,
+      "pl_minutes_2024_25": 796,
+      "bucket": "lambda_cohort"
+    },
+    {
+      "player_name": "Kasey McAteer",
+      "player_code": 461587,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 848,
+      "pl_minutes_2024_25": 846,
+      "bucket": "lambda_cohort"
+    },
+    {
+      "player_name": "Leif Davis",
+      "player_code": 455084,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 2773,
+      "pl_minutes_2024_25": 2742,
+      "bucket": "lambda_cohort"
+    },
+    {
+      "player_name": "Marcelino Ignacio Nunez Espinoza",
+      "player_code": 501390,
+      "club": "Ipswich Town",
+      "confidence": "medium",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Sindre Walle Egeli",
+      "player_code": 557012,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 0,
+      "pl_minutes_2024_25": 0,
+      "bucket": "cold_start"
+    },
+    {
+      "player_name": "Wes Burns",
+      "player_code": 149929,
+      "club": "Ipswich Town",
+      "confidence": "high",
+      "total_pl_minutes": 922,
+      "pl_minutes_2024_25": 922,
+      "bucket": "lambda_cohort"
+    }
+  ],
+  "unmatched": [
+    "Amir Hadziahmetovic"
+  ]
+}
