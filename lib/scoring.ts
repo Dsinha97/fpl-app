@@ -380,11 +380,64 @@ function weeklyTotals(
   );
 }
 
+/** The shape `replacementLegality` needs from a candidate — any scored or raw player row satisfies it. */
+export interface ReplacementCandidate {
+  id: number;
+  elementType: number;
+  price: number;
+  teamId: number;
+}
+
 /**
- * Legal, affordable swaps for one squad player, best first.
+ * Legality for a 1-for-1 squad swap: same position, club cap respected, and
+ * affordable from what selling the outgoing player frees up (further capped by
+ * an optional `maxPrice`, e.g. a user-set slider).
  *
  * Squad-aware by design: the budget released by selling the outgoing player is
  * available to spend, and the club limit ignores him because he is leaving.
+ *
+ * This is the one implementation of transfer legality (position + budget +
+ * 3-per-club) — `findReplacements` layers its quality filters (minutes floor,
+ * archetype) on top of it, and `/builder`'s players-list picker uses it
+ * directly when the user wants to choose a replacement themselves rather than
+ * pick from the ranked suggestions.
+ */
+export function replacementLegality(
+  target: { id: number; elementType: number; price: number },
+  team: TeamState,
+  rules: SquadRules,
+  lookup: (playerId: number) => PlayerMeta | undefined,
+  maxPrice?: number,
+): { priceCeiling: number; isEligible: (c: ReplacementCandidate) => boolean } {
+  const owned = new Set(team.players.map((p) => p.playerId));
+  const outgoing = team.players.find((p) => p.playerId === target.id);
+  const spent = team.players.reduce((sum, p) => sum + p.purchasePrice, 0);
+
+  // Selling the outgoing player frees up what was paid for him.
+  const affordable = team.budget - spent + (outgoing?.purchasePrice ?? target.price);
+  const priceCeiling = maxPrice != null ? Math.min(maxPrice, affordable) : affordable;
+
+  const clubCounts = new Map<number, number>();
+  for (const pick of team.players) {
+    if (pick.playerId === target.id) continue;
+    const meta = lookup(pick.playerId);
+    if (meta) clubCounts.set(meta.teamId, (clubCounts.get(meta.teamId) ?? 0) + 1);
+  }
+
+  return {
+    priceCeiling,
+    isEligible: (c) => {
+      if (c.id === target.id || owned.has(c.id)) return false;
+      if (c.elementType !== target.elementType) return false;
+      if (c.price > priceCeiling) return false;
+      if ((clubCounts.get(c.teamId) ?? 0) >= rules.teamLimit) return false;
+      return true;
+    },
+  };
+}
+
+/**
+ * Legal, affordable swaps for one squad player, best first.
  *
  * `filters` is additive and optional — every existing call site (the transfer
  * optimiser's beam search, `/transfers`) keeps its exact prior behaviour by
@@ -402,23 +455,8 @@ export function findReplacements(
   limit = 5,
   filters: ReplacementFilters = {},
 ): Replacement[] {
-  const owned = new Set(team.players.map((p) => p.playerId));
-  const outgoing = team.players.find((p) => p.playerId === target.id);
-  const spent = team.players.reduce((sum, p) => sum + p.purchasePrice, 0);
-
-  // Selling the outgoing player frees up what was paid for him.
-  const affordable = team.budget - spent + (outgoing?.purchasePrice ?? target.price);
-  const priceCeiling = filters.maxPrice != null
-    ? Math.min(filters.maxPrice, affordable)
-    : affordable;
+  const { isEligible } = replacementLegality(target, team, rules, lookup, filters.maxPrice);
   const minStartProbability = filters.minStartProbability ?? MINUTES_FLOOR;
-
-  const clubCounts = new Map<number, number>();
-  for (const pick of team.players) {
-    if (pick.playerId === target.id) continue;
-    const meta = lookup(pick.playerId);
-    if (meta) clubCounts.set(meta.teamId, (clubCounts.get(meta.teamId) ?? 0) + 1);
-  }
 
   const targetXp = xpFor(target, horizon);
   const targetFixture = fixtureScore(target, horizon, filters.seasonWindow);
@@ -430,11 +468,8 @@ export function findReplacements(
 
   return pool
     .filter((c) => {
-      if (c.id === target.id || owned.has(c.id)) return false;
-      if (c.elementType !== target.elementType) return false;
-      if (c.price > priceCeiling) return false;
+      if (!isEligible(c)) return false;
       if (filters.archetypeIds && !filters.archetypeIds.has(c.id)) return false;
-      if ((clubCounts.get(c.teamId) ?? 0) >= rules.teamLimit) return false;
       if (
         !filters.includeUnavailable &&
         (c.startProbability ?? c.availability) < minStartProbability

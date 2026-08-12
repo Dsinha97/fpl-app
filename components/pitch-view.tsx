@@ -181,7 +181,17 @@ export function PitchView({
           onSetCaptain={onSetCaptain}
           onSetVice={onSetVice}
           onRemove={onRemove}
-          onFindReplacement={onFindReplacement}
+          onFindReplacement={
+            onFindReplacement &&
+            ((id) => {
+              // The replacement finder lives well below the pitch (often off
+              // -screen on mobile), so the page scrolls to it. Leaving this
+              // popover open would leave it floating, stranded over wherever
+              // the pitch happened to scroll to.
+              closeMenu();
+              onFindReplacement(id);
+            })
+          }
         />
       )}
     </div>

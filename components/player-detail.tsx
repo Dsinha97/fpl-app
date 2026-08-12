@@ -42,6 +42,8 @@ interface PlayerDetailProps {
   owned?: boolean;
   onAdd?: (playerId: number) => void;
   addDisabledReason?: string | null;
+  /** Overrides the add button's label — "Swap in" while replacing a squad player. */
+  addLabel?: string;
   onFindReplacement?: (playerId: number) => void;
   /**
    * Position against the viewport rather than the nearest positioned ancestor.
@@ -63,6 +65,7 @@ export function PlayerDetail({
   owned = true,
   onAdd,
   addDisabledReason = null,
+  addLabel = "Add to squad",
   onFindReplacement,
   fixed = false,
 }: PlayerDetailProps) {
@@ -254,10 +257,10 @@ export function PlayerDetail({
           <button
             onClick={() => onAdd(player.id)}
             disabled={addDisabledReason !== null}
-            title={addDisabledReason ?? `Add ${player.web_name} to your squad`}
+            title={addDisabledReason ?? `${addLabel}: ${player.web_name}`}
             className="flex-1 rounded bg-purple-950 px-2 py-1 font-medium text-white transition-colors hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
           >
-            Add to squad
+            {addLabel}
           </button>
         </div>
       )}

@@ -48,6 +48,7 @@ import {
   findReplacements,
   MINUTES_FLOOR,
   REPLACEMENT_MODEL_NOTE,
+  replacementLegality,
   RISK_MODEL_NOTE,
   riskScore,
   type Replacement,
@@ -177,6 +178,14 @@ export default function BuilderPage() {
    * Save when nothing has changed. Null until a draft has been saved once.
    */
   const [savedTeam, setSavedTeam] = useState<TeamState | null>(null);
+
+  /**
+   * Declared up here (rather than beside the finder's other filter state,
+   * further down) because the players-list `filtered` memo needs it to
+   * switch into replace mode — showing only legal targets for this slot
+   * instead of the free pool.
+   */
+  const [replaceFor, setReplaceFor] = useState<number | null>(null);
 
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState<number>(0);
@@ -600,9 +609,56 @@ export default function BuilderPage() {
     return Number.isFinite(lo) && Number.isFinite(hi) ? [lo, hi] : null;
   }, [players]);
 
+  /**
+   * While replacing a squad player, the players list below the finder should
+   * let you pick the replacement yourself instead of only offering the
+   * ranked top-N — narrowed to the same legal, affordable, club-legal set
+   * `findReplacements` computes. Reuses `replacementLegality` rather than
+   * restating position/budget/club-cap checks a second time.
+   */
+  const replaceEligibility = useMemo(() => {
+    if (replaceFor === null) return null;
+    const target = metaById.get(replaceFor);
+    if (!target) return null;
+    return replacementLegality(
+      { id: target.id, elementType: target.elementType, price: target.nowCost },
+      team,
+      rules,
+      lookup,
+    );
+  }, [replaceFor, metaById, team, rules, lookup]);
+
+  /**
+   * The stable "n legal targets" count for the banner — deliberately not
+   * `filtered.length`, which also reflects the user's own search/team/price
+   * narrowing on top and would make the number wobble as they type.
+   */
+  const eligibleCount = useMemo(() => {
+    if (!replaceEligibility) return 0;
+    return players.filter((p) =>
+      replaceEligibility.isEligible({
+        id: p.id,
+        elementType: p.element_type,
+        price: p.now_cost ?? 0,
+        teamId: p.team_id,
+      }),
+    ).length;
+  }, [players, replaceEligibility]);
+
   const filtered = useMemo(() => {
     const q = search.trim();
     const rows = players.filter((p) => {
+      if (
+        replaceEligibility &&
+        !replaceEligibility.isEligible({
+          id: p.id,
+          elementType: p.element_type,
+          price: p.now_cost ?? 0,
+          teamId: p.team_id,
+        })
+      ) {
+        return false;
+      }
       if (q && !matchesPlayerQuery(p, q)) return false;
       if (position !== 0 && p.element_type !== position) return false;
       if (teamFilter !== 0 && p.team_id !== teamFilter) return false;
@@ -627,7 +683,7 @@ export default function BuilderPage() {
     };
 
     return rows.sort((a, b) => value(b) - value(a));
-  }, [players, xp, search, position, teamFilter, priceRange, sortKey]);
+  }, [players, xp, search, position, teamFilter, priceRange, sortKey, replaceEligibility]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -821,7 +877,35 @@ export default function BuilderPage() {
     return new Map(verdicts.map((v) => [v.playerId, v]));
   }, [gemCandidates, horizon, seasonWindow]);
 
-  const [replaceFor, setReplaceFor] = useState<number | null>(null);
+  /**
+   * The finder is conditionally mounted (`replaceFor !== null`), so it does
+   * not exist in the DOM at the moment "Replace" is clicked — the scroll has
+   * to happen from an effect keyed on replaceFor, once the panel has
+   * rendered, not from the click handler itself. Below `lg` the page is a
+   * single column with the pitch, lineup and optimiser cards all above this
+   * panel, so on a phone tapping Replace previously looked like nothing had
+   * happened until you scrolled several screens down to find it.
+   */
+  const replacePanelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (replaceFor !== null) {
+      replacePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [replaceFor]);
+  /**
+   * Every "Replace" click goes through this instead of setReplaceFor
+   * directly, so entering replace mode also locks the players-list position
+   * filter to the outgoing player's position (the eligibility check already
+   * enforces this; the control is locked too so it doesn't imply a filter it
+   * no longer governs) and resets to page 1, matching every other filter
+   * change — all in the same event, rather than a setState-in-effect chain.
+   */
+  const startReplacing = (id: number) => {
+    setReplaceFor(id);
+    const target = metaById.get(id);
+    if (target) setPosition(target.elementType);
+    setPage(0);
+  };
   /** Replacement finder filters — each defaults to today's hardcoded value. */
   const [replaceLimit, setReplaceLimit] = useState<(typeof REPLACEMENT_LIMITS)[number]>(10);
   const [minStartOverride, setMinStartOverride] = useState(MINUTES_FLOOR);
@@ -1006,9 +1090,11 @@ export default function BuilderPage() {
       top: pickerDetail.top,
       left: pickerDetail.left,
       owned: team.players.some((p) => p.playerId === pickerDetail.id),
-      addDisabledReason: blockedReason(team, rules, meta, lookup),
+      // In replace mode this row only exists because replaceEligibility
+      // already passed it, same reasoning as the picker table's own reason.
+      addDisabledReason: replaceFor !== null ? null : blockedReason(team, rules, meta, lookup),
     };
-  }, [pickerDetail, rowById, metaById, toPlayerData, team, rules, lookup]);
+  }, [pickerDetail, rowById, metaById, toPlayerData, team, rules, lookup, replaceFor]);
 
   /** Swap in one action so the squad is never transiently illegal. */
   const doSwap = (outId: number, incoming: PlayerMeta) => {
@@ -1358,7 +1444,7 @@ export default function BuilderPage() {
             onSetCaptain={(id) => persist(setCaptain(team, id))}
             onSetVice={(id) => persist(setViceCaptain(team, id))}
             onRemove={(id) => persist(removePlayer(team, id))}
-            onFindReplacement={(id) => setReplaceFor(id)}
+            onFindReplacement={startReplacing}
           />
         </section>
 
@@ -1546,7 +1632,10 @@ export default function BuilderPage() {
 
           {/* replacement finder */}
           {replaceFor !== null && (
-            <div className="rounded-xl border border-purple-300 bg-white p-4 dark:border-[#00FF87]/40 dark:bg-[#1E0234]">
+            <div
+              ref={replacePanelRef}
+              className="scroll-mt-4 rounded-xl border border-purple-300 bg-white p-4 dark:border-[#00FF87]/40 dark:bg-[#1E0234]"
+            >
               <div className="flex items-start justify-between gap-2">
                 <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                   Replace {scoredById.get(replaceFor)?.webName}{" "}
@@ -1729,6 +1818,21 @@ export default function BuilderPage() {
             ref={pickerCard}
             className="relative rounded-xl border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]"
           >
+            {replaceEligibility && (
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md bg-purple-50 px-2.5 py-1.5 text-xs text-purple-900 dark:bg-purple-950/50 dark:text-purple-200">
+                <span>
+                  Replacing <strong>{metaById.get(replaceFor!)?.webName}</strong> — {eligibleCount}{" "}
+                  legal target{eligibleCount === 1 ? "" : "s"}, max{" "}
+                  £{(replaceEligibility.priceCeiling / 10).toFixed(1)}m
+                </span>
+                <button
+                  onClick={() => setReplaceFor(null)}
+                  className="shrink-0 font-medium underline-offset-2 hover:underline"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <input
                 type="search"
@@ -1741,8 +1845,10 @@ export default function BuilderPage() {
               <select
                 value={position}
                 onChange={(e) => changeFilter(setPosition)(Number(e.target.value))}
+                disabled={replaceFor !== null}
+                title={replaceFor !== null ? "Locked to the outgoing player's position" : undefined}
                 aria-label="Filter by position"
-                className="rounded-md border border-zinc-300 bg-white px-1.5 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                className="rounded-md border border-zinc-300 bg-white px-1.5 py-1.5 text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
               >
                 <option value={0}>All pos</option>
                 {Object.entries(POSITIONS).map(([id, label]) => (
@@ -1828,7 +1934,12 @@ export default function BuilderPage() {
                 <tbody>
                   {visible.map((p) => {
                     const meta = metaById.get(p.id)!;
-                    const reason = blockedReason(team, rules, meta, lookup);
+                    // In replace mode `visible` is already narrowed to legal
+                    // targets by replaceEligibility, so there is nothing left
+                    // for blockedReason to block on — it would otherwise
+                    // always say "squad full", since the outgoing player's
+                    // slot hasn't been freed yet.
+                    const reason = replaceFor !== null ? null : blockedReason(team, rules, meta, lookup);
                     return (
                       <tr
                         key={p.id}
@@ -1876,11 +1987,14 @@ export default function BuilderPage() {
                         <td className="py-1 pr-1 text-right">
                           <button
                             disabled={reason !== null}
-                            title={reason ?? `Add ${p.web_name}`}
-                            onClick={() => persist(addPlayer(team, meta))}
+                            title={reason ?? (replaceFor !== null ? `Swap in ${p.web_name}` : `Add ${p.web_name}`)}
+                            onClick={() => {
+                              if (replaceFor !== null) doSwap(replaceFor, meta);
+                              else persist(addPlayer(team, meta));
+                            }}
                             className="rounded border border-zinc-300 px-1.5 py-0.5 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-35 dark:border-purple-800/50 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
                           >
-                            +
+                            {replaceFor !== null ? "⇄" : "+"}
                           </button>
                         </td>
                       </tr>
@@ -1889,7 +2003,9 @@ export default function BuilderPage() {
                   {visible.length === 0 && (
                     <tr>
                       <td colSpan={5} className="py-6 text-center text-zinc-500">
-                        No players match these filters.
+                        {replaceFor !== null && eligibleCount === 0
+                          ? `No legal replacement for ${metaById.get(replaceFor)?.webName ?? "this player"} at £${(replaceEligibility!.priceCeiling / 10).toFixed(1)}m or less.`
+                          : "No players match these filters."}
                       </td>
                     </tr>
                   )}
@@ -1934,13 +2050,16 @@ export default function BuilderPage() {
                 onRemove={(id) => persist(removePlayer(team, id))}
                 owned={pickerPanel.owned}
                 addDisabledReason={pickerPanel.addDisabledReason}
+                addLabel={replaceFor !== null ? "Swap in" : "Add to squad"}
                 onAdd={(id) => {
                   const m = metaById.get(id);
-                  if (m) persist(addPlayer(team, m));
+                  if (!m) return;
+                  if (replaceFor !== null) doSwap(replaceFor, m);
+                  else persist(addPlayer(team, m));
                   closePickerDetail();
                 }}
                 onFindReplacement={(id) => {
-                  setReplaceFor(id);
+                  startReplacing(id);
                   closePickerDetail();
                 }}
               />

@@ -1,19 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <style>
-    :root { --stem: #FFFFFF; --accent-g: #00FF87; --accent-r: #EF4444; }
-    .bg { fill: #2E073F; }
-    @media (prefers-color-scheme: light) {
-      .bg { fill: #3B0764; }
-    }
-  </style>
-  <rect width="32" height="32" rx="8" class="bg"/>
-  <g stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    Literal hex only, and an explicit fill="none" on the stroke group. This is
+    rasterized to the PWA/apple icon PNGs by scripts/generate-icons.mjs, and
+    rasterizers do not reliably resolve CSS custom properties or a bare
+    :root selector inside a standalone SVG document. An earlier version of
+    this file used CSS variables here and every raster came out with the stem
+    and D/F strokes missing (falling back to a solid black fill). A
+    home-screen icon has no color scheme to respond to, so no
+    prefers-color-scheme either.
+  -->
+  <rect width="32" height="32" rx="8" fill="#2E073F"/>
+  <g fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
     <!-- Shared Line -->
-    <line x1="16" y1="8" x2="16" y2="24" stroke="var(--stem)"/>
+    <line x1="16" y1="8" x2="16" y2="24" stroke="#FFFFFF"/>
     <!-- Backwards F -->
-    <path d="M16 8H9 M16 15H10" stroke="var(--accent-g)"/>
+    <path d="M16 8H9 M16 15H10" stroke="#00FF87"/>
     <!-- D -->
-    <path d="M16 8H20C23 8 25 10.5 25 16C25 21.5 23 24 20 24H16" stroke="var(--accent-g)"/>
+    <path d="M16 8H20C23 8 25 10.5 25 16C25 21.5 23 24 20 24H16" stroke="#00FF87"/>
   </g>
-  <circle cx="10" cy="23" r="1.5" fill="var(--accent-r)"/>
+  <circle cx="10" cy="23" r="1.5" fill="#EF4444"/>
 </svg>

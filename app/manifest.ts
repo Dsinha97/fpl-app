@@ -29,6 +29,16 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: "512x512",
         type: "image/png",
       },
+      // Android's adaptive-icon mask clips or letterboxes an "any" icon
+      // depending on device shape. This variant fills edge-to-edge with the
+      // brand plate color, so any mask shape crops safely — see
+      // scripts/generate-icons.mjs for how it's derived from app/icon.svg.
+      {
+        src: "/icon-maskable-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
     ],
   };
 }

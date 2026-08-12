@@ -54,7 +54,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
         context, not folded into any projection.
       </p>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-4 grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {clubs.map(({ teamId, teamName, teamShort, teamCode, profile }) => {
           const open = expanded.has(teamId);
           return (
