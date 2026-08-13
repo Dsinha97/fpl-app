@@ -29,6 +29,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 14 | Authentication & Team Sync | **Built**, plus 14.1–14.4 | [sprints/sprint-14.md](sprints/sprint-14.md) |
 | 15.5 | Hidden Gems (value-discovery filter) | **Built** — `player_rate_profile`, `lib/hidden-gems.ts`, `/players` + builder filters | [sprints/hidden-gems.md](sprints/hidden-gems.md) |
 | 15.6 | Championship cold-start priors (FootyStats PDF drop) | **Built** — xP engine v1.5.0, `external_player_seasons`, 33 players re-primed | [sprints/championship-priors.md](sprints/championship-priors.md) |
+| 15.8 | Gameweek planning view, unified player filters, comparison-table fixes | **Built** — `/builder` gameweek dropdown (`squadEventAgg`, `projectionAtEvent`), `components/player-filters.tsx` shared by `/players` + builder picker, `/compare` tie handling | — |
 | 15 | Action Layer | Not started | below |
 | 16 | Notifications & Automation | Not started | below |
 | 17 | Historical Analytics & ML | Not started | below |

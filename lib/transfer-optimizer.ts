@@ -173,12 +173,48 @@ export const TRANSFER_OPTIMIZER_NOTE =
 // --------------------------------------------------------- per-gameweek maths
 
 /**
- * A squad's expected points for one gameweek.
+ * A squad's expected points for one gameweek, with the armband bonus broken
+ * out — what the builder's gameweek planning panel needs (it shows the
+ * bonus as its own line, same as the horizon projection does).
  *
  * Deliberately mirrors `computeProjection` term for term — all fifteen picks
  * plus the armband bonus weighted by the captain's chance of playing — so the
  * single-gameweek figure and the horizon figure cannot disagree about what a
- * squad is worth.
+ * squad is worth. `missing` counts picks with no entry at all in `seriesOf`
+ * for this event — a genuine blank gameweek (a row that exists with xp 0) is
+ * not "missing", it is a real answer.
+ */
+export function projectionAtEvent(
+  picks: SquadPick[],
+  seriesOf: (playerId: number) => XpByEvent | undefined,
+  availabilityOf: (playerId: number) => number,
+  captain: number | null,
+  vice: number | null,
+  event: number,
+): { total: number; captainBonus: number; missing: number } {
+  const at = (id: number) => seriesOf(id)?.get(event) ?? 0;
+
+  let base = 0;
+  let missing = 0;
+  for (const pick of picks) {
+    if (seriesOf(pick.playerId)?.has(event) !== true) missing++;
+    base += at(pick.playerId);
+  }
+
+  let captainBonus = 0;
+  if (captain !== null) {
+    const pCap = availabilityOf(captain);
+    captainBonus = at(captain) * pCap + (vice !== null ? at(vice) : 0) * (1 - pCap);
+  }
+
+  return { total: base + captainBonus, captainBonus, missing };
+}
+
+/**
+ * A squad's expected points for one gameweek, total only — every existing
+ * caller (the transfer beam search, `lib/chips.ts`) only ever needed the
+ * number, so this stays a thin delegate rather than forcing them onto the
+ * breakdown shape above.
  */
 export function projectAtEvent(
   picks: SquadPick[],
@@ -188,17 +224,7 @@ export function projectAtEvent(
   vice: number | null,
   event: number,
 ): number {
-  const at = (id: number) => seriesOf(id)?.get(event) ?? 0;
-
-  let total = 0;
-  for (const pick of picks) total += at(pick.playerId);
-
-  if (captain !== null) {
-    const pCap = availabilityOf(captain);
-    total += at(captain) * pCap + (vice !== null ? at(vice) : 0) * (1 - pCap);
-  }
-
-  return total;
+  return projectionAtEvent(picks, seriesOf, availabilityOf, captain, vice, event).total;
 }
 
 // ---------------------------------------------------------------- the search

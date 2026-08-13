@@ -12,6 +12,7 @@ import {
   optimiseLineup,
   type LineupCandidate,
 } from "@/lib/lineup";
+import { projectionAtEvent } from "@/lib/transfer-optimizer";
 import { cloneDraft, deleteDraft, listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import {
   addPlayer,
@@ -65,11 +66,17 @@ import {
 import { GemBadge } from "@/components/gem-badge";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
-import { fullName, matchesPlayerQuery } from "@/lib/player-search";
+import { fullName } from "@/lib/player-search";
 import { ActionMenu } from "@/components/ui/action-menu";
-import { RangeSlider, ValueSlider } from "@/components/ui/range-slider";
+import { ValueSlider } from "@/components/ui/range-slider";
 import { tacticalSummary, toTacticalProfile, type PlManagerRow } from "@/lib/tactical-profile";
 import { benchBoostAt, tripleCaptainAt } from "@/lib/chips";
+import {
+  defaultPlayerFilters,
+  matchesFilters,
+  PlayerFilters,
+  type PlayerFilterState,
+} from "@/components/player-filters";
 
 interface PlayerRow {
   id: number;
@@ -187,16 +194,14 @@ export default function BuilderPage() {
    */
   const [replaceFor, setReplaceFor] = useState<number | null>(null);
 
-  const [search, setSearch] = useState("");
-  const [position, setPosition] = useState<number>(0);
-  const [teamFilter, setTeamFilter] = useState<number>(0);
   /**
-   * Price band in FPL tenths, or null until the pool has loaded and its real
-   * bounds are known. Deliberately not defaulted to a hardcoded 40–150: prices
-   * move during a season, and a bound invented here would start silently
-   * excluding players the moment the most expensive one rose past it.
+   * Filter state, or null until the pool has loaded and the real price
+   * bounds are known — deliberately not defaulted to a hardcoded 40–150,
+   * since prices move during a season and a bound invented here would start
+   * silently excluding players the moment the most expensive one rose past
+   * it. Seeded from `priceBounds` the first time it resolves, below.
    */
-  const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
+  const [filters, setFilters] = useState<PlayerFilterState | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("xp5");
   const [page, setPage] = useState(0);
 
@@ -208,6 +213,15 @@ export default function BuilderPage() {
   /** Season and next gameweek, kept for the lazy per-gameweek series fetch below. */
   const [season, setSeason] = useState<string | null>(null);
   const [nextEvent, setNextEvent] = useState<number | null>(null);
+  /** first_event/last_event from `player_xp_horizons` — the real predicted window, for the GW planning dropdown. */
+  const [seasonRange, setSeasonRange] = useState<{ first: number; last: number } | null>(null);
+  /**
+   * The gameweek the "Gameweek lineup" panel plans for. Null means "not
+   * touched yet" — the panel falls back to `nextEvent`, without an effect
+   * that would have to synchronise two pieces of state derived from one
+   * async load.
+   */
+  const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
 
   // ------------------------------------------------------------- load
 
@@ -354,6 +368,11 @@ export default function BuilderPage() {
             ? horizonsFirstRow.last_event - horizonsFirstRow.first_event + 1
             : FALLBACK_SEASON_WINDOW,
         );
+        setSeasonRange(
+          horizonsFirstRow?.first_event != null && horizonsFirstRow?.last_event != null
+            ? { first: horizonsFirstRow.first_event, last: horizonsFirstRow.last_event }
+            : null,
+        );
         setUpcoming(fixtures);
         setPredictions(
           new Map(((predsRes.data ?? []) as PredictionRow[]).map((r) => [r.player_id, r])),
@@ -427,39 +446,192 @@ export default function BuilderPage() {
     [rowById],
   );
 
-  /**
-   * A `PredAt` scoped to the next gameweek only, built entirely from data the
-   * builder already has loaded — `xp_1` is exactly the next-gameweek figure
-   * `lib/chips.ts` needs, so this needs no new fetch. Free Hit and Wildcard
-   * are not offered here: both are full-squad rebuilds over the search
-   * `/chips` already runs, and re-running that on every builder edit would
-   * make the page unusable.
-   */
-  const nextEventPredAt = useCallback(
-    (id: number, event: number) => {
-      if (nextEvent === null || event !== nextEvent) return undefined;
-      const row = rowById.get(id);
-      const pred = predictions.get(id);
-      const fixture = (upcoming.get(row?.team_id ?? -1) ?? [])[0];
-      return {
-        expectedMinutes: pred?.expected_minutes ?? null,
-        startProbability: pred?.start_probability ?? null,
-        availability: availabilityOf(id),
-        fdr: fixture?.fdr ?? null,
-        xp: xp.get(id)?.xp_1 ?? null,
-      };
-    },
-    [nextEvent, rowById, predictions, upcoming, availabilityOf, xp],
+  // ------------------------------------------- gameweek planning (Sprint 15.7)
+
+  /** Raw per-fixture rows, keyed by player then event — a double gameweek is two entries. */
+  interface SquadEventRow {
+    xp: number;
+    expectedMinutes: number | null;
+    startProbability: number | null;
+    fdr: number | null;
+    opponentTeam: number | null;
+    wasHome: boolean | null;
+  }
+
+  const squadIds = useMemo(
+    () => [...new Set(team.players.map((p) => p.playerId))].sort((a, b) => a - b),
+    [team.players],
+  );
+  /** A stable primitive key, so the fetch below only re-runs when the picks actually change. */
+  const squadKey = squadIds.join(",");
+
+  const [squadEventRows, setSquadEventRows] = useState<Map<number, Map<number, SquadEventRow[]>>>(
+    new Map(),
   );
 
-  /** Bench Boost / Triple Captain for the next gameweek, if this chip is playable now. */
-  const cheapChips = useMemo(() => {
-    if (nextEvent === null || team.players.length !== rules.squadSize) return null;
-    return {
-      bboost: benchBoostAt(team.players, nextEvent, nextEventPredAt, lookup, isPenaltyTaker),
-      threeXC: tripleCaptainAt(team, nextEvent, nextEventPredAt, availabilityOf, lookup, isPenaltyTaker),
+  useEffect(() => {
+    // No reset to an empty map on the early-return branch: an emptied squad
+    // (e.g. "New draft") renders no picks, so stale rows for players no
+    // longer on the pitch are simply never looked up — nothing reads them.
+    if (!season || nextEvent === null || squadIds.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      // 15 players x ~38 gameweeks is at most ~570 fixture rows, comfortably
+      // under the API's 1000-row cap — unlike the pool-wide series above,
+      // this needs no .range() paging.
+      const { data, error } = await supabase
+        .from("player_predictions")
+        .select("player_id, event, xp, expected_minutes, start_probability, opponent_team, was_home, fdr")
+        .eq("season", season)
+        .in("player_id", squadIds)
+        .gte("event", nextEvent);
+      if (error || cancelled) return;
+      const rows = new Map<number, Map<number, SquadEventRow[]>>();
+      for (const r of data ?? []) {
+        const id = r.player_id as number;
+        const event = r.event as number;
+        let byEvent = rows.get(id);
+        if (!byEvent) rows.set(id, (byEvent = new Map()));
+        const list = byEvent.get(event);
+        const row: SquadEventRow = {
+          xp: Number(r.xp ?? 0),
+          expectedMinutes: r.expected_minutes as number | null,
+          startProbability: r.start_probability as number | null,
+          fdr: r.fdr as number | null,
+          opponentTeam: r.opponent_team as number | null,
+          wasHome: r.was_home as boolean | null,
+        };
+        if (list) list.push(row);
+        else byEvent.set(event, [row]);
+      }
+      if (!cancelled) setSquadEventRows(rows);
+    })();
+    return () => {
+      cancelled = true;
     };
-  }, [nextEvent, team, rules.squadSize, nextEventPredAt, lookup, isPenaltyTaker, availabilityOf]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [season, nextEvent, squadKey]);
+
+  /**
+   * One player-gameweek's aggregated shape for the squad — the single source
+   * the gameweek lineup panel, the pitch cards, and the cheap-chip checks all
+   * read from, so they cannot disagree about what a future gameweek looks
+   * like. A double gameweek's xP and expected minutes sum (both are
+   * genuinely earned twice); start probability takes the max (only one start
+   * is needed to justify picking the player); fdr is the mean of the two
+   * fixtures; opponents join. A gameweek absent from this map is a blank —
+   * deliberately not represented as a zero-valued entry, so the UI can tell
+   * "no fixture" from "a fixture worth nothing" apart.
+   */
+  const squadEventAgg = useMemo(() => {
+    const out = new Map<
+      number,
+      Map<
+        number,
+        {
+          xp: number;
+          expectedMinutes: number | null;
+          startProbability: number | null;
+          fdr: number | null;
+          opponent: string | null;
+          isHome: boolean | null;
+        }
+      >
+    >();
+    for (const [playerId, byEvent] of squadEventRows) {
+      const outByEvent = new Map<
+        number,
+        {
+          xp: number;
+          expectedMinutes: number | null;
+          startProbability: number | null;
+          fdr: number | null;
+          opponent: string | null;
+          isHome: boolean | null;
+        }
+      >();
+      for (const [event, rows] of byEvent) {
+        let xp = 0;
+        let minutes = 0;
+        let hasMinutes = false;
+        let startProbability: number | null = null;
+        let fdrSum = 0;
+        let fdrCount = 0;
+        const opponents: string[] = [];
+        for (const r of rows) {
+          xp += r.xp;
+          if (r.expectedMinutes !== null) {
+            minutes += r.expectedMinutes;
+            hasMinutes = true;
+          }
+          if (r.startProbability !== null) {
+            startProbability =
+              startProbability === null ? r.startProbability : Math.max(startProbability, r.startProbability);
+          }
+          if (r.fdr !== null) {
+            fdrSum += r.fdr;
+            fdrCount++;
+          }
+          opponents.push(r.opponentTeam !== null ? (teamShort.get(r.opponentTeam) ?? "?") : "?");
+        }
+        outByEvent.set(event, {
+          xp,
+          expectedMinutes: hasMinutes ? minutes : null,
+          startProbability,
+          fdr: fdrCount > 0 ? fdrSum / fdrCount : null,
+          opponent: opponents.length > 0 ? opponents.join(", ") : null,
+          isHome: rows[0]?.wasHome ?? null,
+        });
+      }
+      out.set(playerId, outByEvent);
+    }
+    return out;
+  }, [squadEventRows, teamShort]);
+
+  /** Squad-scoped xP-only view of `squadEventAgg`, for `projectionAtEvent`'s `seriesOf`. */
+  const squadXpSeries = useMemo(() => {
+    const out = new Map<number, Map<number, number>>();
+    for (const [id, byEvent] of squadEventAgg) {
+      const m = new Map<number, number>();
+      for (const [event, agg] of byEvent) m.set(event, agg.xp);
+      out.set(id, m);
+    }
+    return out;
+  }, [squadEventAgg]);
+
+  const squadXpSeriesOf = useCallback((id: number) => squadXpSeries.get(id), [squadXpSeries]);
+
+  /** The gameweek the planning panel shows — defaults to next, once known. */
+  const effectiveEvent = selectedEvent ?? nextEvent;
+
+  /** A `predAt` over the squad's own per-event data, for the cheap-chip checks below. */
+  const squadPredAt = useCallback(
+    (id: number, event: number) => {
+      const agg = squadEventAgg.get(id)?.get(event);
+      return {
+        expectedMinutes: agg?.expectedMinutes ?? null,
+        startProbability: agg?.startProbability ?? null,
+        availability: availabilityOf(id),
+        fdr: agg?.fdr ?? null,
+        xp: agg?.xp ?? null,
+      };
+    },
+    [squadEventAgg, availabilityOf],
+  );
+
+  /**
+   * Bench Boost / Triple Captain for the selected planning gameweek — Free
+   * Hit and Wildcard are not offered here: both are full-squad rebuilds over
+   * the search `/chips` already runs, and re-running that on every builder
+   * edit would make the page unusable.
+   */
+  const cheapChips = useMemo(() => {
+    if (effectiveEvent === null || team.players.length !== rules.squadSize) return null;
+    return {
+      bboost: benchBoostAt(team.players, effectiveEvent, squadPredAt, lookup, isPenaltyTaker),
+      threeXC: tripleCaptainAt(team, effectiveEvent, squadPredAt, availabilityOf, lookup, isPenaltyTaker),
+    };
+  }, [effectiveEvent, team, rules.squadSize, squadPredAt, lookup, isPenaltyTaker, availabilityOf]);
 
   const validation = useMemo(() => validateSquad(team, rules, lookup), [team, rules, lookup]);
 
@@ -474,6 +646,19 @@ export default function BuilderPage() {
     () => computeProjection(team.players, xpOf, availabilityOf, team.captain, team.viceCaptain, 1),
     [team.players, team.captain, team.viceCaptain, xpOf, availabilityOf],
   );
+
+  /** Projection for the gameweek lineup panel's selected event — walks forward with `effectiveEvent`. */
+  const eventProjection = useMemo(() => {
+    if (effectiveEvent === null) return null;
+    return projectionAtEvent(
+      team.players,
+      squadXpSeriesOf,
+      availabilityOf,
+      team.captain,
+      team.viceCaptain,
+      effectiveEvent,
+    );
+  }, [team.players, team.captain, team.viceCaptain, squadXpSeriesOf, availabilityOf, effectiveEvent]);
 
   const optimizerPool = useMemo<OptimizerPlayer[]>(
     () =>
@@ -610,203 +795,18 @@ export default function BuilderPage() {
   }, [players]);
 
   /**
-   * While replacing a squad player, the players list below the finder should
-   * let you pick the replacement yourself instead of only offering the
-   * ranked top-N — narrowed to the same legal, affordable, club-legal set
-   * `findReplacements` computes. Reuses `replacementLegality` rather than
-   * restating position/budget/club-cap checks a second time.
+   * `filters` stays null until touched; render and filtering both fall back
+   * to a fresh default seeded from the pool's real price bounds. The first
+   * actual edit sets `filters` to a concrete object via `onChange`, so this
+   * needs no effect to "initialize" state derived from other state.
    */
-  const replaceEligibility = useMemo(() => {
-    if (replaceFor === null) return null;
-    const target = metaById.get(replaceFor);
-    if (!target) return null;
-    return replacementLegality(
-      { id: target.id, elementType: target.elementType, price: target.nowCost },
-      team,
-      rules,
-      lookup,
-    );
-  }, [replaceFor, metaById, team, rules, lookup]);
-
-  /**
-   * The stable "n legal targets" count for the banner — deliberately not
-   * `filtered.length`, which also reflects the user's own search/team/price
-   * narrowing on top and would make the number wobble as they type.
-   */
-  const eligibleCount = useMemo(() => {
-    if (!replaceEligibility) return 0;
-    return players.filter((p) =>
-      replaceEligibility.isEligible({
-        id: p.id,
-        elementType: p.element_type,
-        price: p.now_cost ?? 0,
-        teamId: p.team_id,
-      }),
-    ).length;
-  }, [players, replaceEligibility]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim();
-    const rows = players.filter((p) => {
-      if (
-        replaceEligibility &&
-        !replaceEligibility.isEligible({
-          id: p.id,
-          elementType: p.element_type,
-          price: p.now_cost ?? 0,
-          teamId: p.team_id,
-        })
-      ) {
-        return false;
-      }
-      if (q && !matchesPlayerQuery(p, q)) return false;
-      if (position !== 0 && p.element_type !== position) return false;
-      if (teamFilter !== 0 && p.team_id !== teamFilter) return false;
-      if (priceRange) {
-        const cost = p.now_cost ?? 0;
-        if (cost < priceRange[0] || cost > priceRange[1]) return false;
-      }
-      return true;
-    });
-
-    const value = (p: PlayerRow) => {
-      switch (sortKey) {
-        case "xp5":
-          return xp.get(p.id)?.xp_5 ?? -1;
-        case "xp1":
-          return xp.get(p.id)?.xp_1 ?? -1;
-        case "price":
-          return p.now_cost ?? -1;
-        case "ownership":
-          return p.selected_by_percent ?? -1;
-      }
-    };
-
-    return rows.sort((a, b) => value(b) - value(a));
-  }, [players, xp, search, position, teamFilter, priceRange, sortKey, replaceEligibility]);
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const visible = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-
-  /** Any filter change invalidates the current page index. */
-  const changeFilter = <T,>(setter: (v: T) => void) => (v: T) => {
-    setter(v);
-    setPage(0);
-  };
-
-  /**
-   * Any pool player in the shape the pitch card and detail panel want. Shared
-   * so the picker and the pitch show identical information.
-   */
-  const toPlayerData = useCallback(
-    (row: PlayerRow): PlayerData => {
-      const fixtures = upcoming.get(row.team_id) ?? [];
-      const pred = predictions.get(row.id);
-      return {
-        id: row.id,
-        web_name: row.web_name,
-        team_code: row.team_code,
-        element_type: row.element_type,
-        now_cost: row.now_cost ?? 0,
-        expected_points: xpAt(xpOf(row.id), horizon),
-        status: row.status,
-        chance_of_playing_next_round: row.chance_of_playing_next_round,
-        is_captain: team.captain === row.id,
-        is_vice_captain: team.viceCaptain === row.id,
-        is_penalty_taker: row.penalties_order === 1,
-        is_freekick_taker: row.direct_freekicks_order === 1,
-        is_corner_taker: row.corners_and_indirect_freekicks_order === 1,
-        next_fixture: fixtures[0]
-          ? {
-              opponent_short_name: fixtures[0].opponent_short_name,
-              is_home: fixtures[0].is_home,
-              fdr: fixtures[0].fdr,
-            }
-          : null,
-
-        team_short: teamShort.get(row.team_id) ?? null,
-        news: row.news,
-        ownership: row.selected_by_percent,
-        xp5: xp.get(row.id)?.xp_5 ?? null,
-        expected_minutes: pred?.expected_minutes ?? null,
-        start_probability: pred?.start_probability ?? null,
-        system: tacticalByTeam.get(row.team_id) ?? null,
-        // The detail panel renders every entry in `upcoming` with no
-        // truncation of its own, so the ticker's display length is sliced
-        // here — `fixtures` itself (and fdrRun below) carries the whole
-        // remaining season for risk/fixture scoring. The length follows the
-        // page's horizon so the ticker shows the run the numbers beside it
-        // were computed over, capped at MAX_TICKER_GWS.
-        upcoming: fixtures.slice(0, Math.min(MAX_TICKER_GWS, horizonLength(horizon, seasonWindow))),
-      };
-    },
-    [upcoming, predictions, xpOf, xp, horizon, seasonWindow, team.captain, team.viceCaptain, teamShort, tacticalByTeam],
-  );
-
-  const squadCards = useMemo<PlayerData[]>(
-    () =>
-      team.players.flatMap((pick) => {
-        const row = rowById.get(pick.playerId);
-        return row ? [toPlayerData(row)] : [];
-      }),
-    [team.players, rowById, toPlayerData],
-  );
-
-  // ------------------------------------------------------ Sprint 3 lineup
-
-  const lineup = useMemo(() => {
-    if (team.players.length !== rules.squadSize) return null;
-
-    const candidates: LineupCandidate[] = team.players.flatMap((pick) => {
-      const row = rowById.get(pick.playerId);
-      if (!row) return [];
-      const next = (upcoming.get(row.team_id) ?? [])[0];
-      const pred = predictions.get(row.id);
-      return [
-        {
-          playerId: row.id,
-          elementType: row.element_type,
-          webName: row.web_name,
-          xp: xp.get(row.id)?.xp_1 ?? null,
-          expectedMinutes: pred?.expected_minutes ?? null,
-          startProbability: pred?.start_probability ?? null,
-          availability: availabilityOf(row.id),
-          fdr: next?.fdr ?? null,
-          opponent: next?.opponent_short_name ?? null,
-          isPenaltyTaker: row.penalties_order === 1,
-        },
-      ];
-    });
-
-    return optimiseLineup(candidates);
-  }, [team.players, rules.squadSize, rowById, xp, upcoming, predictions, availabilityOf]);
-
-  const applyLineup = () => {
-    if (!lineup) return;
-    persist({
-      ...team,
-      startingXI: lineup.starters,
-      benchOrder: lineup.bench,
-      captain: lineup.captain?.playerId ?? team.captain,
-      viceCaptain: lineup.vice?.playerId ?? team.viceCaptain,
-    });
-  };
-
-  /** Whether the stored lineup already equals the recommendation. */
-  const lineupApplied = useMemo(() => {
-    if (!lineup) return false;
-    const same = (a: number[], b: number[]) =>
-      a.length === b.length && a.every((v, i) => v === b[i]);
-    return (
-      same(team.startingXI, lineup.starters) &&
-      same(team.benchOrder, lineup.bench) &&
-      team.captain === (lineup.captain?.playerId ?? null) &&
-      team.viceCaptain === (lineup.vice?.playerId ?? null)
-    );
-  }, [team.startingXI, team.benchOrder, team.captain, team.viceCaptain, lineup]);
+  const resolvedFilters = filters ?? (priceBounds ? defaultPlayerFilters(priceBounds) : null);
 
   // ------------------------------------------------- Sprint 4 candidates
+  //
+  // Moved up from beside the lineup/replacement code below so `gemsById` is
+  // available to the picker's own filtering, which now includes special
+  // options (gem archetype, set-piece role) alongside search/team/price.
 
   const scoredById = useMemo(() => {
     const m = new Map<number, ScoredPlayer>();
@@ -878,6 +878,225 @@ export default function BuilderPage() {
   }, [gemCandidates, horizon, seasonWindow]);
 
   /**
+   * While replacing a squad player, the players list below the finder should
+   * let you pick the replacement yourself instead of only offering the
+   * ranked top-N — narrowed to the same legal, affordable, club-legal set
+   * `findReplacements` computes. Reuses `replacementLegality` rather than
+   * restating position/budget/club-cap checks a second time.
+   */
+  const replaceEligibility = useMemo(() => {
+    if (replaceFor === null) return null;
+    const target = metaById.get(replaceFor);
+    if (!target) return null;
+    return replacementLegality(
+      { id: target.id, elementType: target.elementType, price: target.nowCost },
+      team,
+      rules,
+      lookup,
+    );
+  }, [replaceFor, metaById, team, rules, lookup]);
+
+  /**
+   * The stable "n legal targets" count for the banner — deliberately not
+   * `filtered.length`, which also reflects the user's own search/team/price
+   * narrowing on top and would make the number wobble as they type.
+   */
+  const eligibleCount = useMemo(() => {
+    if (!replaceEligibility) return 0;
+    return players.filter((p) =>
+      replaceEligibility.isEligible({
+        id: p.id,
+        elementType: p.element_type,
+        price: p.now_cost ?? 0,
+        teamId: p.team_id,
+      }),
+    ).length;
+  }, [players, replaceEligibility]);
+
+  const filtered = useMemo(() => {
+    if (!resolvedFilters) return [];
+    const rows = players.filter((p) => {
+      if (
+        replaceEligibility &&
+        !replaceEligibility.isEligible({
+          id: p.id,
+          elementType: p.element_type,
+          price: p.now_cost ?? 0,
+          teamId: p.team_id,
+        })
+      ) {
+        return false;
+      }
+      return matchesFilters(p, resolvedFilters, gemsById);
+    });
+
+    const value = (p: PlayerRow) => {
+      switch (sortKey) {
+        case "xp5":
+          return xp.get(p.id)?.xp_5 ?? -1;
+        case "xp1":
+          return xp.get(p.id)?.xp_1 ?? -1;
+        case "price":
+          return p.now_cost ?? -1;
+        case "ownership":
+          return p.selected_by_percent ?? -1;
+      }
+    };
+
+    return rows.sort((a, b) => value(b) - value(a));
+  }, [players, xp, resolvedFilters, sortKey, replaceEligibility, gemsById]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const visible = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+  /** Any filter change invalidates the current page index. */
+  const changeFilter = <T,>(setter: (v: T) => void) => (v: T) => {
+    setter(v);
+    setPage(0);
+  };
+
+  /**
+   * Any pool player in the shape the pitch card and detail panel want. Shared
+   * so the picker and the pitch show identical information.
+   *
+   * `event`, when given, switches the card to the squad's own per-gameweek
+   * data (`squadEventAgg`) instead of the page horizon — only `squadCards`
+   * passes it, since `squadEventAgg` is squad-scoped and every other caller
+   * (the picker, pool-wide) stays on the horizon-based figures.
+   */
+  const toPlayerData = useCallback(
+    (row: PlayerRow, event?: number): PlayerData => {
+      const fixtures = upcoming.get(row.team_id) ?? [];
+      const pred = predictions.get(row.id);
+      const agg = event !== undefined ? squadEventAgg.get(row.id)?.get(event) : undefined;
+      return {
+        id: row.id,
+        web_name: row.web_name,
+        team_code: row.team_code,
+        element_type: row.element_type,
+        now_cost: row.now_cost ?? 0,
+        expected_points: event !== undefined ? (agg?.xp ?? null) : xpAt(xpOf(row.id), horizon),
+        status: row.status,
+        chance_of_playing_next_round: row.chance_of_playing_next_round,
+        is_captain: team.captain === row.id,
+        is_vice_captain: team.viceCaptain === row.id,
+        is_penalty_taker: row.penalties_order === 1,
+        is_freekick_taker: row.direct_freekicks_order === 1,
+        is_corner_taker: row.corners_and_indirect_freekicks_order === 1,
+        next_fixture:
+          event !== undefined
+            ? agg
+              ? {
+                  opponent_short_name: agg.opponent ?? "—",
+                  is_home: agg.isHome ?? true,
+                  fdr: agg.fdr ?? 3,
+                }
+              : null
+            : fixtures[0]
+              ? {
+                  opponent_short_name: fixtures[0].opponent_short_name,
+                  is_home: fixtures[0].is_home,
+                  fdr: fixtures[0].fdr,
+                }
+              : null,
+
+        team_short: teamShort.get(row.team_id) ?? null,
+        news: row.news,
+        ownership: row.selected_by_percent,
+        xp5: xp.get(row.id)?.xp_5 ?? null,
+        expected_minutes: event !== undefined ? (agg?.expectedMinutes ?? null) : (pred?.expected_minutes ?? null),
+        start_probability: event !== undefined ? (agg?.startProbability ?? null) : (pred?.start_probability ?? null),
+        system: tacticalByTeam.get(row.team_id) ?? null,
+        // The detail panel renders every entry in `upcoming` with no
+        // truncation of its own, so the ticker's display length is sliced
+        // here — `fixtures` itself (and fdrRun below) carries the whole
+        // remaining season for risk/fixture scoring. The length follows the
+        // page's horizon so the ticker shows the run the numbers beside it
+        // were computed over, capped at MAX_TICKER_GWS.
+        upcoming: fixtures.slice(0, Math.min(MAX_TICKER_GWS, horizonLength(horizon, seasonWindow))),
+      };
+    },
+    [
+      upcoming,
+      predictions,
+      xpOf,
+      xp,
+      horizon,
+      seasonWindow,
+      team.captain,
+      team.viceCaptain,
+      teamShort,
+      tacticalByTeam,
+      squadEventAgg,
+    ],
+  );
+
+  const squadCards = useMemo<PlayerData[]>(
+    () =>
+      team.players.flatMap((pick) => {
+        const row = rowById.get(pick.playerId);
+        return row && effectiveEvent !== null ? [toPlayerData(row, effectiveEvent)] : [];
+      }),
+    [team.players, rowById, toPlayerData, effectiveEvent],
+  );
+
+  // ------------------------------------------------------ Sprint 3 lineup
+
+  const lineup = useMemo(() => {
+    if (team.players.length !== rules.squadSize || effectiveEvent === null) return null;
+
+    const candidates: LineupCandidate[] = team.players.flatMap((pick) => {
+      const row = rowById.get(pick.playerId);
+      if (!row) return [];
+      const agg = squadEventAgg.get(row.id)?.get(effectiveEvent);
+      return [
+        {
+          playerId: row.id,
+          elementType: row.element_type,
+          webName: row.web_name,
+          // A blank gameweek has no row at all — the same "no entry" the
+          // optimiser already treats as zero, not a real xp: null missing
+          // projection.
+          xp: agg?.xp ?? null,
+          expectedMinutes: agg?.expectedMinutes ?? null,
+          startProbability: agg?.startProbability ?? null,
+          availability: availabilityOf(row.id),
+          fdr: agg?.fdr ?? null,
+          opponent: agg?.opponent ?? null,
+          isPenaltyTaker: row.penalties_order === 1,
+        },
+      ];
+    });
+
+    return optimiseLineup(candidates);
+  }, [team.players, rules.squadSize, rowById, squadEventAgg, effectiveEvent, availabilityOf]);
+
+  const applyLineup = () => {
+    if (!lineup) return;
+    persist({
+      ...team,
+      startingXI: lineup.starters,
+      benchOrder: lineup.bench,
+      captain: lineup.captain?.playerId ?? team.captain,
+      viceCaptain: lineup.vice?.playerId ?? team.viceCaptain,
+    });
+  };
+
+  /** Whether the stored lineup already equals the recommendation. */
+  const lineupApplied = useMemo(() => {
+    if (!lineup) return false;
+    const same = (a: number[], b: number[]) =>
+      a.length === b.length && a.every((v, i) => v === b[i]);
+    return (
+      same(team.startingXI, lineup.starters) &&
+      same(team.benchOrder, lineup.bench) &&
+      team.captain === (lineup.captain?.playerId ?? null) &&
+      team.viceCaptain === (lineup.vice?.playerId ?? null)
+    );
+  }, [team.startingXI, team.benchOrder, team.captain, team.viceCaptain, lineup]);
+
+  /**
    * The finder is conditionally mounted (`replaceFor !== null`), so it does
    * not exist in the DOM at the moment "Replace" is clicked — the scroll has
    * to happen from an effect keyed on replaceFor, once the panel has
@@ -903,11 +1122,11 @@ export default function BuilderPage() {
   const startReplacing = (id: number) => {
     setReplaceFor(id);
     const target = metaById.get(id);
-    if (target) setPosition(target.elementType);
+    if (target && resolvedFilters) setFilters({ ...resolvedFilters, position: target.elementType });
     setPage(0);
   };
   /** Replacement finder filters — each defaults to today's hardcoded value. */
-  const [replaceLimit, setReplaceLimit] = useState<(typeof REPLACEMENT_LIMITS)[number]>(10);
+  const [replaceLimit, setReplaceLimit] = useState<(typeof REPLACEMENT_LIMITS)[number]>(5);
   const [minStartOverride, setMinStartOverride] = useState(MINUTES_FLOOR);
   const [includeUnavailable, setIncludeUnavailable] = useState(false);
   const [replaceArchetype, setReplaceArchetype] = useState<GemArchetype | 0>(0);
@@ -953,9 +1172,13 @@ export default function BuilderPage() {
         if (error || cancelled) break;
         for (const r of page ?? []) {
           const id = r.player_id as number;
+          const event = r.event as number;
           let byEvent = series.get(id);
           if (!byEvent) series.set(id, (byEvent = new Map()));
-          byEvent.set(r.event as number, Number(r.xp ?? 0));
+          // Accumulate, don't overwrite: a double gameweek is two rows with
+          // the same event, and it is genuinely worth both — this is the
+          // same bug a squad's per-event series must not carry, below.
+          byEvent.set(event, (byEvent.get(event) ?? 0) + Number(r.xp ?? 0));
         }
         if ((page?.length ?? 0) < PAGE_ROWS) break;
       }
@@ -1405,7 +1628,9 @@ export default function BuilderPage() {
             )}
             {cheapChips && (
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
-                <span className="text-zinc-500">Next GW chips</span>
+                <span className="text-zinc-500">
+                  GW{effectiveEvent} chips
+                </span>
                 <span
                   title={cheapChips.bboost.explanation.join(" ")}
                   className="cursor-help text-zinc-700 dark:text-zinc-300"
@@ -1450,18 +1675,31 @@ export default function BuilderPage() {
 
         {/* ========================================== selector column */}
         <section className="min-w-0 space-y-4">
-          {/* Sprint 3: lineup + armband recommendation */}
-          {lineup && (
+          {/* Sprint 3/15.7: lineup + armband recommendation, walkable by gameweek */}
+          {lineup && effectiveEvent !== null && (
             <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500">
                   Gameweek lineup
-                  {/* Fixed to the next gameweek regardless of the page
-                      horizon: FPL makes you pick one XI and one armband per
-                      gameweek, so a multi-week "best XI" has no meaning. */}
-                  <span className="ml-1.5 rounded bg-zinc-100 px-1 py-0.5 text-[10px] font-semibold normal-case text-zinc-500 dark:bg-purple-950/60 dark:text-purple-300">
-                    Next GW
-                  </span>
+                  <select
+                    value={effectiveEvent}
+                    onChange={(e) => setSelectedEvent(Number(e.target.value))}
+                    aria-label="Planning gameweek"
+                    className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold normal-case text-zinc-600 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-300"
+                  >
+                    {(nextEvent !== null
+                      ? Array.from(
+                          { length: (seasonRange?.last ?? nextEvent) - nextEvent + 1 },
+                          (_, i) => nextEvent + i,
+                        )
+                      : []
+                    ).map((g) => (
+                      <option key={g} value={g}>
+                        GW{g}
+                        {g === nextEvent ? " (next)" : ""}
+                      </option>
+                    ))}
+                  </select>
                 </h2>
                 <button
                   onClick={() => {
@@ -1471,13 +1709,20 @@ export default function BuilderPage() {
                   title={
                     lineupApplied
                       ? "XI and armband already match the recommendation"
-                      : "Apply the recommended XI, bench order, and armband"
+                      : `Apply the recommended XI, bench order, and armband for GW${effectiveEvent}`
                   }
                   className="shrink-0 rounded-md bg-purple-950 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-800 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
                 >
-                  {lineupApplied ? "Applied" : "Apply XI & armband"}
+                  {lineupApplied ? "Applied" : `Apply GW${effectiveEvent} XI & armband`}
                 </button>
               </div>
+
+              {effectiveEvent !== nextEvent && (
+                <p className="mt-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
+                  Planning view for a future gameweek — this is a projection, not the lineup you
+                  submit this week. Blank fixtures show as blank, never a silent zero.
+                </p>
+              )}
 
               {/* team projection */}
               <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
@@ -1486,7 +1731,7 @@ export default function BuilderPage() {
                   ["Starting XI", `${lineup.startersXp.toFixed(1)} xP`],
                   ["Bench (raw)", `${lineup.benchXp.toFixed(1)} xP`],
                   ["Bench via auto-subs", `${lineup.benchExpectedContribution.toFixed(1)} xP`],
-                  ["Armband bonus", `${projectionGw.captainBonus.toFixed(1)} xP`],
+                  ["Armband bonus", `${(eventProjection?.captainBonus ?? 0).toFixed(1)} xP`],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-2">
                     <dt className="text-zinc-500">{label}</dt>
@@ -1503,7 +1748,7 @@ export default function BuilderPage() {
                     {(
                       lineup.startersXp +
                       lineup.benchExpectedContribution +
-                      projectionGw.captainBonus
+                      (eventProjection?.captainBonus ?? 0)
                     ).toFixed(1)}{" "}
                     xP
                   </dd>
@@ -1804,12 +2049,19 @@ export default function BuilderPage() {
                   Loading the week-by-week signal for SquadBalance…
                 </p>
               )}
-              <p className="mt-2 text-[10px] leading-relaxed text-zinc-400">
-                {REPLACEMENT_MODEL_NOTE}
-              </p>
-              <p className="mt-1 text-[10px] leading-relaxed text-zinc-400">
-                {RISK_MODEL_NOTE}
-              </p>
+              <details className="group mt-2">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-[10px] text-zinc-500">
+                  <span>How TeamFit is scored</span>
+                  <span className="text-zinc-400 group-open:hidden">▸</span>
+                  <span className="hidden text-zinc-400 group-open:inline">▾</span>
+                </summary>
+                <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-400">
+                  {REPLACEMENT_MODEL_NOTE}
+                </p>
+                <p className="mt-1 text-[10px] leading-relaxed text-zinc-400">
+                  {RISK_MODEL_NOTE}
+                </p>
+              </details>
             </div>
           )}
 
@@ -1833,45 +2085,17 @@ export default function BuilderPage() {
                 </button>
               </div>
             )}
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => changeFilter(setSearch)(e.target.value)}
-                placeholder="Search player…"
-                aria-label="Search player"
-                className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus:border-[#00FF87]"
-              />
-              <select
-                value={position}
-                onChange={(e) => changeFilter(setPosition)(Number(e.target.value))}
-                disabled={replaceFor !== null}
-                title={replaceFor !== null ? "Locked to the outgoing player's position" : undefined}
-                aria-label="Filter by position"
-                className="rounded-md border border-zinc-300 bg-white px-1.5 py-1.5 text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
-              >
-                <option value={0}>All pos</option>
-                {Object.entries(POSITIONS).map(([id, label]) => (
-                  <option key={id} value={id}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={teamFilter}
-                onChange={(e) => changeFilter(setTeamFilter)(Number(e.target.value))}
-                aria-label="Filter by team"
-                className="rounded-md border border-zinc-300 bg-white px-1.5 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
-              >
-                <option value={0}>All teams</option>
-                {[...teamShort.entries()]
-                  .sort((a, b) => a[1].localeCompare(b[1]))
-                  .map(([id, short]) => (
-                    <option key={id} value={id}>
-                      {short}
-                    </option>
-                  ))}
-              </select>
+            <div className="flex flex-wrap items-start gap-2 text-xs">
+              {resolvedFilters && priceBounds && (
+                <PlayerFilters
+                  value={resolvedFilters}
+                  onChange={changeFilter(setFilters)}
+                  teamOptions={[...teamShort.entries()].sort((a, b) => a[1].localeCompare(b[1]))}
+                  priceBounds={priceBounds}
+                  positionOptions={POSITIONS}
+                  lockedPosition={replaceFor !== null ? resolvedFilters.position : undefined}
+                />
+              )}
               <select
                 value={sortKey}
                 onChange={(e) => changeFilter(setSortKey)(e.target.value as SortKey)}
@@ -1884,34 +2108,6 @@ export default function BuilderPage() {
                 <option value="ownership">Owned</option>
               </select>
             </div>
-
-            {/* price band — bounds come from the pool, never hardcoded */}
-            {priceBounds && (
-              <div className="mt-2 flex items-center gap-2 text-xs">
-                <span className="text-zinc-500">Price</span>
-                <RangeSlider
-                  value={priceRange ?? priceBounds}
-                  onValueChange={changeFilter(setPriceRange)}
-                  min={priceBounds[0]}
-                  max={priceBounds[1]}
-                  step={1}
-                  minLabel="Minimum price"
-                  maxLabel="Maximum price"
-                />
-                <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
-                  {money((priceRange ?? priceBounds)[0])} – {money((priceRange ?? priceBounds)[1])}
-                </span>
-                {priceRange &&
-                  (priceRange[0] !== priceBounds[0] || priceRange[1] !== priceBounds[1]) && (
-                    <button
-                      onClick={() => changeFilter(setPriceRange)(null)}
-                      className="text-zinc-500 underline-offset-2 hover:underline"
-                    >
-                      reset
-                    </button>
-                  )}
-              </div>
-            )}
 
             <div className="mt-2 overflow-x-auto">
               <table className="w-full text-xs">

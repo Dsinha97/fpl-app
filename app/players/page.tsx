@@ -8,17 +8,15 @@ import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { ConfidenceBadge, RateBand } from "@/components/confidence-badge";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { GemBadge } from "@/components/gem-badge";
-import { fullName, matchesPlayerQuery } from "@/lib/player-search";
-import { RangeSlider } from "@/components/ui/range-slider";
+import { fullName } from "@/lib/player-search";
 import { MAX_COMPARE, valuePerMillion, XDC_MODEL_NOTE, type ScoredPlayer } from "@/lib/scoring";
+import { DEFAULT_GEM_CUTS, detectGems, type GemCandidate } from "@/lib/hidden-gems";
 import {
-  DEFAULT_GEM_CUTS,
-  detectGems,
-  GEM_ARCHETYPE_LABELS,
-  GEMS_MODEL_NOTE,
-  type GemArchetype,
-  type GemCandidate,
-} from "@/lib/hidden-gems";
+  defaultPlayerFilters,
+  matchesFilters,
+  PlayerFilters,
+  type PlayerFilterState,
+} from "@/components/player-filters";
 import {
   HORIZONS,
   horizonLabel,
@@ -164,16 +162,13 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [search, setSearch] = useState("");
-  const [position, setPosition] = useState<number | 0>(0);
-  const [teamFilter, setTeamFilter] = useState<number | 0>(0);
-  const [priceRange, setPriceRange] = useState<[number, number]>([PRICE_MIN, PRICE_MAX]);
+  const [filters, setFilters] = useState<PlayerFilterState>(() =>
+    defaultPlayerFilters([PRICE_MIN, PRICE_MAX]),
+  );
   const [horizon, setHorizon] = useState<Horizon>(5);
   const [sortKey, setSortKey] = useState<SortKey>("price");
   const [sortDesc, setSortDesc] = useState(true);
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [gemsOnly, setGemsOnly] = useState(false);
-  const [gemArchetype, setGemArchetype] = useState<GemArchetype | 0>(0);
 
   useEffect(() => {
     (async () => {
@@ -375,21 +370,7 @@ export default function PlayersPage() {
   }, [gemCandidates, horizon, seasonWindow]);
 
   const visible = useMemo(() => {
-    const q = search.trim();
-
-    const rows = players.filter((p) => {
-      if (q && !matchesPlayerQuery(p, q)) return false;
-      if (position !== 0 && p.element_type !== position) return false;
-      if (teamFilter !== 0 && p.team_id !== teamFilter) return false;
-      const cost = p.now_cost ?? 0;
-      if (cost < priceRange[0] || cost > priceRange[1]) return false;
-      if (gemsOnly) {
-        const gem = gemsById.get(p.id);
-        if (!gem) return false;
-        if (gemArchetype !== 0 && gem.archetype !== gemArchetype) return false;
-      }
-      return true;
-    });
+    const rows = players.filter((p) => matchesFilters(p, filters, gemsById));
 
     const value = (p: PlayerRow): number => {
       const h = history.get(p.code);
@@ -422,23 +403,7 @@ export default function PlayersPage() {
     rows.sort((a, b) => (sortDesc ? value(b) - value(a) : value(a) - value(b)));
     return rows.slice(0, 100);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    players,
-    history,
-    runs,
-    xp,
-    search,
-    position,
-    teamFilter,
-    priceRange,
-    sortKey,
-    sortDesc,
-    horizon,
-    seasonWindow,
-    gemsOnly,
-    gemArchetype,
-    gemsById,
-  ]);
+  }, [players, history, runs, xp, filters, sortKey, sortDesc, horizon, seasonWindow, gemsById]);
 
   const header = (label: string, key: SortKey) => (
     <th className="px-2 py-2">
@@ -506,88 +471,14 @@ export default function PlayersPage() {
       )}
 
       {/* Filters */}
-      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search player…"
-          className="w-44 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+      <div className="mt-4">
+        <PlayerFilters
+          value={filters}
+          onChange={setFilters}
+          teamOptions={teamOptions}
+          priceBounds={[PRICE_MIN, PRICE_MAX]}
+          positionOptions={POSITIONS}
         />
-        <select
-          value={position}
-          onChange={(e) => setPosition(Number(e.target.value))}
-          className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
-        >
-          <option value={0}>All positions</option>
-          {Object.entries(POSITIONS).map(([id, label]) => (
-            <option key={id} value={id}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={teamFilter}
-          onChange={(e) => setTeamFilter(Number(e.target.value))}
-          className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
-        >
-          <option value={0}>All teams</option>
-          {teamOptions.map(([id, short]) => (
-            <option key={id} value={id}>
-              {short}
-            </option>
-          ))}
-        </select>
-        <label className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
-          <span className="tabular-nums">
-            £{(priceRange[0] / 10).toFixed(1)}m – £{(priceRange[1] / 10).toFixed(1)}m
-          </span>
-          <RangeSlider
-            value={priceRange}
-            onValueChange={setPriceRange}
-            min={PRICE_MIN}
-            max={PRICE_MAX}
-            step={5}
-            minLabel="Minimum price"
-            maxLabel="Maximum price"
-          />
-          {(priceRange[0] !== PRICE_MIN || priceRange[1] !== PRICE_MAX) && (
-            <button
-              onClick={() => setPriceRange([PRICE_MIN, PRICE_MAX])}
-              className="text-xs text-zinc-500 underline transition-colors hover:text-purple-700 dark:hover:text-[#00FF87]"
-            >
-              reset
-            </button>
-          )}
-        </label>
-        <span className="flex items-center gap-1.5 border-l border-zinc-200 pl-3 dark:border-purple-900/40">
-          <label className="flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={gemsOnly}
-              onChange={(e) => setGemsOnly(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-zinc-300 text-purple-700 focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-purple-800/50 dark:text-[#00FF87]"
-            />
-            Gems only
-          </label>
-          {gemsOnly && (
-            <select
-              value={gemArchetype}
-              onChange={(e) => setGemArchetype(e.target.value === "0" ? 0 : (e.target.value as GemArchetype))}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
-            >
-              <option value={0}>Any archetype</option>
-              {(Object.entries(GEM_ARCHETYPE_LABELS) as [GemArchetype, string][]).map(([id, label]) => (
-                <option key={id} value={id}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          )}
-          <InfoTooltip label="What is a Hidden Gem?">
-            <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{GEMS_MODEL_NOTE}</p>
-          </InfoTooltip>
-        </span>
       </div>
 
       {error && (

@@ -118,13 +118,19 @@ pivots predictions into `xp_1` / `xp_3` / `xp_5` / `xp_8` / `xp_total`, which is
 every screen consumes (`expected_minutes` and `start_probability` come from `player_predictions`
 directly, for the next gameweek).
 
-Two consumers need the **unpivoted** rows instead. `/transfers` reads `player_id, event, xp` across
+Three consumers need the **unpivoted** rows instead. `/transfers` reads `player_id, event, xp` across
 the whole window, because pricing a rolled transfer means knowing what a single gameweek is worth,
 which a cumulative total cannot answer. That is ~380 players × 8 gameweeks ≈ 3,040 rows, and
 **the API caps every response at 1000 rows whatever `.limit()` asks for** — a larger limit truncates
 and still returns 200. It has to be paged with `.range()` until a short page comes back; see
 `PAGE_ROWS` in `app/transfers/page.tsx`. Silently taking the first thousand would shrink every
-number computed from the series.
+number computed from the series. `/builder`'s gameweek planning panel (Sprint 15.8) is the third,
+scoped to the current squad rather than the whole pool — 15 players × ~38 gameweeks is comfortably
+under the row cap, so it needs no paging. Both `/builder`'s squad-scoped fetch and its
+SquadBalance series (`lib/scoring.ts`'s `findReplacements` filter) share one rule: `player_predictions`
+is keyed **per fixture**, so a double gameweek is two rows with the same `event` and must be
+**accumulated**, not overwritten, when folding rows into a per-event map — an earlier version of the
+SquadBalance series did overwrite, silently pricing a double gameweek as a single.
 
 `xp_total` sums every projected gameweek, so it is the Season horizon — but `generate-predictions`
 runs `HORIZON = 8`, which makes `xp_total` **identical to `xp_8`** today. `SEASON_HORIZON_NOTE` says so
@@ -159,7 +165,7 @@ Static export, so no server components fetching at request time, no route handle
 | `/players` | Explorer: paginated, searchable, position/team/price filters |
 | `/fixtures` | Schedule and FDR matrix sub-tabs |
 | `/changes` | The `change_feed` view — prices, ownership, status, news, fixture changes |
-| `/builder` | Pitch UI, paginated picker, squad optimiser, lineup engine, replacement finder |
+| `/builder` | Pitch UI, paginated picker, squad optimiser, lineup engine, replacement finder, per-gameweek planning dropdown |
 | `/scenarios` | Draft manager: SquadScore ranking, 2–4 draft comparison, save timeline |
 | `/transfers` | Weekly transfer plan, then basket simulation with hits and sell prices |
 | `/compare` | Head-to-head player comparison |
@@ -224,7 +230,9 @@ doubtful captain's projection falls back toward the vice.
   upgrade elsewhere scores badly alone, so a beam ranked only by gain prunes the first leg before the
   second can pay for it. `projectAtEvent` mirrors `computeProjection` term for term on a single
   gameweek, which is what prices the roll branch honestly — see the roll-value table in
-  [roadmap.md](roadmap.md).
+  [roadmap.md](roadmap.md). `projectionAtEvent` (Sprint 15.8) is the same maths with the armband
+  bonus broken out, added for `/builder`'s gameweek planning panel; `projectAtEvent` is now a
+  one-line delegate onto it so the two cannot drift.
 - `player-search.ts` — `matchesPlayerQuery` / `fullName`, matching every name field and folding
   accents. Used by every search box, because `web_name` alone is not enough: FPL abbreviates it to
   `E.Anderson`.

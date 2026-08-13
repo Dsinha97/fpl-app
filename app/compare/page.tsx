@@ -266,11 +266,21 @@ export default function ComparePage() {
       .slice(0, 8);
   }, [search, players, selected]);
 
-  /** Best value in a row, for highlighting. */
-  const bestOf = (values: (number | null)[], dir: Direction): number | null => {
+  /**
+   * Best value in a row, for highlighting. `contested` is true whenever more
+   * than one player shares the best value (or fewer than two have one at
+   * all) — a tie should read as "no clear winner", not as every tied cell
+   * quietly claiming the win.
+   */
+  const winnerOf = (
+    values: (number | null)[],
+    dir: Direction,
+  ): { best: number | null; contested: boolean } => {
     const nums = values.filter((v): v is number => v !== null);
-    if (nums.length === 0) return null;
-    return dir === "high" ? Math.max(...nums) : Math.min(...nums);
+    if (nums.length < 2) return { best: null, contested: true };
+    const best = dir === "high" ? Math.max(...nums) : Math.min(...nums);
+    const holders = nums.filter((v) => v === best).length;
+    return { best, contested: holders > 1 };
   };
 
   const metricRows: {
@@ -438,7 +448,13 @@ export default function ComparePage() {
         <>
           {/* metric table */}
           <div className="mt-6 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
-            <table className="w-full text-sm">
+            <table className="w-full table-fixed text-sm">
+              <colgroup>
+                <col style={{ width: "12rem" }} />
+                {chosen.map((p) => (
+                  <col key={p.id} style={{ width: `${100 / chosen.length}%` }} />
+                ))}
+              </colgroup>
               <thead>
                 <tr className="border-b border-zinc-200 dark:border-purple-900/40">
                   <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-zinc-500">
@@ -448,30 +464,25 @@ export default function ComparePage() {
                     const row = rowById.get(p.id);
                     return (
                       <th key={p.id} className="px-3 py-2 text-left">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span
+                            className="min-w-0 truncate font-semibold text-zinc-900 dark:text-zinc-100"
+                            title={(row && fullName(row)) || p.webName}
+                          >
                             {p.webName}
                           </span>
                           {row && (
-                            <>
-                              <AvailabilityBadge
-                                status={row.status}
-                                chanceOfPlaying={row.chance_of_playing_next_round}
-                                news={row.news}
-                                size="w-3.5 h-3.5"
-                              />
-                              <RoleBadges
-                                penaltyOrder={row.penalties_order}
-                                freeKickOrder={row.direct_freekicks_order}
-                                cornerOrder={row.corners_and_indirect_freekicks_order}
-                                size="w-3.5 h-3.5"
-                              />
-                            </>
+                            <AvailabilityBadge
+                              status={row.status}
+                              chanceOfPlaying={row.chance_of_playing_next_round}
+                              news={row.news}
+                              size="w-3.5 h-3.5"
+                            />
                           )}
                           <button
                             onClick={() => setSelected((s) => s.filter((id) => id !== p.id))}
                             aria-label={`Remove ${p.webName}`}
-                            className="ml-auto text-zinc-400 transition-colors hover:text-red-500"
+                            className="ml-auto shrink-0 text-zinc-400 transition-colors hover:text-red-500"
                           >
                             ×
                           </button>
@@ -487,7 +498,7 @@ export default function ComparePage() {
               <tbody>
                 {metricRows.map((m) => {
                   const values = chosen.map((p) => m.value(p));
-                  const best = chosen.length > 1 ? bestOf(values, m.dir) : null;
+                  const { best, contested } = winnerOf(values, m.dir);
                   return (
                     <tr
                       key={m.label}
@@ -501,7 +512,8 @@ export default function ComparePage() {
                       </th>
                       {chosen.map((p, i) => {
                         const v = values[i];
-                        const isBest = best !== null && v === best;
+                        const isBest = best !== null && v === best && !contested;
+                        const isTiedBest = best !== null && v === best && contested;
                         return (
                           <td
                             key={p.id}
@@ -513,12 +525,42 @@ export default function ComparePage() {
                           >
                             {m.format(v)}
                             {isBest && <span className="ml-1 text-[10px]">▲</span>}
+                            {isTiedBest && <span className="ml-1 text-[10px]">–</span>}
                           </td>
                         );
                       })}
                     </tr>
                   );
                 })}
+
+                {/* set-piece roles — informational only, no winner to highlight */}
+                <tr className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
+                    Set pieces
+                  </th>
+                  {chosen.map((p) => {
+                    const row = rowById.get(p.id);
+                    const hasRole =
+                      row &&
+                      (row.penalties_order === 1 ||
+                        row.direct_freekicks_order === 1 ||
+                        row.corners_and_indirect_freekicks_order === 1);
+                    return (
+                      <td key={p.id} className="px-3 py-2">
+                        {hasRole ? (
+                          <RoleBadges
+                            penaltyOrder={row.penalties_order}
+                            freeKickOrder={row.direct_freekicks_order}
+                            cornerOrder={row.corners_and_indirect_freekicks_order}
+                            size="w-3.5 h-3.5"
+                          />
+                        ) : (
+                          <span className="text-zinc-400">—</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
 
                 {/* fixture runs */}
                 <tr className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
