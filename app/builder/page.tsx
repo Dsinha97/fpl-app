@@ -1112,6 +1112,9 @@ export default function BuilderPage() {
       replacePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }, [replaceFor]);
+  /** The position filter as it stood before a replace locked it, restored by `stopReplacing`. */
+  const preReplacePosition = useRef<number | null>(null);
+
   /**
    * Every "Replace" click goes through this instead of setReplaceFor
    * directly, so entering replace mode also locks the players-list position
@@ -1123,8 +1126,26 @@ export default function BuilderPage() {
   const startReplacing = (id: number) => {
     setReplaceFor(id);
     const target = metaById.get(id);
-    if (target && resolvedFilters) setFilters({ ...resolvedFilters, position: target.elementType });
+    if (target && resolvedFilters) {
+      preReplacePosition.current = resolvedFilters.position;
+      setFilters({ ...resolvedFilters, position: target.elementType });
+    }
     setPage(0);
+  };
+
+  /**
+   * The one way out of replace mode, whether by Cancel or a completed swap —
+   * un-locks the position filter back to whatever it was before, rather than
+   * leaving it pinned to the outgoing player's position (which used to read
+   * as a filter the user never chose, surfacing as a phantom "Filter (1)").
+   */
+  const stopReplacing = () => {
+    setReplaceFor(null);
+    if (preReplacePosition.current !== null) {
+      const restore = preReplacePosition.current;
+      preReplacePosition.current = null;
+      setFilters((f) => (f ? { ...f, position: restore } : f));
+    }
   };
   /** Replacement finder filters — each defaults to today's hardcoded value. */
   const [replaceLimit, setReplaceLimit] = useState<(typeof REPLACEMENT_LIMITS)[number]>(5);
@@ -1323,7 +1344,7 @@ export default function BuilderPage() {
   /** Swap in one action so the squad is never transiently illegal. */
   const doSwap = (outId: number, incoming: PlayerMeta) => {
     persist(addPlayer(removePlayer(team, outId), incoming));
-    setReplaceFor(null);
+    stopReplacing();
   };
 
   // ------------------------------------------------------------- view
@@ -1899,7 +1920,7 @@ export default function BuilderPage() {
                     </Link>
                   )}
                   <button
-                    onClick={() => setReplaceFor(null)}
+                    onClick={() => stopReplacing()}
                     aria-label="Close"
                     className="flex h-5 w-5 items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 dark:hover:bg-purple-950/60"
                   >
@@ -2091,7 +2112,7 @@ export default function BuilderPage() {
                   £{(replaceEligibility.priceCeiling / 10).toFixed(1)}m
                 </span>
                 <button
-                  onClick={() => setReplaceFor(null)}
+                  onClick={() => stopReplacing()}
                   className="shrink-0 font-medium underline-offset-2 hover:underline"
                 >
                   Cancel
