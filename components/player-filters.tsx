@@ -1,6 +1,7 @@
 "use client";
 
 import { RangeSlider } from "@/components/ui/range-slider";
+import { FilterDisclosure } from "@/components/ui/filter-disclosure";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { matchesPlayerQuery, type SearchableName } from "@/lib/player-search";
 import { GEM_ARCHETYPE_LABELS, GEMS_MODEL_NOTE, type GemArchetype } from "@/lib/hidden-gems";
@@ -127,13 +128,8 @@ export function PlayerFilters({
         className="w-44 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
       />
 
-      <details className="group">
-        <summary className="flex cursor-pointer list-none items-center gap-1 rounded-md border border-zinc-300 px-2.5 py-1.5 text-zinc-600 transition-colors hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60">
-          <span className="group-open:hidden">Filter {activeCount > 0 ? `(${activeCount})` : "+"}</span>
-          <span className="hidden group-open:inline">Filter −</span>
-        </summary>
-
-        <div className="mt-3 flex flex-wrap items-center gap-3">
+      <FilterDisclosure activeCount={activeCount}>
+        <div className="flex flex-wrap items-center gap-3">
           <select
             value={lockedPosition ?? value.position}
             disabled={lockedPosition !== undefined}
@@ -205,7 +201,7 @@ export function PlayerFilters({
             </InfoTooltip>
           </span>
         </div>
-      </details>
+      </FilterDisclosure>
     </div>
   );
 }

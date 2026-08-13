@@ -69,6 +69,7 @@ import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { fullName } from "@/lib/player-search";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ValueSlider } from "@/components/ui/range-slider";
+import { FilterDisclosure } from "@/components/ui/filter-disclosure";
 import { tacticalSummary, toTacticalProfile, type PlManagerRow } from "@/lib/tactical-profile";
 import { benchBoostAt, tripleCaptainAt } from "@/lib/chips";
 import {
@@ -1907,90 +1908,102 @@ export default function BuilderPage() {
                 </div>
               </div>
 
-              {/* filters — each defaults to the panel's prior fixed behaviour */}
-              <div className="mt-3 flex flex-wrap items-end gap-x-5 gap-y-2 border-b border-zinc-100 pb-3 text-[11px] text-zinc-500 dark:border-purple-900/40">
-                <label className="flex items-center gap-2">
-                  <span className="tabular-nums">
-                    Min start {Math.round(minStartOverride * 100)}%
-                  </span>
-                  <ValueSlider
-                    value={minStartOverride}
-                    onValueChange={setMinStartOverride}
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    label="Minimum start probability"
-                    className={includeUnavailable ? "opacity-40" : undefined}
-                  />
-                </label>
-                <label className="flex items-center gap-2">
-                  <span className="tabular-nums">
-                    Max £{((maxPriceOverride ?? replaceAffordable) / 10).toFixed(1)}m
-                  </span>
-                  <ValueSlider
-                    value={maxPriceOverride ?? replaceAffordable}
-                    onValueChange={setMaxPriceOverride}
-                    min={0}
-                    max={Math.max(replaceAffordable, 1)}
-                    step={5}
-                    label="Maximum price"
-                  />
-                  {maxPriceOverride !== null && (
-                    <button
-                      onClick={() => setMaxPriceOverride(null)}
-                      className="text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
-                    >
-                      reset
-                    </button>
-                  )}
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    checked={includeUnavailable}
-                    onChange={(e) => setIncludeUnavailable(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-zinc-300 text-purple-700 focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-purple-800/50 dark:text-[#00FF87]"
-                  />
-                  Include below the minutes floor
-                </label>
-                <div className="flex items-center gap-1.5">
-                  <span>Show</span>
-                  {REPLACEMENT_LIMITS.map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setReplaceLimit(n)}
-                      className={`rounded px-1.5 py-0.5 font-medium transition-colors ${
-                        replaceLimit === n
-                          ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
-                          : "border border-zinc-300 hover:bg-zinc-100 dark:border-purple-800/50 dark:hover:bg-purple-950/60"
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-                <label className="flex items-center gap-1.5">
-                  <span>Archetype</span>
-                  <select
-                    value={replaceArchetype}
-                    onChange={(e) =>
-                      setReplaceArchetype(e.target.value === "0" ? 0 : (e.target.value as GemArchetype))
-                    }
-                    className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
-                  >
-                    <option value={0}>Any</option>
-                    {(Object.entries(GEM_ARCHETYPE_LABELS) as [GemArchetype, string][]).map(([id, label]) => (
-                      <option key={id} value={id}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                  <InfoTooltip label="What is a Hidden Gem?" align="right">
-                    <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                      {GEMS_MODEL_NOTE}
-                    </p>
-                  </InfoTooltip>
-                </label>
+              {/* filters — collapsed behind Filter +, each defaults to the panel's prior fixed behaviour */}
+              <div className="mt-3">
+                <FilterDisclosure
+                  activeCount={
+                    (minStartOverride !== MINUTES_FLOOR ? 1 : 0) +
+                    (includeUnavailable ? 1 : 0) +
+                    (maxPriceOverride !== null ? 1 : 0) +
+                    (replaceArchetype !== 0 ? 1 : 0) +
+                    (replaceLimit !== 5 ? 1 : 0)
+                  }
+                >
+                  <div className="flex flex-wrap items-end gap-x-5 gap-y-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <label className="flex items-center gap-2">
+                      <span className="tabular-nums">
+                        Min start {Math.round(minStartOverride * 100)}%
+                      </span>
+                      <ValueSlider
+                        value={minStartOverride}
+                        onValueChange={setMinStartOverride}
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        label="Minimum start probability"
+                        className={includeUnavailable ? "opacity-40" : undefined}
+                      />
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <span className="tabular-nums">
+                        Max £{((maxPriceOverride ?? replaceAffordable) / 10).toFixed(1)}m
+                      </span>
+                      <ValueSlider
+                        value={maxPriceOverride ?? replaceAffordable}
+                        onValueChange={setMaxPriceOverride}
+                        min={0}
+                        max={Math.max(replaceAffordable, 1)}
+                        step={5}
+                        label="Maximum price"
+                      />
+                      {maxPriceOverride !== null && (
+                        <button
+                          onClick={() => setMaxPriceOverride(null)}
+                          className="text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                        >
+                          reset
+                        </button>
+                      )}
+                    </label>
+                    <label className="flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={includeUnavailable}
+                        onChange={(e) => setIncludeUnavailable(e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-zinc-300 text-purple-700 focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-purple-800/50 dark:text-[#00FF87]"
+                      />
+                      Include below the minutes floor
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <span>Show</span>
+                      {REPLACEMENT_LIMITS.map((n) => (
+                        <button
+                          key={n}
+                          onClick={() => setReplaceLimit(n)}
+                          className={`rounded px-1.5 py-0.5 font-medium transition-colors ${
+                            replaceLimit === n
+                              ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
+                              : "border border-zinc-300 hover:bg-zinc-100 dark:border-purple-800/50 dark:hover:bg-purple-950/60"
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <label className="flex items-center gap-1.5">
+                      <span>Archetype</span>
+                      <select
+                        value={replaceArchetype}
+                        onChange={(e) =>
+                          setReplaceArchetype(e.target.value === "0" ? 0 : (e.target.value as GemArchetype))
+                        }
+                        className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                      >
+                        <option value={0}>Any</option>
+                        {(Object.entries(GEM_ARCHETYPE_LABELS) as [GemArchetype, string][]).map(([id, label]) => (
+                          <option key={id} value={id}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                      <InfoTooltip label="What is a Hidden Gem?" align="right">
+                        <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                          {GEMS_MODEL_NOTE}
+                        </p>
+                      </InfoTooltip>
+                    </label>
+                  </div>
+                </FilterDisclosure>
               </div>
 
               {replacements.length === 0 ? (
@@ -2110,7 +2123,14 @@ export default function BuilderPage() {
             </div>
 
             <div className="mt-2 overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full table-fixed text-xs">
+                <colgroup>
+                  <col />
+                  <col className="w-11" />
+                  <col className="w-14" />
+                  <col className="w-10" />
+                  <col className="w-9" />
+                </colgroup>
                 <thead>
                   <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
                     <th className="py-1.5 pl-1">Player</th>
@@ -2147,8 +2167,11 @@ export default function BuilderPage() {
                             className="block max-w-full text-left"
                             title={`Details for ${p.web_name}`}
                           >
-                            <span className="flex items-center gap-1">
-                              <span className="truncate font-medium underline-offset-2 hover:underline">
+                            <span className="flex min-w-0 items-center gap-1">
+                              <span
+                                className="min-w-0 truncate font-medium underline-offset-2 hover:underline"
+                                title={p.web_name}
+                              >
                                 {p.web_name}
                               </span>
                               <AvailabilityBadge
