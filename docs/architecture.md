@@ -160,6 +160,7 @@ Static export, so no server components fetching at request time, no route handle
 |---|---|
 | `/` | Landing and status summary |
 | `/team` | The owner's real FPL squad (empty until the first deadline — `manager_picks` has no rows yet), plus "Import as draft" (Sprint 14, `lib/fpl-squad.ts`) and rival management |
+| `/deadline` | Deadline Hub — countdown, squad legality, availability alerts, captain/XI recommendation, transfer call (behind a button), this-gameweek chip call, squad-scoped `change_feed`. Read/render only, over the existing engines; becomes Sprint 13's `GameweekState` shell once GW1 goes live |
 | `/signin`, `/auth/callback` | Magic-link and Google sign-in, and the shared PKCE callback (Sprint 14, 14.1) |
 | `/settings` | Account details (link a Manager ID) and Import squad (paste `my-team` JSON) tabs (Sprint 14.3). `/settings/fpl` is a redirect to `?tab=import`, kept for old links |
 | `/players` | Explorer: paginated, searchable, position/team/price filters |

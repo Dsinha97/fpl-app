@@ -14,6 +14,7 @@ import {
 } from "@/lib/lineup";
 import { projectionAtEvent } from "@/lib/transfer-optimizer";
 import { cloneDraft, deleteDraft, listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
+import { loadSeasonContext } from "@/lib/season-context";
 import {
   addPlayer,
   blockedReason,
@@ -46,6 +47,7 @@ import {
   type Strategy,
 } from "@/lib/optimizer";
 import {
+  availabilityFromStatus,
   findReplacements,
   MINUTES_FLOOR,
   REPLACEMENT_MODEL_NOTE,
@@ -229,18 +231,12 @@ export default function BuilderPage() {
   useEffect(() => {
     (async () => {
       try {
-        const { data: gw, error: gwError } = await supabase
-          .from("gameweeks")
-          .select("season, id")
-          .eq("is_next", true)
-          .limit(1)
-          .maybeSingle();
-        if (gwError) throw new Error(gwError.message);
-        if (!gw) throw new Error("No upcoming gameweek found.");
-        setSeason(gw.season);
-        setNextEvent(gw.id);
+        const ctx = await loadSeasonContext();
+        setSeason(ctx.season);
+        setNextEvent(ctx.nextEvent);
+        const gw = { season: ctx.season, id: ctx.nextEvent };
 
-        const [playersRes, teamsRes, typesRes, settingsRes, xpRes, fixturesRes, predsRes, tacticalRes, rateProfileRes] =
+        const [playersRes, teamsRes, xpRes, fixturesRes, predsRes, tacticalRes, rateProfileRes] =
           await Promise.all([
             supabase
               .from("players")
@@ -250,12 +246,6 @@ export default function BuilderPage() {
               .eq("season", gw.season)
               .limit(1000),
             supabase.from("teams").select("id, short_name, tactical_manager_id").eq("season", gw.season),
-            supabase.from("element_types").select("id, squad_select").eq("season", gw.season),
-            supabase
-              .from("game_settings")
-              .select("key, value")
-              .eq("season", gw.season)
-              .in("key", ["squad_total_spend", "squad_team_limit", "squad_squadsize"]),
             supabase
               .from("player_xp_horizons")
               // One string literal, never concatenated: `+` collapses the row
@@ -317,18 +307,7 @@ export default function BuilderPage() {
 
         // Squad rules come from the database, never hardcoded — FPL has
         // changed budget and squad size between seasons.
-        const settings = new Map(
-          (settingsRes.data ?? []).map((s) => [s.key as string, Number(s.value)]),
-        );
-        const quota: Record<number, number> = {};
-        for (const t of typesRes.data ?? []) quota[t.id as number] = Number(t.squad_select ?? 0);
-
-        const loadedRules: SquadRules = {
-          totalSpend: settings.get("squad_total_spend") ?? DEFAULT_RULES.totalSpend,
-          teamLimit: settings.get("squad_team_limit") ?? DEFAULT_RULES.teamLimit,
-          squadSize: settings.get("squad_squadsize") ?? DEFAULT_RULES.squadSize,
-          positionQuota: Object.keys(quota).length > 0 ? quota : DEFAULT_RULES.positionQuota,
-        };
+        const loadedRules: SquadRules = ctx.rules;
 
         // Upcoming fixtures per club, for the whole remaining season — the
         // first feeds the pitch card, the first DISPLAY_GWS the detail
@@ -434,10 +413,7 @@ export default function BuilderPage() {
     (id: number): number => {
       const p = rowById.get(id);
       if (!p) return 0;
-      if (p.chance_of_playing_next_round !== null) {
-        return Math.max(0, Math.min(1, p.chance_of_playing_next_round / 100));
-      }
-      return p.status === "a" ? 1 : 0;
+      return availabilityFromStatus(p.status, p.chance_of_playing_next_round);
     },
     [rowById],
   );

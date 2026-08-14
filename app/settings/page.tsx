@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/auth-provider";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { saveDraft, uniqueDraftName } from "@/lib/drafts";
-import { DEFAULT_RULES, type SquadRules } from "@/lib/team-state";
+import { loadSeasonContext } from "@/lib/season-context";
 import { teamStateFromMyTeamJson, type SellPriceMismatch } from "@/lib/fpl-squad";
 
 // Sprint 14.3 — one settings page with two tabs, replacing the standalone
@@ -176,42 +176,19 @@ function ImportTab() {
     setStatus({ kind: "busy" });
 
     try {
-      const { data: gw } = await supabase
-        .from("gameweeks")
-        .select("season, id")
-        .eq("is_next", true)
-        .limit(1)
-        .maybeSingle();
-
-      if (!gw) {
+      let ctx;
+      try {
+        ctx = await loadSeasonContext();
+      } catch {
         setStatus({ kind: "error", message: "Couldn't determine the current season — try again shortly." });
         return;
       }
+      const { season, nextEvent, rules } = ctx;
 
-      const [playersRes, settingsRes, typesRes] = await Promise.all([
-        supabase.from("players").select("id, now_cost").eq("season", gw.season).limit(1000),
-        supabase
-          .from("game_settings")
-          .select("key, value")
-          .eq("season", gw.season)
-          .in("key", ["squad_total_spend", "squad_team_limit", "squad_squadsize"]),
-        supabase.from("element_types").select("id, squad_select").eq("season", gw.season),
-      ]);
-
+      const playersRes = await supabase.from("players").select("id, now_cost").eq("season", season).limit(1000);
       const nowCostById = new Map<number, number>(
         (playersRes.data ?? []).map((p) => [p.id as number, p.now_cost as number]),
       );
-      const settings = new Map(
-        (settingsRes.data ?? []).map((s) => [s.key as string, Number(s.value)]),
-      );
-      const quota: Record<number, number> = {};
-      for (const t of typesRes.data ?? []) quota[t.id as number] = Number(t.squad_select ?? 0);
-      const rules: SquadRules = {
-        totalSpend: settings.get("squad_total_spend") ?? DEFAULT_RULES.totalSpend,
-        teamLimit: settings.get("squad_team_limit") ?? DEFAULT_RULES.teamLimit,
-        squadSize: settings.get("squad_squadsize") ?? DEFAULT_RULES.squadSize,
-        positionQuota: Object.keys(quota).length > 0 ? quota : DEFAULT_RULES.positionQuota,
-      };
 
       // Named from the linked FPL team ("DS United") rather than a fixed
       // "Imported squad" — every re-import used to collide on that one name.
@@ -222,7 +199,7 @@ function ImportTab() {
       const result = teamStateFromMyTeamJson(
         trimmed,
         {
-          event: gw.id,
+          event: nextEvent,
           nowCostOf: (id) => nowCostById.get(id),
           knownPlayerIds: new Set(nowCostById.keys()),
         },

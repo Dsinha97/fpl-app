@@ -9,6 +9,7 @@ import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { fullName, matchesPlayerQuery } from "@/lib/player-search";
 import {
+  availabilityFromStatus,
   findReplacements,
   riskScore,
   RISK_MODEL_NOTE,
@@ -299,12 +300,7 @@ export default function TransfersPage() {
         for (const p of rows) {
           const x = xpById.get(p.id);
           const pred = predById.get(p.id);
-          const availability =
-            p.chance_of_playing_next_round !== null
-              ? Math.max(0, Math.min(1, p.chance_of_playing_next_round / 100))
-              : p.status === "a"
-                ? 1
-                : 0;
+          const availability = availabilityFromStatus(p.status, p.chance_of_playing_next_round);
           scored.set(p.id, {
             id: p.id,
             webName: p.web_name,

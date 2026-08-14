@@ -22,7 +22,13 @@ import {
   SQUAD_SCORE_NOTE,
   type SquadScoreBreakdown,
 } from "@/lib/squad-score";
-import { fixtureScore, riskScore, RISK_MODEL_NOTE, type ScoredPlayer } from "@/lib/scoring";
+import {
+  availabilityFromStatus,
+  fixtureScore,
+  riskScore,
+  RISK_MODEL_NOTE,
+  type ScoredPlayer,
+} from "@/lib/scoring";
 import { optimiseLineup, type LineupCandidate } from "@/lib/lineup";
 import { benchBoostAt, tripleCaptainAt, type ChipValuation } from "@/lib/chips";
 import {
@@ -211,12 +217,7 @@ export default function ScenariosPage() {
         for (const p of rows) {
           const x = xpById.get(p.id);
           const pred = predById.get(p.id);
-          const availability =
-            p.chance_of_playing_next_round !== null
-              ? Math.max(0, Math.min(1, p.chance_of_playing_next_round / 100))
-              : p.status === "a"
-                ? 1
-                : 0;
+          const availability = availabilityFromStatus(p.status, p.chance_of_playing_next_round);
           scored.set(p.id, {
             id: p.id,
             webName: p.web_name,

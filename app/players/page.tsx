@@ -9,7 +9,13 @@ import { ConfidenceBadge, RateBand } from "@/components/confidence-badge";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { GemBadge } from "@/components/gem-badge";
 import { fullName } from "@/lib/player-search";
-import { MAX_COMPARE, valuePerMillion, XDC_MODEL_NOTE, type ScoredPlayer } from "@/lib/scoring";
+import {
+  availabilityFromStatus,
+  MAX_COMPARE,
+  valuePerMillion,
+  XDC_MODEL_NOTE,
+  type ScoredPlayer,
+} from "@/lib/scoring";
 import { DEFAULT_GEM_CUTS, detectGems, type GemCandidate } from "@/lib/hidden-gems";
 import {
   defaultPlayerFilters,
@@ -301,12 +307,8 @@ export default function PlayersPage() {
    * `player_predictions.start_probability`, so this is the best minutes
    * signal available here and doubles as the Hidden Gems evidence floor.
    */
-  const availabilityOf = (p: PlayerRow): number => {
-    if (p.chance_of_playing_next_round !== null) {
-      return Math.max(0, Math.min(1, p.chance_of_playing_next_round / 100));
-    }
-    return p.status === "a" ? 1 : 0;
-  };
+  const availabilityOf = (p: PlayerRow): number =>
+    availabilityFromStatus(p.status, p.chance_of_playing_next_round);
 
   /** Builds the minimal ScoredPlayer this page can support (no start_probability — see `availabilityOf`). */
   const toScoredPlayer = (p: PlayerRow, x: XpRow | undefined): ScoredPlayer => ({

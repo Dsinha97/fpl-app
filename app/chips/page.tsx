@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { listDrafts, resolveRequestedDraft } from "@/lib/drafts";
+import { loadSeasonContext } from "@/lib/season-context";
 import {
   CHIP_LABELS,
   runChipEngine,
@@ -20,7 +21,7 @@ import {
   type SquadRules,
   type TeamState,
 } from "@/lib/team-state";
-import type { ScoredPlayer } from "@/lib/scoring";
+import { availabilityFromStatus, type ScoredPlayer } from "@/lib/scoring";
 
 interface PlayerRow {
   id: number;
@@ -74,17 +75,13 @@ export default function ChipsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const { data: gw, error: gwError } = await supabase
-          .from("gameweeks")
-          .select("season, id")
-          .eq("is_next", true)
-          .limit(1)
-          .maybeSingle();
-        if (gwError) throw new Error(gwError.message);
-        if (!gw) throw new Error("No upcoming gameweek found.");
-        setWindowStart(gw.id);
+        const ctx = await loadSeasonContext();
+        const gw = { season: ctx.season, id: ctx.nextEvent };
+        setWindowStart(ctx.nextEvent);
+        setWindowEnd(ctx.windowEnd);
+        setRules(ctx.rules);
 
-        const [playersRes, typesRes, settingsRes, xpRes, chipsRes, fixturesRes] = await Promise.all([
+        const [playersRes, chipsRes, fixturesRes] = await Promise.all([
           supabase
             .from("players")
             .select(
@@ -92,17 +89,6 @@ export default function ChipsPage() {
             )
             .eq("season", gw.season)
             .limit(1000),
-          supabase.from("element_types").select("id, squad_select").eq("season", gw.season),
-          supabase
-            .from("game_settings")
-            .select("key, value")
-            .eq("season", gw.season)
-            .in("key", ["squad_total_spend", "squad_team_limit", "squad_squadsize"]),
-          supabase
-            .from("player_xp_horizons")
-            .select("first_event, last_event")
-            .eq("season", gw.season)
-            .limit(1),
           // Every chip, both season halves — unlike /transfers this page must
           // show the second half as blocked rather than filter it away.
           supabase
@@ -116,25 +102,6 @@ export default function ChipsPage() {
             .order("event"),
         ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
-
-        const horizonsFirstRow = (xpRes.data ?? [])[0] as
-          | { first_event: number | null; last_event: number | null }
-          | undefined;
-        const resolvedWindowEnd =
-          horizonsFirstRow?.first_event != null && horizonsFirstRow?.last_event != null
-            ? horizonsFirstRow.last_event
-            : gw.id + FALLBACK_SEASON_WINDOW - 1;
-        setWindowEnd(resolvedWindowEnd);
-
-        const quota: Record<number, number> = {};
-        for (const t of typesRes.data ?? []) quota[t.id as number] = Number(t.squad_select ?? 0);
-        const settings = new Map((settingsRes.data ?? []).map((s) => [s.key as string, Number(s.value)]));
-        setRules({
-          totalSpend: settings.get("squad_total_spend") ?? DEFAULT_RULES.totalSpend,
-          teamLimit: settings.get("squad_team_limit") ?? DEFAULT_RULES.teamLimit,
-          squadSize: settings.get("squad_squadsize") ?? DEFAULT_RULES.squadSize,
-          positionQuota: Object.keys(quota).length > 0 ? quota : DEFAULT_RULES.positionQuota,
-        });
 
         setChipDefinitions(
           (chipsRes.data ?? []).map((r) => ({
@@ -195,12 +162,7 @@ export default function ChipsPage() {
         setRowById(new Map(rows.map((p) => [p.id, p])));
 
         const scored: ScoredPlayer[] = rows.map((p) => {
-          const availability =
-            p.chance_of_playing_next_round !== null
-              ? Math.max(0, Math.min(1, p.chance_of_playing_next_round / 100))
-              : p.status === "a"
-                ? 1
-                : 0;
+          const availability = availabilityFromStatus(p.status, p.chance_of_playing_next_round);
           return {
             id: p.id,
             webName: p.web_name,

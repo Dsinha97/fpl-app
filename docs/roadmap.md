@@ -30,6 +30,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 15.5 | Hidden Gems (value-discovery filter) | **Built** — `player_rate_profile`, `lib/hidden-gems.ts`, `/players` + builder filters | [sprints/hidden-gems.md](sprints/hidden-gems.md) |
 | 15.6 | Championship cold-start priors (FootyStats PDF drop) | **Built** — xP engine v1.5.0, `external_player_seasons`, 33 players re-primed | [sprints/championship-priors.md](sprints/championship-priors.md) |
 | 15.8 | Gameweek planning view, unified player filters, comparison-table fixes | **Built** — `/builder` gameweek dropdown (`squadEventAgg`, `projectionAtEvent`), `components/player-filters.tsx` shared by `/players` + builder picker, `/compare` tie handling | — |
+| — | Deadline Hub | **Built** — `/deadline`, read-only over existing engines (`validateSquad`, `optimiseLineup`, `optimizeTransfers`, `benchBoostAt`/`tripleCaptainAt`, `change_feed`); no new sprint number, since Sprints 13/15/17 were all unavailable this week (see below) | [sprints/additional-info.md](sprints/additional-info.md) |
 | 15 | Action Layer | Not started | below |
 | 16 | Notifications & Automation | Not started | below |
 | 17 | Historical Analytics & ML | Not started | below |
@@ -42,6 +43,20 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
+- **Deadline Hub — built 2026-08-14.** With Sprint 13 unverifiable, Sprint 15 blocked, and Sprint 17
+  unfittable (all three below), a real gap remained: nothing gathered pre-deadline decisions into one
+  place. `/deadline` does — live countdown, `validateSquad` legality, per-player availability alerts,
+  `optimiseLineup`-driven captain/XI recommendation diffed against the draft's current picks, an
+  `optimizeTransfers` call gated behind an explicit "Run optimiser" button (~1,875 simulations),
+  `benchBoostAt`/`tripleCaptainAt` for this gameweek only, and a squad-scoped slice of `change_feed`.
+  Pure read/render over trusted engines — no new migration, function, or table. Once GW1's first
+  fixture goes live this page becomes the natural shell for Sprint 13's `GameweekState`, so
+  pre-deadline planning and in-play tracking end up as the same route in two phases. Also extracted
+  two duplicated helpers while touching every page that had them: `availabilityFromStatus`
+  (`lib/scoring.ts`, was copy-pasted six times) and `loadSeasonContext` (`lib/season-context.ts`, the
+  `gameweeks`/`element_types`/`game_settings` fetch that was copy-pasted three times, four counting
+  `/chips`' variant) — both now single implementations per CLAUDE.md's "one quantity, one
+  implementation" rule.
 - **Sprint 13 (Live Matchday Hub)** — staged, not started. `sync-live-gameweek`'s write path has
   never executed (no live fixture yet, GW1 deadline 2026-08-21); building against it now would be
   unverifiable. See [sprints/sprint-13.md](sprints/sprint-13.md) for the GW1 dry-run checklist to

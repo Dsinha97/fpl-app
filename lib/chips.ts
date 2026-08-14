@@ -213,7 +213,7 @@ export function chipModelNote(blankEvents: number, doubleEvents: number, windowE
 // -------------------------------------------------------------- primitives
 
 /** One gameweek's `LineupCandidate[]` for a squad — the one new view this file adds. */
-function candidatesAt(
+export function candidatesAt(
   picks: SquadPick[],
   event: number,
   predAt: PredAt,

@@ -10,7 +10,7 @@ import { ManagerProfileCard, RivalTable } from "@/components/manager-profile-car
 import { buildManagerProfile, compareToRival, type ManagerProfile, type RivalComparison } from "@/lib/manager-profile";
 import { IMPORTED_SQUAD_NOTE, teamStateFromPicks } from "@/lib/fpl-squad";
 import { saveDraft } from "@/lib/drafts";
-import { DEFAULT_RULES, type SquadRules } from "@/lib/team-state";
+import { loadSeasonContext } from "@/lib/season-context";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { useAuth } from "@/components/auth-provider";
 
@@ -317,28 +317,7 @@ export default function TeamPage() {
     setError(null);
 
     try {
-      const season = data.nextGw.season;
-      const [settingsRes, typesRes] = await Promise.all([
-        supabase
-          .from("game_settings")
-          .select("key, value")
-          .eq("season", season)
-          .in("key", ["squad_total_spend", "squad_team_limit", "squad_squadsize"]),
-        supabase.from("element_types").select("id, squad_select").eq("season", season),
-      ]);
-
-      const settings = new Map(
-        (settingsRes.data ?? []).map((s) => [s.key as string, Number(s.value)]),
-      );
-      const quota: Record<number, number> = {};
-      for (const t of typesRes.data ?? []) quota[t.id as number] = Number(t.squad_select ?? 0);
-
-      const rules: SquadRules = {
-        totalSpend: settings.get("squad_total_spend") ?? DEFAULT_RULES.totalSpend,
-        teamLimit: settings.get("squad_team_limit") ?? DEFAULT_RULES.teamLimit,
-        squadSize: settings.get("squad_squadsize") ?? DEFAULT_RULES.squadSize,
-        positionQuota: Object.keys(quota).length > 0 ? quota : DEFAULT_RULES.positionQuota,
-      };
+      const { rules } = await loadSeasonContext();
 
       const latestEvent = data.picks[0].event;
       const gw = data.gwHistory.find((g) => g.event === latestEvent);

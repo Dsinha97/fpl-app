@@ -129,6 +129,24 @@ const fixturesFor = (horizon: Horizon, seasonWindow?: number) => horizonLength(h
 //
 // Reported 0-100, lower is better.
 
+/**
+ * `players.status`/`chance_of_playing_next_round` → a 0-1 availability figure.
+ *
+ * One implementation, shared by every page and engine that needs it — see
+ * CLAUDE.md's "one quantity, one implementation" rule. `chance_of_playing_next_round`
+ * wins when FPL has actually published one; otherwise a fit ("a") status reads as
+ * fully available and anything else (injured/suspended/on loan/left) reads as zero.
+ */
+export function availabilityFromStatus(
+  status: string | null,
+  chanceOfPlayingNextRound: number | null,
+): number {
+  if (chanceOfPlayingNextRound !== null) {
+    return clamp(chanceOfPlayingNextRound / 100, 0, 1);
+  }
+  return status === "a" ? 1 : 0;
+}
+
 export const RISK_WEIGHTS = {
   rotation: 0.3 / 0.9,
   injury: 0.25 / 0.9,

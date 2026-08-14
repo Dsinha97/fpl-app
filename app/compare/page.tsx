@@ -6,6 +6,7 @@ import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { supabase } from "@/lib/supabase/client";
 import {
+  availabilityFromStatus,
   comparePlayers,
   COMPARISON_MODEL_NOTE,
   MAX_COMPARE,
@@ -174,12 +175,7 @@ export default function ComparePage() {
         for (const p of rows) {
           const x = xpById.get(p.id);
           const pred = predById.get(p.id);
-          const availability =
-            p.chance_of_playing_next_round !== null
-              ? Math.max(0, Math.min(1, p.chance_of_playing_next_round / 100))
-              : p.status === "a"
-                ? 1
-                : 0;
+          const availability = availabilityFromStatus(p.status, p.chance_of_playing_next_round);
           scoredMap.set(p.id, {
             id: p.id,
             webName: p.web_name,
