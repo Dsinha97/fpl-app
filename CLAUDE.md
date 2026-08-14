@@ -28,17 +28,9 @@ cache — delete `.next` and restart.
 
 ## Current state
 
-xP engine **v1.4.0** (component model + empirical-Bayes cold-start priors — all 567 players
-projected, not 380 — plus evidence-weighted squad reconciliation and its own
-defensive-contribution denominator). Predictions reach the season's real last gameweek
-(GW38). Built: sync pipeline, dark theme, `/players`, `/fixtures` (Schedule + FDR + Clubs),
-`/builder`, `/compare`, `/scenarios`, `/transfers` (basket + roll/spend/hit/wildcard plan),
-`/chips` (all four chips + joint schedule), auth + cloud draft sync (`/team`, `/settings`).
-Carried knowingly: 1 `npm audit` advisory (moderate, `hono`, unreachable — see
-[docs/sprints/additional-info.md](docs/sprints/additional-info.md)).
-
-**Next:** Sprint 13 (Live Matchday Hub) once GW1 goes live; Sprint 15 (Action Layer) after
-that. Full plan and blocked-item table: [docs/roadmap.md](docs/roadmap.md).
+Status, built features, and version are tracked in [docs/README.md](docs/README.md) — check
+there, not here. **Next:** Sprint 13 (Live Matchday Hub) once GW1 goes live; Sprint 15
+(Action Layer) after. Full plan: [docs/roadmap.md](docs/roadmap.md).
 
 ## Ground rules
 
@@ -179,6 +171,11 @@ or `tsc --noEmit` breaks on Deno globals.
   the two conventions in one screen.
 - **`total_players` is a pre-season snapshot, not a field size** — it climbs ~4× before
   GW1. Nothing consumes it yet; `game_settings.updated_at` is the sample-time record.
+
+## Communication style
+
+**Keep responses concise.** Skip preamble and restating the request; lead with the answer
+or the change. Match length to the question — a one-line question gets a one-line answer.
 
 ## Notifications
 
