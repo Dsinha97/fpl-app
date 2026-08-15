@@ -1,3 +1,4 @@
+import { isImportedDraftFor } from "./fpl-squad";
 import type { TeamState } from "./team-state";
 
 // Draft persistence.
@@ -147,6 +148,14 @@ export function getDraft(draftId: string): TeamState | null {
   return readAll().find((d) => d.draftId === draftId) ?? null;
 }
 
+/** Which squad a page should fall back to when no `?draft=` says otherwise. */
+export interface DraftPreference {
+  /** The linked FPL entry — the durable link to this manager's import. */
+  entryId?: number | null;
+  /** Their FPL team name, for imports made before `entryId` was recorded. */
+  teamName?: string | null;
+}
+
 /**
  * Resolve which draft a page should open initially: the `?draft=<id>` query
  * param if present and still valid, else the most recently saved draft, else
@@ -154,14 +163,37 @@ export function getDraft(draftId: string): TeamState | null {
  * page (builder, scenarios, chips, transfers) so "open the squad I was just
  * looking at" behaves the same everywhere instead of silently falling back to
  * whichever draft was edited most recently.
+ *
+ * `prefer` narrows the fallback for the two pages that are about the *real*
+ * team rather than an experiment (/deadline, /team): a throwaway draft edited
+ * five minutes ago should not outrank the squad actually imported from FPL.
+ * The match is by `entryId` first and by the `importedDraftName` rule second,
+ * so an import for a different manager — or a manual draft that happens to be
+ * newer — never wins. A deep link always still wins over both.
  */
 export function resolveRequestedDraft(
   list: TeamState[],
   search: string,
+  prefer?: DraftPreference,
 ): TeamState | undefined {
   const wanted = new URLSearchParams(search).get("draft");
   const requested = wanted ? list.find((d) => d.draftId === wanted) : undefined;
-  return requested ?? list[0];
+  if (requested) return requested;
+
+  if (prefer) {
+    // `list` is already sorted newest-first, so the first match is the most
+    // recent import at each level of confidence.
+    const imports = list.filter((d) => d.source === "fpl");
+    const byEntry =
+      prefer.entryId !== null && prefer.entryId !== undefined
+        ? imports.find((d) => d.entryId === prefer.entryId)
+        : undefined;
+    const byName = imports.find((d) => isImportedDraftFor(d.name, prefer.teamName ?? null));
+    const match = byEntry ?? byName ?? imports[0];
+    if (match) return match;
+  }
+
+  return list[0];
 }
 
 export function saveDraft(state: TeamState): TeamState {

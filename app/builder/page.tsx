@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
-import { PitchView } from "@/components/pitch-view";
+import { layoutFromLineup, PitchView } from "@/components/pitch-view";
 import type { PlayerData, UpcomingFixture } from "@/components/player-card";
 import { PANEL_MAX_HEIGHT, PANEL_WIDTH, PlayerDetail } from "@/components/player-detail";
 import {
@@ -1662,7 +1662,7 @@ export default function BuilderPage() {
           <PitchView
             squad={squadCards}
             quota={rules.positionQuota}
-            lineup={lineup}
+            layout={lineup ? layoutFromLineup(lineup) : null}
             header={pitchHeader}
             onSetCaptain={(id) => persist(setCaptain(team, id))}
             onSetVice={(id) => persist(setViceCaptain(team, id))}

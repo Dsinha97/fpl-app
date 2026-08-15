@@ -18,6 +18,14 @@ export interface TeamState {
   source: TeamSource;
   draftId: string;
   name: string;
+  /**
+   * FPL entry this squad was imported from. Absent on manual drafts, and on
+   * imports made before Sprint 15 — which is why `isImportedDraftFor`
+   * (lib/fpl-squad.ts) still has to fall back to matching the draft's name.
+   * Optional so every draft already in localStorage and in team_drafts.payload
+   * keeps parsing unchanged.
+   */
+  entryId?: number | null;
   gameweek: number | null;
   players: SquadPick[];
   captain: number | null;

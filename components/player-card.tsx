@@ -19,7 +19,17 @@ export interface PlayerData {
   team_code: number | null;
   element_type: number;
   now_cost: number;
+  /** The headline number on the card. xP by default — see `value_note`. */
   expected_points?: number | null;
+  /**
+   * What that number means, as its tooltip. The same slot shows a projection
+   * on /builder and a gameweek's real points on /team, and a number that can
+   * be either has to say which — CLAUDE.md's "say what the number means".
+   * Defaults to the xP wording.
+   */
+  value_note?: string | null;
+  /** Decimals for the headline number. Real points are whole; xP is not. */
+  value_decimals?: number;
   status?: string | null;
   chance_of_playing_next_round?: number | null;
   is_captain?: boolean;
@@ -169,8 +179,11 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
           one column made a no-projection player look like a cheap one. */}
       <span className="flex w-full items-center justify-between rounded-b-md border-x border-b border-purple-700/80 bg-purple-900/90 px-1 py-0.5 text-[9px] text-purple-200 shadow-md dark:bg-slate-900/95">
         {hasXp ? (
-          <span className="font-semibold text-emerald-400">
-            {player.expected_points!.toFixed(1)}
+          <span
+            className="font-semibold text-emerald-400"
+            title={player.value_note ?? "Expected points (xP) over the selected horizon"}
+          >
+            {player.expected_points!.toFixed(player.value_decimals ?? 1)}
           </span>
         ) : (
           <span

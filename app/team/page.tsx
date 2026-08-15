@@ -1,16 +1,29 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { CountryFlag, flagCode, SeasonsBadge, TeamCrest } from "@/components/identity";
 import { ManagerProfileCard, RivalTable } from "@/components/manager-profile-card";
+import { PitchView, type SquadLayout } from "@/components/pitch-view";
+import type { PlayerData } from "@/components/player-card";
 import { buildManagerProfile, compareToRival, type ManagerProfile, type RivalComparison } from "@/lib/manager-profile";
-import { IMPORTED_SQUAD_NOTE, teamStateFromPicks } from "@/lib/fpl-squad";
-import { saveDraft } from "@/lib/drafts";
+import { IMPORTED_SQUAD_NOTE, importedDraftName, teamStateFromPicks } from "@/lib/fpl-squad";
+import { listDrafts, resolveRequestedDraft, saveDraft, uniqueDraftName } from "@/lib/drafts";
+import {
+  layoutFromPicks,
+  loadEventPoints,
+  MANAGER_PICKS_NOTE,
+  squadPointsFor,
+  type ActualPoints,
+  type ManagerPick,
+  type SquadPoints,
+} from "@/lib/manager-picks";
 import { loadSeasonContext } from "@/lib/season-context";
+import { DEFAULT_RULES, type SquadRules, type TeamState } from "@/lib/team-state";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { useAuth } from "@/components/auth-provider";
 
@@ -51,6 +64,8 @@ interface GwRow {
   bank: number | null;
   value: number | null;
   points_on_bench: number | null;
+  /** Shown as its own term in the gameweek summary, never netted off silently. */
+  event_transfers_cost: number | null;
   active_chip: string | null;
 }
 
@@ -67,6 +82,7 @@ interface PlayerRow {
   id: number;
   web_name: string | null;
   now_cost: number | null;
+  selected_by_percent: number | null;
   status: string | null;
   news: string | null;
   chance_of_playing_next_round: number | null;
@@ -87,11 +103,23 @@ interface TeamData {
   manager: ManagerRow;
   seasons: SeasonRow[];
   gwHistory: GwRow[];
+  /** The latest gameweek's picks, as the position lists have always shown. */
   picks: PickRow[];
+  /**
+   * Every entered gameweek's picks. These rows were already being fetched and
+   * then discarded down to the latest event — keeping them is what makes the
+   * per-gameweek squad view free.
+   */
+  picksByEvent: Map<number, ManagerPick[]>;
+  /** Which of those gameweeks FPL has finished — an unfinished one is provisional. */
+  finishedEvents: Set<number>;
   players: Map<number, PlayerRow>;
+  /** player_id -> next gameweek's xP, for the current-squad pitch. */
+  xp1: Map<number, number>;
   teamNames: Map<number, string>;
   teamMeta: Map<number, { code: number | null; short: string }>;
   nextGw: NextGw | null;
+  rules: SquadRules;
   profile: ManagerProfile | null;
   rivals: RivalComparison[];
 }
@@ -119,6 +147,84 @@ const POSITION_LABELS: Record<number, string> = {
   4: "Forwards",
 };
 
+/** The API caps every response at 1000 rows however big `.limit()` asks — see CLAUDE.md. */
+const PAGE_ROWS = 1000;
+
+// --------------------------------------------------------- gw summary
+
+/**
+ * A gameweek's return, as terms rather than one number.
+ *
+ * These picks are the squad as *entered*; FPL's automatic substitutions
+ * aren't stored (supabase/functions/sync-manager doesn't write them), and
+ * FPL's own gameweek total is net of any transfer hit. So the two figures can
+ * legitimately differ, and reconciling them here would mean inventing the
+ * missing subs. Both are shown, the hit is its own term, and the note explains
+ * the gap — CLAUDE.md's "say what the number means".
+ */
+function GameweekSummary({
+  event,
+  score,
+  history,
+  captainName,
+  provisional,
+}: {
+  event: number;
+  score: SquadPoints;
+  history: GwRow | null;
+  captainName: string | null;
+  provisional: boolean;
+}) {
+  const hit = history?.event_transfers_cost ?? 0;
+
+  return (
+    <div className="mt-3 rounded-lg border border-zinc-200 bg-white p-4 text-sm dark:border-purple-900/40 dark:bg-[#1E0234]">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 tabular-nums text-zinc-800 dark:text-zinc-200">
+        <span className="font-medium">GW{event} as picked:</span>
+        <span>{score.startersRaw} XI</span>
+        {score.captain && score.captain.added !== 0 && (
+          <>
+            <span className="text-zinc-400">+</span>
+            <span>
+              {score.captain.added} armband ({captainName} ×{score.captain.multiplier})
+            </span>
+          </>
+        )}
+        <span className="text-zinc-400">=</span>
+        <span className="font-semibold text-purple-900 dark:text-[#00FF87]">{score.asPicked}</span>
+      </div>
+
+      <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 tabular-nums text-zinc-600 dark:text-zinc-400">
+        <span>FPL recorded {history?.points ?? "—"}</span>
+        {hit > 0 && <span>· includes a −{hit} transfer hit</span>}
+        <span>· {history?.points_on_bench ?? score.benchRaw} left on the bench</span>
+        {history?.active_chip && (
+          <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-900 dark:bg-purple-900/50 dark:text-[#00FF87]">
+            {history.active_chip}
+          </span>
+        )}
+      </div>
+
+      {provisional && (
+        <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
+          This gameweek isn&apos;t finished — points and bonus are provisional.
+        </p>
+      )}
+      {score.missing.length > 0 && (
+        <p className="mt-1.5 text-xs text-zinc-500">
+          {score.missing.length} pick{score.missing.length === 1 ? "" : "s"} had no stats recorded
+          for this gameweek and count as 0 above.
+        </p>
+      )}
+
+      <p className="mt-2 text-xs text-zinc-500">
+        <InfoTooltip label="Why these two totals can differ">{MANAGER_PICKS_NOTE}</InfoTooltip>{" "}
+        The two totals are shown side by side rather than reconciled.
+      </p>
+    </div>
+  );
+}
+
 // ----------------------------------------------------------------- page
 
 export default function TeamPage() {
@@ -130,7 +236,16 @@ export default function TeamPage() {
   const [data, setData] = useState<TeamData | null>(null);
   const [importing, setImporting] = useState(false);
 
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, entryId: linkedEntryId, teamName: linkedTeamName, profileLoading } = useAuth();
+
+  // Squad section: which of the two views, and which gameweek in the second.
+  const [squadMode, setSquadMode] = useState<"current" | "gw">("current");
+  const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
+  const [importedDraft, setImportedDraft] = useState<TeamState | null>(null);
+  const [eventPoints, setEventPoints] = useState<Map<number, ActualPoints>>(new Map());
+  const [eventProvisional, setEventProvisional] = useState(false);
+  const [pointsLoading, setPointsLoading] = useState(false);
+  const [pointsError, setPointsError] = useState<string | null>(null);
 
   const connect = useCallback(async (entryId: number) => {
     setInputId(String(entryId));
@@ -161,7 +276,7 @@ export default function TeamPage() {
           .order("season_name", { ascending: false }),
         supabase
           .from("manager_gameweek_history")
-          .select("event, points, total_points, overall_rank, bank, value, points_on_bench, active_chip")
+          .select("event, points, total_points, overall_rank, bank, value, points_on_bench, event_transfers_cost, active_chip")
           .eq("entry_id", entryId)
           .order("event"),
         supabase
@@ -237,7 +352,9 @@ export default function TeamPage() {
         }
       }
 
-      // 3. Latest gameweek's picks, if any exist yet.
+      // 3. Every entered gameweek's picks, if any exist yet. All events are
+      // kept now — the per-gameweek squad view reads them, and they were
+      // already on the wire before being filtered down to the latest.
       const { data: allPicks } = await supabase
         .from("manager_picks")
         .select("event, position, element, multiplier, is_captain, is_vice_captain")
@@ -248,32 +365,78 @@ export default function TeamPage() {
       const latestEvent = allPicks?.[0]?.event;
       const picks = (allPicks ?? []).filter((p) => p.event === latestEvent);
 
-      // 4. Resolve player and team names for the squad + favourite team.
+      const picksByEvent = new Map<number, ManagerPick[]>();
+      for (const r of allPicks ?? []) {
+        const pick: ManagerPick = {
+          event: r.event as number,
+          position: r.position as number,
+          element: r.element as number,
+          multiplier: r.multiplier as number,
+          isCaptain: r.is_captain as boolean,
+          isViceCaptain: r.is_vice_captain as boolean,
+        };
+        const list = picksByEvent.get(pick.event);
+        if (list) list.push(pick);
+        else picksByEvent.set(pick.event, [pick]);
+      }
+      for (const list of picksByEvent.values()) list.sort((a, b) => a.position - b.position);
+
+      // 4. Resolve player and team names for every player ever picked (not
+      // just this gameweek's — the GW selector reaches back through the
+      // season) plus the favourite team, and today's squad rules for the pitch.
       const players = new Map<number, PlayerRow>();
       const teamNames = new Map<number, string>();
       const teamMeta = new Map<number, { code: number | null; short: string }>();
+      const xp1 = new Map<number, number>();
+      const finishedEvents = new Set<number>();
+      let rules = DEFAULT_RULES;
 
       if (nextGw) {
-        const ids = picks.map((p) => p.element);
-        if (ids.length > 0) {
+        // The whole season's players, not just the ones picked: the squad view
+        // also renders an imported draft, whose players need not appear in any
+        // manager_picks row (pre-GW1 there are none at all). One list serves
+        // every gameweek the selector can reach, too. Paged — the cap is
+        // silent, and this table is already close to it.
+        for (let from = 0; ; from += PAGE_ROWS) {
           const { data: playerRows } = await supabase
             .from("players")
             .select(
-              "id, web_name, now_cost, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, element_type, team_id",
+              "id, web_name, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, element_type, team_id",
             )
             .eq("season", nextGw.season)
-            .in("id", ids);
+            .order("id")
+            .range(from, from + PAGE_ROWS - 1);
           for (const p of playerRows ?? []) players.set(p.id, p as PlayerRow);
+          if ((playerRows?.length ?? 0) < PAGE_ROWS) break;
         }
 
-        const { data: teamRows } = await supabase
-          .from("teams")
-          .select("id, name, code, short_name")
-          .eq("season", nextGw.season);
-        for (const t of teamRows ?? []) {
+        for (let from = 0; ; from += PAGE_ROWS) {
+          const { data: xpRows } = await supabase
+            .from("player_xp_horizons")
+            .select("player_id, xp_1")
+            .eq("season", nextGw.season)
+            .order("player_id")
+            .range(from, from + PAGE_ROWS - 1);
+          for (const r of xpRows ?? []) {
+            if (r.xp_1 !== null) xp1.set(r.player_id as number, r.xp_1 as number);
+          }
+          if ((xpRows?.length ?? 0) < PAGE_ROWS) break;
+        }
+
+        const [teamsRes, gwsRes, ctxRes] = await Promise.all([
+          supabase.from("teams").select("id, name, code, short_name").eq("season", nextGw.season),
+          supabase.from("gameweeks").select("id, finished").eq("season", nextGw.season),
+          loadSeasonContext().catch(() => null),
+        ]);
+
+        for (const t of teamsRes.data ?? []) {
           teamNames.set(t.id, t.name);
           teamMeta.set(t.id, { code: t.code ?? null, short: t.short_name });
         }
+        for (const g of gwsRes.data ?? []) {
+          if (g.finished) finishedEvents.add(g.id as number);
+        }
+        if (ctxRes) rules = ctxRes.rules;
       }
 
       setData({
@@ -281,10 +444,14 @@ export default function TeamPage() {
         seasons: (seasonsRes.data as SeasonRow[]) ?? [],
         gwHistory: (gwRes.data as GwRow[]) ?? [],
         picks,
+        picksByEvent,
+        finishedEvents,
         players,
+        xp1,
         teamNames,
         teamMeta,
         nextGw,
+        rules,
         profile,
         rivals,
       });
@@ -333,7 +500,9 @@ export default function TeamPage() {
           value: data.manager.last_deadline_value,
         },
         rules,
-        `${data.manager.team_name ?? `Entry ${data.manager.entry_id}`} (FPL)`,
+        // Same naming rule as the /settings paste importer, so
+        // resolveRequestedDraft can recognise either as this manager's import.
+        uniqueDraftName(importedDraftName(data.manager.team_name, data.manager.entry_id)),
       );
 
       const saved = saveDraft(state);
@@ -344,6 +513,209 @@ export default function TeamPage() {
       setImporting(false);
     }
   }, [data, router]);
+
+  // ------------------------------------------------------------ squad view
+  //
+  // The squad shown by default is the one imported from FPL — real purchase
+  // prices, and what the owner actually entered — matched to this manager by
+  // entry id, falling back to the import naming rule (lib/fpl-squad.ts) for
+  // squads imported before entry ids were recorded. Same resolution as
+  // /deadline, so the two pages never disagree about "my squad".
+  useEffect(() => {
+    if (profileLoading) return;
+    const list = listDrafts().filter((d) => d.source === "fpl");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setImportedDraft(
+      resolveRequestedDraft(list, "", { entryId: linkedEntryId, teamName: linkedTeamName }) ?? null,
+    );
+  }, [linkedEntryId, linkedTeamName, profileLoading]);
+
+  /**
+   * The current squad, as a TeamState the pitch can render.
+   *
+   * The import wins; without one, the latest `manager_picks` gameweek is
+   * turned into the same shape by the same constructor the Import button
+   * uses — but deliberately **not** saved. Looking at a squad should never
+   * silently create a draft.
+   */
+  const currentSquad: { state: TeamState; from: "import" | "picks" } | null = useMemo(() => {
+    if (importedDraft) return { state: importedDraft, from: "import" };
+    if (!data || data.picks.length === 0) return null;
+    const latestEvent = data.picks[0].event;
+    const gw = data.gwHistory.find((g) => g.event === latestEvent);
+    return {
+      state: teamStateFromPicks(
+        data.picks,
+        (id) => data.players.get(id)?.now_cost ?? undefined,
+        {
+          entryId: data.manager.entry_id,
+          event: latestEvent,
+          activeChip: gw?.active_chip ?? null,
+          bank: data.manager.last_deadline_bank,
+          value: data.manager.last_deadline_value,
+        },
+        data.rules,
+        data.manager.team_name ?? `Entry ${data.manager.entry_id}`,
+      ),
+      from: "picks",
+    };
+  }, [importedDraft, data]);
+
+  /** Gameweeks with picks, newest first — what the selector offers. */
+  const pickedEvents = useMemo(
+    () => (data ? [...data.picksByEvent.keys()].sort((a, b) => b - a) : []),
+    [data],
+  );
+
+  useEffect(() => {
+    // Default to the most recent gameweek that has picks.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (selectedEvent === null && pickedEvents.length > 0) setSelectedEvent(pickedEvents[0]);
+  }, [pickedEvents, selectedEvent]);
+
+  // Points are fetched for the gameweek being looked at, not for the whole
+  // season up front — a season's worth of per-fixture rows for every player
+  // ever picked is a few thousand, and most of them are never displayed.
+  useEffect(() => {
+    if (squadMode !== "gw" || selectedEvent === null || !data?.nextGw) return;
+    const picks = data.picksByEvent.get(selectedEvent);
+    if (!picks) return;
+
+    let cancelled = false;
+    (async () => {
+      setPointsLoading(true);
+      setPointsError(null);
+      try {
+        const result = await loadEventPoints(
+          data.nextGw!.season,
+          selectedEvent,
+          picks.map((p) => p.element),
+        );
+        if (cancelled) return;
+        setEventPoints(result.byPlayer);
+        setEventProvisional(result.provisional);
+      } catch (err) {
+        if (!cancelled) setPointsError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (!cancelled) setPointsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [squadMode, selectedEvent, data]);
+
+  /** Shared card mapping for both views — the two differ only in the number they carry. */
+  const toCard = useCallback(
+    (
+      playerId: number,
+      opts: {
+        value: number | null;
+        valueNote: string;
+        decimals: number;
+        isCaptain: boolean;
+        isVice: boolean;
+      },
+    ): PlayerData | null => {
+      const row = data?.players.get(playerId);
+      if (!row) return null;
+      return {
+        id: row.id,
+        web_name: row.web_name ?? `#${row.id}`,
+        team_code: data?.teamMeta.get(row.team_id)?.code ?? null,
+        element_type: row.element_type,
+        now_cost: row.now_cost ?? 0,
+        expected_points: opts.value,
+        value_note: opts.valueNote,
+        value_decimals: opts.decimals,
+        status: row.status,
+        chance_of_playing_next_round: row.chance_of_playing_next_round,
+        is_captain: opts.isCaptain,
+        is_vice_captain: opts.isVice,
+        is_penalty_taker: row.penalties_order === 1,
+        is_freekick_taker: row.direct_freekicks_order === 1,
+        is_corner_taker: row.corners_and_indirect_freekicks_order === 1,
+        team_short: data?.teamMeta.get(row.team_id)?.short ?? null,
+        news: row.news,
+        ownership: row.selected_by_percent,
+      };
+    },
+    [data],
+  );
+
+  const currentCards: PlayerData[] = useMemo(() => {
+    if (!currentSquad) return [];
+    return currentSquad.state.players.flatMap((p) => {
+      const card = toCard(p.playerId, {
+        value: data?.xp1.get(p.playerId) ?? null,
+        valueNote: "Expected points, next gameweek",
+        decimals: 1,
+        isCaptain: currentSquad.state.captain === p.playerId,
+        isVice: currentSquad.state.viceCaptain === p.playerId,
+      });
+      return card ? [card] : [];
+    });
+  }, [currentSquad, toCard, data]);
+
+  const currentLayout: SquadLayout | null = useMemo(() => {
+    if (!currentSquad || !data) return null;
+    const { startingXI, benchOrder } = currentSquad.state;
+    if (startingXI.length !== 11) return null;
+    const typeOf = (id: number) => data.players.get(id)?.element_type;
+    const count = (type: number) => startingXI.filter((id) => typeOf(id) === type).length;
+    const xiXp = startingXI.reduce((sum, id) => sum + (data.xp1.get(id) ?? 0), 0);
+    return {
+      starters: startingXI,
+      bench: benchOrder,
+      formation: `${count(2)}-${count(3)}-${count(4)}`,
+      // Not a projection of auto-subs — this is the squad as entered.
+      subProbability: new Map(),
+      benchSummary: `your XI ${xiXp.toFixed(1)} xP next gameweek`,
+    };
+  }, [currentSquad, data]);
+
+  const gwPicks = useMemo(
+    () => (data && selectedEvent !== null ? (data.picksByEvent.get(selectedEvent) ?? null) : null),
+    [data, selectedEvent],
+  );
+
+  const gwScore = useMemo(
+    () => (gwPicks ? squadPointsFor(gwPicks, eventPoints) : null),
+    [gwPicks, eventPoints],
+  );
+
+  const gwCards: PlayerData[] = useMemo(() => {
+    if (!gwPicks) return [];
+    return gwPicks.flatMap((p) => {
+      const scored = eventPoints.get(p.element);
+      // The captain's card shows the multiplied figure, which is what that
+      // pick actually contributed — the ×2 marker beside it says why.
+      const multiplier = Math.max(1, p.multiplier);
+      const card = toCard(p.element, {
+        value: scored ? scored.points * (p.position <= 11 ? multiplier : 1) : null,
+        valueNote:
+          scored === undefined
+            ? "No stats recorded for this player in this gameweek"
+            : `GW${p.event} points${multiplier > 1 ? ` (×${multiplier} armband)` : ""}${
+                scored.fixtures > 1 ? ` · ${scored.fixtures} fixtures` : ""
+              }${p.position >= 12 ? " · benched, counted only under a Bench Boost" : ""}`,
+        decimals: 0,
+        isCaptain: p.isCaptain,
+        isVice: p.isViceCaptain,
+      });
+      return card ? [card] : [];
+    });
+  }, [gwPicks, eventPoints, toCard]);
+
+  const gwLayout: SquadLayout | null = useMemo(() => {
+    if (!gwPicks || !data || !gwScore) return null;
+    return layoutFromPicks(
+      gwPicks,
+      (id) => data.players.get(id)?.element_type,
+      `bench scored ${gwScore.benchRaw}`,
+    );
+  }, [gwPicks, data, gwScore]);
 
   useEffect(() => {
     // Auto-connect on first mount (and once more if sign-in status changes
@@ -544,6 +916,156 @@ export default function TeamPage() {
               </div>
             ))}
           </section>
+
+          {/* ---------------------------------------------- squad view */}
+          {data && (currentSquad || pickedEvents.length > 0) && (
+            <section className="mt-8">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+                  Squad view
+                </h2>
+
+                {/*
+                  Two views of the same team: what you have now, and what you
+                  put out in a given gameweek. A radio group rather than a
+                  boolean switch — the second view carries its own gameweek
+                  choice, and hiding that behind a toggle state would make the
+                  thing on screen ambiguous. Matches the segmented control in
+                  components/account-menu.tsx.
+                */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div
+                    role="radiogroup"
+                    aria-label="Which squad to show"
+                    className="flex items-center gap-1 rounded-md border border-zinc-200 p-0.5 dark:border-purple-900/40"
+                  >
+                    {([
+                      ["current", "Current squad"],
+                      ["gw", "Gameweek result"],
+                    ] as const).map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        role="radio"
+                        aria-checked={squadMode === mode}
+                        disabled={mode === "gw" && pickedEvents.length === 0}
+                        onClick={() => setSquadMode(mode)}
+                        className={`rounded px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                          squadMode === mode
+                            ? "border border-purple-600 bg-purple-50 text-purple-800 dark:border-[#00FF87] dark:bg-[#00FF87]/10 dark:text-[#00FF87]"
+                            : "border border-transparent text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Hidden entirely pre-GW1 rather than shown empty. */}
+                  {squadMode === "gw" && pickedEvents.length > 0 && (
+                    <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+                      Gameweek
+                      <select
+                        value={selectedEvent ?? ""}
+                        onChange={(e) => setSelectedEvent(Number(e.target.value))}
+                        className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                      >
+                        {pickedEvents.map((event) => (
+                          <option key={event} value={event}>
+                            GW{event}
+                            {data.finishedEvents.has(event) ? "" : " (live)"}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {squadMode === "current" && currentSquad && (
+                <>
+                  <PitchView
+                    squad={currentCards}
+                    quota={data.rules.positionQuota}
+                    layout={currentLayout}
+                  />
+                  <p className="mt-2 text-xs text-zinc-500">
+                    {currentSquad.from === "import" ? (
+                      <>
+                        From your imported squad{" "}
+                        <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                          {currentSquad.state.name}
+                        </span>{" "}
+                        — real purchase prices.{" "}
+                        <Link
+                          href={`/builder/?draft=${currentSquad.state.draftId}`}
+                          className="text-purple-800 underline dark:text-[#00FF87]"
+                        >
+                          Open in Builder
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <InfoTooltip label="About this squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>{" "}
+                        Built from FPL&apos;s published picks — not saved as a draft.{" "}
+                        <a
+                          href="/settings/?tab=import"
+                          className="text-purple-800 underline dark:text-[#00FF87]"
+                        >
+                          Import your squad
+                        </a>{" "}
+                        for real purchase prices.
+                      </>
+                    )}
+                  </p>
+                </>
+              )}
+
+              {squadMode === "current" && !currentSquad && (
+                <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-[#1E0234]">
+                  No squad to show yet — FPL publishes picks after the first deadline.{" "}
+                  <a
+                    href="/settings/?tab=import"
+                    className="text-purple-800 underline dark:text-[#00FF87]"
+                  >
+                    Import your squad from FPL
+                  </a>{" "}
+                  to see it here now.
+                </p>
+              )}
+
+              {squadMode === "gw" && (
+                <>
+                  {pointsError && (
+                    <p className="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+                      {pointsError}
+                    </p>
+                  )}
+                  {pointsLoading && <p className="mt-3 text-sm text-zinc-500">Loading points…</p>}
+                  {!pointsLoading && gwLayout && (
+                    <PitchView
+                      squad={gwCards}
+                      quota={data.rules.positionQuota}
+                      layout={gwLayout}
+                    />
+                  )}
+                  {!pointsLoading && gwScore && selectedEvent !== null && (
+                    <GameweekSummary
+                      event={selectedEvent}
+                      score={gwScore}
+                      history={data.gwHistory.find((g) => g.event === selectedEvent) ?? null}
+                      captainName={
+                        gwScore.captain
+                          ? (data.players.get(gwScore.captain.element)?.web_name ?? "Captain")
+                          : null
+                      }
+                      provisional={eventProvisional || !data.finishedEvents.has(selectedEvent)}
+                    />
+                  )}
+                </>
+              )}
+            </section>
+          )}
 
           {/* --------------------------------------------------- squad */}
           <section className="mt-8">

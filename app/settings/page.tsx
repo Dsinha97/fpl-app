@@ -8,7 +8,7 @@ import { useAuth } from "@/components/auth-provider";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { saveDraft, uniqueDraftName } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
-import { teamStateFromMyTeamJson, type SellPriceMismatch } from "@/lib/fpl-squad";
+import { importedDraftName, teamStateFromMyTeamJson, type SellPriceMismatch } from "@/lib/fpl-squad";
 
 // Sprint 14.3 — one settings page with two tabs, replacing the standalone
 // /settings/fpl route (now a redirect, below) and giving "claim your Manager
@@ -190,11 +190,13 @@ function ImportTab() {
         (playersRes.data ?? []).map((p) => [p.id as number, p.now_cost as number]),
       );
 
-      // Named from the linked FPL team ("DS United") rather than a fixed
+      // Named from the linked FPL team ("DS United (FPL)") rather than a fixed
       // "Imported squad" — every re-import used to collide on that one name.
-      // uniqueDraftName disambiguates a repeat import the same way it now
-      // disambiguates a repeat clone (lib/drafts.ts).
-      const draftName = uniqueDraftName(teamName ?? "Imported squad");
+      // The name itself now comes from importedDraftName so /team's importer
+      // and this one agree, which is what lets resolveRequestedDraft find
+      // "this manager's import"; uniqueDraftName disambiguates a repeat import
+      // the same way it disambiguates a repeat clone (lib/drafts.ts).
+      const draftName = uniqueDraftName(importedDraftName(teamName, entryId));
 
       const result = teamStateFromMyTeamJson(
         trimmed,
@@ -202,6 +204,7 @@ function ImportTab() {
           event: nextEvent,
           nowCostOf: (id) => nowCostById.get(id),
           knownPlayerIds: new Set(nowCostById.keys()),
+          entryId,
         },
         rules,
         draftName,

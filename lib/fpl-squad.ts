@@ -21,6 +21,43 @@ import { sellPrice } from "./transfers";
 // all — the owner is already signed in, in their own browser, and the app
 // never touches anything secret. See docs/roadmap.md, "Sprint 14.2".
 
+// ---------------------------------------------------------- import naming
+//
+// Both importers used to name a draft their own way — /team built
+// `${team_name} (FPL)`, /settings built the bare team name — which meant
+// nothing could reliably answer "which draft is this manager's import?".
+// Sprint 15 needs exactly that answer, to default /deadline and /team to the
+// right squad, so the rule lives here once and both importers call it.
+//
+// `entryId` on the TeamState is the durable link (it survives a rename);
+// the name match below is the fallback for drafts imported before that field
+// existed.
+
+const IMPORT_SUFFIX = " (FPL)";
+
+/** The one name every FPL import gets. Callers still wrap in `uniqueDraftName`. */
+export function importedDraftName(teamName: string | null, entryId: number | null): string {
+  const base = teamName?.trim() || (entryId !== null ? `Entry ${entryId}` : "Imported squad");
+  return `${base}${IMPORT_SUFFIX}`;
+}
+
+/** Strips a `uniqueDraftName` disambiguator: "DS United (FPL) (2)" -> "DS United (FPL)". */
+const withoutCopyIndex = (name: string) => name.replace(/ \(\d+\)$/, "").trim();
+
+/**
+ * Does `draftName` look like an import for `teamName`?
+ *
+ * Accepts the current form (`"DS United (FPL)"`) and the legacy /settings form
+ * (the bare team name), each with or without a " (2)" suffix, so squads
+ * imported before the rule was consolidated still match.
+ */
+export function isImportedDraftFor(draftName: string, teamName: string | null): boolean {
+  const wanted = teamName?.trim();
+  if (!wanted) return false;
+  const base = withoutCopyIndex(draftName);
+  return base === wanted || base === `${wanted}${IMPORT_SUFFIX}`;
+}
+
 // ------------------------------------------------- manager_picks import
 // (works once manager_picks/manager_transfers are populated — blocked
 // pre-GW1, see teamStateFromMyTeamJson below for what works today)
@@ -96,6 +133,7 @@ export function teamStateFromPicks(
   return {
     ...base,
     source: "fpl",
+    entryId: meta.entryId,
     gameweek: meta.event,
     players,
     captain,
@@ -191,6 +229,12 @@ export function teamStateFromMyTeamJson(
     event: number;
     nowCostOf: (playerId: number) => number | undefined;
     knownPlayerIds: Set<number>;
+    /**
+     * The my-team payload carries no entry id — the caller knows it (it's in
+     * the URL they fetched, and in the auth context). Recorded on the state so
+     * "which draft is this manager's import?" survives a rename.
+     */
+    entryId: number | null;
   },
   rules: SquadRules,
   name: string,
@@ -316,6 +360,7 @@ export function teamStateFromMyTeamJson(
   const state: TeamState = {
     ...base,
     source: "fpl",
+    entryId: opts.entryId,
     gameweek: opts.event,
     players,
     captain,

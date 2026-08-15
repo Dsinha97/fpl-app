@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { AvailabilityBadge } from "@/components/player-status-icons";
 import { TransferPlan } from "@/components/transfer-plan";
+import { useAuth } from "@/components/auth-provider";
+import { layoutFromLineup, PitchView, type SquadLayout } from "@/components/pitch-view";
+import type { PlayerData } from "@/components/player-card";
 import { listDrafts, resolveRequestedDraft } from "@/lib/drafts";
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
 import {
@@ -59,6 +62,8 @@ interface PlayerRow {
   news: string | null;
   chance_of_playing_next_round: number | null;
   penalties_order: number | null;
+  direct_freekicks_order: number | null;
+  corners_and_indirect_freekicks_order: number | null;
 }
 
 interface XpRow {
@@ -97,11 +102,22 @@ function fmtCountdown(deadline: string, now: number): { text: string; passed: bo
 
 const card = "rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]";
 
+interface NextFixture {
+  opponent_short_name: string;
+  is_home: boolean;
+  fdr: number;
+}
+
 export default function DeadlinePage() {
   const router = useRouter();
+  const { entryId, teamName, profileLoading } = useAuth();
 
   const [drafts, setDrafts] = useState<TeamState[]>([]);
   const [draftId, setDraftId] = useState<string | null>(null);
+  const [teamMeta, setTeamMeta] = useState<Map<number, { code: number | null; short: string }>>(
+    new Map(),
+  );
+  const [nextFixtureByTeam, setNextFixtureByTeam] = useState<Map<number, NextFixture>>(new Map());
 
   const [ctx, setCtx] = useState<SeasonContext | null>(null);
   const [rowById, setRowById] = useState<Map<number, PlayerRow>>(new Map());
@@ -131,13 +147,23 @@ export default function DeadlinePage() {
   // Drafts, exactly as /builder, /transfers and /chips resolve them — an
   // FPL-imported squad *is* a draft (state.source === "fpl"), and
   // manager_picks is empty by FPL's own design before the first deadline.
+  //
+  // Unlike those pages, this one is about the *real* team, so the fallback
+  // prefers the linked manager's import over whichever draft was edited last
+  // (see resolveRequestedDraft). The identity arrives asynchronously from
+  // AuthProvider, so this re-resolves once it settles — but never after the
+  // user has chosen a squad themselves, which `chosen` guards.
+  const chosen = useRef(false);
+
   useEffect(() => {
+    if (profileLoading) return;
     const list = listDrafts();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDrafts(list);
-    const requested = resolveRequestedDraft(list, window.location.search);
+    if (chosen.current) return;
+    const requested = resolveRequestedDraft(list, window.location.search, { entryId, teamName });
     setDraftId(requested?.draftId ?? null);
-  }, []);
+  }, [entryId, teamName, profileLoading]);
 
   const team = useMemo(() => drafts.find((d) => d.draftId === draftId) ?? null, [drafts, draftId]);
 
@@ -165,11 +191,14 @@ export default function DeadlinePage() {
         const seasonCtx = await loadSeasonContext();
         setCtx(seasonCtx);
 
-        const [playersRes, xpRes, chipsRes, fixturesRes] = await Promise.all([
+        const [playersRes, xpRes, chipsRes, fixturesRes, teamsRes] = await Promise.all([
           supabase
             .from("players")
             .select(
-              "id, code, web_name, team_id, element_type, now_cost, selected_by_percent, points_per_game, status, news, chance_of_playing_next_round, penalties_order",
+              // direct_freekicks_order / corners_and_indirect_freekicks_order
+              // added for the squad pitch's role badges. One string literal —
+              // concatenating collapses the row type (CLAUDE.md).
+              "id, code, web_name, team_id, element_type, now_cost, selected_by_percent, points_per_game, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order",
             )
             .eq("season", seasonCtx.season)
             .limit(1000),
@@ -189,6 +218,9 @@ export default function DeadlinePage() {
             .eq("season", seasonCtx.season)
             .gte("event", seasonCtx.nextEvent)
             .order("event"),
+          // Crests and kit graphics need the team *code*, and the fixture
+          // ticker needs short names — neither is on the players row.
+          supabase.from("teams").select("id, code, short_name").eq("season", seasonCtx.season),
         ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
 
@@ -210,16 +242,51 @@ export default function DeadlinePage() {
               : "No wildcard window covers this gameweek",
         });
 
+        const meta = new Map<number, { code: number | null; short: string }>();
+        for (const t of teamsRes.data ?? []) {
+          meta.set(t.id as number, {
+            code: (t.code as number | null) ?? null,
+            short: t.short_name as string,
+          });
+        }
+        setTeamMeta(meta);
+
         const fdrRuns = new Map<number, number[]>();
+        const nextFixtures = new Map<number, NextFixture>();
         for (const f of fixturesRes.data ?? []) {
           const push = (teamId: number, fdr: number) => {
             const list = fdrRuns.get(teamId);
             if (list) list.push(fdr);
             else fdrRuns.set(teamId, [fdr]);
           };
-          push(f.team_h as number, (f.team_h_difficulty as number | null) ?? 3);
-          push(f.team_a as number, (f.team_a_difficulty as number | null) ?? 3);
+          const home = f.team_h as number;
+          const away = f.team_a as number;
+          const homeFdr = (f.team_h_difficulty as number | null) ?? 3;
+          const awayFdr = (f.team_a_difficulty as number | null) ?? 3;
+          push(home, homeFdr);
+          push(away, awayFdr);
+
+          // The deadline gameweek's own fixture, for the pitch cards' ticker.
+          // Fixtures come back ordered by event, so the first one seen per team
+          // is the earliest — a double gameweek keeps the earlier kickoff.
+          if (f.event === seasonCtx.nextEvent) {
+            if (!nextFixtures.has(home)) {
+              nextFixtures.set(home, {
+                opponent_short_name: meta.get(away)?.short ?? "—",
+                is_home: true,
+                fdr: homeFdr,
+              });
+            }
+            if (!nextFixtures.has(away)) {
+              nextFixtures.set(away, {
+                opponent_short_name: meta.get(home)?.short ?? "—",
+                is_home: false,
+                fdr: awayFdr,
+              });
+            }
+          }
         }
+        setNextFixtureByTeam(nextFixtures);
 
         // Paged deliberately — see PAGE_ROWS. One fetch serves both the
         // per-gameweek candidate maths (candidatesAt / optimiseLineup / chip
@@ -392,6 +459,82 @@ export default function DeadlinePage() {
     return optimiseLineup(candidates);
   }, [team, ctx, predsByPlayer, predAt, lookup, isPenaltyTaker]);
 
+  // ------------------------------------------------------------- squad pitch
+  //
+  // Cards for the read-only pitch. Same field mapping as /builder's
+  // toPlayerData, built from this page's own already-loaded rows rather than
+  // lifted out of it — that one closes over the builder's horizon, per-event
+  // aggregates and tactical profiles, none of which exist here.
+  const squadCards: PlayerData[] = useMemo(() => {
+    if (!team || !ctx) return [];
+    return team.players.flatMap((p) => {
+      const row = rowById.get(p.playerId);
+      if (!row) return [];
+      const pred = predAt(row.id, ctx.nextEvent);
+      return [
+        {
+          id: row.id,
+          web_name: row.web_name,
+          team_code: teamMeta.get(row.team_id)?.code ?? null,
+          element_type: row.element_type,
+          now_cost: row.now_cost ?? 0,
+          // The deadline gameweek's xP, matching the gameweek this whole page
+          // is about — not a multi-week horizon figure.
+          expected_points: pred?.xp ?? null,
+          value_note: `Expected points in ${ctx.gameweekName}`,
+          status: row.status,
+          chance_of_playing_next_round: row.chance_of_playing_next_round,
+          is_captain: team.captain === row.id,
+          is_vice_captain: team.viceCaptain === row.id,
+          is_penalty_taker: row.penalties_order === 1,
+          is_freekick_taker: row.direct_freekicks_order === 1,
+          is_corner_taker: row.corners_and_indirect_freekicks_order === 1,
+          next_fixture: nextFixtureByTeam.get(row.team_id) ?? null,
+          team_short: teamMeta.get(row.team_id)?.short ?? null,
+          news: row.news,
+          ownership: row.selected_by_percent,
+          xp5: xpById.get(row.id)?.xp_5 ?? null,
+          expected_minutes: pred?.expectedMinutes ?? null,
+          start_probability: pred?.startProbability ?? null,
+        },
+      ];
+    });
+  }, [team, ctx, rowById, predAt, teamMeta, nextFixtureByTeam, xpById]);
+
+  /**
+   * The pitch shows the XI **you entered**, not the optimiser's. The Captain &
+   * starting XI section below already says what the model would change, and
+   * blending the recommendation into the picture of your own squad would make
+   * it impossible to see which is which. When no XI has been set, the model's
+   * is shown and labelled as such.
+   */
+  const squadLayout: SquadLayout | null = useMemo(() => {
+    if (!team || !ctx) return null;
+    if (!lineup) return null;
+
+    const xiSet = new Set(team.startingXI);
+    const usable =
+      team.startingXI.length === 11 &&
+      team.benchOrder.length === team.players.length - 11 &&
+      team.players.every((p) => xiSet.has(p.playerId) || team.benchOrder.includes(p.playerId));
+    if (!usable) return layoutFromLineup(lineup);
+
+    const typeOf = (id: number) => rowById.get(id)?.element_type;
+    const count = (type: number) =>
+      team.startingXI.filter((id) => typeOf(id) === type).length;
+    const xiXp = team.startingXI.reduce((sum, id) => sum + (predAt(id, ctx.nextEvent)?.xp ?? 0), 0);
+
+    return {
+      starters: team.startingXI,
+      bench: team.benchOrder,
+      formation: `${count(2)}-${count(3)}-${count(4)}`,
+      // Auto-sub probabilities belong to the model's own bench order; this is
+      // yours, so the strip carries the xP of the XI on screen instead.
+      subProbability: new Map(),
+      benchSummary: `your XI ${xiXp.toFixed(1)} xP`,
+    };
+  }, [team, ctx, lineup, rowById, predAt]);
+
   const captainDiff = useMemo(() => {
     if (!team || !lineup?.captain || !ctx) return null;
     if (team.captain === lineup.captain.playerId) return null;
@@ -487,12 +630,18 @@ export default function DeadlinePage() {
             Squad
             <select
               value={draftId ?? ""}
-              onChange={(e) => setDraftId(e.target.value)}
+              onChange={(e) => {
+                chosen.current = true;
+                setDraftId(e.target.value);
+              }}
               className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
             >
               {drafts.map((d) => (
                 <option key={d.draftId} value={d.draftId}>
+                  {/* Marked, so the default this page picks is visible rather
+                      than mysterious when several squads are saved. */}
                   {d.name}
+                  {d.source === "fpl" ? " · imported" : ""}
                 </option>
               ))}
             </select>
@@ -554,6 +703,35 @@ export default function DeadlinePage() {
                 Imported from your real FPL team.
               </p>
             )}
+          </section>
+
+          {/* ---------------------------------------------------------- squad */}
+          <section className="mt-5">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                Squad — {ctx.gameweekName}
+              </h2>
+              <Link
+                href={`/builder/?draft=${team.draftId}`}
+                className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+              >
+                Edit in Builder →
+              </Link>
+            </div>
+            {/* Read-only: no armband or remove handlers, so the detail panel
+                opens as information only. Editing stays in /builder. */}
+            <PitchView
+              squad={squadCards}
+              quota={ctx.rules.positionQuota}
+              layout={squadLayout}
+            />
+            <p className="mt-2 text-xs text-zinc-500">
+              {team.name}
+              {team.source === "fpl" ? " · imported from FPL" : ""}
+              {squadLayout && team.startingXI.length !== 11
+                ? " · showing the model's XI — you haven't set one"
+                : ""}
+            </p>
           </section>
 
           {/* ------------------------------------------------------ readiness */}

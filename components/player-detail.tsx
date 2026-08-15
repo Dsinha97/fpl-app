@@ -31,9 +31,10 @@ interface PlayerDetailProps {
   top: number;
   left: number;
   onClose: () => void;
-  onSetCaptain: (playerId: number) => void;
-  onSetVice: (playerId: number) => void;
-  onRemove: (playerId: number) => void;
+  /** Omitted on a read-only panel — each action's button renders only when its handler is given. */
+  onSetCaptain?: (playerId: number) => void;
+  onSetVice?: (playerId: number) => void;
+  onRemove?: (playerId: number) => void;
   /**
    * When the panel is opened from the player picker rather than the pitch, the
    * player may not be in the squad — the actions become Add and Replace
@@ -270,37 +271,50 @@ export function PlayerDetail({
         </p>
       )}
 
-      {owned && (
-      <div className="mt-3 grid grid-cols-3 gap-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
+      {/*
+        Each action renders only when its handler was passed. A read-only
+        pitch (the squad sections on /deadline and /team) passes none and gets
+        an information panel with no controls, rather than buttons that would
+        edit a squad it isn't showing. Flex rather than grid-cols-3 so one or
+        two buttons still fill the row.
+      */}
+      {owned && (onSetCaptain || onSetVice || onRemove) && (
+      <div className="mt-3 flex gap-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
+        {onSetCaptain && (
         <button
           onClick={() => {
             onSetCaptain(player.id);
             onClose();
           }}
           disabled={player.is_captain}
-          className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 disabled:opacity-40 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+          className="flex-1 rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 disabled:opacity-40 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
         >
           {player.is_captain ? "Captain" : "Set C"}
         </button>
+        )}
+        {onSetVice && (
         <button
           onClick={() => {
             onSetVice(player.id);
             onClose();
           }}
           disabled={player.is_vice_captain}
-          className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 disabled:opacity-40 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+          className="flex-1 rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 disabled:opacity-40 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
         >
           {player.is_vice_captain ? "Vice" : "Set VC"}
         </button>
+        )}
+        {onRemove && (
         <button
           onClick={() => {
             onRemove(player.id);
             onClose();
           }}
-          className="rounded border border-zinc-300 px-2 py-1 font-medium text-red-600 transition-colors hover:border-red-500 dark:border-purple-800/60 dark:text-red-400"
+          className="flex-1 rounded border border-zinc-300 px-2 py-1 font-medium text-red-600 transition-colors hover:border-red-500 dark:border-purple-800/60 dark:text-red-400"
         >
           Remove
         </button>
+        )}
       </div>
       )}
 
