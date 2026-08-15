@@ -30,7 +30,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 15.5 | Hidden Gems (value-discovery filter) | **Built** — `player_rate_profile`, `lib/hidden-gems.ts`, `/players` + builder filters | [sprints/hidden-gems.md](sprints/hidden-gems.md) |
 | 15.6 | Championship cold-start priors (FootyStats PDF drop) | **Built** — xP engine v1.5.0, `external_player_seasons`, 33 players re-primed | [sprints/championship-priors.md](sprints/championship-priors.md) |
 | 15.8 | Gameweek planning view, unified player filters, comparison-table fixes | **Built** — `/builder` gameweek dropdown (`squadEventAgg`, `projectionAtEvent`), `components/player-filters.tsx` shared by `/players` + builder picker, `/compare` tie handling | — |
-| — | Deadline Hub | **Built** — `/deadline`, read-only over existing engines (`validateSquad`, `optimiseLineup`, `optimizeTransfers`, `benchBoostAt`/`tripleCaptainAt`, `change_feed`); no new sprint number, since Sprints 13/15/17 were all unavailable this week (see below) | [sprints/additional-info.md](sprints/additional-info.md) |
+| — | Deadline Hub | **Built** — `/deadline`, read-only over existing engines (`validateSquad`, `optimiseLineup`, `optimizeTransfers`, `benchBoostAt`/`tripleCaptainAt`, `change_feed`); no new sprint number, since Sprints 13/15/17 were all unavailable this week (see below). Extended 2026-08-15: both `/deadline` and `/team` gained a read-only pitch view defaulting to the manager's imported FPL squad, plus a Current squad / Gameweek result switch on `/team` (`lib/manager-picks.ts`) | [sprints/additional-info.md](sprints/additional-info.md) |
 | 15 | Action Layer | Not started | below |
 | 16 | Notifications & Automation | Not started | below |
 | 17 | Historical Analytics & ML | Not started | below |
@@ -57,6 +57,17 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   `gameweeks`/`element_types`/`game_settings` fetch that was copy-pasted three times, four counting
   `/chips`' variant) — both now single implementations per CLAUDE.md's "one quantity, one
   implementation" rule.
+- **Squad view on Deadline Hub and My Team — built 2026-08-15.** Both pages now default to the
+  squad actually imported from FPL (`entryId` recorded on `TeamState`, matched by
+  `resolveRequestedDraft`'s new preference — see [sprints/additional-info.md](sprints/additional-info.md)
+  for the full naming-consolidation and verification detail) and render it on a read-only pitch
+  (`PitchView`'s `LineupResult` prop generalised to a `SquadLayout` so the same component can draw
+  either a projection or a known XI). `/team` adds a Current squad / Gameweek result switch, backed
+  by new `lib/manager-picks.ts` — summed per-fixture for double gameweeks, XI taken from `position`
+  rather than `multiplier` so Bench Boost can't be mistaken for the starting XI, and the displayed
+  total is never reconciled with FPL's own gameweek score, since `automatic_subs` isn't synced.
+  Verified against a seeded-and-reverted GW1 in Supabase, since `manager_picks` is genuinely empty
+  before the real GW1 deadline (2026-08-21).
 - **Sprint 13 (Live Matchday Hub)** — staged, not started. `sync-live-gameweek`'s write path has
   never executed (no live fixture yet, GW1 deadline 2026-08-21); building against it now would be
   unverifiable. See [sprints/sprint-13.md](sprints/sprint-13.md) for the GW1 dry-run checklist to

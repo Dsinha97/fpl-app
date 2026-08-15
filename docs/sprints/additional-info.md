@@ -85,6 +85,65 @@ Verified: full gate (`tsc`, `lint`, `build`) passed, `npm audit` now reports onl
 `shadcn`'s own dev-time tree (unreachable from either fix — it is `shadcn`'s own dependency, not a
 transitive one either bump touches, so it stays until `shadcn` itself updates).
 
+## Squad view on Deadline Hub and My Team — built (2026-08-15)
+
+Deadline Hub shipped read-only over existing engines but with no squad *visual* at all, and `/team`
+rendered `manager_picks` as four plain position lists rather than a pitch — and neither page
+defaulted to the squad actually imported from FPL (`teamStateFromMyTeamJson`, Sprint 14.2), even
+though that squad carries the owner's real purchase prices. This closed both gaps.
+
+- **Import naming consolidated.** The two importers (`/team`'s `manager_picks` path and
+  `/settings`'s pasted-JSON path) had drifted to two different draft-naming rules, which meant
+  nothing could reliably answer "which draft is this manager's own import?" `importedDraftName`/
+  `isImportedDraftFor` (`lib/fpl-squad.ts`) is now the one rule both call. `TeamState` gained an
+  optional `entryId`, recorded by both constructors, so the match survives a rename instead of
+  depending on the name matching forever.
+- **`resolveRequestedDraft` (`lib/drafts.ts`) takes an optional preference.** `?draft=<id>` still
+  wins first; then the linked manager's import by `entryId`; then by the name rule (for imports
+  made before `entryId` existed); then the newest import; then the newest draft of any kind. Only
+  `/deadline` and `/team` pass the preference — builder, scenarios, transfers and chips keep their
+  existing "most recently edited" default unchanged.
+- **`PitchView` (`components/pitch-view.tsx`) now takes a `SquadLayout`, not a bare
+  `LineupResult`.** A `LineupResult` is projection-shaped (`startersXp`, `subProbability`,
+  auto-sub odds) and could only ever draw a squad the optimiser had scored; a squad already
+  entered — or already played — has a known XI, not a projection. `layoutFromLineup` adapts the
+  optimiser's output into the same shape, so the pitch component itself stays singular. Its three
+  edit callbacks (`onSetCaptain`/`onSetVice`/`onRemove`) became optional, and
+  `components/player-detail.tsx`'s action buttons each render only when their handler is present —
+  the builder passes all three unchanged, so its behaviour is untouched.
+- **Deadline Hub gained a Squad section** directly under the countdown: the pitch shows the XI the
+  owner actually set (not the optimiser's — the existing Captain & Starting XI section already
+  states the diff), falling back to the model's own XI, clearly labelled, when none is set yet.
+- **My Team gained a Squad view section** with a **Current squad** / **Gameweek result** switch.
+  Current squad renders the resolved import (§ above), or — without ever silently saving a draft —
+  a throwaway `TeamState` built from the latest `manager_picks` event when no import exists yet.
+  Gameweek result adds a `<select>` over every gameweek the manager has entered, each showing that
+  gameweek's real per-player points.
+- **New `lib/manager-picks.ts`** — nothing under `lib/` read `manager_picks` before this; the read
+  and its correctness rules now live in one place rather than being reinvented per page:
+  - The starting XI is `position` 1–11, bench 12–15 — **never** `multiplier > 0`. Under Bench Boost
+    every pick's multiplier is non-zero, so the multiplier test would silently promote the bench
+    onto the pitch in exactly the gameweek where the distinction matters.
+  - `player_gameweek_stats` is keyed per **fixture**; points are summed per `(player, event)` so a
+    double gameweek doesn't lose a fixture.
+  - The displayed total is never reconciled into one number. `manager_picks` is as-picked and FPL's
+    own `automatic_subs` isn't synced by `sync-manager`, and `manager_gameweek_history.points` is
+    net of any transfer hit — so the summary shows both totals side by side
+    (`60 XI + 9 armband (×2) = 69 · FPL recorded 66 · includes a −4 transfer hit`) rather than
+    picking a winner.
+  - An unfinished gameweek's points fall back to `player_live_stats` and are labelled provisional.
+- **Verified two ways.** A throwaway `npx tsx` harness (`/engine-verify` pattern) checked the
+  shaping rules directly — captain ×2/×3, DGW summing, the Bench Boost multiplier trap, missing-
+  stats handling — all passing before any UI existed. Since `manager_picks`/`player_gameweek_stats`
+  are genuinely empty for 2026-27 pre-GW1, the live read path was exercised by seeding one
+  gameweek's picks and stats for entry 274486 directly in Supabase inside a manual test pass, then
+  deleting every seeded row afterward (`manager_picks`, `player_gameweek_stats`,
+  `manager_gameweek_history`, and reverting `gameweeks.finished`) — confirmed the GW selector,
+  per-player points, the two-total summary, the provisional label toggling on `gameweeks.finished`,
+  and the read-only detail panel, with the builder's own pitch controls unaffected. No fixture data
+  exists yet for a real double gameweek or a real Bench Boost payload; the harness covers that math,
+  the live path does not yet.
+
 ## Queued items, built (2026-08-07)
 
 Five small independent items, taken alongside Sprint 12.5 immediately after Sprint 12 shipped.
