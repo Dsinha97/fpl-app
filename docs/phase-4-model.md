@@ -4,7 +4,7 @@
 **Code:** [`supabase/functions/_shared/xp-model.ts`](../supabase/functions/_shared/xp-model.ts)
 **Runner:** [`supabase/functions/generate-predictions/`](../supabase/functions/generate-predictions/)
 
-Implements the nine steps in [the build plan](fpl_app_phase_wise_build_plan.md#phase-4--expected-points-xp-engine).
+Implements the nine steps in [the build plan](sources/fpl_app_phase_wise_build_plan.md#phase-4--expected-points-xp-engine).
 
 ---
 

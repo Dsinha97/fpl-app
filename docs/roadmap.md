@@ -1,8 +1,8 @@
 # Roadmap
 
-**Authoritative sprint plan.** Sourced from [update-aug3.md](update-aug3.md) (the owner's revised
+**Authoritative sprint plan.** Sourced from [update-aug3.md](sources/update-aug3.md) (the owner's revised
 feature set, kept unedited) and reconciled against what is actually in the repo.
-[updated-plan.md](updated-plan.md) remains the reference for formulas and method; its roadmap table
+[updated-plan.md](sources/updated-plan.md) remains the reference for formulas and method; its roadmap table
 is superseded by this file. Full per-sprint history moved to [sprints/](sprints/) — see
 [docs/README.md](README.md) for the complete documentation index.
 

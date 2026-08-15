@@ -12,6 +12,7 @@ shipped and where), **historical** (a finished build record, not actively mainta
 | [roadmap.md](roadmap.md) | live | **Authoritative sprint plan.** Sprint index, next up, blocked items, live cross-cutting decisions. Start here for "what's next" or "what shipped when". |
 | [architecture.md](architecture.md) | live | Data flow, schema, Edge Functions, routes table, `lib/` module map. |
 | [phase-4-model.md](phase-4-model.md) | live | The xP model's method, calibration and backtest. |
+| [wiki/index.md](wiki/index.md) | live | **Topic map.** One page per engine/feature/platform concern, cross-linked and source-attributed — organised by *what*, not *when*. Start here for "how does X work" or "why is X blocked". |
 
 ## Sprint history
 
@@ -43,13 +44,13 @@ buildable slice.
 
 | Doc | Status | What it is |
 |---|---|---|
-| [update-aug3.md](update-aug3.md) | source-spec | The owner's revised feature set. `roadmap.md`'s numbering is reconciled against this. |
-| [updated-plan.md](updated-plan.md) | source-spec | Formula and method reference (Parts 1–3 live; Part 4's roadmap superseded by `roadmap.md`). |
-| [cold-start-patch-plan.md](cold-start-patch-plan.md) | source-spec | Cold-start design doc. §4–14/§30–40 remain live reference for phase 2; the rest is superseded, with reasons in the banner. |
-| [manager_intelligence_sprint12_change_plan.md](manager_intelligence_sprint12_change_plan.md) | source-spec | Manager Intelligence & Rank Normalization plan. Sprint 12A is the executable subset; §8–10 are blocked, not deferred — see the banner. |
-| [PL_Team_Manager_Intelligence_Patch_Plan.md](PL_Team_Manager_Intelligence_Patch_Plan.md) | source-spec | PL club tactical-profile plan. Sprint 12.5 is the buildable slice; phases 3–6 blocked on validation — see the banner. |
-| [phase-1-plan.md](phase-1-plan.md) | historical | Completed data-ingestion build plan, marked complete 2026-08-02. §1 (observed API state) and §7 (decisions taken) are durable reference. |
-| [fpl_app_phase_wise_build_plan.md](fpl_app_phase_wise_build_plan.md) | source-spec | The original architecture document Phases 0–4 were built from. Superseded by `roadmap.md`; kept for provenance, linked into by `phase-1-plan.md` and `phase-4-model.md`. |
+| [sources/update-aug3.md](sources/update-aug3.md) | source-spec | The owner's revised feature set. `roadmap.md`'s numbering is reconciled against this. |
+| [sources/updated-plan.md](sources/updated-plan.md) | source-spec | Formula and method reference (Parts 1–3 live; Part 4's roadmap superseded by `roadmap.md`). |
+| [sources/cold-start-patch-plan.md](sources/cold-start-patch-plan.md) | source-spec | Cold-start design doc. §4–14/§30–40 remain live reference for phase 2; the rest is superseded, with reasons in the banner. |
+| [sources/manager_intelligence_sprint12_change_plan.md](sources/manager_intelligence_sprint12_change_plan.md) | source-spec | Manager Intelligence & Rank Normalization plan. Sprint 12A is the executable subset; §8–10 are blocked, not deferred — see the banner. |
+| [sources/PL_Team_Manager_Intelligence_Patch_Plan.md](sources/PL_Team_Manager_Intelligence_Patch_Plan.md) | source-spec | PL club tactical-profile plan. Sprint 12.5 is the buildable slice; phases 3–6 blocked on validation — see the banner. |
+| [sources/phase-1-plan.md](sources/phase-1-plan.md) | historical | Completed data-ingestion build plan, marked complete 2026-08-02. §1 (observed API state) and §7 (decisions taken) are durable reference. |
+| [sources/fpl_app_phase_wise_build_plan.md](sources/fpl_app_phase_wise_build_plan.md) | source-spec | The original architecture document Phases 0–4 were built from. Superseded by `roadmap.md`; kept for provenance, linked into by `phase-1-plan.md` and `phase-4-model.md`. |
 
 ## Data assets
 

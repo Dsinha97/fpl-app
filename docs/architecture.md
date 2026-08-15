@@ -1,7 +1,7 @@
 # Architecture
 
 Companion to [../CLAUDE.md](../CLAUDE.md). The authoritative sprint plan is
-[roadmap.md](roadmap.md); [updated-plan.md](updated-plan.md) is now the formula and method
+[roadmap.md](roadmap.md); [updated-plan.md](sources/updated-plan.md) is now the formula and method
 reference only. The xP model's method and backtest are in [phase-4-model.md](phase-4-model.md).
 
 ## Shape

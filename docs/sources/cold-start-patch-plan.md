@@ -6,7 +6,7 @@ Cold-Start Player Prediction Patch — Implementation Plan
 
 > **Status: phase 1 built (2026-08-04). This document is kept unedited as the source; what was
 > actually implemented, and where it deviates, is recorded under "Cold-Start Patch" in
-> [roadmap.md](roadmap.md).**
+> [roadmap.md](../roadmap.md).**
 >
 > In short: the Bayesian prior and minutes-based updating of §23–§29 shipped, fitted from variance
 > components measured off `player_season_history`. Coverage went from 380 of 567 players to all 567.

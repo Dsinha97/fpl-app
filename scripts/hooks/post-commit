@@ -1,0 +1,18 @@
+#!/bin/sh
+# Marks docs/wiki/.pending-ingest with source files touched by this commit, so the
+# wiki-ingest skill knows what changed since the last ingest without re-scanning the
+# whole repo. Never blocks or slows a commit: every branch below exits 0.
+#
+# Install (one-time per clone): copy this file to .git/hooks/post-commit and make it
+# executable —
+#   cp scripts/hooks/post-commit .git/hooks/post-commit && chmod +x .git/hooks/post-commit
+
+MARKER="docs/wiki/.pending-ingest"
+
+mkdir -p docs/wiki 2>/dev/null || exit 0
+
+git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null \
+  | grep -E '^(docs/sources/|docs/sprints/|docs/roadmap\.md|docs/architecture\.md|docs/phase-4-model\.md|CLAUDE\.md|AGENTS\.md)' \
+  >> "$MARKER" 2>/dev/null
+
+exit 0

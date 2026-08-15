@@ -1,8 +1,8 @@
 # FPL Analytics & Decision Support App — Build Plan
 
-> **Status: superseded by [roadmap.md](roadmap.md).** Kept as the original architecture document
+> **Status: superseded by [roadmap.md](../roadmap.md).** Kept as the original architecture document
 > Phases 0–4 were built from — [phase-1-plan.md](phase-1-plan.md) and
-> [phase-4-model.md](phase-4-model.md) still link into specific sections here for provenance. Its
+> [phase-4-model.md](../phase-4-model.md) still link into specific sections here for provenance. Its
 > own roadmap/phase sequencing is not authoritative; `roadmap.md`'s sprint table is.
 
 ## 1. Project Overview

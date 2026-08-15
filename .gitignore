@@ -58,6 +58,11 @@ next-env.d.ts
 # weakens that half of the argument but not the first.) docs/roadmap.md records
 # what was actually read out of them, which is the part that needed to be durable.
 /docs/*.pdf
+/docs/sources/data/*.pdf
+
+# Marker file the post-commit hook (scripts/hooks/post-commit) appends to; the wiki-ingest
+# skill consumes and clears it. Local working state, not durable content.
+/docs/wiki/.pending-ingest
 
 # Working files for the promoted-clubs cold-start data drop (2026-08-05): raw
 # FootyStats PDFs per player/club and a fabricated analytics CSV rejected as a

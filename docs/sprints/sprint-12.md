@@ -148,7 +148,7 @@ finishing batch".
 
 ## Sprint 12.5 — PL Team (Club) Manager Intelligence (buildable slice built, 2026-08-07)
 
-[PL_Team_Manager_Intelligence_Patch_Plan.md](../PL_Team_Manager_Intelligence_Patch_Plan.md) (owner's
+[PL_Team_Manager_Intelligence_Patch_Plan.md](../sources/PL_Team_Manager_Intelligence_Patch_Plan.md) (owner's
 patch plan, kept unedited) proposes a tactical layer: each PL club's head coach gets a profile —
 formation, buildup style, pressing intensity, role preferences per position, and numeric modifiers —
 which multiplies into xP as a `μ_fit` term, feeds the cold-start prior, and ranks replacements. Data

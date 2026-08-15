@@ -11,7 +11,8 @@ front end on Cloudflare, Supabase Postgres + Edge Functions behind it.
 - Owner's FPL manager ID **274486**; season being ingested 2026-27 (GW1 deadline 2026-08-21)
 - Full documentation index, including status: [docs/README.md](docs/README.md). Start there.
   Sprint plan: [docs/roadmap.md](docs/roadmap.md). Architecture/schema: [docs/architecture.md](docs/architecture.md).
-  xP model method + backtest: [docs/phase-4-model.md](docs/phase-4-model.md).
+  xP model method + backtest: [docs/phase-4-model.md](docs/phase-4-model.md). Topic wiki (how/why,
+  cross-linked, source-attributed): [docs/wiki/index.md](docs/wiki/index.md).
 
 ## Commands
 

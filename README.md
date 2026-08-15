@@ -11,11 +11,11 @@ Live at [fpl-app.deepayansinha.workers.dev](https://fpl-app.deepayansinha.worker
   is actually built, including what is blocked and why
 - [docs/architecture.md](./docs/architecture.md) — data flow, schema, Edge Functions, model layer
 - [docs/phase-4-model.md](./docs/phase-4-model.md) — the xP model's method, calibration and backtest
-- [docs/updated-plan.md](./docs/updated-plan.md) — formula and method reference. Its roadmap table is
+- [docs/sources/updated-plan.md](./docs/sources/updated-plan.md) — formula and method reference. Its roadmap table is
   superseded by `roadmap.md`, as is
-  [docs/fpl_app_phase_wise_build_plan.md](./docs/fpl_app_phase_wise_build_plan.md), the original
+  [docs/sources/fpl_app_phase_wise_build_plan.md](./docs/sources/fpl_app_phase_wise_build_plan.md), the original
   architecture document phases 0–4 were built from
-- [docs/phase-1-plan.md](./docs/phase-1-plan.md) — the data-ingestion plan
+- [docs/sources/phase-1-plan.md](./docs/sources/phase-1-plan.md) — the data-ingestion plan
 - [CLAUDE.md](./CLAUDE.md) — working conventions and the gotchas that have already cost time
 
 ## What it does

@@ -5,7 +5,7 @@
 
 > **Status: the buildable slice shipped as Sprint 12.5 (2026-08-07), scoped down.** See "Sprint
 > 12.5 — PL Team (Club) Manager Intelligence" in
-> [sprints/sprint-12.md](sprints/sprint-12.md#sprint-125--pl-team-club-manager-intelligence-buildable-slice-built-2026-08-07)
+> [sprints/sprint-12.md](../sprints/sprint-12.md#sprint-125--pl-team-club-manager-intelligence-buildable-slice-built-2026-08-07)
 > for what shipped and why. Briefly:
 >
 > - **Phases 1, 2, 7–9 (database, tactical knowledge base, UI surfaces) are built** — as disclosed,

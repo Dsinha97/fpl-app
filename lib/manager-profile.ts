@@ -1,6 +1,6 @@
 // Sprint 12A — Manager Percentile Profile.
 //
-// docs/manager_intelligence_sprint12_change_plan.md proposes normalising
+// docs/sources/manager_intelligence_sprint12_change_plan.md proposes normalising
 // historical rank against a stored field size. FPL already does this for us:
 // entry/{id}/history returns `rank_percentage` per past season at sub-1%
 // precision, and it is already ingested into manager_season_history. Building

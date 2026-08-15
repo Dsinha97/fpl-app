@@ -1,5 +1,5 @@
 -- Horizons become 1 / 3 / 5 / 8 / Season to match the revised feature spec in
--- docs/update-aug3.md. xp_6 is replaced by xp_5; xp_total already served as the
+-- docs/sources/update-aug3.md. xp_6 is replaced by xp_5; xp_total already served as the
 -- season figure.
 --
 -- Note that xp_total currently equals xp_8 exactly, because generate-predictions

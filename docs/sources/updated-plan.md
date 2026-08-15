@@ -1,6 +1,6 @@
 # FPL Analytics & Decision Support App
 
-> **Its roadmap is superseded by [roadmap.md](roadmap.md).** The phase table and sprint ordering below
+> **Its roadmap is superseded by [roadmap.md](../roadmap.md).** The phase table and sprint ordering below
 > were replaced by the revised feature set in [update-aug3.md](update-aug3.md). This document is kept
 > for what it still does best: the formulas, weights, worked examples, and schema sketches in Parts
 > 1–3. Where a formula here disagrees with `roadmap.md`, `roadmap.md` wins.
@@ -1115,7 +1115,7 @@ This score should drive replacement recommendations.
 > **`SquadBalance` and `FutureFlexibility` are omitted from the shipped TeamFit** — see
 > `REPLACEMENT_MODEL_NOTE` in `lib/scoring.ts`, which says so in the UI. Both became computable once
 > Sprint 9 loaded the per-gameweek series, but threading it into the builder's replacement panel is
-> still outstanding; it is tracked under "Finishing passes" in [roadmap.md](roadmap.md).
+> still outstanding; it is tracked under "Finishing passes" in [roadmap.md](../roadmap.md).
 
 ---
 
@@ -1361,7 +1361,7 @@ RollValue
 DecisionMargin
 ```
 
-> **Not implemented as written — see the Sprint 9 section of [roadmap.md](roadmap.md).** With a frozen
+> **Not implemented as written — see the Sprint 9 section of [roadmap.md](../roadmap.md).** With a frozen
 > eight-gameweek projection, `RollValue` as stated can never win: the best future basket is already
 > visible today, and playing it today collects one extra gameweek of the same gain. `FutureFlexibility`
 > is therefore not estimated. Rolling is priced from the two computable reasons (banking a second free

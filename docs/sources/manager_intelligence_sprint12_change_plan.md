@@ -1,7 +1,7 @@
 # Change Plan — Manager Intelligence & Rank Normalization Alongside Sprint 12
 
 > **Sprint 12A is built** — see "Sprint 12A — Manager Percentile Profile" in
-> [roadmap.md](roadmap.md) for what shipped and why, and the measurements behind each call. Briefly:
+> [roadmap.md](../roadmap.md) for what shipped and why, and the measurements behind each call. Briefly:
 >
 > - **§4/§5 (season_field_sizes, the percentile formula) are superseded.** FPL's own `rank_percentage`
 >   is already ingested and already at sub-1% precision; no field-size table was built.

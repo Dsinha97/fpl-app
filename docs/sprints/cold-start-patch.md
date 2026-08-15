@@ -6,7 +6,7 @@
 ## Phase 1 — empirical-Bayes rate priors (built)
 
 Sits outside the sprint numbering: a patch taken before Sprint 12 because a third of the player pool
-had no projection at all. Sourced from [../cold-start-patch-plan.md](../cold-start-patch-plan.md), which
+had no projection at all. Sourced from [../sources/cold-start-patch-plan.md](../sources/cold-start-patch-plan.md), which
 remains the reference for the deferred phase 2.
 
 ### The problem, measured
