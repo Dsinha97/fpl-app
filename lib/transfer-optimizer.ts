@@ -41,26 +41,35 @@
 
 import { findReplacements, type ScoredPlayer } from "./scoring";
 import { optimizeSquad, suggestArmband, type OptimizerPlayer } from "./optimizer";
+import { freeHitRebuildAt, type RebuildContext } from "./chips";
+import { CHIP_LABELS, type ChipContext, type PredAt } from "./chip-plan";
 import {
   HIT_COST,
   MAX_FREE_TRANSFERS,
   accrueFreeTransfers,
   simulateTransfers,
+  type SimulateInput,
   type TransferMove,
   type TransferSimulation,
 } from "./transfers";
 import {
   horizonLength,
+  projectAtEvent,
+  projectionAtEvent,
+  type ChipKind,
   type Horizon,
   type HorizonXp,
   type PlayerMeta,
   type SquadPick,
   type SquadRules,
   type TeamState,
+  type XpByEvent,
 } from "./team-state";
 
-/** A player's projected points keyed by gameweek, from `player_predictions`. */
-export type XpByEvent = Map<number, number>;
+// `XpByEvent`, `projectionAtEvent` and `projectAtEvent` live in team-state.ts
+// now — they mirror `computeProjection`, which is declared there — and are
+// re-exported here so every existing import path keeps compiling.
+export { projectAtEvent, projectionAtEvent, type XpByEvent };
 
 /**
  * Deepest basket the search will build.
@@ -100,7 +109,7 @@ const FUNDER_WIDTH = 4;
  */
 export const DEFAULT_DECISION_MARGIN = 1;
 
-export type BranchKind = "roll" | "transfers" | "hit" | "wildcard";
+export type BranchKind = "roll" | "transfers" | "hit" | "wildcard" | "freehit";
 
 export interface Branch {
   kind: BranchKind;
@@ -160,6 +169,16 @@ export interface OptimizeTransfersInput {
   event: number;
   wildcard: WildcardWindow;
   decisionMargin?: number;
+  /**
+   * The chip plan resolved for this horizon window — see
+   * `chipContextFor` (lib/chip-plan.ts). The caller resolves the window
+   * because only it knows `seasonWindow`; absent means no chip plan touches
+   * this window, and every branch behaves exactly as it did before this
+   * field existed.
+   */
+  chip?: ChipContext;
+  /** Needed only when `chip` is set — bench-boost/triple-captain bonuses and the Free Hit rebuild both read per-event predictions. */
+  predAt?: PredAt;
 }
 
 export const TRANSFER_OPTIMIZER_NOTE =
@@ -167,65 +186,9 @@ export const TRANSFER_OPTIMIZER_NOTE =
   "priced only from what can be computed — banking a second free transfer to fund a move you cannot " +
   "split across two weeks, and avoiding a hit. The value of waiting for news is the assumption " +
   "shown in the Roll row, not a modelled quantity; set it to zero to see the arithmetic alone. " +
-  "Free hit and multi-gameweek scheduling are not covered, and the wildcard row does not " +
+  "Multi-gameweek transfer scheduling is not covered — a chip plan changes what each branch's own " +
+  "horizon is worth, but every branch is still a single decision at this gameweek. The wildcard row does not " +
   "re-optimise the armband — so its gain is understated, never inflated.";
-
-// --------------------------------------------------------- per-gameweek maths
-
-/**
- * A squad's expected points for one gameweek, with the armband bonus broken
- * out — what the builder's gameweek planning panel needs (it shows the
- * bonus as its own line, same as the horizon projection does).
- *
- * Deliberately mirrors `computeProjection` term for term — all fifteen picks
- * plus the armband bonus weighted by the captain's chance of playing — so the
- * single-gameweek figure and the horizon figure cannot disagree about what a
- * squad is worth. `missing` counts picks with no entry at all in `seriesOf`
- * for this event — a genuine blank gameweek (a row that exists with xp 0) is
- * not "missing", it is a real answer.
- */
-export function projectionAtEvent(
-  picks: SquadPick[],
-  seriesOf: (playerId: number) => XpByEvent | undefined,
-  availabilityOf: (playerId: number) => number,
-  captain: number | null,
-  vice: number | null,
-  event: number,
-): { total: number; captainBonus: number; missing: number } {
-  const at = (id: number) => seriesOf(id)?.get(event) ?? 0;
-
-  let base = 0;
-  let missing = 0;
-  for (const pick of picks) {
-    if (seriesOf(pick.playerId)?.has(event) !== true) missing++;
-    base += at(pick.playerId);
-  }
-
-  let captainBonus = 0;
-  if (captain !== null) {
-    const pCap = availabilityOf(captain);
-    captainBonus = at(captain) * pCap + (vice !== null ? at(vice) : 0) * (1 - pCap);
-  }
-
-  return { total: base + captainBonus, captainBonus, missing };
-}
-
-/**
- * A squad's expected points for one gameweek, total only — every existing
- * caller (the transfer beam search, `lib/chips.ts`) only ever needed the
- * number, so this stays a thin delegate rather than forcing them onto the
- * breakdown shape above.
- */
-export function projectAtEvent(
-  picks: SquadPick[],
-  seriesOf: (playerId: number) => XpByEvent | undefined,
-  availabilityOf: (playerId: number) => number,
-  captain: number | null,
-  vice: number | null,
-  event: number,
-): number {
-  return projectionAtEvent(picks, seriesOf, availabilityOf, captain, vice, event).total;
-}
 
 // ---------------------------------------------------------------- the search
 
@@ -242,6 +205,38 @@ const signature = (moves: TransferMove[]) =>
     .sort()
     .join("|");
 
+/** The `SimulateInput.chip` block, built once per call — `undefined` when there is nothing to thread, so an untouched build stays byte-identical. */
+function chipSimOf(input: OptimizeTransfersInput): SimulateInput["chip"] {
+  return input.chip && input.predAt
+    ? { context: input.chip, predAt: input.predAt, seriesOf: input.seriesOf }
+    : undefined;
+}
+
+/** The chip forced at `event` by the plan (a wildcard or free hit landing exactly there), or null. */
+function chipForcedAt(chip: ChipContext | undefined, event: number): ChipKind | null {
+  return chip?.excluded.find((x) => x.event === event)?.chip ?? null;
+}
+
+/**
+ * "Bench Boost GW5, Wildcard GW8" — the plan's own gameweeks, deduplicated
+ * from `ChipContext`'s expanded form (a wildcard's mask spans every event
+ * from its own through the window end; this reports only the origin).
+ */
+function summarizeChipPlan(chip: ChipContext | undefined): string | null {
+  if (!chip) return null;
+  const origins = new Map<ChipKind, number>();
+  for (const b of chip.bonus) origins.set(b.chip, b.event);
+  const wildcardEvents = chip.excluded.filter((e) => e.chip === "wildcard").map((e) => e.event);
+  if (wildcardEvents.length > 0) origins.set("wildcard", Math.min(...wildcardEvents));
+  const freehit = chip.excluded.find((e) => e.chip === "freehit");
+  if (freehit) origins.set("freehit", freehit.event);
+  if (origins.size === 0) return null;
+  return [...origins.entries()]
+    .sort((a, b) => a[1] - b[1])
+    .map(([chipKind, event]) => `${CHIP_LABELS[chipKind]} GW${event}`)
+    .join(", ");
+}
+
 /**
  * Best legal basket at each size from 1 to `MAX_BASKET`, by beam search.
  *
@@ -253,6 +248,7 @@ const signature = (moves: TransferMove[]) =>
  */
 function searchBaskets(input: OptimizeTransfersInput): Map<number, Basket> {
   const { team, pool, scoredById, lookup, rules, horizon } = input;
+  const chip = chipSimOf(input);
 
   const simulate = (moves: TransferMove[]): TransferSimulation =>
     simulateTransfers({
@@ -268,6 +264,7 @@ function searchBaskets(input: OptimizeTransfersInput): Map<number, Basket> {
       availabilityOf: input.availabilityOf,
       rules,
       horizon,
+      chip,
     });
 
   const best = new Map<number, Basket>();
@@ -370,9 +367,10 @@ function toOptimizerPlayer(p: ScoredPlayer): OptimizerPlayer {
  *
  * A wildcard is not really a set of transfers, but the basket, the simulator and
  * Apply all speak in pairs — and since both squads satisfy the same position
- * quota, a like-for-like pairing always exists.
+ * quota, a like-for-like pairing always exists. Exported for `lib/transfer-path.ts`,
+ * which pairs a Wildcard/Free Hit rebuild the same way at a future gameweek.
  */
-function pairRebuild(
+export function pairRebuild(
   before: SquadPick[],
   after: SquadPick[],
   positionOf: (playerId: number) => number | undefined,
@@ -431,6 +429,7 @@ function branchFor(
     availabilityOf: input.availabilityOf,
     rules: input.rules,
     horizon: input.horizon,
+    chip: chipSimOf(input),
   });
 
   return {
@@ -491,6 +490,18 @@ export function optimizeTransfers(input: OptimizeTransfersInput): OptimizerResul
   const baskets = searchBaskets(input);
   const branches: Branch[] = [];
 
+  // A wildcard planned for exactly this gameweek makes every paid transfer
+  // pointless — the wildcard rebuild is free however many players change, so
+  // spending a free transfer or taking a hit is never correct here. The
+  // branches stay visible (blocked, not removed) so the reason is legible.
+  const forcedChip = chipForcedAt(input.chip, input.event);
+  const wildcardForcedReason =
+    forcedChip === "wildcard"
+      ? `A Wildcard is planned for GW${input.event} — every move is free that gameweek, so this option is never the right one. See the Wildcard branch instead.`
+      : null;
+  const forceBlocked = (branch: Branch): Branch =>
+    wildcardForcedReason ? { ...branch, blocked: wildcardForcedReason } : branch;
+
   // --- spend free transfers, no hit
   for (let k = 1; k <= Math.min(ft, MAX_BASKET); k++) {
     const branch = branchFor(
@@ -500,7 +511,7 @@ export function optimizeTransfers(input: OptimizeTransfersInput): OptimizerResul
       input,
       ft,
     );
-    if (branch) branches.push(branch);
+    if (branch) branches.push(forceBlocked(branch));
   }
 
   // --- take a hit. Pointless once three transfers are already free: the extra
@@ -515,15 +526,19 @@ export function optimizeTransfers(input: OptimizeTransfersInput): OptimizerResul
         input,
         ft,
       );
-      if (branch) branches.push(branch);
+      if (branch) branches.push(forceBlocked(branch));
     }
   }
 
   // --- roll
-  branches.push(rollBranch(input, ft, accrued, baskets, decisionMargin));
+  branches.push(forceBlocked(rollBranch(input, ft, accrued, baskets, decisionMargin)));
 
   // --- wildcard
   branches.push(wildcardBranch(input));
+
+  // --- free hit (only appears when the plan pins it to this exact gameweek)
+  const freeHit = freeHitBranch(input);
+  if (freeHit) branches.push(freeHit);
 
   const playable = branches.filter((b) => b.blocked === null);
   const ranked = [...playable].sort((a, b) => b.net - a.net || a.moves.length - b.moves.length);
@@ -555,6 +570,10 @@ export function optimizeTransfers(input: OptimizeTransfersInput): OptimizerResul
   }
   if (horizon === 1) {
     confidenceReason += " Judged over a single gameweek.";
+  }
+  const chipSummary = summarizeChipPlan(input.chip);
+  if (chipSummary) {
+    confidenceReason += ` Conditioned on your chip plan: ${chipSummary}.`;
   }
 
   return {
@@ -596,6 +615,32 @@ function rollBranch(
 
   if (!basket) {
     explanation.push("Nothing legal and affordable to do next gameweek either.");
+    return {
+      kind: "roll",
+      label,
+      moves: [],
+      simulation: null,
+      xpGain: 0,
+      pointsCost: 0,
+      riskPointsDelta: 0,
+      assumedNewsValue: decisionMargin,
+      net: decisionMargin,
+      explanation,
+      blocked: null,
+    };
+  }
+
+  // A Wildcard planned for exactly next gameweek overwrites whatever this
+  // basket would be — `basket.sim.xpDelta` is already the chip-masked
+  // 5-gameweek delta of *that* squad, which the ordinary forfeit arithmetic
+  // below would then subtract *again* (both terms land on the same masked
+  // gameweek), reading as ~0 for the wrong reason. Say so directly instead:
+  // rolling costs nothing because there is no coherent "next week's basket"
+  // once the wildcard rebuild lands there.
+  if (chipForcedAt(input.chip, input.event + 1) === "wildcard") {
+    explanation.push(
+      `A Wildcard is planned for GW${input.event + 1} — it overwrites whatever squad you'd have by then, so there is no basket to price rolling into.`,
+    );
     return {
       kind: "roll",
       label,
@@ -728,6 +773,7 @@ function wildcardBranch(input: OptimizeTransfersInput): Branch {
     availabilityOf: input.availabilityOf,
     rules: input.rules,
     horizon: input.horizon,
+    chip: chipSimOf(input),
   });
 
   if (!sim.legal) {
@@ -760,5 +806,68 @@ function wildcardBranch(input: OptimizeTransfersInput): Branch {
     riskPointsDelta: sim.riskPointsDelta,
     net: sim.xpDelta - sim.riskPointsDelta,
     explanation,
+  };
+}
+
+// ------------------------------------------------------------ free hit branch
+
+/**
+ * Only appears when the chip plan pins Free Hit to this exact gameweek —
+ * modelled on `wildcardBranch`, but the rebuild is `freeHitRebuildAt`
+ * (lib/chips.ts), which values one gameweek and reverts, not a permanent
+ * squad change. `net`/`xpGain` are that one gameweek's gain, stated as such
+ * in the explanation, never treated as a horizon figure.
+ */
+function freeHitBranch(input: OptimizeTransfersInput): Branch | null {
+  if (chipForcedAt(input.chip, input.event) !== "freehit" || !input.predAt) return null;
+
+  const base: Branch = {
+    kind: "freehit",
+    label: "Free Hit",
+    moves: [],
+    simulation: null,
+    xpGain: 0,
+    pointsCost: 0,
+    riskPointsDelta: 0,
+    assumedNewsValue: 0,
+    net: 0,
+    explanation: [],
+    blocked: null,
+  };
+
+  const ctx: RebuildContext = {
+    team: input.team,
+    pool: input.pool,
+    rules: input.rules,
+    predAt: input.predAt,
+    availabilityOf: input.availabilityOf,
+  };
+  const rebuild = freeHitRebuildAt(ctx, input.event);
+
+  if (rebuild.valuation.blocked) {
+    return { ...base, blocked: rebuild.valuation.blocked };
+  }
+
+  const byId = new Map(input.pool.map((p) => [p.id, p]));
+  const moves = pairRebuild(input.team.players, rebuild.picks, (id) => byId.get(id)?.elementType);
+
+  if (moves.length === 0) {
+    return {
+      ...base,
+      explanation: ["Your squad already is the Free Hit optimiser's squad — nothing would change."],
+    };
+  }
+
+  return {
+    ...base,
+    moves,
+    xpGain: rebuild.valuation.gain,
+    pointsCost: 0,
+    riskPointsDelta: 0,
+    net: rebuild.valuation.gain,
+    explanation: [
+      ...rebuild.valuation.explanation,
+      "In real FPL this squad reverts automatically after the gameweek — loading these moves here would apply them as a permanent change instead, so treat this as the picks to consider rather than a basket to apply.",
+    ],
   };
 }

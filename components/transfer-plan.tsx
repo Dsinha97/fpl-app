@@ -6,8 +6,9 @@ import {
   type Branch,
   type OptimizerResult,
 } from "@/lib/transfer-optimizer";
-import { horizonLabel, type Horizon } from "@/lib/team-state";
+import { horizonLabel, type ChipKind, type Horizon } from "@/lib/team-state";
 import type { TransferMove } from "@/lib/transfers";
+import { CHIP_LABELS } from "@/lib/chip-plan";
 
 interface TransferPlanProps {
   result: OptimizerResult | null;
@@ -39,6 +40,25 @@ const signed = (v: number, digits = 1) => {
   return `${rounded > 0 ? "+" : ""}${rounded.toFixed(digits)}`;
 };
 
+/**
+ * "Bench Boost GW5, Wildcard GW8" from whatever chip terms any branch's
+ * simulation carries — a wildcard's mask repeats across every event it
+ * covers, so this reports only the earliest (its own gameweek) per chip.
+ */
+function summarizeChipTerms(result: OptimizerResult): string | null {
+  const terms = result.branches.flatMap((b) => b.simulation?.after.chipAdjustment?.terms ?? []);
+  if (terms.length === 0) return null;
+  const minEventByChip = new Map<ChipKind, number>();
+  for (const t of terms) {
+    const cur = minEventByChip.get(t.chip);
+    if (cur === undefined || t.event < cur) minEventByChip.set(t.chip, t.event);
+  }
+  return [...minEventByChip.entries()]
+    .sort((a, b) => a[1] - b[1])
+    .map(([chip, event]) => `${CHIP_LABELS[chip]} GW${event}`)
+    .join(", ");
+}
+
 const CONFIDENCE_STYLE: Record<OptimizerResult["confidence"], string> = {
   high: "text-emerald-700 dark:text-emerald-400",
   medium: "text-zinc-600 dark:text-zinc-400",
@@ -67,6 +87,7 @@ export function TransferPlan({
   // ate the whole screen below the branch list on mobile. Same idiom as the
   // chips page's model-note banner.
   const [noteOpen, setNoteOpen] = useState(false);
+  const chipSummary = result ? summarizeChipTerms(result) : null;
 
   return (
     <section className="mt-5 rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
@@ -112,9 +133,14 @@ export function TransferPlan({
 
       {!loading && result && (
         <>
+          {chipSummary && (
+            <p className="mt-3 border-t border-zinc-100 pt-3 text-xs text-purple-700 dark:border-purple-900/40 dark:text-[#00FF87]">
+              Conditioned on: {chipSummary}.
+            </p>
+          )}
           <p
             role="status"
-            className="mt-3 border-t border-zinc-100 pt-3 text-sm dark:border-purple-900/40"
+            className={`${chipSummary ? "mt-2" : "mt-3 border-t border-zinc-100 pt-3 dark:border-purple-900/40"} text-sm`}
           >
             {result.holdIsBest ? (
               <span className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -220,6 +246,19 @@ function BranchRow({
                 their own term, so neither hides inside the net. */}
             <span className="text-[11px] tabular-nums text-zinc-500">
               {signed(branch.xpGain)} xP
+              {(() => {
+                const terms = branch.simulation?.after.chipAdjustment?.terms;
+                if (!terms || terms.length === 0) return null;
+                return (
+                  <span title={terms.map((t) => t.reason).join(" ")}>
+                    {" ("}
+                    {terms
+                      .map((t) => `${signed(t.delta)} GW${t.event} ${CHIP_LABELS[t.chip].toLowerCase()}`)
+                      .join(", ")}
+                    {")"}
+                  </span>
+                );
+              })()}
               {branch.pointsCost > 0 ? ` − ${branch.pointsCost} hit` : ""}
               {Math.abs(branch.riskPointsDelta) >= 0.05
                 ? ` ${branch.riskPointsDelta > 0 ? "−" : "+"} ${Math.abs(branch.riskPointsDelta).toFixed(1)} risk`

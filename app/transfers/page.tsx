@@ -28,11 +28,23 @@ import {
   type XpByEvent,
 } from "@/lib/transfer-optimizer";
 import { signatureOf, TransferPlan } from "@/components/transfer-plan";
+import { ChipPlanEditor } from "@/components/chip-plan-editor";
+import { TransferPath } from "@/components/transfer-path";
+import { planTransferPath, type TransferPathResult } from "@/lib/transfer-path";
+import {
+  chipContextFor,
+  validateChipPlan,
+  type ChipDefinitionRow,
+  type EventPrediction,
+  type PredAt,
+} from "@/lib/chip-plan";
 import {
   DEFAULT_RULES,
   HORIZONS,
   horizonLabel,
+  horizonLength,
   seasonHorizonNote,
+  type ChipPlan,
   type Horizon,
   type HorizonXp,
   type PlayerMeta,
@@ -107,6 +119,10 @@ export default function TransfersPage() {
     available: false,
     reason: null,
   });
+  /** Every chip's windows, both halves — the chip plan editor needs the full set, not just wildcard's. */
+  const [chipDefinitions, setChipDefinitions] = useState<ChipDefinitionRow[]>([]);
+  /** Per-event predictions, for a chip plan's Bench Boost / Triple Captain bonus. */
+  const [predsByPlayer, setPredsByPlayer] = useState<Map<number, Map<number, EventPrediction>>>(new Map());
   /**
    * Applies the manual basket as a Wildcard: every move is free, however many
    * are queued. Mirrors the trick `transfer-optimizer.ts`'s own wildcard
@@ -119,6 +135,8 @@ export default function TransfersPage() {
   const [pickingFor, setPickingFor] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState<string | null>(null);
+  const [pathResult, setPathResult] = useState<TransferPathResult | null>(null);
+  const [pathLoading, setPathLoading] = useState(false);
 
   // Drafts live in localStorage, so they can only be read after mount — an
   // effect is the right place despite the set-state-in-effect lint preference.
@@ -191,26 +209,31 @@ export default function TransfersPage() {
               .gte("event", gw.id)
               .order("event"),
             supabase
+              // Every chip, both season halves — the chip plan editor needs the
+              // full set; /chips loads the same way for the same reason.
               .from("chip_definitions")
               .select("name, chip_type, start_event, stop_event")
-              .eq("season", gw.season)
-              .eq("name", "wildcard"),
+              .eq("season", gw.season),
           ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
         if (teamsRes.error) throw new Error(teamsRes.error.message);
 
+        const chipDefs: ChipDefinitionRow[] = (chipsRes.data ?? []).map((r) => ({
+          name: r.name as string,
+          startEvent: r.start_event as number,
+          stopEvent: r.stop_event as number | null,
+        }));
+        setChipDefinitions(chipDefs);
+
         // The real chip windows, not an assumption: the first wildcard does not
         // open until GW2, so in GW1 the option must be shown as unavailable
         // rather than offered.
-        const windows = (chipsRes.data ?? []) as {
-          start_event: number | null;
-          stop_event: number | null;
-        }[];
+        const windows = chipDefs.filter((w) => w.name === "wildcard");
         const open = windows.some(
-          (w) => (w.start_event ?? 1) <= gw.id && gw.id <= (w.stop_event ?? 38),
+          (w) => w.startEvent <= gw.id && gw.id <= (w.stopEvent ?? 38),
         );
         const nextOpen = windows
-          .map((w) => w.start_event ?? 1)
+          .map((w) => w.startEvent)
           .filter((start) => start > gw.id)
           .sort((a, b) => a - b)[0];
         setWildcard({
@@ -226,12 +249,16 @@ export default function TransfersPage() {
         // rows only exist through whatever window generate-predictions last
         // ran (see "Prediction window extended" in
         // docs/sprints/additional-info.md), so this naturally tracks that
-        // window rather than needing to be told it.
+        // window rather than needing to be told it. Carries the columns
+        // /chips and /deadline already fetch — expected_minutes,
+        // start_probability, availability, fdr — so a chip plan's Bench
+        // Boost / Triple Captain bonus can be valued per event here too.
         const series = new Map<number, XpByEvent>();
+        const preds = new Map<number, Map<number, EventPrediction>>();
         for (let from = 0; ; from += PAGE_ROWS) {
           const { data: page, error: pageError } = await supabase
             .from("player_predictions")
-            .select("player_id, event, xp")
+            .select("player_id, event, expected_minutes, start_probability, availability, fdr, xp")
             .eq("season", gw.season)
             .gte("event", gw.id)
             .order("player_id")
@@ -243,10 +270,20 @@ export default function TransfersPage() {
             let byEvent = series.get(id);
             if (!byEvent) series.set(id, (byEvent = new Map()));
             byEvent.set(r.event as number, Number(r.xp ?? 0));
+            let predByEvent = preds.get(id);
+            if (!predByEvent) preds.set(id, (predByEvent = new Map()));
+            predByEvent.set(r.event as number, {
+              expectedMinutes: r.expected_minutes as number | null,
+              startProbability: r.start_probability as number | null,
+              availability: (r.availability as number | null) ?? 0,
+              fdr: r.fdr as number | null,
+              xp: r.xp as number | null,
+            });
           }
           if ((page?.length ?? 0) < PAGE_ROWS) break;
         }
         setSeriesById(series);
+        setPredsByPlayer(preds);
 
         const shorts = new Map(
           (teamsRes.data ?? []).map((t) => [t.id as number, t.short_name as string]),
@@ -348,6 +385,7 @@ export default function TransfersPage() {
     setPickingFor(null);
     setApplied(null);
     setWildcardMode(false);
+    setPathResult(null);
   }, [draftId]);
 
   useEffect(() => {
@@ -391,6 +429,32 @@ export default function TransfersPage() {
     [rowById],
   );
 
+  const predAt: PredAt = useCallback(
+    (playerId: number, event: number) => predsByPlayer.get(playerId)?.get(event),
+    [predsByPlayer],
+  );
+
+  const seriesOf = useCallback(
+    (id: number): XpByEvent | undefined => seriesById.get(id),
+    [seriesById],
+  );
+
+  /** `seasonWindow` is `windowEnd - nextEvent + 1` (see the fetch above), so this recovers the real season-end gameweek without a second query. */
+  const lastEvent = nextEvent !== null ? nextEvent + seasonWindow - 1 : null;
+
+  /** The chip plan's legal entries — computed once, shared by the deadline optimiser (window-bounded below) and the forward path (which resolves its own window per gameweek). */
+  const chipPlanUsable = useMemo(() => {
+    if (!team || nextEvent === null || lastEvent === null) return [];
+    return validateChipPlan(team.chipPlan, chipDefinitions, nextEvent, lastEvent, team.activeChip).usable;
+  }, [team, chipDefinitions, nextEvent, lastEvent]);
+
+  /** The chip plan's usable entries, resolved into the two things the simulator can act on within this horizon window. */
+  const chipContext = useMemo(() => {
+    if (nextEvent === null) return null;
+    const toEvent = nextEvent + horizonLength(horizon, seasonWindow) - 1;
+    return chipContextFor(chipPlanUsable, nextEvent, toEvent);
+  }, [chipPlanUsable, nextEvent, horizon, seasonWindow]);
+
   const simulation = useMemo(() => {
     if (!team || scoredById.size === 0) return null;
     return simulateTransfers({
@@ -406,6 +470,7 @@ export default function TransfersPage() {
       availabilityOf,
       rules,
       horizon,
+      chip: chipContext ? { context: chipContext, predAt, seriesOf } : undefined,
     });
   }, [
     team,
@@ -419,12 +484,10 @@ export default function TransfersPage() {
     availabilityOf,
     rules,
     horizon,
+    chipContext,
+    predAt,
+    seriesOf,
   ]);
-
-  const seriesOf = useCallback(
-    (id: number): XpByEvent | undefined => seriesById.get(id),
-    [seriesById],
-  );
 
   /**
    * The window check alone isn't enough — a draft that already has a
@@ -459,6 +522,8 @@ export default function TransfersPage() {
       event: nextEvent,
       wildcard,
       decisionMargin,
+      chip: chipContext ?? undefined,
+      predAt,
     });
   }, [
     team,
@@ -472,9 +537,54 @@ export default function TransfersPage() {
     rules,
     horizon,
     freeTransfers,
+    chipContext,
+    predAt,
     nextEvent,
     wildcard,
     decisionMargin,
+  ]);
+
+  /** Forward multi-gameweek path — a bounded but real search, gated behind a button like `/deadline`'s optimiser. */
+  const runTransferPath = useCallback(() => {
+    if (!team || scoredById.size === 0 || nextEvent === null || lastEvent === null) return;
+    setPathLoading(true);
+    setTimeout(() => {
+      const result = planTransferPath({
+        team,
+        pool,
+        scoredById,
+        lookup,
+        xpOf,
+        availabilityOf,
+        isPenaltyTaker,
+        seriesOf,
+        predAt,
+        rules,
+        freeTransfers,
+        event: nextEvent,
+        windowEnd: lastEvent,
+        plan: chipPlanUsable,
+        wildcard,
+      });
+      setPathResult(result);
+      setPathLoading(false);
+    }, 0);
+  }, [
+    team,
+    scoredById,
+    nextEvent,
+    lastEvent,
+    pool,
+    lookup,
+    xpOf,
+    availabilityOf,
+    isPenaltyTaker,
+    seriesOf,
+    predAt,
+    rules,
+    freeTransfers,
+    chipPlanUsable,
+    wildcard,
   ]);
 
   /** Ranked candidates for the slot being filled, plus a free-text search. */
@@ -547,6 +657,12 @@ export default function TransfersPage() {
   };
 
   const movesByOut = useMemo(() => new Map(moves.map((m) => [m.outId, m])), [moves]);
+
+  const handleChipPlanChange = (next: ChipPlan) => {
+    if (!team) return;
+    saveDraft({ ...team, chipPlan: next });
+    setDrafts(listDrafts());
+  };
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
@@ -655,6 +771,17 @@ export default function TransfersPage() {
         )}
       </div>
 
+      {team && lastEvent !== null && nextEvent !== null && (
+        <ChipPlanEditor
+          plan={team.chipPlan}
+          chipDefinitions={chipDefinitions}
+          nextEvent={nextEvent}
+          lastEvent={lastEvent}
+          activeChip={team.activeChip}
+          onChange={handleChipPlanChange}
+        />
+      )}
+
       {error && (
         <p className="mt-6 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
           {error}
@@ -693,6 +820,15 @@ export default function TransfersPage() {
           }}
           loadedSignature={moves.length > 0 ? signatureOf(moves) : null}
           loading={plan === null}
+        />
+      )}
+
+      {team && !loading && nextEvent !== null && team.players.length === rules.squadSize && (
+        <TransferPath
+          result={pathResult}
+          loading={pathLoading}
+          onRun={runTransferPath}
+          hasChipPlan={chipPlanUsable.length > 0}
         />
       )}
 

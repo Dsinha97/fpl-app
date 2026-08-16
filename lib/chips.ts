@@ -44,44 +44,38 @@
 //     everywhere it is asked, per CLAUDE.md's "one quantity, one
 //     implementation" rule.
 
-import { optimiseLineup, type LineupCandidate } from "./lineup";
 import { optimizeSquad, suggestArmband, type OptimizerPlayer } from "./optimizer";
-import { projectAtEvent, type XpByEvent } from "./transfer-optimizer";
-import type { PlayerMeta, SquadPick, SquadRules, TeamState } from "./team-state";
+import {
+  CHIP_KINDS,
+  CHIP_LABELS,
+  benchBoostAt,
+  blockedValuation,
+  candidatesAt,
+  resolveStopEvent,
+  tripleCaptainAt,
+  type ChipDefinitionRow,
+  type ChipValuation,
+  type EventPrediction,
+  type PredAt,
+} from "./chip-plan";
+import {
+  projectAtEvent,
+  type ChipKind,
+  type PlayerMeta,
+  type SquadPick,
+  type SquadRules,
+  type TeamState,
+  type XpByEvent,
+} from "./team-state";
 import type { ScoredPlayer } from "./scoring";
 
-export interface EventPrediction {
-  expectedMinutes: number | null;
-  startProbability: number | null;
-  /** 0-1, per event — player_predictions carries this per gameweek, not just "now". */
-  availability: number;
-  fdr: number | null;
-  xp: number | null;
-}
-
-export type PredAt = (playerId: number, event: number) => EventPrediction | undefined;
-
-export type ChipKind = "bboost" | "3xc" | "freehit" | "wildcard";
-
-export const CHIP_LABELS: Record<ChipKind, string> = {
-  bboost: "Bench Boost",
-  "3xc": "Triple Captain",
-  freehit: "Free Hit",
-  wildcard: "Wildcard",
-};
-
-const CHIP_KINDS: ChipKind[] = ["bboost", "3xc", "freehit", "wildcard"];
-
-export interface ChipValuation {
-  chip: ChipKind;
-  event: number;
-  gain: number;
-  /** Named components so the page never shows a bare net figure. */
-  terms: Record<string, number>;
-  explanation: string[];
-  /** Why this gameweek could not be valued, when it could not. */
-  blocked: string | null;
-}
+// `ChipKind`, `CHIP_LABELS`, `EventPrediction`, `PredAt`, `ChipValuation`,
+// `candidatesAt`, `benchBoostAt`, `tripleCaptainAt` moved to lib/chip-plan.ts
+// (see that file's header for why) — re-exported so every existing import
+// path (`app/builder`, `app/scenarios`, `app/deadline`, `app/chips`) keeps
+// compiling unchanged.
+export { CHIP_LABELS, benchBoostAt, candidatesAt, resolveStopEvent, tripleCaptainAt };
+export type { ChipDefinitionRow, ChipKind, ChipValuation, EventPrediction, PredAt };
 
 export interface ChipWindow {
   chip: ChipKind;
@@ -90,12 +84,6 @@ export interface ChipWindow {
   stopEvent: number;
   /** Set when no gameweek in this window has a projection at all. */
   blocked: string | null;
-}
-
-export interface ChipDefinitionRow {
-  name: string;
-  startEvent: number;
-  stopEvent: number;
 }
 
 export interface EventFixtureCounts {
@@ -211,35 +199,9 @@ export function chipModelNote(blankEvents: number, doubleEvents: number, windowE
 }
 
 // -------------------------------------------------------------- primitives
-
-/** One gameweek's `LineupCandidate[]` for a squad — the one new view this file adds. */
-export function candidatesAt(
-  picks: SquadPick[],
-  event: number,
-  predAt: PredAt,
-  lookup: (playerId: number) => PlayerMeta | undefined,
-  isPenaltyTaker: (playerId: number) => boolean,
-): LineupCandidate[] {
-  const out: LineupCandidate[] = [];
-  for (const pick of picks) {
-    const meta = lookup(pick.playerId);
-    if (!meta) continue;
-    const pred = predAt(pick.playerId, event);
-    out.push({
-      playerId: pick.playerId,
-      elementType: meta.elementType,
-      webName: meta.webName,
-      xp: pred?.xp ?? null,
-      expectedMinutes: pred?.expectedMinutes ?? null,
-      startProbability: pred?.startProbability ?? null,
-      availability: pred?.availability ?? 0,
-      fdr: pred?.fdr ?? null,
-      opponent: null,
-      isPenaltyTaker: isPenaltyTaker(pick.playerId),
-    });
-  }
-  return out;
-}
+//
+// `candidatesAt`, `blockedValuation`, `benchBoostAt`, `tripleCaptainAt` now
+// live in lib/chip-plan.ts and are re-exported above.
 
 /**
  * Sum of a player's xP over a gameweek range, or `null` if the model has no
@@ -325,97 +287,9 @@ function toOptimizerPlayerWindow(p: ScoredPlayer, predAt: PredAt, from: number, 
   };
 }
 
-function blockedValuation(chip: ChipKind, event: number, reason: string): ChipValuation {
-  return { chip, event, gain: 0, terms: {}, explanation: [reason], blocked: reason };
-}
-
-// -------------------------------------------------------------- Bench Boost
-
-/**
- * Net of what auto-subs would already deliver: `optimiseLineup` already
- * prices the bench's expected contribution *without* the chip
- * (`benchExpectedContribution`), so charging for it again inside the chip
- * value would overstate every Bench Boost by however much the bench already
- * earns on a normal week.
- */
-export function benchBoostAt(
-  picks: SquadPick[],
-  event: number,
-  predAt: PredAt,
-  lookup: (playerId: number) => PlayerMeta | undefined,
-  isPenaltyTaker: (playerId: number) => boolean,
-): ChipValuation {
-  const candidates = candidatesAt(picks, event, predAt, lookup, isPenaltyTaker);
-  const result = optimiseLineup(candidates);
-  if (!result) return blockedValuation("bboost", event, "No legal lineup could be formed for this gameweek.");
-
-  const gain = result.benchXp - result.benchExpectedContribution;
-  return {
-    chip: "bboost",
-    event,
-    gain,
-    terms: { benchXp: result.benchXp, benchExpectedContribution: result.benchExpectedContribution },
-    explanation: [
-      `Bench totals ${result.benchXp.toFixed(1)} xP; auto-subs would already deliver ` +
-        `${result.benchExpectedContribution.toFixed(1)} of it without the chip.`,
-    ],
-    blocked: null,
-  };
-}
-
-// ---------------------------------------------------------- Triple Captain
-
-/**
- * Reports two figures rather than one: the extra copy your *current* armband
- * would earn, and what the model's own best captain for this gameweek would
- * earn. The best Triple Captain target is often not today's captain, and
- * collapsing the two into one number would hide a choice the user still has.
- */
-export function tripleCaptainAt(
-  team: TeamState,
-  event: number,
-  predAt: PredAt,
-  availabilityOf: (playerId: number) => number,
-  lookup: (playerId: number) => PlayerMeta | undefined,
-  isPenaltyTaker: (playerId: number) => boolean,
-): ChipValuation {
-  const candidates = candidatesAt(team.players, event, predAt, lookup, isPenaltyTaker);
-  const result = optimiseLineup(candidates);
-  if (!result) return blockedValuation("3xc", event, "No legal lineup could be formed for this gameweek.");
-
-  const bonus = (captain: number | null, vice: number | null): number => {
-    if (captain === null) return 0;
-    const pCap = availabilityOf(captain);
-    const capXp = predAt(captain, event)?.xp ?? 0;
-    const viceXp = vice !== null ? (predAt(vice, event)?.xp ?? 0) : 0;
-    return capXp * pCap + viceXp * (1 - pCap);
-  };
-
-  const withCurrent = bonus(team.captain, team.viceCaptain);
-  const bestCaptain = result.captain?.playerId ?? null;
-  const withBest = bonus(bestCaptain, result.vice?.playerId ?? null);
-
-  const gain = team.captain !== null ? withCurrent : withBest;
-  const differs = team.captain !== null && bestCaptain !== null && bestCaptain !== team.captain;
-
-  return {
-    chip: "3xc",
-    event,
-    gain,
-    terms: { withCurrentArmband: withCurrent, withBestArmband: withBest },
-    explanation: differs
-      ? [
-          `Your current captain is worth +${withCurrent.toFixed(1)}; the model's own pick for this ` +
-            `gameweek, ${result.captain?.webName ?? "another player"}, would be worth +${withBest.toFixed(1)}.`,
-        ]
-      : [`One extra copy of the captain's gameweek score: +${gain.toFixed(1)}.`],
-    blocked: null,
-  };
-}
-
 // --------------------------------------------------------------- Free Hit
 
-interface RebuildContext {
+export interface RebuildContext {
   team: TeamState;
   pool: ScoredPlayer[];
   rules: SquadRules;
@@ -423,14 +297,33 @@ interface RebuildContext {
   availabilityOf: (playerId: number) => number;
 }
 
+/**
+ * A chip's rebuilt squad, not just its value — `ChipValuation.gain` alone is
+ * not enough for a caller (the transfer optimiser's Free Hit branch, the
+ * forward transfer path) that needs to actually field the rebuilt picks.
+ * `picks` is empty when `valuation.blocked` is set.
+ */
+export interface ChipRebuild {
+  valuation: ChipValuation;
+  picks: SquadPick[];
+  captain: number | null;
+  vice: number | null;
+  /** True when the current armband could not be carried over — the same disclosure `wildcardRebuildAt` already makes in its valuation's explanation. */
+  armbandMoved: boolean;
+}
+
+function blockedRebuild(chip: ChipKind, event: number, reason: string): ChipRebuild {
+  return { valuation: blockedValuation(chip, event, reason), picks: [], captain: null, vice: null, armbandMoved: false };
+}
+
 /** Best legal one-week squad, valued against the current squad for the same gameweek; reverts after. */
-function freeHitAt(ctx: RebuildContext, event: number): ChipValuation {
+export function freeHitRebuildAt(ctx: RebuildContext, event: number): ChipRebuild {
   const { team, pool, rules, predAt, availabilityOf } = ctx;
   const rebuildPool = pool.map((p) => toOptimizerPlayerAt(p, predAt, event));
   const rebuild = optimizeSquad({ pool: rebuildPool, rules, locked: [], horizon: 1, strategy: "max_points", risk: "medium" });
 
   if (rebuild.error || rebuild.picks.length !== rules.squadSize) {
-    return blockedValuation("freehit", event, rebuild.error ?? "Could not build a legal one-week squad.");
+    return blockedRebuild("freehit", event, rebuild.error ?? "Could not build a legal one-week squad.");
   }
 
   const byId = new Map(rebuildPool.map((p) => [p.id, p]));
@@ -447,16 +340,26 @@ function freeHitAt(ctx: RebuildContext, event: number): ChipValuation {
   const before = projectAtEvent(team.players, eventSeriesOf, availabilityOf, team.captain, team.viceCaptain, event);
 
   return {
-    chip: "freehit",
-    event,
-    gain: after - before,
-    terms: { rebuiltXp: after, currentSquadXp: before },
-    explanation: [
-      `Best legal one-week squad for GW${event} scores ${after.toFixed(1)} against your current ` +
-        `squad's ${before.toFixed(1)}. The squad reverts after the gameweek.`,
-    ],
-    blocked: null,
+    valuation: {
+      chip: "freehit",
+      event,
+      gain: after - before,
+      terms: { rebuiltXp: after, currentSquadXp: before },
+      explanation: [
+        `Best legal one-week squad for GW${event} scores ${after.toFixed(1)} against your current ` +
+          `squad's ${before.toFixed(1)}. The squad reverts after the gameweek.`,
+      ],
+      blocked: null,
+    },
+    picks: rebuild.picks,
+    captain: armband.captain,
+    vice: armband.vice,
+    armbandMoved: false,
   };
+}
+
+function freeHitAt(ctx: RebuildContext, event: number): ChipValuation {
+  return freeHitRebuildAt(ctx, event).valuation;
 }
 
 // --------------------------------------------------------------- Wildcard
@@ -468,7 +371,7 @@ function freeHitAt(ctx: RebuildContext, event: number): ChipValuation {
  * disclosed as understated, the same treatment `transfer-optimizer.ts`'s
  * wildcard branch gives the same situation.
  */
-function wildcardAt(ctx: RebuildContext, event: number, windowEnd: number): ChipValuation {
+export function wildcardRebuildAt(ctx: RebuildContext, event: number, windowEnd: number): ChipRebuild {
   const { team, pool, rules, predAt, availabilityOf } = ctx;
   const rebuildPool = pool.map((p) => toOptimizerPlayerWindow(p, predAt, event, windowEnd));
   const rebuild = optimizeSquad({
@@ -481,7 +384,7 @@ function wildcardAt(ctx: RebuildContext, event: number, windowEnd: number): Chip
   });
 
   if (rebuild.error || rebuild.picks.length !== rules.squadSize) {
-    return blockedValuation("wildcard", event, rebuild.error ?? "Could not build a legal squad from scratch.");
+    return blockedRebuild("wildcard", event, rebuild.error ?? "Could not build a legal squad from scratch.");
   }
 
   const byId = new Map(rebuildPool.map((p) => [p.id, p]));
@@ -502,13 +405,23 @@ function wildcardAt(ctx: RebuildContext, event: number, windowEnd: number): Chip
   }
 
   return {
-    chip: "wildcard",
-    event,
-    gain: after - before,
-    terms: { rebuiltXp: after, currentSquadXp: before },
-    explanation,
-    blocked: null,
+    valuation: {
+      chip: "wildcard",
+      event,
+      gain: after - before,
+      terms: { rebuiltXp: after, currentSquadXp: before },
+      explanation,
+      blocked: null,
+    },
+    picks: rebuild.picks,
+    captain: armband.captain,
+    vice: armband.vice,
+    armbandMoved: !stillIn,
   };
+}
+
+function wildcardAt(ctx: RebuildContext, event: number, windowEnd: number): ChipValuation {
+  return wildcardRebuildAt(ctx, event, windowEnd).valuation;
 }
 
 // -------------------------------------------------------------- schedule
@@ -626,13 +539,19 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
         chip,
         label,
         startEvent: def.startEvent,
-        stopEvent: def.stopEvent,
+        stopEvent: resolveStopEvent(def, windowEnd),
         blocked: `Predictions only reach GW${windowEnd}; this window opens GW${def.startEvent}.`,
       });
       continue;
     }
 
-    windows.push({ chip, label, startEvent: def.startEvent, stopEvent: def.stopEvent, blocked: null });
+    windows.push({
+      chip,
+      label,
+      startEvent: def.startEvent,
+      stopEvent: resolveStopEvent(def, windowEnd),
+      blocked: null,
+    });
 
     // Gameweeks inside the requested window, after whatever this chip's
     // prior def already covered, but before this def's own window opens
@@ -646,7 +565,7 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
     }
 
     const from = Math.max(def.startEvent, windowStart);
-    const to = Math.min(def.stopEvent, windowEnd);
+    const to = Math.min(resolveStopEvent(def, windowEnd), windowEnd);
 
     if (chip === "wildcard") {
       for (let e = from; e <= to; e++) {
@@ -703,10 +622,11 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
       const def = defsByChip.get(chip)?.[h];
       if (!def) continue;
       anyDef = true;
+      const stop = resolveStopEvent(def, windowEnd);
       minStart = Math.min(minStart, def.startEvent);
-      maxStop = Math.max(maxStop, def.stopEvent);
+      maxStop = Math.max(maxStop, stop);
       perChipHalf[chip] = valuationsByChip[chip].filter(
-        (v) => v.blocked === null && v.event >= def.startEvent && v.event <= def.stopEvent,
+        (v) => v.blocked === null && v.event >= def.startEvent && v.event <= stop,
       );
     }
     if (!anyDef) continue;

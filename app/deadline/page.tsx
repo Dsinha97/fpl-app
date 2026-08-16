@@ -10,13 +10,19 @@ import { TransferPlan } from "@/components/transfer-plan";
 import { useAuth } from "@/components/auth-provider";
 import { layoutFromLineup, PitchView, type SquadLayout } from "@/components/pitch-view";
 import type { PlayerData } from "@/components/player-card";
-import { listDrafts, resolveRequestedDraft } from "@/lib/drafts";
+import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
+import { ChipPlanEditor } from "@/components/chip-plan-editor";
+import { TransferPath } from "@/components/transfer-path";
+import { planTransferPath, type TransferPathResult } from "@/lib/transfer-path";
+import { chipContextFor, validateChipPlan, type ChipDefinitionRow } from "@/lib/chip-plan";
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
 import {
   HORIZONS,
   horizonLabel,
+  horizonLength,
   seasonHorizonNote,
   validateSquad,
+  type ChipPlan,
   type Horizon,
   type HorizonXp,
   type PlayerMeta,
@@ -120,6 +126,8 @@ export default function DeadlinePage() {
   const [nextFixtureByTeam, setNextFixtureByTeam] = useState<Map<number, NextFixture>>(new Map());
 
   const [ctx, setCtx] = useState<SeasonContext | null>(null);
+  /** Every chip's windows, both halves — /transfers loads the same way, for the chip plan editor. */
+  const [chipDefinitions, setChipDefinitions] = useState<ChipDefinitionRow[]>([]);
   const [rowById, setRowById] = useState<Map<number, PlayerRow>>(new Map());
   const [xpById, setXpById] = useState<Map<number, XpRow>>(new Map());
   const [scoredById, setScoredById] = useState<Map<number, ScoredPlayer>>(new Map());
@@ -136,6 +144,8 @@ export default function DeadlinePage() {
   const [decisionMargin, setDecisionMargin] = useState(DEFAULT_DECISION_MARGIN);
   const [transferResult, setTransferResult] = useState<OptimizerResult | null>(null);
   const [transferLoading, setTransferLoading] = useState(false);
+  const [pathResult, setPathResult] = useState<TransferPathResult | null>(null);
+  const [pathLoading, setPathLoading] = useState(false);
 
   const [feedRows, setFeedRows] = useState<FeedRow[]>([]);
   const [feedLoading, setFeedLoading] = useState(false);
@@ -208,10 +218,11 @@ export default function DeadlinePage() {
             .eq("season", seasonCtx.season)
             .limit(1000),
           supabase
+            // Every chip, both season halves — same widening /transfers does,
+            // for the chip plan editor.
             .from("chip_definitions")
-            .select("start_event, stop_event")
-            .eq("season", seasonCtx.season)
-            .eq("name", "wildcard"),
+            .select("name, start_event, stop_event")
+            .eq("season", seasonCtx.season),
           supabase
             .from("fixtures")
             .select("event, team_h, team_a, team_h_difficulty, team_a_difficulty")
@@ -224,13 +235,20 @@ export default function DeadlinePage() {
         ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
 
+        const chipDefs: ChipDefinitionRow[] = (chipsRes.data ?? []).map((r) => ({
+          name: r.name as string,
+          startEvent: r.start_event as number,
+          stopEvent: r.stop_event as number | null,
+        }));
+        setChipDefinitions(chipDefs);
+
         // Same real-window check /transfers uses — GW1 opens no wildcard.
-        const windows = (chipsRes.data ?? []) as { start_event: number | null; stop_event: number | null }[];
+        const windows = chipDefs.filter((w) => w.name === "wildcard");
         const open = windows.some(
-          (w) => (w.start_event ?? 1) <= seasonCtx.nextEvent && seasonCtx.nextEvent <= (w.stop_event ?? 38),
+          (w) => w.startEvent <= seasonCtx.nextEvent && seasonCtx.nextEvent <= (w.stopEvent ?? 38),
         );
         const nextOpen = windows
-          .map((w) => w.start_event ?? 1)
+          .map((w) => w.startEvent)
           .filter((start) => start > seasonCtx.nextEvent)
           .sort((a, b) => a - b)[0];
         setWildcard({
@@ -569,6 +587,19 @@ export default function DeadlinePage() {
     return tripleCaptainAt(team, ctx.nextEvent, predAt, availabilityOf, lookup, isPenaltyTaker);
   }, [team, ctx, predsByPlayer, predAt, availabilityOf, lookup, isPenaltyTaker]);
 
+  /** The chip plan's usable entries, resolved into the two things the simulator can act on within this horizon window. */
+  /** The chip plan's legal entries — shared by the deadline optimiser (window-bounded below) and the forward path (which resolves its own window per gameweek). */
+  const chipPlanUsable = useMemo(() => {
+    if (!team || !ctx) return [];
+    return validateChipPlan(team.chipPlan, chipDefinitions, ctx.nextEvent, ctx.windowEnd, team.activeChip).usable;
+  }, [team, chipDefinitions, ctx]);
+
+  const chipContext = useMemo(() => {
+    if (!ctx) return null;
+    const toEvent = ctx.nextEvent + horizonLength(horizon, ctx.seasonWindow) - 1;
+    return chipContextFor(chipPlanUsable, ctx.nextEvent, toEvent);
+  }, [chipPlanUsable, ctx, horizon]);
+
   // ------------------------------------------------------- transfer optimiser
   //
   // ~1,875 simulateTransfers calls (BEAM_WIDTH 8 + FUNDER_WIDTH 4, MAX_BASKET 3,
@@ -593,6 +624,8 @@ export default function DeadlinePage() {
         event: ctx.nextEvent,
         wildcard,
         decisionMargin,
+        chip: chipContext ?? undefined,
+        predAt,
       });
       setTransferResult(result);
       setTransferLoading(false);
@@ -610,7 +643,37 @@ export default function DeadlinePage() {
     freeTransfers,
     wildcard,
     decisionMargin,
+    chipContext,
+    predAt,
   ]);
+
+  /** Forward multi-gameweek path — same "never eager" gating as the deadline optimiser above. */
+  const runTransferPath = useCallback(() => {
+    if (!team || !ctx || scoredById.size === 0) return;
+    setPathLoading(true);
+    setTimeout(() => {
+      const pool = [...scoredById.values()];
+      const result = planTransferPath({
+        team,
+        pool,
+        scoredById,
+        lookup,
+        xpOf,
+        availabilityOf,
+        isPenaltyTaker,
+        seriesOf,
+        predAt,
+        rules: ctx.rules,
+        freeTransfers,
+        event: ctx.nextEvent,
+        windowEnd: ctx.windowEnd,
+        plan: chipPlanUsable,
+        wildcard,
+      });
+      setPathResult(result);
+      setPathLoading(false);
+    }, 0);
+  }, [team, ctx, scoredById, lookup, xpOf, availabilityOf, isPenaltyTaker, seriesOf, predAt, freeTransfers, chipPlanUsable, wildcard]);
 
   const countdown = ctx ? fmtCountdown(ctx.deadlineTime, now) : null;
 
@@ -875,6 +938,19 @@ export default function DeadlinePage() {
             )}
           </section>
 
+          {/* --------------------------------------------------- chip plan */}
+          <ChipPlanEditor
+            plan={team.chipPlan}
+            chipDefinitions={chipDefinitions}
+            nextEvent={ctx.nextEvent}
+            lastEvent={ctx.windowEnd}
+            activeChip={team.activeChip}
+            onChange={(next: ChipPlan) => {
+              saveDraft({ ...team, chipPlan: next });
+              setDrafts(listDrafts());
+            }}
+          />
+
           {/* -------------------------------------------------------- chips */}
           <section className={`mt-5 ${card}`}>
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -985,6 +1061,15 @@ export default function DeadlinePage() {
               onLoad={() => router.push(`/transfers/?draft=${team.draftId}`)}
               loadedSignature={null}
               loading={transferLoading}
+            />
+          )}
+
+          {team.players.length === ctx.rules.squadSize && (
+            <TransferPath
+              result={pathResult}
+              loading={pathLoading}
+              onRun={runTransferPath}
+              hasChipPlan={chipPlanUsable.length > 0}
             />
           )}
 

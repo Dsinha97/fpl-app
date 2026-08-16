@@ -68,12 +68,27 @@ acceptable, overstating is not.
 **Confidence** is derived (low when the top two options are within a point, or the squad has
 undicted picks) and worded, never a fabricated percentage.
 
+### Chip-aware, when a plan is pinned
+
+`OptimizeTransfersInput.chip` (a `ChipContext` resolved by the caller from `TeamState.chipPlan` —
+see [chip-plan.md](chip-plan.md)) threads through every branch's `simulateTransfers` call: a
+planned Bench Boost/Triple Captain adds its bonus, a planned Free Hit/Wildcard masks the gameweeks
+it overwrites. Absent, every branch is byte-identical to the pre-chip-plan build — verified against
+live data, not assumed. A Wildcard planned for exactly the deadline gameweek blocks the paid-
+transfer branches outright (every wildcard move is free, so a hit is never correct); a Free Hit
+planned there adds a new `freehit` branch.
+
 ### Uncovered, with reasons
 
-- **Free Hit** — needs a one-week squad that reverts; delivered separately in
-  [chip-strategy.md](chip-strategy.md).
-- **Multi-gameweek scheduling** (which of 8 gameweeks to move in) — the later weeks of a frozen
-  projection are its least trustworthy part, so the honest scope stops at 1–2 gameweeks.
+- **Free Hit at a *future* gameweek** — the deadline branch above only appears when Free Hit is
+  planned for the deadline itself; a Free Hit further out is priced by the forward transfer path
+  instead ([chip-plan.md](chip-plan.md)).
+- **True multi-gameweek scheduling of ordinary transfers** (which of several future gameweeks to
+  move in, absent a chip plan) — the later weeks of a frozen projection are its least trustworthy
+  part, so this optimizer's own scope stays 1–2 gameweeks. [chip-plan.md](chip-plan.md)'s bounded
+  forward path covers the case a chip plan actually needs — sequencing transfers *around* pinned
+  chips — with its own disclosed approximations, not this one's full search.
 
 See also: [squad-optimizer.md](squad-optimizer.md) (the wildcard branch's underlying engine),
-[deadline-and-matchday.md](deadline-and-matchday.md) (where the optimizer surfaces pre-deadline).
+[deadline-and-matchday.md](deadline-and-matchday.md) (where the optimizer surfaces pre-deadline),
+[chip-plan.md](chip-plan.md) (chip-aware scoring and the forward transfer path).

@@ -19,6 +19,7 @@ is maintained, and [log.md](log.md) for the edit history.
 | [lineup-captain-bench.md](lineup-captain-bench.md) | XI, captain/vice, bench substitution order |
 | [transfer-engine.md](transfer-engine.md) | The manual basket simulator and the automated weekly roll/spend/hit recommendation |
 | [chip-strategy.md](chip-strategy.md) | Bench Boost / Triple Captain / Free Hit / Wildcard valuation and joint scheduling |
+| [chip-plan.md](chip-plan.md) | Pinning a chip to a gameweek, the chip-aware deadline optimiser, and the bounded forward transfer path |
 
 ## Features & surfaces
 

@@ -1,6 +1,7 @@
 # Deadline Hub & Live Matchday Hub
 
-Two related, not-yet-merged surfaces for pre-deadline and in-play decisions.
+Related, not-yet-merged surfaces for pre-deadline and in-play decisions — Deadline Hub and My
+Team's Squad view (both built), and Live Matchday Hub (staged, not built).
 
 ## Deadline Hub (`/deadline`, built 2026-08-14)
 
@@ -23,6 +24,55 @@ pasted three or four times) — see [frontend-conventions.md](frontend-conventio
 deadline planning and in-play tracking end up as the same route in two phases, not two separate
 pages. — [roadmap.md](../roadmap.md#next-up)
 
+### Extended 2026-08-15: defaults to the imported squad, gains a pitch
+
+At launch neither `/deadline` nor `/team` treated the squad pasted from FPL
+(`teamStateFromMyTeamJson`, real purchase prices — see [fpl-authentication.md](fpl-authentication.md))
+as the squad that matters most, and `/deadline` had no squad *visual* at all. Two changes:
+
+- **Both pages default to the manager's own import**, not whichever draft is newest —
+  `resolveRequestedDraft`'s new preference, matched by `entryId` first (see
+  [fpl-authentication.md](fpl-authentication.md) for the naming consolidation this needed). A
+  `?draft=` link still overrides it, so a deep link from `/builder` keeps working.
+- **A new, read-only Squad section** renders on `/deadline` directly under the countdown, via
+  `PitchView` generalised to draw either a projection or a known XI (see
+  [frontend-conventions.md](frontend-conventions.md#one-pitch-component-for-a-projection-or-a-known-xi)).
+  It shows the XI the owner actually set, not the optimiser's recommendation — the existing Captain
+  & Starting XI section below already states that diff, so blending the two would make it
+  impossible to tell which is which. Falls back to the model's own XI, clearly labelled, only when
+  none has been set.
+
+## My Team's Squad view (`/team`, added 2026-08-15)
+
+`/team` previously rendered `manager_picks` as four plain position lists, with no default to the
+FPL import either. Gained a **Current squad / Gameweek result** switch:
+
+- **Current squad** renders the resolved import (above) on the same read-only `PitchView`, or —
+  without ever silently saving a draft — a throwaway `TeamState` built from the latest
+  `manager_picks` event via the existing `teamStateFromPicks` when no import exists yet.
+- **Gameweek result** adds a `<select>` over every gameweek the manager has entered, showing that
+  gameweek's real per-player points via a new `lib/manager-picks.ts`:
+  - The starting XI is read from `position` (1–11 vs. 12–15), **never** `multiplier > 0` — under
+    Bench Boost every pick's multiplier is non-zero, so the multiplier test would silently promote
+    the bench onto the pitch in exactly the gameweek where the distinction matters.
+  - `player_gameweek_stats` is keyed per **fixture**; points are summed per `(player, event)` so a
+    double gameweek doesn't lose one.
+  - **The two totals are shown side by side, never reconciled into one number** —
+    `manager_picks` is as-picked and FPL's own `automatic_subs` isn't synced by `sync-manager`, and
+    `manager_gameweek_history.points` is net of any transfer hit, so the two can legitimately
+    disagree: `60 XI + 9 armband (×2) = 69 · FPL recorded 66 · includes a −4 transfer hit`.
+  - An unfinished gameweek's points fall back to `player_live_stats` and are labelled provisional.
+
+**Verified two ways**, since `manager_picks`/`player_gameweek_stats` are genuinely empty for
+2026-27 pre-GW1 (deadline 2026-08-21): a throwaway `npx tsx` harness checked the shaping rules
+directly (captain ×2/×3, DGW summing, the Bench Boost multiplier trap, missing-stats handling) with
+no UI involved, then the live read path was exercised by seeding one gameweek's picks and stats for
+the owner's own entry directly in Supabase and deleting every row afterward — confirming the
+selector, the per-player points, the two-total summary, and the provisional label toggling on
+`gameweeks.finished`. No real double gameweek or Bench Boost payload exists yet to check the live
+path against; the harness covers that math, the live path doesn't yet. —
+[sprints/additional-info.md](../sprints/additional-info.md#squad-view-on-deadline-hub-and-my-team--built-2026-08-15)
+
 ## Live Matchday Hub (Sprint 13, staged, not built)
 
 Deliberately not started: `sync-live-gameweek`'s row-writing path has never executed (it no-ops
@@ -44,4 +94,6 @@ forced `?force=1` dry run can still be wrong against what a live match actually 
 — [sprint-13.md](../sprints/sprint-13.md)
 
 See also: [data-pipeline.md](data-pipeline.md) (`sync-live-gameweek`'s cron and no-op guards),
-[blocked-and-data-gaps.md](blocked-and-data-gaps.md).
+[blocked-and-data-gaps.md](blocked-and-data-gaps.md), [fpl-authentication.md](fpl-authentication.md)
+(the import mechanism and its naming rule), [manager-profile.md](manager-profile.md) (`/team`'s
+other section, the career percentile profile — a different topic on the same page).

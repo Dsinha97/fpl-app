@@ -34,7 +34,21 @@ export interface TeamState {
   /** Populated by the Starting XI optimiser in a later sprint. */
   startingXI: number[];
   benchOrder: number[];
+  /**
+   * The chip FPL itself reports as live on this squad right now — untyped
+   * because FPL owns the value (`manager_gameweeks.active_chip`, or `my-team`
+   * JSON's `status_for_entry`), and deliberately fail-closed rather than
+   * coerced into `ChipKind`. This is a fact, not an intention; see `chipPlan`
+   * for the latter, and `chipAt` (lib/chip-plan.ts) for how the two reconcile.
+   */
   activeChip: string | null;
+  /**
+   * Forward chip intent — which chip the owner means to play in which future
+   * gameweek. Optional exactly as `entryId` is: every draft already in
+   * localStorage and in team_drafts.payload keeps parsing unchanged, and
+   * `undefined` means "no plan", distinct from an empty one.
+   */
+  chipPlan?: ChipPlan;
 
   /** Tenths, as FPL reports them. */
   budget: number;
@@ -44,6 +58,28 @@ export interface TeamState {
   createdAt: string;
   updatedAt: string;
 }
+
+/** The four chips FPL grants, once each per season half. */
+export type ChipKind = "bboost" | "3xc" | "freehit" | "wildcard";
+
+/** One chip pinned to one gameweek. */
+export interface ChipPlanEntry {
+  chip: ChipKind;
+  event: number;
+  /** How it got here — a shortlist pin reads differently from a deliberate choice. */
+  source: "manual" | "shortlist";
+  /** When it was pinned, so a stale plan can be shown as stale. */
+  pinnedAt: string;
+}
+
+export interface ChipPlan {
+  /** Shape version, so a future migration of the plan format has something to key on. */
+  version: 1;
+  /** Sorted by event on every write, so `sameSquadState` can compare positionally. */
+  entries: ChipPlanEntry[];
+}
+
+export const EMPTY_CHIP_PLAN: ChipPlan = { version: 1, entries: [] };
 
 /**
  * Squad legality rules. Read from the database rather than hardcoded — the
@@ -111,6 +147,7 @@ export function emptyTeamState(rules: SquadRules, name = "New draft"): TeamState
     startingXI: [],
     benchOrder: [],
     activeChip: null,
+    chipPlan: EMPTY_CHIP_PLAN,
     budget: rules.totalSpend,
     freeTransfers: 1,
     strategy: null,
@@ -337,8 +374,82 @@ export function computeProjection(
   return { total: base + captainBonus, captainBonus, missing };
 }
 
+/** A player's projected points keyed by gameweek, from `player_predictions`. */
+export type XpByEvent = Map<number, number>;
+
+/**
+ * A squad's expected points for one gameweek, with the armband bonus broken
+ * out — what the builder's gameweek planning panel needs (it shows the
+ * bonus as its own line, same as the horizon projection does).
+ *
+ * Deliberately mirrors `computeProjection` term for term — all fifteen picks
+ * plus the armband bonus weighted by the captain's chance of playing — so the
+ * single-gameweek figure and the horizon figure cannot disagree about what a
+ * squad is worth. `missing` counts picks with no entry at all in `seriesOf`
+ * for this event — a genuine blank gameweek (a row that exists with xp 0) is
+ * not "missing", it is a real answer.
+ */
+export function projectionAtEvent(
+  picks: SquadPick[],
+  seriesOf: (playerId: number) => XpByEvent | undefined,
+  availabilityOf: (playerId: number) => number,
+  captain: number | null,
+  vice: number | null,
+  event: number,
+): { total: number; captainBonus: number; missing: number } {
+  const at = (id: number) => seriesOf(id)?.get(event) ?? 0;
+
+  let base = 0;
+  let missing = 0;
+  for (const pick of picks) {
+    if (seriesOf(pick.playerId)?.has(event) !== true) missing++;
+    base += at(pick.playerId);
+  }
+
+  let captainBonus = 0;
+  if (captain !== null) {
+    const pCap = availabilityOf(captain);
+    captainBonus = at(captain) * pCap + (vice !== null ? at(vice) : 0) * (1 - pCap);
+  }
+
+  return { total: base + captainBonus, captainBonus, missing };
+}
+
+/**
+ * A squad's expected points for one gameweek, total only — every existing
+ * caller (the transfer beam search, `lib/chips.ts`) only ever needed the
+ * number, so this stays a thin delegate rather than forcing them onto the
+ * breakdown shape above.
+ */
+export function projectAtEvent(
+  picks: SquadPick[],
+  seriesOf: (playerId: number) => XpByEvent | undefined,
+  availabilityOf: (playerId: number) => number,
+  captain: number | null,
+  vice: number | null,
+  event: number,
+): number {
+  return projectionAtEvent(picks, seriesOf, availabilityOf, captain, vice, event).total;
+}
+
 const sameIds = (a: readonly number[], b: readonly number[]) =>
   a.length === b.length && a.every((id, i) => id === b[i]);
+
+/**
+ * Compares `chip` + `event` positionally only — entries are sorted by event on
+ * every write, so this is sound without a set comparison. `source`/`pinnedAt`
+ * are provenance, not squad shape: including `pinnedAt` would make a re-pin of
+ * the identical chip read as a change, the same reasoning that already keeps
+ * `updatedAt` out of `sameSquadState` below.
+ */
+const sameChipPlan = (a: ChipPlan | undefined, b: ChipPlan | undefined): boolean => {
+  const ea = a?.entries ?? [];
+  const eb = b?.entries ?? [];
+  return (
+    ea.length === eb.length &&
+    ea.every((e, i) => e.chip === eb[i].chip && e.event === eb[i].event)
+  );
+};
 
 /**
  * Whether two states are the same squad, for "are there unsaved changes?".
@@ -355,6 +466,7 @@ export function sameSquadState(a: TeamState, b: TeamState): boolean {
     a.budget === b.budget &&
     a.activeChip === b.activeChip &&
     a.freeTransfers === b.freeTransfers &&
+    sameChipPlan(a.chipPlan, b.chipPlan) &&
     a.players.length === b.players.length &&
     a.players.every(
       (p, i) =>

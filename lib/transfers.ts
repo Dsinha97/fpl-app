@@ -12,6 +12,7 @@ import { fixtureScore, riskScore, xpFor, type ScoredPlayer } from "./scoring";
 import { riskPoints } from "./squad-score";
 import { mean } from "./stats";
 import { optimiseLineup, type LineupCandidate } from "./lineup";
+import { chipAdjustmentFor, type ChipAdjustment, type ChipContext, type PredAt } from "./chip-plan";
 import {
   addPlayer,
   computeProjection,
@@ -25,6 +26,7 @@ import {
   type Projection,
   type SquadRules,
   type TeamState,
+  type XpByEvent,
 } from "./team-state";
 
 export interface TransferMove {
@@ -66,6 +68,10 @@ export interface SideMetrics {
   captain: number | null;
   viceCaptain: number | null;
   bank: number;
+  /** Null when no chip plan touches this horizon window — see `SimulateInput.chip`. */
+  chipAdjustment: ChipAdjustment | null;
+  /** `projection.total`, adjusted for the chip plan. Equals `projection.total` when `chipAdjustment` is null. */
+  chipAdjustedTotal: number;
 }
 
 export interface TransferSimulation {
@@ -132,13 +138,24 @@ export interface SimulateInput {
   availabilityOf: (playerId: number) => number;
   rules: SquadRules;
   horizon: Horizon;
+  /**
+   * The chip plan resolved for this horizon window, when one touches it.
+   * Absent → every quantity below is byte-identical to a build with no chip
+   * plan at all; this is the whole reason `xpDelta` is expressed through
+   * `chipAdjustedTotal` rather than a separate code path.
+   */
+  chip?: {
+    context: ChipContext;
+    predAt: PredAt;
+    seriesOf: (playerId: number) => XpByEvent | undefined;
+  };
 }
 
 function metricsFor(
   team: TeamState,
   input: SimulateInput,
 ): SideMetrics {
-  const { scoredById, xpOf, availabilityOf, horizon, isPenaltyTaker } = input;
+  const { scoredById, xpOf, availabilityOf, horizon, isPenaltyTaker, lookup } = input;
 
   const players = team.players.flatMap((p) => {
     const s = scoredById.get(p.playerId);
@@ -161,21 +178,40 @@ function metricsFor(
 
   const spent = team.players.reduce((sum, p) => sum + p.purchasePrice, 0);
 
+  const projection = computeProjection(
+    team.players,
+    xpOf,
+    availabilityOf,
+    team.captain,
+    team.viceCaptain,
+    horizon,
+  );
+
+  const chipAdjustment = input.chip
+    ? chipAdjustmentFor(
+        team,
+        input.chip.context,
+        input.chip.seriesOf,
+        availabilityOf,
+        input.chip.predAt,
+        lookup,
+        isPenaltyTaker,
+      )
+    : null;
+  const chipAdjustedTotal = chipAdjustment
+    ? projection.total - chipAdjustment.excluded + chipAdjustment.bonus
+    : projection.total;
+
   return {
-    projection: computeProjection(
-      team.players,
-      xpOf,
-      availabilityOf,
-      team.captain,
-      team.viceCaptain,
-      horizon,
-    ),
+    projection,
     meanFixture: mean(players.map((p) => fixtureScore(p, horizon))),
     meanRisk: mean(players.map((p) => riskScore(p, horizon))),
     benchContribution: lineup ? lineup.benchExpectedContribution : null,
     captain: team.captain,
     viceCaptain: team.viceCaptain,
     bank: team.budget - spent,
+    chipAdjustment,
+    chipAdjustedTotal,
   };
 }
 
@@ -299,7 +335,11 @@ export function simulateTransfers(input: SimulateInput): TransferSimulation {
     pointsCost: hits * HIT_COST,
   };
 
-  const xpDelta = after.projection.total - before.projection.total;
+  // Byte-identical to `after.projection.total - before.projection.total` when
+  // no chip plan touches this horizon — `chipAdjustedTotal` falls back to
+  // `projection.total` on both sides. A chip changes neither the hit nor the
+  // risk rate, so `cost` and `riskPointsDelta` are untouched.
+  const xpDelta = after.chipAdjustedTotal - before.chipAdjustedTotal;
   const riskPointsDelta = riskPoints(after.meanRisk) - riskPoints(before.meanRisk);
   const transferGain = xpDelta - cost.pointsCost - riskPointsDelta;
 

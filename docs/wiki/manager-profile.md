@@ -30,4 +30,7 @@ current season's `players` and can't even store past-season behaviour if it coul
 are recorded as blocked, not deferred, in [blocked-and-data-gaps.md](blocked-and-data-gaps.md).
 
 See also: [manager_intelligence_sprint12_change_plan.md](../sources/manager_intelligence_sprint12_change_plan.md)
-(the owner's source spec, with a reconciliation banner), [sprint-12.md §12A](../sprints/sprint-12.md#sprint-12a--manager-percentile-profile-built).
+(the owner's source spec, with a reconciliation banner), [sprint-12.md §12A](../sprints/sprint-12.md#sprint-12a--manager-percentile-profile-built),
+[deadline-and-matchday.md](deadline-and-matchday.md#my-teams-squad-view-team-added-2026-08-15)
+(`/team`'s other section, added 2026-08-15 — the Current squad / Gameweek result pitch view, a
+different topic on the same page).

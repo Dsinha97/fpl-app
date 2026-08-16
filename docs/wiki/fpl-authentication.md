@@ -48,6 +48,19 @@ recorded as blocked with this evidence, not worked around. **A pasted cookie aut
 data ever makes the bearer-token route worth the rotation risk. **Do not remove them** — CLAUDE.md's
 ground rules are explicit about this.
 
+## Naming an import so it can be found again (2026-08-15)
+
+Two constructors turn FPL data into a `TeamState` with `source: "fpl"` — `teamStateFromPicks` (this
+page's §1, from `manager_picks`) and `teamStateFromMyTeamJson` (§3, from the pasted response) — and
+they had drifted to two different draft-naming rules, `/team`'s own `"${team_name} (FPL)"` versus
+`/settings`' bare team name. Nothing could then reliably answer "which draft is this manager's own
+import?" Consolidated into `importedDraftName`/`isImportedDraftFor` (`lib/fpl-squad.ts`), the one
+rule both constructors call now. `TeamState` also gained an optional `entryId`, recorded by both, so
+the match survives a rename rather than depending on the name forever — see
+[frontend-conventions.md](frontend-conventions.md). This is what lets `/deadline` and `/team`
+default to the manager's own import instead of whichever draft is newest — see
+[deadline-and-matchday.md](deadline-and-matchday.md).
+
 ## Practical gotcha this produced
 
 The import instructions originally told users to open `/api/my-team/<id>/` directly in a new tab —

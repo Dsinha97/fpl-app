@@ -53,8 +53,19 @@ reached the UI. Same failure class as [squad-optimizer.md](squad-optimizer.md)'s
 
 Bench Boost/Triple Captain values are exported (`benchBoostAt`/`tripleCaptainAt`) and computed live
 on `/builder` and `/scenarios` — see [lineup-captain-bench.md](lineup-captain-bench.md). Free Hit and
-Wildcard stay `/chips`-only; each is a multi-second full-squad rebuild search.
+Wildcard rebuilds stay expensive `optimizeSquad`-class searches, never eager — but `/chips` is no
+longer the only place they run: [chip-plan.md](chip-plan.md)'s forward transfer path calls them too,
+behind its own gate.
 
-See also: [deadline-and-matchday.md](deadline-and-matchday.md) (this-gameweek-only chip calls on the
-Deadline Hub), [squad-score-and-scenarios.md](squad-score-and-scenarios.md) (the wildcard toggle on
-the manual transfer basket).
+## The gap this page's own note names, now closed
+
+`chipModelNote` still discloses, correctly, that a valuation here is scored against *today's*
+squad regardless of what the schedule plays first. That gap — a Triple Captain shown after a
+scheduled Wildcard not reflecting the rebuilt squad — is what pinning a chip to `TeamState.chipPlan`
+and running the deadline optimiser or the forward transfer path against it closes. See
+[chip-plan.md](chip-plan.md).
+
+See also: [chip-plan.md](chip-plan.md) (pinning a chip to a gameweek, and the chip-aware optimiser
+and forward transfer path this feeds), [deadline-and-matchday.md](deadline-and-matchday.md)
+(this-gameweek-only chip calls on the Deadline Hub), [squad-score-and-scenarios.md](squad-score-and-scenarios.md)
+(the wildcard toggle on the manual transfer basket).
