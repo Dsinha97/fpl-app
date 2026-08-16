@@ -39,6 +39,9 @@ yarn-error.log*
 # wrangler local dev cache (from testing Cloudflare headers/deploy locally)
 .wrangler/
 
+# local Obsidian vault config — editor-local state, not repo content
+/.obsidian/
+
 # claude code local settings
 .claude/
 
