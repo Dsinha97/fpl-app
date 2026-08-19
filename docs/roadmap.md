@@ -35,6 +35,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 15 | Action Layer | Not started | below |
 | 16 | Notifications & Automation | Not started | below |
 | 17 | Historical Analytics & ML | Not started | below |
+| 17a | Model Validation (walk-forward backtest) | **Built and run** 2026-08-18 — `ingest-fpl-archive` Edge Function, `scripts/backtest-walkforward.ts`; found the model underperforms a naive last-5-gameweeks baseline out-of-sample in every season tested | [sprints/sprint-17a.md](sprints/sprint-17a.md) |
 
 Non-sprint work items, also in `sprints/`: [cold-start-patch.md](sprints/cold-start-patch.md)
 (empirical-Bayes rate priors — phase 1 built, phase 2 deferred/gated) and
@@ -81,7 +82,9 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   - **17 Historical Analytics & ML** — captain success, transfer success, chip ROI, xP accuracy,
     rank progression, recommendation accuracy; then gradient-boosted minutes and injury models.
     Prerequisite: `positionCalibration` is fitted in-sample — refit against real 2026/27 results
-    before trusting any accuracy claim.
+    before trusting any accuracy claim. **Sprint 17a (below) now has the walk-forward evidence
+    this refit needs** — it does not do the refit itself, on purpose (see sprint-17a.md's
+    "explicitly not done" section for why rushing it in the same pass would be a mistake).
 - **Finishing passes**, small — do opportunistically rather than as sprints:
   - Sprint 6 gap — EO column (needs Sprint 10); Form term dropped, see `COMPARISON_MODEL_NOTE`.
   - Sprint 11 gap — TeamAttack term dropped until team strength populates (`CAPTAIN_MODEL_NOTE`).
@@ -94,7 +97,7 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 | League 314 standings (empty) | Pre-season; blocks all of Sprint 10 | [sprints/sprint-10.md](sprints/sprint-10.md) |
 | `sync-live-gameweek` write path | Never executed — no live fixture yet | [sprints/sprint-13.md](sprints/sprint-13.md) |
 | Automated FPL credential login | PingOne offers no password grant; the one reachable flow opens with bot detection | [sprints/sprint-14.md](sprints/sprint-14.md#fpl-login-is-blocked--automated-credential-login-not-the-session-handoff) |
-| `positionCalibration` | Fitted in-sample; needs a refit against real 2026/27 results | — |
+| `positionCalibration` | Fitted in-sample; needs a refit against real 2026/27 results. Walk-forward evidence for why now exists: out-of-sample the model underperforms a naive last-5-gameweeks baseline in every season tested | [sprints/sprint-17a.md](sprints/sprint-17a.md) |
 | Cold-Start phase 2, remaining 66 players + `dc90` | Sprint 15.6 covered 33 of 99 (COV/HUL/IPS, xg90/xa90/yellow90 only) via a one-shot PDF drop; the other 66 (overseas/academy) and `dc90` for all 33 have no fittable source | [sprints/championship-priors.md](sprints/championship-priors.md) |
 | Sprint 12.5 phases 3–6 (System Fit multiplier) | **Half-unblocked by Sprint 15.6**: player-side rates (crosses/90, tackles/90, etc.) are now measured for the 58 FootyStats-covered players, but manager-side tactical thresholds are still transcribed opinion, not measured data — the block stands for that reason specifically now, not by default | [sprints/sprint-12.md](sprints/sprint-12.md#sprint-125--pl-team-club-manager-intelligence-buildable-slice-built-2026-08-07) |
 | Manager behavioural history (transfers, captains, chips) | FPL API exposes none for past seasons; `manager_picks` FKs to the current season only | [sprints/sprint-12.md](sprints/sprint-12.md#sprint-12a--manager-percentile-profile-built) |

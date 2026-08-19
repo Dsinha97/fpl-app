@@ -266,10 +266,12 @@ and a note surfaced in the UI next to the number: `CAPTAIN_MODEL_NOTE` (`lineup.
 
 ## xP model
 
-`_shared/xp-model.ts`, `MODEL_VERSION = "v1.0.0"`. Per-90 rates derived from prior seasons,
+`_shared/xp-model.ts`, `MODEL_VERSION = "v1.5.0"`. Per-90 rates derived from prior seasons,
 weighted toward the most recent, scaled by per-component fixture multipliers, then converted
 to points via `scoring_rules`. Discrete counts (goals, clean sheets, bonus tiers) use Poisson
-tails — `poissonAtLeast`, `expectedFloorDiv` — rather than rounding an expectation.
+tails — `poissonAtLeast`, `expectedFloorDiv` — rather than rounding an expectation. Validated
+in-sample only until [sprint-17a.md](sprints/sprint-17a.md)'s walk-forward backtest, which found
+the model underperforms a naive last-5-gameweeks baseline out-of-sample.
 
 Calibration history and the backtest that caught a 17% arithmetic shortfall are in
 [phase-4-model.md](phase-4-model.md). `MODEL_PARAMS.positionCalibration` is fitted in-sample

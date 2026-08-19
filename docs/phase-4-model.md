@@ -1,6 +1,12 @@
 # Phase 4 — Expected Points (xP) Engine
 
-**Status:** v1.0.0 built, calibrated, and scheduled — 2026-08-02
+**Status:** v1.5.0 built, calibrated, and deployed — this doc's body documents through v1.4.0
+(the v1.5.0 Championship-priors change is in [championship-priors.md](sprints/championship-priors.md)).
+The one backtest below is **in-sample** — season-aggregate xP against 2025/26, a season weighted
+0.6 in the model's own rate blend, with `positionCalibration` fitted on the same cohort. A
+**walk-forward, out-of-sample** backtest exists: [sprint-17a.md](sprints/sprint-17a.md). It found
+the model's per-gameweek MAE and r are both worse than a naive last-5-gameweeks baseline in every
+target season tested — read it before trusting the numbers below at gameweek granularity.
 **Code:** [`supabase/functions/_shared/xp-model.ts`](../supabase/functions/_shared/xp-model.ts)
 **Runner:** [`supabase/functions/generate-predictions/`](../supabase/functions/generate-predictions/)
 
