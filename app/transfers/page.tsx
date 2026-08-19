@@ -853,7 +853,7 @@ export default function TransfersPage() {
       )}
 
       {!loading && drafts.length === 0 && (
-        <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 text-center dark:border-purple-900/40 dark:bg-[#1E0234]">
+        <div className="mt-6 rounded-lg border border-zinc-200 bg-card p-6 text-center dark:border-purple-900/40">
           <p className="text-sm text-zinc-500">
             No saved squads yet. Build one in the{" "}
             <Link
@@ -911,7 +911,9 @@ export default function TransfersPage() {
               the min-w-[34rem] table below stretch this section (and the
               page) wide instead of scrolling inside its own overflow-x-auto
               wrapper. */}
-          <section className="min-w-0 rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+          {/* Supporting tier (Sprint 19, Stage 4a) — this is the browsing/basket
+              mechanism, not the answer; the simulation result in the aside is. */}
+          <section className="min-w-0 rounded-xl border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border">
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               {team.name} · {team.players.length} players
             </h2>
@@ -919,7 +921,7 @@ export default function TransfersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-[10px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                  <th className="sticky left-0 z-10 bg-white px-2 py-1.5 dark:bg-[#1E0234]">
+                  <th className="sticky left-0 z-10 bg-card-supporting px-2 py-1.5">
                     Player
                   </th>
                   <th className="hidden px-2 py-1.5 sm:table-cell">Pos</th>
@@ -952,9 +954,7 @@ export default function TransfersPage() {
                     >
                       <td
                         className={`sticky left-0 z-10 px-2 py-1.5 ${
-                          move
-                            ? "bg-amber-50 dark:bg-[#2a1f0a]"
-                            : "bg-white dark:bg-[#1E0234]"
+                          move ? "bg-amber-50 dark:bg-[#2a1f0a]" : "bg-card-supporting"
                         }`}
                       >
                         <span className="flex max-w-[7.5rem] items-center gap-1.5 sm:max-w-none">
@@ -1032,7 +1032,7 @@ export default function TransfersPage() {
 
             {/* candidate picker */}
             {pickingFor !== null && (
-              <div className="mt-4 rounded-lg border border-purple-300 p-3 dark:border-[#00FF87]/40">
+              <div className="mt-4 rounded-lg border border-purple-300 p-3 dark:border-primary/40">
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                     Replace {scoredById.get(pickingFor)?.webName}
@@ -1117,7 +1117,7 @@ export default function TransfersPage() {
           {/* result */}
           <aside className="space-y-4">
             {simulation && moves.length === 0 && (
-              <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+              <div className="rounded-xl border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border">
                 <p className="text-sm text-zinc-500">
                   Choose a player to transfer out. Nothing is committed until you apply, and applying
                   writes a new draft rather than changing this one.
@@ -1150,7 +1150,7 @@ export default function TransfersPage() {
             )}
 
             {simulation && moves.length > 0 && (
-              <div className="rounded-xl border border-purple-300 bg-white p-4 dark:border-[#00FF87]/40 dark:bg-[#1E0234]">
+              <div className="rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40">
                 <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                   {simulation.cost.transfers} transfer
                   {simulation.cost.transfers === 1 ? "" : "s"} · {horizonLabel(horizon)}

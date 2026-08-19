@@ -106,7 +106,19 @@ function fmtCountdown(deadline: string, now: number): { text: string; passed: bo
   return { text: parts.join(" "), passed: false };
 }
 
-const card = "rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]";
+/**
+ * Two tiers, not one — Sprint 19 Stage 4a. This page used to give every
+ * section the same card, so nothing outranked anything else and the page
+ * read as a list rather than an answer. `card` stays full weight for the
+ * deadline's actual decisions (squad, captain/XI, chip call, transfer call);
+ * `cardSupporting` recedes into the page background with a fainter border
+ * and a smaller uppercase heading for context that isn't itself a decision
+ * (readiness, availability, price & news watch).
+ */
+const card = "rounded-lg border border-zinc-200 bg-card p-4 dark:border-purple-900/40";
+const cardSupporting =
+  "rounded-lg border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border";
+const supportingHeading = "text-xs font-medium uppercase tracking-wide text-zinc-500";
 
 interface NextFixture {
   opponent_short_name: string;
@@ -738,15 +750,16 @@ export default function DeadlinePage() {
       {!loading && team && ctx && (
         <>
           {/* ------------------------------------------------------ countdown */}
-          <section className={`mt-6 ${card}`}>
-            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              {ctx.gameweekName} deadline
-            </h2>
+          {/* No card — a border around one line of text is chrome, not
+              structure (Sprint 19, Stage 4a). The 3xl number is still the
+              biggest thing on the page; it just isn't boxed any more. */}
+          <div className="mt-6">
+            <h2 className={supportingHeading}>{ctx.gameweekName} deadline</h2>
             <p
               className={`mt-1 text-3xl font-bold tabular-nums ${
                 countdown?.passed
                   ? "text-red-700 dark:text-red-400"
-                  : "text-purple-900 dark:text-[#00FF87]"
+                  : "text-purple-900 dark:text-primary"
               }`}
             >
               {countdown?.text}
@@ -766,7 +779,7 @@ export default function DeadlinePage() {
                 Imported from your real FPL team.
               </p>
             )}
-          </section>
+          </div>
 
           {/* ---------------------------------------------------------- squad */}
           <section className="mt-5">
@@ -799,8 +812,8 @@ export default function DeadlinePage() {
 
           {/* ------------------------------------------------------ readiness */}
           {validation && (
-            <section className={`mt-5 ${card}`}>
-              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Squad readiness</h2>
+            <section className={`mt-5 ${cardSupporting}`}>
+              <h2 className={supportingHeading}>Squad readiness</h2>
               {validation.isLegal ? (
                 <p className="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
                   This squad is legal and ready to enter.
@@ -849,8 +862,8 @@ export default function DeadlinePage() {
           )}
 
           {/* --------------------------------------------------- availability */}
-          <section className={`mt-5 ${card}`}>
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Availability</h2>
+          <section className={`mt-5 ${cardSupporting}`}>
+            <h2 className={supportingHeading}>Availability</h2>
             {alerts.length === 0 ? (
               <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
                 Nothing flagged — every player in this squad is fully available.
@@ -1074,8 +1087,8 @@ export default function DeadlinePage() {
           )}
 
           {/* ------------------------------------------------- price & news */}
-          <section className={`mt-5 ${card}`}>
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Price &amp; news watch</h2>
+          <section className={`mt-5 ${cardSupporting}`}>
+            <h2 className={supportingHeading}>Price &amp; news watch</h2>
             {feedLoading && <p className="mt-2 text-sm text-zinc-500">Loading…</p>}
             {!feedLoading && feedRows.length === 0 && (
               <p className="mt-2 text-sm text-zinc-500">Nothing has changed for this squad recently.</p>

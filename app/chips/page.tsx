@@ -727,7 +727,7 @@ export default function ChipsPage() {
               return (
                 <section
                   key={chip}
-                  className="rounded-xl border border-zinc-200 bg-card p-4 dark:border-purple-900/40"
+                  className="rounded-xl border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border"
                 >
                   <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                     {CHIP_LABELS[chip]}
@@ -788,7 +788,7 @@ export default function ChipsPage() {
           </div>
 
           {/* full calendar */}
-          <section className="mt-5 overflow-x-auto rounded-xl border border-zinc-200 bg-card p-4 dark:border-purple-900/40">
+          <section className="mt-5 overflow-x-auto rounded-xl border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border">
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               Gameweek by gameweek
             </h2>

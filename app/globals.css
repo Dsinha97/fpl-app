@@ -140,7 +140,10 @@
   --foreground: oklch(0.97 0.01 300);
   --card: #1e0234;
   --card-foreground: oklch(0.97 0.01 300);
-  --card-supporting: #1e0234;
+  /* Flush with the page background, not the raised card surface, so a
+     supporting section recedes the same way card-supporting does in light
+     mode — text-and-border differentiation only, no elevation. */
+  --card-supporting: #0e0118;
   --card-supporting-foreground: oklch(0.85 0.02 300);
   --card-supporting-border: oklch(0.44 0.16 303 / 30%);
   --surface-1: #0e0118;
