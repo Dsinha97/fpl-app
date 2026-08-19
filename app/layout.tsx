@@ -44,7 +44,7 @@ export default function RootLayout({
          */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
-      <body className="min-h-full flex flex-col bg-zinc-50 dark:bg-[#0E0118]">
+      <body className="min-h-full flex flex-col">
         <AuthProvider>
           <DraftSyncProvider />
           <header className="border-b border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">

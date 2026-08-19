@@ -39,6 +39,25 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-card-supporting: var(--card-supporting);
+  --color-card-supporting-foreground: var(--card-supporting-foreground);
+  --color-card-supporting-border: var(--card-supporting-border);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-surface: var(--success-surface);
+  --color-success-border: var(--success-border);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-surface: var(--warning-surface);
+  --color-warning-border: var(--warning-border);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-surface: var(--danger-surface);
+  --color-danger-border: var(--danger-border);
+  --color-primary-hover: var(--primary-hover);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,25 +67,51 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Light theme, brought into line with the brand palette every light-mode
+ * component already hardcodes (bg-purple-950 / hover:bg-purple-800 /
+ * bg-white / border-zinc-200 / bg-zinc-50) — see Sprint 19. Values below
+ * are the actual computed hex of those Tailwind utilities, not guesses, so
+ * migrating a literal to its token is meant to be visually silent.
+ */
 :root {
-  --background: oklch(1 0 0);
+  --background: #fafafa;
   --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
+  --card: #ffffff;
   --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
+  --card-supporting: #fafafa;
+  --card-supporting-foreground: oklch(0.145 0 0);
+  --card-supporting-border: #e4e4e7;
+  --surface-1: #fafafa;
+  --surface-2: #ffffff;
+  --surface-3: #ffffff;
+  --popover: #ffffff;
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --primary: #3c0366;
+  --primary-hover: #6e11b0;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #3c0366;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717b;
+  --accent: #f4f4f5;
+  --accent-foreground: #3c0366;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: #e4e4e7;
+  --input: #d4d4d8;
+  --ring: #6e11b0;
+  --success: #047857;
+  --success-foreground: #047857;
+  --success-surface: #ecfdf5;
+  --success-border: #6ee7b7;
+  --warning: #b45309;
+  --warning-foreground: #b45309;
+  --warning-surface: #fffbeb;
+  --warning-border: #fcd34d;
+  --danger: #b91c1c;
+  --danger-foreground: #b91c1c;
+  --danger-surface: #fef2f2;
+  --danger-border: #fca5a5;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -95,9 +140,23 @@
   --foreground: oklch(0.97 0.01 300);
   --card: #1e0234;
   --card-foreground: oklch(0.97 0.01 300);
-  --popover: #1e0234;
+  --card-supporting: #1e0234;
+  --card-supporting-foreground: oklch(0.85 0.02 300);
+  --card-supporting-border: oklch(0.44 0.16 303 / 30%);
+  --surface-1: #0e0118;
+  --surface-2: #1e0234;
+  --surface-3: #2a0a45;
+  /*
+   * Popover surface deliberately mapped to --surface-3 (#2a0a45), not
+   * --surface-2/--card (#1e0234): every dropdown/menu popover in the app
+   * (nav-links.tsx, account-menu.tsx, ui/filter-disclosure.tsx,
+   * ui/action-menu.tsx) already renders on #2A0A45. The token used to
+   * disagree with that; now it matches the actual raised-menu surface.
+   */
+  --popover: #2a0a45;
   --popover-foreground: oklch(0.97 0.01 300);
   --primary: #00ff87;
+  --primary-hover: #00e67a;
   --primary-foreground: oklch(0.18 0.02 280);
   --secondary: #2a0a45;
   --secondary-foreground: oklch(0.97 0.01 300);
@@ -109,6 +168,18 @@
   --border: oklch(0.44 0.16 303 / 40%);
   --input: oklch(0.44 0.16 303 / 50%);
   --ring: oklch(0.6 0.2 303);
+  --success: #34d399;
+  --success-foreground: #34d399;
+  --success-surface: oklch(0.27 0.08 165 / 40%);
+  --success-border: oklch(0.4 0.1 165 / 60%);
+  --warning: #fbbf24;
+  --warning-foreground: #fbbf24;
+  --warning-surface: oklch(0.3 0.08 75 / 40%);
+  --warning-border: oklch(0.42 0.1 75 / 60%);
+  --danger: #f87171;
+  --danger-foreground: #f87171;
+  --danger-surface: oklch(0.28 0.09 25 / 40%);
+  --danger-border: oklch(0.4 0.12 25 / 60%);
   --chart-1: #00ff87;
   --chart-2: oklch(0.7 0.18 300);
   --chart-3: oklch(0.62 0.17 320);
