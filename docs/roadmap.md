@@ -37,6 +37,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 17 | Historical Analytics & ML | Not started | below |
 | 17a | Model Validation (walk-forward backtest) | **Built and run** 2026-08-18 — `ingest-fpl-archive` Edge Function, `scripts/backtest-walkforward.ts`; found the model underperforms a naive last-5-gameweeks baseline out-of-sample in every season tested | [sprints/sprint-17a.md](sprints/sprint-17a.md) |
 | 18 | Squad Structure & Chip Sequencing | **Built** 2026-08-19 — Effective Starting XI budget (`lib/squad-budget.ts`), a real chip-sequencing bug fix in `planTransferPath`, calendar-derived chip-sequence presets on `/chips`, and transfer reversibility (`Replacement.exitRoutes`) on `/builder` + `/transfers` | [sprints/sprint-18.md](sprints/sprint-18.md) |
+| 19 | Design System & Interaction Feedback | **Built** 2026-08-19/20 — fixed Geist Sans never actually applying, adopted `focus-visible` states app-wide on `/transfers`/`/chips`/`/builder`, stopped `optimizeTransfers`/`runChipEngine` freezing the tab, ranked the cards on `/deadline`/`/transfers`/`/chips`, promoted xP to the dominant number in the player detail panel | [sprints/sprint-19.md](sprints/sprint-19.md), [docs/wiki/design-system.md](wiki/design-system.md) |
 
 Non-sprint work items, also in `sprints/`: [cold-start-patch.md](sprints/cold-start-patch.md)
 (empirical-Bayes rate priors — phase 1 built, phase 2 deferred/gated) and

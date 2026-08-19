@@ -2,6 +2,10 @@
 
 One line per entry, most recent first.
 
+- 2026-08-20 — Ingested `docs/sprints/sprint-19.md`: new page `design-system.md` (tokens, semantic
+  colour, button/state vocabulary, the busy-state pattern, card hierarchy, disclosure) under
+  Cross-cutting; updated `frontend-conventions.md`'s Theme section to point at it, added it to
+  `index.md` and a row to `timeline.md` and `roadmap.md`'s sprint table.
 - 2026-08-19 — Tidy fix: backfilled two `timeline.md` rows the prior ingest passes had missed
   (2026-08-15 squad view on Deadline Hub/My Team, 2026-08-16 chip strategy planning). No page
   content changed, just the chronological index.

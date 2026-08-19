@@ -48,6 +48,12 @@ Class-based dark mode (`.dark` on `<html>`), with a no-FOUC boot script in `app/
 purple `#0E0118` page / `#1E0234` card / `#2A0A45` input, `#00FF87` accent. Both themes need styling
 on anything new.
 
+The full token contract (surfaces, semantic status colours, the two-tier card system, button/state
+vocabulary, the busy-state pattern, and the disclosure rule) is
+[design-system.md](design-system.md) — built Sprint 19. Prefer a token (`bg-card`, `text-danger`,
+`focus-visible:ring-ring`) over a new raw hex literal; an ESLint rule flags new ones under `app/` and
+`components/`.
+
 ## Shared helpers, extracted after being pasted enough times
 
 - **`availabilityFromStatus`** (`lib/scoring.ts`) — was copy-pasted six times before extraction.

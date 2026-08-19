@@ -36,6 +36,7 @@ file, not separate files.
 | [sprints/additional-info.md](sprints/additional-info.md) | historical | Ops log: hosting follow-ups, dependency advisories, small queued items. |
 | [sprints/sprint-17a.md](sprints/sprint-17a.md) | live | Walk-forward model validation — found the xP model underperforms a naive last-5-gameweeks baseline out-of-sample. |
 | [sprints/sprint-18.md](sprints/sprint-18.md) | live | Effective Starting XI budget, a chip-sequencing bug fix + calendar-derived presets, transfer reversibility. |
+| [sprints/sprint-19.md](sprints/sprint-19.md) | live | Design system & interaction feedback — font/focus/freeze fixes, card hierarchy, xP promoted to the dominant number. |
 
 ## Source specs
 
