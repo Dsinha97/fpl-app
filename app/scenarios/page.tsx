@@ -30,6 +30,7 @@ import {
   type ScoredPlayer,
 } from "@/lib/scoring";
 import { optimiseLineup, type LineupCandidate } from "@/lib/lineup";
+import { totalSpend } from "@/lib/squad-budget";
 import { benchBoostAt, tripleCaptainAt, type ChipValuation } from "@/lib/chips";
 import {
   HORIZONS,
@@ -959,7 +960,7 @@ function ComparisonRows({
       label: "Spent",
       dir: "none",
       format: (v) => money(v),
-      values: drafts.map((d) => d.players.reduce((s, p) => s + p.purchasePrice, 0)),
+      values: drafts.map((d) => totalSpend(d.players)),
     },
     {
       label: "Squad size",

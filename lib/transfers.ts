@@ -10,6 +10,7 @@
 
 import { fixtureScore, riskScore, xpFor, type ScoredPlayer } from "./scoring";
 import { riskPoints } from "./squad-score";
+import { totalSpend } from "./squad-budget";
 import { mean } from "./stats";
 import { optimiseLineup, type LineupCandidate } from "./lineup";
 import { chipAdjustmentFor, type ChipAdjustment, type ChipContext, type PredAt } from "./chip-plan";
@@ -176,7 +177,7 @@ function metricsFor(
   }));
   const lineup = candidates.length > 0 ? optimiseLineup(candidates) : null;
 
-  const spent = team.players.reduce((sum, p) => sum + p.purchasePrice, 0);
+  const spent = totalSpend(team.players);
 
   const projection = computeProjection(
     team.players,

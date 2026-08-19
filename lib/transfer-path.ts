@@ -37,6 +37,7 @@ import {
 import { optimizeTransfers, pairRebuild, type WildcardWindow } from "./transfer-optimizer";
 import { freeHitRebuildAt, wildcardRebuildAt, type RebuildContext } from "./chips";
 import { chipBonusAt, chipContextFor, type PredAt } from "./chip-plan";
+import { totalSpend } from "./squad-budget";
 import {
   projectAtEvent,
   type ChipKind,
@@ -181,6 +182,18 @@ export function planTransferPath(input: TransferPathInput): TransferPathResult {
   const rebuildCtx: RebuildContext = { team, pool, rules, predAt, availabilityOf };
   let openingStates: PathState[];
 
+  // A Bench Boost / Triple Captain pinned at the opening (deadline) gameweek
+  // was previously reported as chipBonus: 0 here — every later gameweek's
+  // bonus chip already went through chipBonusOf (below), but this branch
+  // hardcoded 0 regardless of what was pinned. optimizeTransfers' own branch
+  // *ranking* already accounted for the bonus via chipAdjustedTotal (the
+  // context it's given includes it), so the recommended branch was always
+  // correct — only the displayed step.chipBonus, and therefore the visible
+  // total for a plan whose first chip lands next gameweek, understated the
+  // real value. Caught while wiring the front-loaded-sequence preset on
+  // /chips, whose first chip is always the very next gameweek.
+  const openingBonusChip = opening === "bboost" || opening === "3xc" ? opening : undefined;
+
   if (opening === "wildcard" || opening === "freehit") {
     const step = forcedChipStep(input.event, opening, team, input.freeTransfers, rebuildCtx, simDeps, pathEnd, baselineEventXp);
     openingStates = [
@@ -227,16 +240,17 @@ export function planTransferPath(input: TransferPathInput): TransferPathResult {
         sim.resultingTeam.viceCaptain,
         input.event,
       );
+      const bonus = chipBonusOf(sim.resultingTeam, input.event, openingBonusChip);
       const step: TransferPathStep = {
         event: input.event,
         moves: branch.moves,
         simulation: sim,
-        chip: branch.kind === "wildcard" ? "wildcard" : null,
+        chip: branch.kind === "wildcard" ? "wildcard" : (openingBonusChip ?? null),
         fieldedPicks: sim.resultingTeam.players,
         freeTransfersBefore: input.freeTransfers,
         freeTransfersAfter,
         eventXp: evXp,
-        chipBonus: 0,
+        chipBonus: bonus,
         pointsCost: sim.cost.pointsCost,
         riskPointsDelta: sim.riskPointsDelta,
         explanation: branch.explanation,
@@ -246,7 +260,7 @@ export function planTransferPath(input: TransferPathInput): TransferPathResult {
         freeTransfers: freeTransfersAfter,
         steps: [step],
         eventXp: evXp,
-        chipBonus: 0,
+        chipBonus: bonus,
         pointsCost: sim.cost.pointsCost,
         riskPoints: sim.riskPointsDelta,
       };
@@ -349,8 +363,8 @@ export function planTransferPath(input: TransferPathInput): TransferPathResult {
     const carriedSigs = new Set(carried.map((s) => s.steps.map((st) => signatureOfMoves(st.moves)).join("|")));
     const funder = [...deduped]
       .sort((a, b) => {
-        const bankA = a.team.budget - a.team.players.reduce((sum, p) => sum + p.purchasePrice, 0);
-        const bankB = b.team.budget - b.team.players.reduce((sum, p) => sum + p.purchasePrice, 0);
+        const bankA = a.team.budget - totalSpend(a.team.players);
+        const bankB = b.team.budget - totalSpend(b.team.players);
         return bankB - bankA;
       })
       .find((s) => !carriedSigs.has(s.steps.map((st) => signatureOfMoves(st.moves)).join("|")));

@@ -1,4 +1,5 @@
 import { isImportedDraftFor } from "./fpl-squad";
+import { totalSpend } from "./squad-budget";
 import type { TeamState } from "./team-state";
 
 // Draft persistence.
@@ -129,7 +130,7 @@ const snapshotOf = (state: TeamState): DraftSnapshot => ({
   playerIds: state.players.map((p) => p.playerId),
   captain: state.captain,
   viceCaptain: state.viceCaptain,
-  spent: state.players.reduce((sum, p) => sum + p.purchasePrice, 0),
+  spent: totalSpend(state.players),
   size: state.players.length,
 });
 

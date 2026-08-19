@@ -17,6 +17,7 @@ import {
   xpFor,
   type ScoredPlayer,
 } from "./scoring";
+import { totalSpend } from "./squad-budget";
 import { mean } from "./stats";
 import {
   computeProjection,
@@ -118,7 +119,7 @@ export function squadScore(input: SquadScoreInput): SquadScoreBreakdown {
       ? 0
       : (mean(players.map((p) => fixtureScore(p, horizon, seasonWindow))) - 0.5) * 2 * FIXTURE_POINTS_PER_GW * gameweeks;
 
-  const spent = picks.reduce((sum, p) => sum + p.purchasePrice, 0);
+  const spent = totalSpend(picks);
   const totalXp = players.reduce((sum, p) => sum + xpFor(p, horizon), 0);
   const perMillion = spent > 0 ? totalXp / (spent / 10) : 0;
   const value = (perMillion - VALUE_BASELINE) * VALUE_WEIGHT;
@@ -159,7 +160,7 @@ export function squadValuePerMillion(
   scoredById: Map<number, ScoredPlayer>,
   horizon: Horizon,
 ): number {
-  const spent = team.players.reduce((sum, p) => sum + p.purchasePrice, 0);
+  const spent = totalSpend(team.players);
   if (spent === 0) return 0;
   const totalXp = team.players.reduce((sum, p) => {
     const s = scoredById.get(p.playerId);

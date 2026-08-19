@@ -65,6 +65,7 @@ import {
   type GemArchetype,
   type GemCandidate,
 } from "@/lib/hidden-gems";
+import { squadBudget, totalSpend } from "@/lib/squad-budget";
 import { GemBadge } from "@/components/gem-badge";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
@@ -1049,6 +1050,11 @@ export default function BuilderPage() {
     return optimiseLineup(candidates);
   }, [team.players, rules.squadSize, rowById, squadEventAgg, effectiveEvent, availabilityOf]);
 
+  const budget = useMemo(
+    () => squadBudget(team, rules, lookup, [...metaById.values()], lineup),
+    [team, rules, lookup, metaById, lineup],
+  );
+
   const applyLineup = () => {
     if (!lineup) return;
     persist({
@@ -1237,7 +1243,7 @@ export default function BuilderPage() {
     const target = scoredById.get(replaceFor);
     if (!target) return 0;
     const outgoing = team.players.find((p) => p.playerId === replaceFor);
-    const spent = team.players.reduce((sum, p) => sum + p.purchasePrice, 0);
+    const spent = totalSpend(team.players);
     return team.budget - spent + (outgoing?.purchasePrice ?? target.price);
   }, [replaceFor, scoredById, team]);
 
@@ -1280,6 +1286,7 @@ export default function BuilderPage() {
         seasonWindow,
         squadBalance,
         archetypeIds,
+        reversibility: true,
       },
     );
   }, [
@@ -1388,6 +1395,21 @@ export default function BuilderPage() {
             style={{ width: `${Math.min(100, (validation.spent / rules.totalSpend) * 100)}%` }}
           />
         </div>
+        {budget.splitKnown && (
+          <div className="mt-1 flex items-baseline justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span>
+              XI {money(budget.xiSpend!)} · bench {money(budget.benchSpend!)}
+              {budget.benchSurplus! > 0 && (
+                <>
+                  {" "}
+                  <span className="text-amber-700 dark:text-amber-400">
+                    (£{(budget.benchSurplus! / 10).toFixed(1)}m above the cheapest legal bench)
+                  </span>
+                </>
+              )}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Requirements. Collapsed once everything passes — the detail only
@@ -2038,6 +2060,15 @@ export default function BuilderPage() {
                             xP {r.xpDelta >= 0 ? "+" : ""}
                             {r.xpDelta.toFixed(1)} · risk {r.riskDelta >= 0 ? "+" : ""}
                             {r.riskDelta} · fit {r.teamFit.toFixed(1)}
+                            {r.exitRoutes !== undefined && (
+                              <>
+                                {" "}
+                                ·{" "}
+                                <span title="Other legal candidates at this position after this swap — an exit route, not a ranking factor.">
+                                  {r.exitRoutes} exit route{r.exitRoutes === 1 ? "" : "s"}
+                                </span>
+                              </>
+                            )}
                           </p>
                         </div>
                         <button

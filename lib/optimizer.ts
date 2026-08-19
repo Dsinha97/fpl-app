@@ -1,3 +1,4 @@
+import { totalSpend } from "./squad-budget";
 import type { SquadPick, SquadRules } from "./team-state";
 
 // Squad optimiser (Sprint 2).
@@ -437,7 +438,7 @@ export function optimizeSquad(input: OptimizeInput): OptimizeResult {
       picks.splice(idx, 1);
       chosen.delete(outId);
     }
-    spent = picks.reduce((sum, pick) => sum + pick.purchasePrice, 0);
+    spent = totalSpend(picks);
     positionCount.clear();
     clubCount.clear();
     for (const pick of picks) {

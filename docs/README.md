@@ -34,6 +34,8 @@ file, not separate files.
 | [sprints/championship-priors.md](sprints/championship-priors.md) | historical | Sprint 15.6 — 33 zero-PL-minute players re-primed from real Championship stats, xP engine v1.5.0. |
 | [sprints/squad-reconciliation.md](sprints/squad-reconciliation.md) | historical | Start/minutes water-fill, phases 1 (v1.2.0) and 2 (v1.3.0). |
 | [sprints/additional-info.md](sprints/additional-info.md) | historical | Ops log: hosting follow-ups, dependency advisories, small queued items. |
+| [sprints/sprint-17a.md](sprints/sprint-17a.md) | live | Walk-forward model validation — found the xP model underperforms a naive last-5-gameweeks baseline out-of-sample. |
+| [sprints/sprint-18.md](sprints/sprint-18.md) | live | Effective Starting XI budget, a chip-sequencing bug fix + calendar-derived presets, transfer reversibility. |
 
 ## Source specs
 

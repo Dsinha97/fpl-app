@@ -23,7 +23,8 @@ import {
   type SquadPoints,
 } from "@/lib/manager-picks";
 import { loadSeasonContext } from "@/lib/season-context";
-import { DEFAULT_RULES, type SquadRules, type TeamState } from "@/lib/team-state";
+import { DEFAULT_RULES, type PlayerMeta, type SquadRules, type TeamState } from "@/lib/team-state";
+import { squadBudget } from "@/lib/squad-budget";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { useAuth } from "@/components/auth-provider";
 
@@ -561,6 +562,32 @@ export default function TeamPage() {
     };
   }, [importedDraft, data]);
 
+  const metaList = useMemo<PlayerMeta[]>(
+    () =>
+      data
+        ? [...data.players.values()].map((p) => ({
+            id: p.id,
+            elementType: p.element_type,
+            teamId: p.team_id,
+            nowCost: p.now_cost ?? 0,
+            webName: p.web_name ?? "",
+          }))
+        : [],
+    [data],
+  );
+  const metaByIdForBudget = useMemo(() => new Map(metaList.map((p) => [p.id, p])), [metaList]);
+  const lookupForBudget = useCallback(
+    (id: number) => metaByIdForBudget.get(id),
+    [metaByIdForBudget],
+  );
+
+  /** Effective XI budget for the current squad — only shown when the
+   *  imported/derived TeamState carries a valid XI/bench split. */
+  const currentBudget = useMemo(() => {
+    if (!currentSquad || !data) return null;
+    return squadBudget(currentSquad.state, data.rules, lookupForBudget, metaList);
+  }, [currentSquad, data, lookupForBudget, metaList]);
+
   /** Gameweeks with picks, newest first — what the selector offers. */
   const pickedEvents = useMemo(
     () => (data ? [...data.picksByEvent.keys()].sort((a, b) => b - a) : []),
@@ -989,6 +1016,18 @@ export default function TeamPage() {
                     quota={data.rules.positionQuota}
                     layout={currentLayout}
                   />
+                  {currentBudget?.splitKnown && (
+                    <p className="mt-2 text-xs text-zinc-500">
+                      XI £{(currentBudget.xiSpend! / 10).toFixed(1)}m · bench £
+                      {(currentBudget.benchSpend! / 10).toFixed(1)}m
+                      {currentBudget.benchSurplus! > 0 && (
+                        <span className="text-amber-700 dark:text-amber-400">
+                          {" "}
+                          (£{(currentBudget.benchSurplus! / 10).toFixed(1)}m above the cheapest legal bench)
+                        </span>
+                      )}
+                    </p>
+                  )}
                   <p className="mt-2 text-xs text-zinc-500">
                     {currentSquad.from === "import" ? (
                       <>

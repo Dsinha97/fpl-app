@@ -36,6 +36,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 16 | Notifications & Automation | Not started | below |
 | 17 | Historical Analytics & ML | Not started | below |
 | 17a | Model Validation (walk-forward backtest) | **Built and run** 2026-08-18 — `ingest-fpl-archive` Edge Function, `scripts/backtest-walkforward.ts`; found the model underperforms a naive last-5-gameweeks baseline out-of-sample in every season tested | [sprints/sprint-17a.md](sprints/sprint-17a.md) |
+| 18 | Squad Structure & Chip Sequencing | **Built** 2026-08-19 — Effective Starting XI budget (`lib/squad-budget.ts`), a real chip-sequencing bug fix in `planTransferPath`, calendar-derived chip-sequence presets on `/chips`, and transfer reversibility (`Replacement.exitRoutes`) on `/builder` + `/transfers` | [sprints/sprint-18.md](sprints/sprint-18.md) |
 
 Non-sprint work items, also in `sprints/`: [cold-start-patch.md](sprints/cold-start-patch.md)
 (empirical-Bayes rate priors — phase 1 built, phase 2 deferred/gated) and
@@ -99,6 +100,7 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 | Automated FPL credential login | PingOne offers no password grant; the one reachable flow opens with bot detection | [sprints/sprint-14.md](sprints/sprint-14.md#fpl-login-is-blocked--automated-credential-login-not-the-session-handoff) |
 | `positionCalibration` | Fitted in-sample; needs a refit against real 2026/27 results. Walk-forward evidence for why now exists: out-of-sample the model underperforms a naive last-5-gameweeks baseline in every season tested | [sprints/sprint-17a.md](sprints/sprint-17a.md) |
 | Cold-Start phase 2, remaining 66 players + `dc90` | Sprint 15.6 covered 33 of 99 (COV/HUL/IPS, xg90/xa90/yellow90 only) via a one-shot PDF drop; the other 66 (overseas/academy) and `dc90` for all 33 have no fittable source | [sprints/championship-priors.md](sprints/championship-priors.md) |
+| New-manager uncertainty discount (GW1-3 xP penalty) | `pl_managers` has no start date/tenure field — nothing says which club has a first-season manager. Now measurable in principle: Sprint 17a's 4 seasons of per-gameweek data could test "do first-season-manager players underperform their prior rate early on," but needs a tenure source first, and any xP effect is still gated behind the same backtest `μ_fit` needs | [sprints/sprint-17a.md](sprints/sprint-17a.md) |
 | Sprint 12.5 phases 3–6 (System Fit multiplier) | **Half-unblocked by Sprint 15.6**: player-side rates (crosses/90, tackles/90, etc.) are now measured for the 58 FootyStats-covered players, but manager-side tactical thresholds are still transcribed opinion, not measured data — the block stands for that reason specifically now, not by default | [sprints/sprint-12.md](sprints/sprint-12.md#sprint-125--pl-team-club-manager-intelligence-buildable-slice-built-2026-08-07) |
 | Manager behavioural history (transfers, captains, chips) | FPL API exposes none for past seasons; `manager_picks` FKs to the current season only | [sprints/sprint-12.md](sprints/sprint-12.md#sprint-12a--manager-percentile-profile-built) |
 

@@ -608,7 +608,12 @@ export default function TransfersPage() {
         })
         .sort((a, b) => xpFor(b, horizon) - xpFor(a, horizon))
         .slice(0, CANDIDATES)
-        .map((player) => ({ player, teamFit: null as number | null, rationale: [] as string[] }));
+        .map((player) => ({
+          player,
+          teamFit: null as number | null,
+          rationale: [] as string[],
+          exitRoutes: undefined as number | undefined,
+        }));
     }
 
     return findReplacements(
@@ -619,7 +624,8 @@ export default function TransfersPage() {
       lookup,
       horizon,
       CANDIDATES,
-    ).map((r) => ({ player: r.player, teamFit: r.teamFit, rationale: r.rationale }));
+      { reversibility: true },
+    ).map((r) => ({ player: r.player, teamFit: r.teamFit, rationale: r.rationale, exitRoutes: r.exitRoutes }));
   }, [team, pickingFor, scoredById, rowById, search, horizon, rules, lookup]);
 
   const addMove = (outId: number, inId: number) => {
@@ -993,7 +999,7 @@ export default function TransfersPage() {
                   </p>
                 ) : (
                   <ul className="mt-2 space-y-1">
-                    {candidates.map(({ player, teamFit, rationale }) => (
+                    {candidates.map(({ player, teamFit, rationale, exitRoutes }) => (
                       <li key={player.id}>
                         <button
                           onClick={() => addMove(pickingFor, player.id)}
@@ -1009,6 +1015,14 @@ export default function TransfersPage() {
                             {rationale.length > 0 && (
                               <span className="block text-[11px] text-zinc-500 break-words">
                                 {rationale.join(" · ")}
+                              </span>
+                            )}
+                            {exitRoutes !== undefined && (
+                              <span
+                                className="block text-[10px] text-zinc-400"
+                                title="Other legal candidates at this position after this swap — an exit route, not a ranking factor."
+                              >
+                                {exitRoutes} exit route{exitRoutes === 1 ? "" : "s"}
                               </span>
                             )}
                           </span>

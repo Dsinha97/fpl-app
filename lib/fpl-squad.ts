@@ -1,3 +1,4 @@
+import { totalSpend } from "./squad-budget";
 import { emptyTeamState, type SquadRules, type TeamState } from "./team-state";
 import { sellPrice } from "./transfers";
 
@@ -122,7 +123,7 @@ export function teamStateFromPicks(
     playerId: p.element,
     purchasePrice: nowCostOf(p.element) ?? 0,
   }));
-  const spent = players.reduce((sum, p) => sum + p.purchasePrice, 0);
+  const spent = totalSpend(players);
 
   // Total "budget" a squad is scored against is spend + what's left in the
   // bank, so budgetRemaining (lib/team-state.ts's validateSquad) comes out

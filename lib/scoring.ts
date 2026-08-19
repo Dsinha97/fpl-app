@@ -12,6 +12,7 @@ import {
   type TeamState,
 } from "./team-state";
 import { clamp, mean, stdevPopulation } from "./stats";
+import { totalSpend } from "./squad-budget";
 
 export interface ScoredPlayer {
   id: number;
@@ -322,6 +323,14 @@ export interface Replacement {
    * `teamFit` (see `REPLACEMENT_MODEL_NOTE` for why).
    */
   squadBalanceDelta?: number;
+  /**
+   * How many other pool candidates at the incoming player's position would
+   * still be legally reachable (position, budget, club cap — the same
+   * checks `replacementLegality` already makes) with one more free transfer
+   * after this swap. Only present when `filters.reversibility` is set;
+   * reported, never folded into `teamFit` — see `REPLACEMENT_MODEL_NOTE`.
+   */
+  exitRoutes?: number;
   rationale: string[];
 }
 
@@ -331,7 +340,9 @@ export const REPLACEMENT_MODEL_NOTE =
   "with nothing to fit it against, the same reasoning transfer-optimizer.ts already applies to its " +
   "own decisionMargin. SquadBalance — whether the swap smooths or roughens the squad's week-to-week " +
   "total, from the per-gameweek series — is shown as its own line when that series is available, but " +
-  "reported rather than folded into the ranking for the same reason.";
+  "reported rather than folded into the ranking for the same reason. ExitRoutes — how many other " +
+  "legal candidates remain at this position afterward — is the same shape again: a real, computed " +
+  "count, shown as its own line, never used to break a tie in the ranking.";
 
 /** Minimum start probability for a candidate to be worth suggesting, by default. */
 export const MINUTES_FLOOR = 0.4;
@@ -379,6 +390,15 @@ export interface ReplacementFilters {
    * caller runs `detectGems` once and passes the resulting ids through.
    */
   archetypeIds?: Set<number>;
+  /**
+   * Compute `Replacement.exitRoutes` — off by default, same shape as
+   * `squadBalance`. Costs an O(pool) legality scan per surviving candidate,
+   * fine for the handful of rows a Replacement Finder panel renders, wasteful
+   * inside a search loop (the transfer optimiser's beam calls
+   * `findReplacements` per squad slot per candidate basket), so no existing
+   * call site sets it and none should without a reason.
+   */
+  reversibility?: boolean;
 }
 
 /** Population coefficient of variation — 0 for a constant series, undefined for a zero mean. */
@@ -429,7 +449,7 @@ export function replacementLegality(
 ): { priceCeiling: number; isEligible: (c: ReplacementCandidate) => boolean } {
   const owned = new Set(team.players.map((p) => p.playerId));
   const outgoing = team.players.find((p) => p.playerId === target.id);
-  const spent = team.players.reduce((sum, p) => sum + p.purchasePrice, 0);
+  const spent = totalSpend(team.players);
 
   // Selling the outgoing player frees up what was paid for him.
   const affordable = team.budget - spent + (outgoing?.purchasePrice ?? target.price);
@@ -545,6 +565,30 @@ export function findReplacements(
         else if (squadBalanceDelta < -0.02) rationale.push("lumpier week-to-week spread");
       }
 
+      // ExitRoutes: after taking c, how many other pool players at his
+      // position are still legally reachable with one more free transfer?
+      // Reported only, never folded into teamFit — see REPLACEMENT_MODEL_NOTE.
+      // A rejected FutureFlexibility term already sets the precedent for why:
+      // this is a real, computed count, not an invented coefficient.
+      let exitRoutes: number | undefined;
+      if (filters.reversibility) {
+        const resultingTeam: TeamState = {
+          ...team,
+          players: team.players.map((p) =>
+            p.playerId === target.id ? { playerId: c.id, purchasePrice: c.price } : p,
+          ),
+        };
+        const { isEligible: isReachable } = replacementLegality(
+          { id: c.id, elementType: c.elementType, price: c.price },
+          resultingTeam,
+          rules,
+          lookup,
+        );
+        exitRoutes = pool.filter(
+          (p) => isReachable(p) && (p.startProbability ?? p.availability) >= minStartProbability,
+        ).length;
+      }
+
       if (rationale.length === 0) rationale.push("broadly equivalent");
 
       return {
@@ -555,6 +599,7 @@ export function findReplacements(
         riskDelta,
         priceDelta,
         squadBalanceDelta,
+        exitRoutes,
         rationale,
       };
     })

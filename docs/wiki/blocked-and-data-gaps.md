@@ -13,6 +13,7 @@ live index this page expands on.
 | `positionCalibration` | Fitted **in-sample**; needs a refit against real 2026/27 results before any accuracy claim is trusted | [xp-model.md](xp-model.md) |
 | Cold-start, remaining 66 players + `dc90` for all 33 covered | No fittable source exists yet (overseas/academy players; no PL-side CBIT data for 2024/25) | [cold-start-priors.md](cold-start-priors.md) |
 | Club tactical `μ_fit` multiplier | Modifiers are transcribed opinion, not measured data; needs a real per-player role source and a backtest | [club-tactical-profiles.md](club-tactical-profiles.md) |
+| New-manager uncertainty discount (GW1-3 xP penalty) | `pl_managers` carries no start date, appointment date, or tenure field — nothing in this app can say which club has a first-season manager. Would also need the same backtest bar `μ_fit` is held to before touching xP | [xp-model.md](xp-model.md) |
 | Manager behavioural history (transfers, captains, chips) | FPL API exposes none for past seasons; `manager_picks` FKs to the current season only | [manager-profile.md](manager-profile.md), [database-and-rls.md](database-and-rls.md#season-rollover-trap) |
 
 ## Distinguishing "blocked" from "not started"

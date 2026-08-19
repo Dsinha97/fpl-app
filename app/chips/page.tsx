@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase/client";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
-import { setChipPlanEntry } from "@/lib/chip-plan";
+import { resolveStopEvent, setChipPlanEntry } from "@/lib/chip-plan";
 import {
   CHIP_LABELS,
   runChipEngine,
@@ -52,6 +52,8 @@ export default function ChipsPage() {
   const [pool, setPool] = useState<ScoredPlayer[]>([]);
   const [predsByPlayer, setPredsByPlayer] = useState<Map<number, Map<number, EventPrediction>>>(new Map());
   const [chipDefinitions, setChipDefinitions] = useState<ChipDefinitionRow[]>([]);
+  /** id -> deadline, for the Break Pivot preset's calendar gap. */
+  const [deadlineByEvent, setDeadlineByEvent] = useState<Map<number, string>>(new Map());
   const [fixturesPerEvent, setFixturesPerEvent] = useState<Map<number, EventFixtureCounts>>(new Map());
   const [rules, setRules] = useState<SquadRules>(DEFAULT_RULES);
   const [windowStart, setWindowStart] = useState<number | null>(null);
@@ -84,7 +86,7 @@ export default function ChipsPage() {
         setWindowEnd(ctx.windowEnd);
         setRules(ctx.rules);
 
-        const [playersRes, chipsRes, fixturesRes] = await Promise.all([
+        const [playersRes, chipsRes, fixturesRes, gwRes] = await Promise.all([
           supabase
             .from("players")
             .select(
@@ -103,6 +105,11 @@ export default function ChipsPage() {
             .select("event, team_h, team_a")
             .eq("season", gw.season)
             .order("event"),
+          supabase
+            .from("gameweeks")
+            .select("id, deadline_time")
+            .eq("season", gw.season)
+            .order("id"),
         ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
 
@@ -130,6 +137,10 @@ export default function ChipsPage() {
         }
         for (const [e, s] of clubsByEvent) counts.get(e)!.distinctClubs = s.size;
         setFixturesPerEvent(counts);
+
+        setDeadlineByEvent(
+          new Map((gwRes.data ?? []).map((r) => [r.id as number, r.deadline_time as string])),
+        );
 
         // Paged deliberately — see PAGE_ROWS. Carries the columns /transfers
         // doesn't need: expected_minutes, start_probability and availability,
@@ -292,6 +303,116 @@ export default function ChipsPage() {
     setApplied(`Pinned the ${half.label} schedule (${entries.length} chip${entries.length === 1 ? "" : "s"}) to "${team.name}".`);
   };
 
+  /**
+   * Calendar-derived starting points for a chip sequence — not the video's
+   * GW4/GW8 dates (a different season's calendar), and not a recommendation:
+   * a suggested set of pins the owner can move afterward, same as any other
+   * pin on this page. Each candidate is checked against its chip's real
+   * `chip_definitions` window before being offered; one whose gameweeks
+   * don't fit is simply omitted rather than shown broken.
+   *
+   * Only these three chips carry a bonus/rebuild worth sequencing —
+   * `runChipEngine`'s existing schedule cards above already answer "when is
+   * each chip individually best"; this answers a different question ("what
+   * if I front-load them") that nothing else on this page asks.
+   */
+  const presets = useMemo(() => {
+    if (windowStart === null || chipDefinitions.length === 0) return [];
+    // chip_definitions carries one row PER CHIP PER HALF (two "bboost" rows,
+    // two "wildcard" rows, ...) — collapsing that into one Map keyed by name
+    // silently keeps whichever half's row the array order puts last, which
+    // is wrong for a chip whose event falls in the other half. Caught
+    // immediately: presets computed to 0 on live data because "bboost" and
+    // "3xc" resolved to their GW20-38 window while GW1 was being checked.
+    const fits = (chip: ChipKind, event: number) =>
+      chipDefinitions.some(
+        (d) => d.name === chip && event >= d.startEvent && event <= resolveStopEvent(d, windowEnd),
+      );
+    const halfDefOf = (chip: ChipKind, atEvent: number) =>
+      chipDefinitions.find(
+        (d) => d.name === chip && atEvent >= d.startEvent && atEvent <= resolveStopEvent(d, windowEnd),
+      );
+
+    const out: { label: string; entries: { chip: ChipKind; event: number }[]; note: string }[] = [];
+
+    // Front-loaded: BB this gameweek, FH the next, WC the one after — the
+    // source's headline sequence. Only offered when it is actually still the
+    // opening of the season (a "front-loaded" sequence starting mid-season
+    // contradicts its own premise), even though the windows alone might fit.
+    const frontLoaded: { chip: ChipKind; event: number }[] = [
+      { chip: "bboost", event: windowStart },
+      { chip: "freehit", event: windowStart + 1 },
+      { chip: "wildcard", event: windowStart + 2 },
+    ];
+    if (windowStart <= 2 && frontLoaded.every((e) => fits(e.chip, e.event))) {
+      out.push({
+        label: "Front-loaded",
+        entries: frontLoaded,
+        note:
+          `Bench Boost GW${windowStart}, Free Hit GW${windowStart + 1}, Wildcard GW${windowStart + 2} — ` +
+          "spends all three first-half one-off/rebuild chips inside the opening month. Weigh this against " +
+          "the Effective Starting XI Budget above: a minimum-cost bench (the cheapest legal one) makes the " +
+          "Bench Boost gain small, since there is barely anything to boost.",
+      });
+    }
+
+    // Early-information anchor: a Wildcard after a few real gameweeks, once
+    // starts/minutes/form for the season begin to diverge from the
+    // prior-seasons prior every projection is currently built from.
+    const EARLY_INFO_GAP = 3;
+    const earlyAnchorEvent = windowStart + EARLY_INFO_GAP;
+    if (fits("wildcard", earlyAnchorEvent)) {
+      out.push({
+        label: "Early-information anchor",
+        entries: [{ chip: "wildcard", event: earlyAnchorEvent }],
+        note: `Wildcard GW${earlyAnchorEvent} — ${EARLY_INFO_GAP} gameweeks of real starts/minutes/form before committing, instead of GW${windowStart}'s pure prior-season rates.`,
+      });
+    }
+
+    // Break pivot: a Wildcard timed to the largest real gap between
+    // deadlines in the current half — computed from gameweeks.deadline_time,
+    // not the source's GW8 (a different season's international-break dates).
+    // Wildcard's own window never covers GW1 (it opens GW2, per this
+    // season's real chip_definitions), so it can't answer "what half is
+    // windowStart in" when windowStart is GW1 — halfDefOf("wildcard", 1)
+    // finds nothing and the gap search silently ran over zero gameweeks.
+    // Bench Boost's window does cover GW1, and all four chips share the same
+    // two half boundaries, so it locates the half correctly regardless of
+    // which gameweek windowStart is.
+    const currentHalf = halfDefOf("bboost", windowStart);
+    const halfEnd = currentHalf ? resolveStopEvent(currentHalf, windowEnd) : windowStart;
+    let biggestGapEvent: number | null = null;
+    let biggestGapDays = 0;
+    for (let e = windowStart; e < halfEnd; e++) {
+      const a = deadlineByEvent.get(e);
+      const b = deadlineByEvent.get(e + 1);
+      if (!a || !b) continue;
+      const days = (new Date(b).getTime() - new Date(a).getTime()) / 86_400_000;
+      if (days > biggestGapDays) {
+        biggestGapDays = days;
+        biggestGapEvent = e + 1;
+      }
+    }
+    if (biggestGapEvent !== null && biggestGapDays > 8 && fits("wildcard", biggestGapEvent)) {
+      out.push({
+        label: "Break pivot",
+        entries: [{ chip: "wildcard", event: biggestGapEvent }],
+        note: `Wildcard GW${biggestGapEvent} — timed to this season's longest gap between deadlines (${Math.round(biggestGapDays)} days), computed from the real calendar.`,
+      });
+    }
+
+    return out;
+  }, [windowStart, windowEnd, chipDefinitions, deadlineByEvent]);
+
+  const pinPreset = (preset: { label: string; entries: { chip: ChipKind; event: number }[] }) => {
+    if (!team) return;
+    let plan = team.chipPlan;
+    for (const e of preset.entries) plan = setChipPlanEntry(plan, e.chip, e.event, "shortlist");
+    saveDraft({ ...team, chipPlan: plan });
+    setDrafts(listDrafts());
+    setApplied(`Pinned the ${preset.label} sequence (${preset.entries.length} chip${preset.entries.length === 1 ? "" : "s"}) to "${team.name}". Open Transfer Path on /transfers for the sequence-aware total.`);
+  };
+
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -368,6 +489,43 @@ export default function ChipsPage() {
           {team.name} has {team.players.length} of {rules.squadSize} players. Chip values need a
           complete squad.
         </p>
+      )}
+
+      {result && team && presets.length > 0 && (
+        <section className="mt-5 rounded-xl border border-purple-300 bg-white p-4 dark:border-[#00FF87]/40 dark:bg-[#1E0234]">
+          <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Chip sequences</h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            Starting points for a planned sequence, not a recommendation — pin one, then move any
+            gameweek. The schedules above value each chip independently against today&apos;s squad; a
+            sequence values each chip against what the one before it left behind. See it on{" "}
+            <Link
+              href={`/transfers/?draft=${team.draftId}`}
+              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+            >
+              Transfer Path
+            </Link>{" "}
+            after pinning.
+          </p>
+          <div className="mt-3 space-y-2">
+            {presets.map((preset) => (
+              <div
+                key={preset.label}
+                className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-zinc-200 px-3 py-2 dark:border-purple-900/40"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{preset.label}</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">{preset.note}</p>
+                </div>
+                <button
+                  onClick={() => pinPreset(preset)}
+                  className="min-h-9 shrink-0 rounded-md border border-purple-700 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-50 dark:border-[#00FF87] dark:text-[#00FF87] dark:hover:bg-[#00FF87]/10"
+                >
+                  Pin
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {result && team && (
