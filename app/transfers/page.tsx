@@ -928,11 +928,11 @@ export default function TransfersPage() {
                   <th className="hidden px-2 py-1.5 sm:table-cell">Sell</th>
                   <th className="px-2 py-1.5">{horizonLabel(horizon)}</th>
                   <th className="px-2 py-1.5">
-                    <span
-                      title={RISK_MODEL_NOTE}
-                      className="cursor-help underline decoration-dotted underline-offset-2"
-                    >
+                    <span className="inline-flex items-center gap-1">
                       Risk
+                      <InfoTooltip label="How is Risk scored?">
+                        <p className="text-xs leading-relaxed">{RISK_MODEL_NOTE}</p>
+                      </InfoTooltip>
                     </span>
                   </th>
                   <th className="px-2 py-1.5"></th>

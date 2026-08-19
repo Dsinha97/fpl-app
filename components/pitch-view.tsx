@@ -150,7 +150,7 @@ export function PitchView({
 
   return (
     <div ref={wrapper} className="relative flex w-full flex-col gap-3">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm dark:border-purple-900/40 dark:bg-[#1E0234]">
+      <div className="rounded-2xl border border-zinc-200 bg-card p-3 shadow-sm dark:border-purple-900/40">
         {header}
 
         <div className="mt-3">

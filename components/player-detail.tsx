@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { FixtureCell } from "./fdr-badge";
 import { AvailabilityBadge, RoleBadges } from "./player-status-icons";
+import { ConfidenceBadge, RateBand } from "./confidence-badge";
 import type { PlayerData } from "./player-card";
 
 const POSITION_NAME: Record<number, string> = {
@@ -138,16 +139,39 @@ export function PlayerDetail({
         </button>
       </div>
 
-      {/* key numbers */}
+      {/*
+        xP is the headline number the whole app is built to produce, but it
+        used to sit in a 3-column grid at the same text-sm weight as Price —
+        second slot, no larger than anything else. Promoted to its own row at
+        3xl, with ConfidenceBadge/RateBand surfaced beside it: the detail
+        panel is exactly where a reader inspects the number, and it previously
+        showed no provenance or uncertainty at all here (Sprint 19, Stage 4b).
+      */}
+      <div className="mt-2.5 flex items-start justify-between gap-2 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
+        <div>
+          <div
+            className="text-[10px] uppercase tracking-wide text-zinc-500"
+            title={player.value_note ?? "Expected points (xP) over the selected horizon"}
+          >
+            {player.value_note ? "Points" : "Expected points"}
+          </div>
+          <div className="text-3xl font-bold tabular-nums text-purple-800 dark:text-primary">
+            {player.expected_points !== undefined && player.expected_points !== null
+              ? player.expected_points.toFixed(1)
+              : "—"}
+          </div>
+        </div>
+        {(player.reliability || player.rate_lower !== undefined) && (
+          <div className="flex flex-col items-end gap-1 pt-0.5">
+            <ConfidenceBadge reliability={player.reliability} priorWeight={player.prior_weight} />
+            <RateBand lower={player.rate_lower} upper={player.rate_upper} />
+          </div>
+        )}
+      </div>
+
+      {/* supporting numbers */}
       <div className="mt-2.5 grid grid-cols-3 gap-2 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
         {stat("Price", `£${(player.now_cost / 10).toFixed(1)}m`)}
-        {stat(
-          "xP GW",
-          player.expected_points !== undefined && player.expected_points !== null
-            ? player.expected_points.toFixed(1)
-            : "—",
-          true,
-        )}
         {stat("xP 5", player.xp5 !== undefined && player.xp5 !== null ? player.xp5.toFixed(1) : "—")}
         {stat(
           "Exp. mins",

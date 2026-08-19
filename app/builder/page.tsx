@@ -1001,6 +1001,10 @@ export default function BuilderPage() {
         expected_minutes: event !== undefined ? (agg?.expectedMinutes ?? null) : (pred?.expected_minutes ?? null),
         start_probability: event !== undefined ? (agg?.startProbability ?? null) : (pred?.start_probability ?? null),
         system: tacticalByTeam.get(row.team_id) ?? null,
+        reliability: xp.get(row.id)?.reliability ?? undefined,
+        prior_weight: xp.get(row.id)?.prior_weight ?? null,
+        rate_lower: xp.get(row.id)?.xp_5_lower ?? null,
+        rate_upper: xp.get(row.id)?.xp_5_upper ?? null,
         // The detail panel renders every entry in `upcoming` with no
         // truncation of its own, so the ticker's display length is sliced
         // here — `fixtures` itself (and fdrRun below) carries the whole
@@ -2198,11 +2202,11 @@ export default function BuilderPage() {
                     <th className="py-1.5">£</th>
                     <th className="py-1.5">{horizonLabel(horizon)}</th>
                     <th className="py-1.5">
-                      <span
-                        title={RISK_MODEL_NOTE}
-                        className="cursor-help underline decoration-dotted underline-offset-2"
-                      >
+                      <span className="inline-flex items-center gap-1">
                         Risk
+                        <InfoTooltip label="How is Risk scored?">
+                          <p className="text-xs leading-relaxed">{RISK_MODEL_NOTE}</p>
+                        </InfoTooltip>
                       </span>
                     </th>
                     <th className="py-1.5"></th>

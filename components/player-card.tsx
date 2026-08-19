@@ -56,6 +56,12 @@ export interface PlayerData {
   sub_probability?: number | null;
   /** One-line club tactical summary (Sprint 12.5), e.g. "4-3-3 · Possession control · high press". */
   system?: string | null;
+  /** How much of expected_points is the player's own record vs a fitted prior — see ConfidenceBadge. Only populated where the caller already has it cheaply (currently /builder); undefined elsewhere hides the badge, it never guesses. */
+  reliability?: "high" | "medium" | "low" | null;
+  prior_weight?: number | null;
+  /** The rate-uncertainty band around expected_points — see RateBand. */
+  rate_lower?: number | null;
+  rate_upper?: number | null;
 }
 
 interface PlayerCardProps {
@@ -171,8 +177,11 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
       </span>
 
       {/* Name */}
+      {/* xP used to be smaller than the name it sits under (9px vs 10px) on
+          the one screen that exists to show it — inverted within the same
+          64-80px budget rather than growing the card (Sprint 19, Stage 4b). */}
       <span className="w-full rounded-t-md border border-purple-700/80 bg-purple-950/90 px-1 py-0.5 text-center shadow-md backdrop-blur-sm">
-        <span className="block truncate text-[10px] font-bold text-white">{player.web_name}</span>
+        <span className="block truncate text-[9px] font-semibold text-white">{player.web_name}</span>
       </span>
 
       {/* xP + next fixture. Always xP, never price — mixing the two units in
@@ -180,14 +189,14 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
       <span className="flex w-full items-center justify-between rounded-b-md border-x border-b border-purple-700/80 bg-purple-900/90 px-1 py-0.5 text-[9px] text-purple-200 shadow-md dark:bg-slate-900/95">
         {hasXp ? (
           <span
-            className="font-semibold text-emerald-400"
+            className="text-[10px] font-bold text-emerald-400"
             title={player.value_note ?? "Expected points (xP) over the selected horizon"}
           >
             {player.expected_points!.toFixed(player.value_decimals ?? 1)}
           </span>
         ) : (
           <span
-            className="font-semibold text-purple-400"
+            className="text-[10px] font-bold text-purple-400"
             title="No xP projection — not enough prior-season minutes to model"
           >
             —
