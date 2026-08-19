@@ -10,6 +10,20 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+  /*
+   * The 13 page-title h1s share one class string verbatim
+   * (`text-2xl font-semibold tracking-tight`) and none of them set a
+   * line-height — Tailwind's stock text-2xl pairs 1.5rem with a loose 2rem
+   * (1.33) line-height. A plain `line-height` rule in @layer base cannot win
+   * here: the text-2xl utility bundles its own line-height and utilities
+   * always beat base-layer rules in the cascade regardless of source order.
+   * Overriding the theme pair itself is the only place this is actually
+   * applied once rather than hand-typed per element. text-2xl has exactly
+   * one other caller in the app (a single-line stat number on /scenarios),
+   * which a tighter line-height does not hurt. Sprint 19, Stage 5.
+   */
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.15;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
