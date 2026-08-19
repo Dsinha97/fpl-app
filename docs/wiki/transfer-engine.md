@@ -68,6 +68,22 @@ acceptable, overstating is not.
 **Confidence** is derived (low when the top two options are within a point, or the squad has
 undicted picks) and worded, never a fabricated percentage.
 
+### Reversibility: reported, never ranked (Sprint 18)
+
+`findReplacements` gained an opt-in `filters.reversibility` flag. When set, each candidate's
+`Replacement` carries `exitRoutes`: how many *other* pool players at the incoming player's position
+remain legally reachable (`replacementLegality`'s own position/budget/3-per-club checks) with one
+more free transfer after this swap. Off by default — an O(pool) scan per candidate is fine for the
+handful of rows a Replacement Finder panel shows, wasteful inside this optimiser's own beam search,
+which calls `findReplacements` far more often; no search-path call site sets it.
+
+Same shape as `squadBalanceDelta` before it, and the same standing precedent: a modelled
+`FutureFlexibility` term was rejected above in favour of computed, disclosed facts, never folded
+into `teamFit` — `exitRoutes` follows exactly that pattern rather than inventing a second one.
+Verified live that `teamFit` is unchanged with the flag on or off, across the full candidate pool.
+Wired into `/builder` and `/transfers`' replacement panels as an "N exit routes" line.
+— [sprint-18.md](../sprints/sprint-18.md)
+
 ### Chip-aware, when a plan is pinned
 
 `OptimizeTransfersInput.chip` (a `ChipContext` resolved by the caller from `TeamState.chipPlan` —

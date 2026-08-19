@@ -10,10 +10,10 @@ live index this page expands on.
 | League 314 standings (empty) | Pre-season; blocks all of Sprint 10 (Ownership Intelligence — EO, differentials, template) | [roadmap.md](../roadmap.md) |
 | `sync-live-gameweek` write path | Never executed — no live fixture yet | [deadline-and-matchday.md](deadline-and-matchday.md) |
 | Automated FPL credential login | PingOne offers no password grant; the one reachable flow opens with bot detection | [fpl-authentication.md](fpl-authentication.md) |
-| `positionCalibration` | Fitted **in-sample**; needs a refit against real 2026/27 results before any accuracy claim is trusted | [xp-model.md](xp-model.md) |
+| `positionCalibration` | Fitted **in-sample**; needs a refit against real 2026/27 results before any accuracy claim is trusted. Walk-forward evidence for why now exists: out-of-sample the model underperforms a naive last-5-gameweeks baseline in every season tested | [xp-model.md](xp-model.md#out-of-sample-validation-sprint-17a) |
 | Cold-start, remaining 66 players + `dc90` for all 33 covered | No fittable source exists yet (overseas/academy players; no PL-side CBIT data for 2024/25) | [cold-start-priors.md](cold-start-priors.md) |
 | Club tactical `μ_fit` multiplier | Modifiers are transcribed opinion, not measured data; needs a real per-player role source and a backtest | [club-tactical-profiles.md](club-tactical-profiles.md) |
-| New-manager uncertainty discount (GW1-3 xP penalty) | `pl_managers` carries no start date, appointment date, or tenure field — nothing in this app can say which club has a first-season manager. Would also need the same backtest bar `μ_fit` is held to before touching xP | [xp-model.md](xp-model.md) |
+| New-manager uncertainty discount (GW1-3 xP penalty) | `pl_managers` carries no start date, appointment date, or tenure field — nothing in this app can say which club has a first-season manager. Would also need the same backtest bar `μ_fit` is held to before touching xP. Now measurable in principle once a tenure source exists — Sprint 17a's backfilled per-gameweek data could test it directly | [club-tactical-profiles.md](club-tactical-profiles.md), [sprint-18.md](../sprints/sprint-18.md) |
 | Manager behavioural history (transfers, captains, chips) | FPL API exposes none for past seasons; `manager_picks` FKs to the current season only | [manager-profile.md](manager-profile.md), [database-and-rls.md](database-and-rls.md#season-rollover-trap) |
 
 ## Distinguishing "blocked" from "not started"

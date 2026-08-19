@@ -26,10 +26,30 @@ running with the service role — nothing in the front end can mutate league dat
 | `sync-manager` | manual only | `managers`, `manager_*` — `invoke_sync` POSTs an empty body so it has no `entry_id` to schedule with; only runs when `/team` calls it directly |
 | `generate-predictions` | `5,35 * * * *` | `player_predictions` — see [xp-model.md](xp-model.md) |
 | `fpl-session` / `fpl-my-team` | manual | see [fpl-authentication.md](fpl-authentication.md) — the two functions that verify a Supabase JWT before touching anything |
+| `ingest-fpl-archive` | manual, one-off backfill | `player_gameweek_stats` for past seasons (2022-23 through 2025-26) — see below |
 
 `public.invoke_sync(text)` is the single pg_cron entry point (revoked from `anon`/`authenticated`).
 Every run writes a `sync_runs` row (`success | partial | error | skipped`), which is what `/status`
 renders.
+
+## Backfilling seasons the FPL API no longer serves
+
+`sync-player-history` only reaches the *current* season's per-gameweek data — the FPL API doesn't
+serve past-season gameweek detail at all. `ingest-fpl-archive` (Sprint 17a) fills that gap from the
+community-run [Vaastav archive](https://github.com/vaastav/Fantasy-Premier-League), fetched and
+written **entirely server-side** — an earlier attempt tried to relay the CSVs through chat as
+batched SQL and found a single 500-row batch tokenizes to roughly 500,000 tokens, infeasible at any
+real scale. Mirrors `sync-player-history`'s cursored, time-budgeted shape (55s budget, resumable via
+`sync_runs.cursor`), keyed `GET .../ingest-fpl-archive?season=2023-24[&maxGw=38][&force=1]`.
+
+Rows are filtered to `player_code`s present in `player_season_history` — the xP model's only
+training source, and a much smaller set (506 codes) than an archived season's full headcount
+(~700-900 rows/gameweek, including academy/departed players this DB holds no history for). Two real
+bugs surfaced during verification: the 1000-row PostgREST cap (see below) silently truncated the
+allowed-codes fetch on the first run, undercounting by ~70%; and the archive occasionally repeats a
+row within one gameweek's CSV (rearranged fixtures re-listed), which a plain array upsert can't
+apply twice in one statement — fixed by deduping on `(player_id, fixture)` before writing. Feeds
+[xp-model.md](xp-model.md)'s walk-forward validation. — [sprint-17a.md](../sprints/sprint-17a.md)
 
 ## Change detection, not snapshotting
 

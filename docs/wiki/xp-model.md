@@ -47,6 +47,32 @@ improved):
 `positionCalibration` is fitted **in-sample** and must be refit once real 2026/27 results exist —
 recorded as a live blocker in [roadmap.md](../roadmap.md).
 
+## Out-of-sample validation (Sprint 17a)
+
+The calibration check above is season-aggregate and in-sample by construction — the season being
+scored carries weight 0.6 in the model's own rate blend, and `positionCalibration` was fitted on
+the same cohort. A walk-forward backtest asks a harder question: trained on strictly earlier
+seasons only, how well does the model predict a gameweek it has never seen?
+
+Backfilled `player_gameweek_stats` for 2022-23 through 2025-26 from the community-run
+[Vaastav archive](https://github.com/vaastav/Fantasy-Premier-League) (`ingest-fpl-archive` — see
+[data-pipeline.md](data-pipeline.md)), then ran the real, unmodified `predict()` for each of
+2023-24/2024-25/2025-26, trained only on `player_season_history` rows strictly before that season.
+
+**Result: at per-gameweek granularity, the model's MAE and Pearson r are both worse than a naive
+mean-of-the-last-5-gameweeks baseline, in every one of the three seasons tested** — confirmed on
+identical rows, not a row-mismatch artifact. Bias also trends more negative in more recent seasons
+(−0.23 → −0.46 → −0.66), a material departure from the in-sample bias ≈ 0. This is not evidence of
+a leakage bug — 2025/26 (weighted 0.6 in the rate blend) came out *worse* walk-forward than
+in-sample, exactly as a real split should. It means `positionCalibration`, fitted once on a cohort
+that is largely the same season as its own training data, does not survive being asked to predict
+a gameweek it hasn't seen. — [sprint-17a.md](../sprints/sprint-17a.md)
+
+Recalibration itself was deliberately **not** done in the same pass that found this — refitting on
+the same run that produced the finding risks exactly the "tune until it looks reasonable" failure
+[methodology.md](methodology.md) warns against. The evidence now exists; the refit is a follow-up
+with its own held-out check.
+
 ## Squad reconciliation
 
 Per-player rates have no view of the rest of the squad, so nothing enforced that each club starts
@@ -66,6 +92,8 @@ r to 0.830. Full detail: [phase-4-model.md §3](../phase-4-model.md#3-squad-reco
   code path reads them yet — `XDC_MODEL_NOTE` in `lib/scoring.ts` discloses this in the UI.
 - **No current-season form** — rates come entirely from prior seasons until 2026/27 gameweeks
   accrue.
+- **Out-of-sample accuracy is currently worse than a naive baseline** — see the walk-forward
+  validation section above.
 - **Fixture difficulty is the official FDR**, not a custom model — team attack/defence strength is
   zero for every club pre-season, which also blocks a calibrated fixture model (Phase 5, unbuilt).
 

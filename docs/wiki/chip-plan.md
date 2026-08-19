@@ -96,6 +96,52 @@ Hit/Wildcard rebuilds, this runs `optimizeSquad`-class searches that do not belo
 memo. On a real 15-player squad against live data it ran ~1,200 additional simulations in well
 under half a second, but it is still never triggered on page load.
 
+## A second real bug: the opening gameweek's bonus chip (Sprint 18)
+
+Every *later* gameweek in `planTransferPath` already ran a pinned Bench Boost/Triple Captain
+through `chipBonusOf` correctly. The **opening (deadline) gameweek branch hardcoded `chipBonus: 0`**
+regardless of what was pinned there — `optimizeTransfers`'s own branch *ranking* already accounted
+for the bonus (via `chipAdjustedTotal`), so the recommended branch was always correct, but the
+*displayed* total for a plan whose first chip lands next gameweek understated the real value by the
+whole bonus. This is exactly the front-loaded sequence's opening move (Bench Boost at the very next
+deadline), so it was hit immediately on real use.
+
+Verified live, not in a synthetic harness: pinned Bench Boost to GW1 on a real squad, ran the
+Transfer Path. Before the fix the GW1 step read `+0.3 xP + 0 chip`; after, `+0.3 xP + 15.9 chip`,
+matching the deadline optimiser's own independent `+15.9 GW1 bench boost` figure exactly.
+— [sprint-18.md](../sprints/sprint-18.md)
+
+## Calendar-derived sequence presets (Sprint 18)
+
+`/chips` gained a "Chip sequences" section offering three starting points, each written through the
+existing `setChipPlanEntry` (no new state) and each checked against the real `chip_definitions`
+window before being offered — one that doesn't fit is simply omitted, not shown broken:
+
+- **Front-loaded** — Bench Boost / Free Hit / Wildcard across the opening three gameweeks. Only
+  offered when it's genuinely still the season's opening (a "front-loaded" sequence starting
+  mid-season contradicts its own premise).
+- **Early-information anchor** — a Wildcard after a fixed number of real gameweeks, once
+  starts/minutes/form begin to diverge from the prior-seasons rates every projection is built from.
+- **Break pivot** — a Wildcard timed to the season's largest gap between deadlines, computed from
+  `gameweeks.deadline_time` at call time (this season: GW5→GW6, 22 days).
+
+None of these are the video that inspired them's literal dates — a different season's calendar has
+nothing in this repo to check it against, the same move [hidden-gems.md](hidden-gems.md) made with
+its source's literal percentile thresholds.
+
+**A third real bug, also caught against live data**: `chip_definitions` carries **two rows per chip
+name** — one per season half. The first implementation collapsed them into a `Map` keyed by chip
+name, which silently kept whichever half's row happened to be last in the fetched array; all three
+presets computed to zero on real data as a result. Fixed by searching every matching row for the one
+whose window actually contains the target event. A related trap: Wildcard's own window never covers
+GW1 (it opens GW2), so "which half is GW1 in" can't be answered from Wildcard's own definition —
+Bench Boost's definition (which does cover GW1) locates the half correctly instead, since all four
+chips share the same two half boundaries.
+
+Presets deliberately don't touch `runChipEngine`/`bestSchedule` — those answer "when is each chip
+individually best," a different, still-correct question. The sequence view is a second lens over the
+same valuations, routed through `planTransferPath` above, not a competing implementation.
+
 ## Pinning from `/chips`
 
 `/chips` stays the read-only valuation page from [chip-strategy.md](chip-strategy.md), with one

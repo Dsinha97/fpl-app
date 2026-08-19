@@ -39,5 +39,14 @@ multiplier could quietly undo that validation.
 number isn't disclosed as a user input either, since there's no honest input to expose; it's shown
 as reference text only, pending a real per-player role source and a backtest.
 
+A second proposal hit the same wall for a related reason (Sprint 18): a GW1-3 xP penalty for
+players under a first-season manager. Refused on three grounds — `pl_managers` has no start
+date/tenure field at all, so nothing here can even say *which* clubs qualify; folding it into xP
+would be the same kind of reviewed change this page's `μ_fit` already isn't; and the penalty size
+would be an invented coefficient. Logged in
+[blocked-and-data-gaps.md](blocked-and-data-gaps.md), with the empirical version queued once a
+tenure source exists — Sprint 17a's backfilled per-gameweek data could test "do first-season-manager
+players underperform their prior rate early on" directly. — [sprint-18.md](../sprints/sprint-18.md)
+
 See also: [PL_Team_Manager_Intelligence_Patch_Plan.md](../sources/PL_Team_Manager_Intelligence_Patch_Plan.md)
 (the owner's source spec), [sprint-12.md §12.5](../sprints/sprint-12.md#sprint-125--pl-team-club-manager-intelligence-buildable-slice-built-2026-08-07).

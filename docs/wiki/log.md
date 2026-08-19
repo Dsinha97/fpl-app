@@ -2,6 +2,24 @@
 
 One line per entry, most recent first.
 
+- 2026-08-19 — Tidy fix: backfilled two `timeline.md` rows the prior ingest passes had missed
+  (2026-08-15 squad view on Deadline Hub/My Team, 2026-08-16 chip strategy planning). No page
+  content changed, just the chronological index.
+- 2026-08-19 — Ingested `docs/sprints/sprint-18.md` + `docs/roadmap.md`: updated
+  `lineup-captain-bench.md` (new "Bench cost" section — `squad-budget.ts`'s XI/bench split, the
+  stale-`benchOrder` bug it caught, the 11-call-site `totalSpend` dedup), `chip-plan.md` (the
+  opening-gameweek `chipBonus: 0` bug fix, the three calendar-derived chip-sequence presets, the
+  `chip_definitions` two-rows-per-half collapse bug), `transfer-engine.md` (`Replacement.exitRoutes`,
+  reported not ranked), `squad-score-and-scenarios.md` (cross-link to the new bench-cost section),
+  `club-tactical-profiles.md` (the refused new-manager discount, and the empirical version now
+  queued), `blocked-and-data-gaps.md` (fixed a cross-reference that pointed at the wrong page), and
+  `timeline.md` (two new rows). No new page.
+- 2026-08-19 — Ingested `docs/architecture.md` + `docs/phase-4-model.md` +
+  `docs/sprints/sprint-17a.md`: updated `xp-model.md` (new "Out-of-sample validation" section — the
+  walk-forward backtest finding that the model underperforms a naive baseline out-of-sample, and why
+  recalibration wasn't done in the same pass) and `data-pipeline.md` (new `ingest-fpl-archive`
+  function — cursored server-side backfill, the abandoned chat-relay approach, the 1000-row-cap and
+  duplicate-row bugs it caught). No new page.
 - 2026-08-16 — New feature: chip strategy planning. New page `chip-plan.md`; updated
   `chip-strategy.md` (the "valued against today's squad" gap this closes) and
   `transfer-engine.md` (chip-aware branches, revised "uncovered" list); added the

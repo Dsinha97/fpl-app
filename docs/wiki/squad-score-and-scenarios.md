@@ -15,7 +15,10 @@ the per-term breakdown so a comparison table can show what actually drove a tota
 the total. `BenchStrength` comes from [lineup-captain-bench.md](lineup-captain-bench.md)'s
 `benchExpectedContribution`, computed against **each draft's own best XI**, not whatever lineup
 happens to be stored — so a draft that's been through the lineup optimiser isn't compared unfairly
-against one that hasn't. `RiskScore` uses the same `riskPoints` exchange rate as
+against one that hasn't. `SquadScore` itself is points-only; the *money* side of the same XI/bench
+split — how much is parked on a bench that barely scores — is
+[lineup-captain-bench.md](lineup-captain-bench.md#bench-cost-sprint-18)'s `squadBudget`, not folded
+into this composite. `RiskScore` uses the same `riskPoints` exchange rate as
 [transfer-engine.md](transfer-engine.md), so the two screens can't disagree about one squad — see
 [risk-scoring.md](risk-scoring.md).
 

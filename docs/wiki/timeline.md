@@ -21,6 +21,10 @@ themselves. See [roadmap.md](../roadmap.md) for the authoritative status table.
 | 2026-08-10 | Sprint 14.4 — import instructions fixed (told users to hit a 401) | [fpl-authentication.md](fpl-authentication.md) |
 | 2026-08-11 | Sprint 15.5 (Hidden Gems) and 15.6 (Championship cold-start priors, xP engine v1.5.0) built | [hidden-gems.md](hidden-gems.md), [cold-start-priors.md](cold-start-priors.md) |
 | 2026-08-14 | Deadline Hub built | [deadline-and-matchday.md](deadline-and-matchday.md) |
+| 2026-08-15 | Squad view on Deadline Hub and My Team — both default to the imported FPL squad on a read-only pitch, plus a Current squad / Gameweek result switch on `/team` | [deadline-and-matchday.md](deadline-and-matchday.md) |
+| 2026-08-16 | Chip strategy planning built — pin a chip to a gameweek, chip-aware deadline optimiser, bounded forward transfer path | [chip-plan.md](chip-plan.md) |
+| 2026-08-18 | Sprint 17a — walk-forward model validation; found the xP model underperforms a naive last-5-gameweeks baseline out-of-sample | [xp-model.md](xp-model.md#out-of-sample-validation-sprint-17a) |
+| 2026-08-19 | Sprint 18 — Effective Starting XI budget, a chip-sequencing bug fix + calendar-derived presets, transfer reversibility | [lineup-captain-bench.md](lineup-captain-bench.md#bench-cost-sprint-18), [chip-plan.md](chip-plan.md) |
 | 2026-08-21 (upcoming) | GW1 deadline — unblocks Sprint 13's dry-run checklist | [deadline-and-matchday.md](deadline-and-matchday.md) |
 
 See also: [blocked-and-data-gaps.md](blocked-and-data-gaps.md) for what's still waiting and why.
