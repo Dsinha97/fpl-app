@@ -68,6 +68,7 @@ import {
 import { squadBudget, totalSpend } from "@/lib/squad-budget";
 import { GemBadge } from "@/components/gem-badge";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { Spinner } from "@/components/ui/spinner";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { fullName } from "@/lib/player-search";
 import { ActionMenu } from "@/components/ui/action-menu";
@@ -1349,7 +1350,9 @@ export default function BuilderPage() {
   if (loading) {
     return (
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-        <p className="text-sm text-zinc-500">Loading player pool…</p>
+        <p role="status" className="flex items-center gap-2 text-sm text-zinc-500">
+          <Spinner /> Loading player pool…
+        </p>
       </main>
     );
   }
@@ -1881,16 +1884,18 @@ export default function BuilderPage() {
                 type="button"
                 onClick={() => runOptimizer(false)}
                 disabled={optimizerRunning}
-                className="flex-1 rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               >
+                {optimizerRunning && <Spinner />}
                 {optimizerRunning ? "Optimising…" : "Fill remaining"}
               </button>
               <button
                 type="button"
                 onClick={() => runOptimizer(true)}
                 disabled={optimizerRunning}
-                className="rounded-md border border-input px-3 py-1.5 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               >
+                {optimizerRunning && <Spinner />}
                 {optimizerRunning ? "Optimising…" : "Rebuild"}
               </button>
             </div>

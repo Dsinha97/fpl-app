@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
+import { Spinner } from "@/components/ui/spinner";
 import { AvailabilityBadge } from "@/components/player-status-icons";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
@@ -845,7 +846,11 @@ export default function TransfersPage() {
           {error}
         </p>
       )}
-      {loading && <p className="mt-6 text-sm text-zinc-500">Loading player data…</p>}
+      {loading && (
+        <p role="status" className="mt-6 flex items-center gap-2 text-sm text-zinc-500">
+          <Spinner /> Loading player data…
+        </p>
+      )}
 
       {!loading && drafts.length === 0 && (
         <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 text-center dark:border-purple-900/40 dark:bg-[#1E0234]">

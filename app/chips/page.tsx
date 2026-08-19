@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { Spinner } from "@/components/ui/spinner";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
 import { resolveStopEvent, setChipPlanEntry } from "@/lib/chip-plan";
@@ -510,7 +511,11 @@ export default function ChipsPage() {
           {error}
         </p>
       )}
-      {loading && <p className="mt-6 text-sm text-zinc-500">Loading player data…</p>}
+      {loading && (
+        <p role="status" className="mt-6 flex items-center gap-2 text-sm text-zinc-500">
+          <Spinner /> Loading player data…
+        </p>
+      )}
 
       {!loading && drafts.length === 0 && (
         <div className="mt-6 rounded-lg border border-zinc-200 bg-card p-6 text-center dark:border-purple-900/40">
@@ -535,8 +540,12 @@ export default function ChipsPage() {
       )}
 
       {!loading && team && team.players.length === rules.squadSize && (resultLoading || resultStale) && (
-        <div className="mt-5 flex items-center justify-between gap-2 rounded-md border border-warning-border bg-warning-surface px-3 py-2 text-sm text-warning-foreground">
-          <span>
+        <div
+          role="status"
+          className="mt-5 flex items-center justify-between gap-2 rounded-md border border-warning-border bg-warning-surface px-3 py-2 text-sm text-warning-foreground"
+        >
+          <span className="flex items-center gap-1.5">
+            {resultLoading && <Spinner />}
             {resultLoading ? "Recalculating chip values…" : "Squad changed since these values were computed."}
           </span>
           {!resultLoading && (

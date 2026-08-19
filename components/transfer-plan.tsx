@@ -9,6 +9,7 @@ import {
 import { horizonLabel, type ChipKind, type Horizon } from "@/lib/team-state";
 import type { TransferMove } from "@/lib/transfers";
 import { CHIP_LABELS } from "@/lib/chip-plan";
+import { Spinner } from "@/components/ui/spinner";
 
 interface TransferPlanProps {
   result: OptimizerResult | null;
@@ -113,7 +114,10 @@ export function TransferPlan({
             disabled={loading}
             className="order-first flex w-full items-center justify-between gap-2 rounded-md border border-warning-border bg-warning-surface px-2.5 py-1.5 text-xs font-medium text-warning-foreground transition-colors hover:bg-warning-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 sm:order-none sm:w-auto"
           >
-            {loading ? "Re-running…" : "Inputs changed — re-run"}
+            <span className="flex items-center gap-1.5">
+              {loading && <Spinner />}
+              {loading ? "Re-running…" : "Inputs changed — re-run"}
+            </span>
           </button>
         )}
         <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
@@ -145,7 +149,11 @@ export function TransferPlan({
         </label>
       </div>
 
-      {loading && <p className="mt-3 text-sm text-zinc-500">Searching transfer baskets…</p>}
+      {loading && (
+        <p role="status" className="mt-3 flex items-center gap-2 text-sm text-zinc-500">
+          <Spinner /> Searching transfer baskets…
+        </p>
+      )}
 
       {!loading && result && (
         <>
