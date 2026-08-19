@@ -1474,12 +1474,14 @@ export default function BuilderPage() {
             {HORIZONS.map((h) => (
               <button
                 key={h}
+                type="button"
                 onClick={() => setHorizon(h)}
                 title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-                className={`rounded px-1.5 py-0.5 text-xs transition-colors ${
+                aria-pressed={horizon === h}
+                className={`rounded px-1.5 py-0.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   horizon === h
-                    ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
-                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/60"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
                 }`}
               >
                 {horizonLabel(h)}
@@ -1705,7 +1707,7 @@ export default function BuilderPage() {
                     value={effectiveEvent}
                     onChange={(e) => setSelectedEvent(Number(e.target.value))}
                     aria-label="Planning gameweek"
-                    className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold normal-case text-zinc-600 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-300"
+                    className="rounded border border-input bg-surface-3 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-zinc-300"
                   >
                     {(nextEvent !== null
                       ? Array.from(
@@ -1722,6 +1724,7 @@ export default function BuilderPage() {
                   </select>
                 </h2>
                 <button
+                  type="button"
                   onClick={() => {
                     if (!lineupApplied) applyLineup();
                   }}
@@ -1731,7 +1734,7 @@ export default function BuilderPage() {
                       ? "XI and armband already match the recommendation"
                       : `Apply the recommended XI, bench order, and armband for GW${effectiveEvent}`
                   }
-                  className="shrink-0 rounded-md bg-purple-950 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-800 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                  className="shrink-0 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
                 >
                   {lineupApplied ? "Applied" : `Apply GW${effectiveEvent} XI & armband`}
                 </button>
@@ -1849,7 +1852,7 @@ export default function BuilderPage() {
                   value={risk}
                   onChange={(e) => setRisk(e.target.value as RiskLevel)}
                   title={RISK_LABELS[risk]}
-                  className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                  className="rounded-md border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {Object.entries(RISK_LABELS).map(([k, v]) => (
                     <option key={k} value={k} title={v}>
@@ -1861,14 +1864,16 @@ export default function BuilderPage() {
             </div>
             <div className="mt-3 flex gap-2 text-sm">
               <button
+                type="button"
                 onClick={() => runOptimizer(false)}
-                className="flex-1 rounded-md bg-purple-950 px-3 py-1.5 font-medium text-white transition-colors hover:bg-purple-800 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                className="flex-1 rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Fill remaining
               </button>
               <button
+                type="button"
                 onClick={() => runOptimizer(true)}
-                className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+                className="rounded-md border border-input px-3 py-1.5 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Rebuild
               </button>
@@ -1882,12 +1887,13 @@ export default function BuilderPage() {
                   this restores exactly what a rebuild replaced. */}
               {previousTeam && (
                 <button
+                  type="button"
                   onClick={() => {
                     setTeam(previousTeam);
                     setPreviousTeam(null);
                     setOptimizeNote("Reverted to the previous squad");
                   }}
-                  className="shrink-0 rounded border border-zinc-300 px-2 py-0.5 font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+                  className="shrink-0 rounded border border-input px-2 py-0.5 font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   ↩ Revert
                 </button>
@@ -1899,7 +1905,7 @@ export default function BuilderPage() {
           {replaceFor !== null && (
             <div
               ref={replacePanelRef}
-              className="scroll-mt-4 rounded-xl border border-purple-300 bg-white p-4 dark:border-[#00FF87]/40 dark:bg-[#1E0234]"
+              className="scroll-mt-4 rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40"
             >
               <div className="flex items-start justify-between gap-2">
                 <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -1912,15 +1918,16 @@ export default function BuilderPage() {
                   {replacements.length > 0 && (
                     <Link
                       href={`/compare?ids=${[replaceFor, ...replacements.slice(0, 3).map((r) => r.player.id)].join(",")}`}
-                      className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                      className="rounded text-xs font-medium text-purple-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-primary"
                     >
                       Compare all
                     </Link>
                   )}
                   <button
+                    type="button"
                     onClick={() => stopReplacing()}
                     aria-label="Close"
-                    className="flex h-5 w-5 items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 dark:hover:bg-purple-950/60"
+                    className="flex h-5 w-5 items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-purple-950/60"
                   >
                     ×
                   </button>
@@ -1967,8 +1974,9 @@ export default function BuilderPage() {
                       />
                       {maxPriceOverride !== null && (
                         <button
+                          type="button"
                           onClick={() => setMaxPriceOverride(null)}
-                          className="text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                          className="rounded text-purple-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-primary"
                         >
                           reset
                         </button>
@@ -1988,11 +1996,13 @@ export default function BuilderPage() {
                       {REPLACEMENT_LIMITS.map((n) => (
                         <button
                           key={n}
+                          type="button"
                           onClick={() => setReplaceLimit(n)}
-                          className={`rounded px-1.5 py-0.5 font-medium transition-colors ${
+                          aria-pressed={replaceLimit === n}
+                          className={`rounded px-1.5 py-0.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                             replaceLimit === n
-                              ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
-                              : "border border-zinc-300 hover:bg-zinc-100 dark:border-purple-800/50 dark:hover:bg-purple-950/60"
+                              ? "bg-primary text-primary-foreground"
+                              : "border border-input hover:bg-muted"
                           }`}
                         >
                           {n}
@@ -2006,7 +2016,7 @@ export default function BuilderPage() {
                         onChange={(e) =>
                           setReplaceArchetype(e.target.value === "0" ? 0 : (e.target.value as GemArchetype))
                         }
-                        className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                        className="rounded border border-input bg-surface-3 px-1.5 py-0.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <option value={0}>Any</option>
                         {(Object.entries(GEM_ARCHETYPE_LABELS) as [GemArchetype, string][]).map(([id, label]) => (
@@ -2072,11 +2082,12 @@ export default function BuilderPage() {
                           </p>
                         </div>
                         <button
+                          type="button"
                           onClick={() => {
                             const meta = metaById.get(r.player.id);
                             if (meta) doSwap(replaceFor, meta);
                           }}
-                          className="shrink-0 rounded bg-purple-950 px-2 py-1 font-medium text-white transition-colors hover:bg-purple-800 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                          className="shrink-0 rounded bg-primary px-2 py-1 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           Swap
                         </button>
@@ -2109,7 +2120,7 @@ export default function BuilderPage() {
           {/* player search */}
           <div
             ref={pickerCard}
-            className="relative rounded-xl border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]"
+            className="relative rounded-xl border border-zinc-200 bg-card p-3 dark:border-purple-900/40"
           >
             {replaceEligibility && (
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md bg-purple-50 px-2.5 py-1.5 text-xs text-purple-900 dark:bg-purple-950/50 dark:text-purple-200">
@@ -2119,8 +2130,9 @@ export default function BuilderPage() {
                   £{(replaceEligibility.priceCeiling / 10).toFixed(1)}m
                 </span>
                 <button
+                  type="button"
                   onClick={() => stopReplacing()}
-                  className="shrink-0 font-medium underline-offset-2 hover:underline"
+                  className="shrink-0 rounded font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Cancel
                 </button>
@@ -2191,8 +2203,9 @@ export default function BuilderPage() {
                       >
                         <td className="py-1 pl-1">
                           <button
+                            type="button"
                             onClick={(e) => openPickerDetail(p, e.currentTarget)}
-                            className="block max-w-full text-left"
+                            className="block max-w-full rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             title={`Details for ${p.web_name}`}
                           >
                             <span className="flex min-w-0 items-center gap-1">
@@ -2223,7 +2236,7 @@ export default function BuilderPage() {
                           </button>
                         </td>
                         <td className="py-1 tabular-nums">{((p.now_cost ?? 0) / 10).toFixed(1)}</td>
-                        <td className="py-1 font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                        <td className="py-1 font-semibold tabular-nums text-purple-800 dark:text-primary">
                           {xpAt(xpOf(p.id), horizon)?.toFixed(1) ?? "—"}
                         </td>
                         <td className="py-1 tabular-nums text-zinc-500">
@@ -2233,13 +2246,14 @@ export default function BuilderPage() {
                         </td>
                         <td className="py-1 pr-1 text-right">
                           <button
+                            type="button"
                             disabled={reason !== null}
                             title={reason ?? (replaceFor !== null ? `Swap in ${p.web_name}` : `Add ${p.web_name}`)}
                             onClick={() => {
                               if (replaceFor !== null) doSwap(replaceFor, meta);
                               else persist(addPlayer(team, meta));
                             }}
-                            className="rounded border border-zinc-300 px-1.5 py-0.5 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-35 dark:border-purple-800/50 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+                            className="rounded border border-input px-1.5 py-0.5 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-35 dark:hover:border-primary dark:hover:text-primary"
                           >
                             {replaceFor !== null ? "⇄" : "+"}
                           </button>
@@ -2263,9 +2277,10 @@ export default function BuilderPage() {
             {/* pager */}
             <div className="mt-2 flex items-center justify-between border-t border-zinc-100 pt-2 text-xs dark:border-purple-900/30">
               <button
+                type="button"
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={safePage === 0}
-                className="rounded border border-zinc-300 px-2 py-0.5 transition-colors hover:bg-zinc-100 disabled:opacity-35 dark:border-purple-800/50 dark:hover:bg-purple-950/60"
+                className="rounded border border-input px-2 py-0.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-35"
               >
                 ‹ Prev
               </button>
@@ -2274,9 +2289,10 @@ export default function BuilderPage() {
                 {filtered.length === 1 ? "" : "s"}
               </span>
               <button
+                type="button"
                 onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
                 disabled={safePage >= pageCount - 1}
-                className="rounded border border-zinc-300 px-2 py-0.5 transition-colors hover:bg-zinc-100 disabled:opacity-35 dark:border-purple-800/50 dark:hover:bg-purple-950/60"
+                className="rounded border border-input px-2 py-0.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-35"
               >
                 Next ›
               </button>

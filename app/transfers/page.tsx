@@ -689,12 +689,14 @@ export default function TransfersPage() {
           {HORIZONS.map((h) => (
             <button
               key={h}
+              type="button"
               onClick={() => setHorizon(h)}
               title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-              className={`rounded-md px-2.5 py-1 transition-colors ${
+              aria-pressed={horizon === h}
+              className={`rounded-md border px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 horizon === h
-                  ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
-                  : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
+                  ? "border-transparent bg-primary text-primary-foreground"
+                  : "border-input text-muted-foreground hover:bg-muted"
               }`}
             >
               {horizonLabel(h)}
@@ -715,7 +717,7 @@ export default function TransfersPage() {
             <select
               value={draftId ?? ""}
               onChange={(e) => setDraftId(e.target.value)}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+              className="rounded-md border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {drafts.map((d) => (
                 <option key={d.draftId} value={d.draftId}>
@@ -738,7 +740,7 @@ export default function TransfersPage() {
                 ? "Irrelevant in Wildcard mode — every move is free."
                 : "FPL lets you bank up to five. Accrual is not modelled — set what you actually hold."
             }
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:cursor-not-allowed dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+            className="rounded-md border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
           >
             {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
               <option key={i} value={i}>
@@ -769,8 +771,9 @@ export default function TransfersPage() {
         </label>
         {moves.length > 0 && (
           <button
+            type="button"
             onClick={() => setMoves([])}
-            className="rounded-md border border-zinc-300 px-2.5 py-1 text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+            className="rounded-md border border-input px-2.5 py-1 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Clear {moves.length} transfer{moves.length === 1 ? "" : "s"}
           </button>
@@ -936,7 +939,7 @@ export default function TransfersPage() {
                       <td className="hidden px-2 py-1.5 text-xs tabular-nums text-zinc-500 sm:table-cell">
                         {money(pick.purchasePrice)}
                       </td>
-                      <td className="px-2 py-1.5 tabular-nums font-semibold text-purple-800 dark:text-[#00FF87]">
+                      <td className="px-2 py-1.5 tabular-nums font-semibold text-purple-800 dark:text-primary">
                         {s ? xpFor(s, horizon).toFixed(1) : "—"}
                       </td>
                       <td className="px-2 py-1.5 tabular-nums text-zinc-500">
@@ -945,18 +948,20 @@ export default function TransfersPage() {
                       <td className="px-2 py-1.5 text-right">
                         {move ? (
                           <button
+                            type="button"
                             onClick={() => setMoves((prev) => prev.filter((m) => m.outId !== move.outId))}
-                            className="text-xs text-zinc-500 underline-offset-2 hover:underline"
+                            className="rounded text-xs text-zinc-500 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             undo
                           </button>
                         ) : (
                           <button
+                            type="button"
                             onClick={() => {
                               setPickingFor(pick.playerId);
                               setSearch("");
                             }}
-                            className="min-h-9 rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+                            className="min-h-9 rounded border border-input px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary dark:hover:text-primary"
                           >
                             Replace
                           </button>
@@ -977,9 +982,10 @@ export default function TransfersPage() {
                     Replace {scoredById.get(pickingFor)?.webName}
                   </h3>
                   <button
+                    type="button"
                     onClick={() => setPickingFor(null)}
                     aria-label="Cancel"
-                    className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                    className="rounded text-zinc-400 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-zinc-200"
                   >
                     ×
                   </button>
@@ -989,7 +995,7 @@ export default function TransfersPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search for a specific player…"
-                  className="mt-2 w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                  className="mt-2 w-full rounded-md border border-input bg-surface-3 px-2 py-1 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
                 {candidates.length === 0 ? (
                   <p className="mt-2 text-xs text-zinc-500">
@@ -1002,8 +1008,9 @@ export default function TransfersPage() {
                     {candidates.map(({ player, teamFit, rationale, exitRoutes }) => (
                       <li key={player.id}>
                         <button
+                          type="button"
                           onClick={() => addMove(pickingFor, player.id)}
-                          className="flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-purple-950/60"
+                          className="flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset dark:hover:bg-purple-950/60"
                         >
                           <span className="block min-w-0">
                             <span className="font-medium text-zinc-800 dark:text-zinc-200">
@@ -1203,6 +1210,7 @@ export default function TransfersPage() {
                 </ul>
 
                 <button
+                  type="button"
                   onClick={() => {
                     if (simulation.legal) applyAsNewDraft();
                   }}
@@ -1212,7 +1220,7 @@ export default function TransfersPage() {
                       ? "Saves the result as a new draft"
                       : "Fix the problems above first"
                   }
-                  className="mt-3 w-full rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                  className="mt-3 w-full rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
                 >
                   Apply as a new draft
                 </button>

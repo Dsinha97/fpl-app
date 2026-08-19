@@ -91,7 +91,7 @@ export function FilterDisclosure({
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex min-w-[5.5rem] shrink-0 items-center justify-center gap-1 rounded-md border border-zinc-300 px-2.5 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
+        className="flex min-w-[5.5rem] shrink-0 items-center justify-center gap-1 rounded-md border border-input px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-muted"
       >
         {open ? "Filter −" : `Filter ${activeCount > 0 ? `(${activeCount})` : "+"}`}
       </button>
@@ -101,7 +101,7 @@ export function FilterDisclosure({
           ref={panel}
           role="dialog"
           style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
-          className="fixed z-30 w-[calc(100vw-1rem)] max-w-[26rem] rounded-lg border border-zinc-200 bg-white p-3 text-sm shadow-lg dark:border-purple-800/50 dark:bg-[#2A0A45]"
+          className="fixed z-30 w-[calc(100vw-1rem)] max-w-[26rem] rounded-lg border border-border bg-popover p-3 text-sm text-popover-foreground shadow-lg"
         >
           {children}
         </div>

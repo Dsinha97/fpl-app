@@ -93,11 +93,13 @@ export function FdrMatrix({
           {HORIZONS.map((h) => (
             <button
               key={h}
+              type="button"
               onClick={() => setHorizon(h)}
-              className={`rounded-md px-2.5 py-1 transition-colors ${
+              aria-pressed={horizon === h}
+              className={`rounded-md border px-2.5 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 horizon === h
-                  ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
-                  : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
+                  ? "border-transparent bg-primary text-primary-foreground"
+                  : "border-input text-muted-foreground hover:bg-muted"
               }`}
             >
               {h === 38 ? "All" : `${h} GWs`}

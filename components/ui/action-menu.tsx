@@ -58,6 +58,7 @@ export function ActionMenu({
   return (
     <span className="inline-flex overflow-hidden rounded-md">
       <button
+        type="button"
         onClick={() => {
           if (!primaryDisabled) onPrimary();
         }}
@@ -66,7 +67,7 @@ export function ActionMenu({
         // screen-reader user would never reach primaryDisabledReason at all.
         aria-disabled={primaryDisabled}
         title={primaryDisabled ? primaryDisabledReason : undefined}
-        className="bg-purple-950 px-3 py-1.5 font-medium text-white transition-colors hover:bg-purple-800 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+        className="bg-primary px-3 py-1.5 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
       >
         {primaryLabel}
       </button>
@@ -82,7 +83,7 @@ export function ActionMenu({
           aria-label={menuLabel}
           openOnHover={false}
           onClick={() => setOpen((prev) => !prev)}
-          className="border-l border-white/25 bg-purple-950 px-2 py-1.5 text-white transition-colors hover:bg-purple-800 dark:border-slate-950/25 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+          className="border-l border-primary-foreground/25 bg-primary px-2 py-1.5 text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span aria-hidden="true" className="text-[10px]">
             ▾
@@ -93,7 +94,7 @@ export function ActionMenu({
             {/* The transition is not decoration: Base UI keeps the popup
                 mounted until a close animation completes, so without one it
                 stays on screen after closing. */}
-            <Menu.Popup className="min-w-52 origin-[var(--transform-origin)] rounded-md border border-zinc-200 bg-white py-1 shadow-xl outline-none transition-[opacity,scale] duration-100 ease-out motion-reduce:transition-none data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 dark:border-purple-800/60 dark:bg-[#2A0A45]">
+            <Menu.Popup className="min-w-52 origin-[var(--transform-origin)] rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-xl outline-none transition-[opacity,scale] duration-100 ease-out motion-reduce:transition-none data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
               {items.map((item) => {
                 const isConfirming = confirming === item.label;
                 return (
@@ -113,10 +114,8 @@ export function ActionMenu({
                       item.onSelect();
                     }}
                     title={item.disabled ? item.disabledReason : undefined}
-                    className={`cursor-pointer px-3 py-1.5 text-sm outline-none transition-colors data-disabled:cursor-not-allowed data-disabled:opacity-40 data-highlighted:bg-zinc-100 dark:data-highlighted:bg-purple-950/70 ${
-                      item.danger
-                        ? "text-red-600 dark:text-red-400"
-                        : "text-zinc-800 dark:text-zinc-200"
+                    className={`cursor-pointer px-3 py-1.5 text-sm outline-none transition-colors data-disabled:cursor-not-allowed data-disabled:opacity-40 data-highlighted:bg-muted ${
+                      item.danger ? "text-danger" : "text-popover-foreground"
                     }`}
                   >
                     {isConfirming ? (
@@ -125,7 +124,7 @@ export function ActionMenu({
                       <>
                         {item.label}
                         {item.description && (
-                          <span className="mt-0.5 block text-[11px] font-normal text-zinc-500">
+                          <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
                             {item.description}
                           </span>
                         )}

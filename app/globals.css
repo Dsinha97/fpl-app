@@ -157,7 +157,8 @@
   --popover-foreground: oklch(0.97 0.01 300);
   --primary: #00ff87;
   --primary-hover: #00e67a;
-  --primary-foreground: oklch(0.18 0.02 280);
+  /* text-slate-950, the dark-on-green pair used on every primary button (x29). */
+  --primary-foreground: #020618;
   --secondary: #2a0a45;
   --secondary-foreground: oklch(0.97 0.01 300);
   --muted: #2a0a45;

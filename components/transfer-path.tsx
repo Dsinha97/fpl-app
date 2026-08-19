@@ -36,9 +36,10 @@ export function TransferPath({ result, loading, onRun, hasChipPlan }: TransferPa
           </p>
         </div>
         <button
+          type="button"
           onClick={onRun}
           disabled={loading}
-          className="min-h-9 rounded-md border border-purple-700 px-3 py-1.5 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#00FF87] dark:text-[#00FF87] dark:hover:bg-[#00FF87]/10"
+          className="min-h-9 rounded-md border border-purple-700 px-3 py-1.5 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
         >
           {loading ? "Planning…" : result ? "Re-plan path" : "Plan the path"}
         </button>

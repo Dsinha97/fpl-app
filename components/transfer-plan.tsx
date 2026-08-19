@@ -116,12 +116,13 @@ export function TransferPlan({
               const next = Number(e.target.value);
               onDecisionMarginChange(Number.isFinite(next) ? Math.max(0, Math.min(10, next)) : 0);
             }}
-            className="w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right tabular-nums text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+            className="w-16 rounded-md border border-input bg-surface-3 px-2 py-1 text-right tabular-nums text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           {decisionMargin !== DEFAULT_DECISION_MARGIN && (
             <button
+              type="button"
               onClick={() => onDecisionMarginChange(DEFAULT_DECISION_MARGIN)}
-              className="text-zinc-400 underline-offset-2 hover:underline"
+              className="rounded text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               reset
             </button>
@@ -134,7 +135,7 @@ export function TransferPlan({
       {!loading && result && (
         <>
           {chipSummary && (
-            <p className="mt-3 border-t border-zinc-100 pt-3 text-xs text-purple-700 dark:border-purple-900/40 dark:text-[#00FF87]">
+            <p className="mt-3 border-t border-border pt-3 text-xs text-purple-700 dark:text-primary">
               Conditioned on: {chipSummary}.
             </p>
           )}
@@ -172,9 +173,10 @@ export function TransferPlan({
 
           <div className="mt-3 overflow-hidden rounded-md border border-zinc-200 dark:border-purple-900/40">
             <button
+              type="button"
               onClick={() => setNoteOpen((v) => !v)}
               aria-expanded={noteOpen}
-              className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400"
+              className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[10px] leading-relaxed text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
             >
               <span
                 aria-hidden="true"
@@ -288,6 +290,7 @@ function BranchRow({
 
       {!blocked && branch.moves.length > 0 && (
         <button
+          type="button"
           onClick={() => {
             if (!isLoaded) onLoad(branch.moves);
           }}
@@ -295,7 +298,7 @@ function BranchRow({
           title={
             isLoaded ? "Already in the basket" : "Puts these transfers in the basket below to apply"
           }
-          className="mt-1.5 min-h-9 rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 motion-reduce:transition-none dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+          className="mt-1.5 min-h-9 rounded border border-input px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-40 motion-reduce:transition-none dark:hover:border-primary dark:hover:text-primary"
         >
           {isLoaded ? "Loaded" : "Load"}
         </button>

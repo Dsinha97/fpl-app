@@ -42,13 +42,13 @@ export function RangeSlider({
     >
       <Slider.Control className="flex w-36 touch-none select-none items-center py-2">
         <Slider.Track className="relative h-1 w-full rounded bg-zinc-200 dark:bg-purple-950">
-          <Slider.Indicator className="rounded bg-purple-800 dark:bg-[#00FF87]" />
+          <Slider.Indicator className="rounded bg-purple-800 dark:bg-primary" />
           {[minLabel, maxLabel].map((label, i) => (
             <Slider.Thumb
               key={label}
               index={i}
               getAriaLabel={() => label}
-              className="h-3.5 w-3.5 rounded-full border-2 border-purple-800 bg-white outline-none focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-[#00FF87] dark:bg-[#1E0234] dark:focus-visible:ring-[#00FF87]"
+              className="h-3.5 w-3.5 rounded-full border-2 border-purple-800 bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary"
             />
           ))}
         </Slider.Track>
@@ -94,10 +94,10 @@ export function ValueSlider({
     >
       <Slider.Control className="flex w-36 touch-none select-none items-center py-2">
         <Slider.Track className="relative h-1 w-full rounded bg-zinc-200 dark:bg-purple-950">
-          <Slider.Indicator className="rounded bg-purple-800 dark:bg-[#00FF87]" />
+          <Slider.Indicator className="rounded bg-purple-800 dark:bg-primary" />
           <Slider.Thumb
             getAriaLabel={() => label}
-            className="h-3.5 w-3.5 rounded-full border-2 border-purple-800 bg-white outline-none focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-[#00FF87] dark:bg-[#1E0234] dark:focus-visible:ring-[#00FF87]"
+            className="h-3.5 w-3.5 rounded-full border-2 border-purple-800 bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary"
           />
         </Slider.Track>
       </Slider.Control>

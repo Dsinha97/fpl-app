@@ -438,7 +438,7 @@ export default function ChipsPage() {
                 setDraftId(e.target.value);
                 setApplied(null);
               }}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+              className="rounded-md border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {drafts.map((d) => (
                 <option key={d.draftId} value={d.draftId}>
@@ -470,12 +470,12 @@ export default function ChipsPage() {
       {loading && <p className="mt-6 text-sm text-zinc-500">Loading player data…</p>}
 
       {!loading && drafts.length === 0 && (
-        <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 text-center dark:border-purple-900/40 dark:bg-[#1E0234]">
+        <div className="mt-6 rounded-lg border border-zinc-200 bg-card p-6 text-center dark:border-purple-900/40">
           <p className="text-sm text-zinc-500">
             No saved squads yet. Build one in the{" "}
             <Link
               href="/builder"
-              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
             >
               Team Builder
             </Link>{" "}
@@ -492,7 +492,7 @@ export default function ChipsPage() {
       )}
 
       {result && team && presets.length > 0 && (
-        <section className="mt-5 rounded-xl border border-purple-300 bg-white p-4 dark:border-[#00FF87]/40 dark:bg-[#1E0234]">
+        <section className="mt-5 rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40">
           <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Chip sequences</h2>
           <p className="mt-1 text-xs text-zinc-500">
             Starting points for a planned sequence, not a recommendation — pin one, then move any
@@ -500,7 +500,7 @@ export default function ChipsPage() {
             sequence values each chip against what the one before it left behind. See it on{" "}
             <Link
               href={`/transfers/?draft=${team.draftId}`}
-              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
             >
               Transfer Path
             </Link>{" "}
@@ -517,8 +517,9 @@ export default function ChipsPage() {
                   <p className="mt-0.5 text-xs text-zinc-500">{preset.note}</p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => pinPreset(preset)}
-                  className="min-h-9 shrink-0 rounded-md border border-purple-700 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-50 dark:border-[#00FF87] dark:text-[#00FF87] dark:hover:bg-[#00FF87]/10"
+                  className="min-h-9 shrink-0 rounded-md border border-purple-700 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary dark:text-primary dark:hover:bg-primary/10"
                 >
                   Pin
                 </button>
@@ -535,9 +536,10 @@ export default function ChipsPage() {
               schedule below the fold on a phone. */}
           <div className="mt-4 overflow-hidden rounded-md border border-amber-300 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/40">
             <button
+              type="button"
               onClick={() => setNoteOpen((v) => !v)}
               aria-expanded={noteOpen}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs leading-relaxed text-amber-800 dark:text-amber-300"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs leading-relaxed text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset dark:text-amber-300"
             >
               <span
                 aria-hidden="true"
@@ -554,7 +556,7 @@ export default function ChipsPage() {
           {result.schedules.map((half) => (
             <section
               key={half.label}
-              className="mt-5 rounded-xl border border-purple-300 bg-white p-4 dark:border-[#00FF87]/40 dark:bg-[#1E0234]"
+              className="mt-5 rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -562,6 +564,7 @@ export default function ChipsPage() {
                 </h2>
                 {(half.oneOff || half.wildcard) && (
                   <button
+                    type="button"
                     onClick={() => pinSchedule(half)}
                     disabled={!!half.oneOff && half.oneOff.margin < 1}
                     title={
@@ -569,7 +572,7 @@ export default function ChipsPage() {
                         ? "This schedule is not a strong recommendation — the next-best combination is nearly as good."
                         : `Pin every chip in this schedule to "${team.name}"'s plan.`
                     }
-                    className="min-h-9 rounded-md border border-purple-700 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#00FF87] dark:text-[#00FF87] dark:hover:bg-[#00FF87]/10"
+                    className="min-h-9 rounded-md border border-purple-700 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
                   >
                     Pin whole schedule
                   </button>
@@ -591,13 +594,14 @@ export default function ChipsPage() {
                             {CHIP_LABELS[e.chip]}
                           </span>
                           <span className="text-zinc-500">GW{e.event}</span>
-                          <span className="tabular-nums text-purple-800 dark:text-[#00FF87]">
+                          <span className="tabular-nums text-purple-800 dark:text-primary">
                             {signed(e.gain)}
                           </span>
                           <button
+                            type="button"
                             onClick={() => pinChip(e.chip, e.event)}
                             title={`Pin ${CHIP_LABELS[e.chip]} to GW${e.event}`}
-                            className="ml-1 text-zinc-400 hover:text-purple-700 dark:hover:text-[#00FF87]"
+                            className="ml-1 rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
                           >
                             📌
                           </button>
@@ -621,13 +625,14 @@ export default function ChipsPage() {
                   <div className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-2.5 py-1.5 text-sm dark:border-purple-900/40">
                     <span className="font-medium text-zinc-800 dark:text-zinc-200">Wildcard</span>
                     <span className="text-zinc-500">GW{half.wildcard.event}</span>
-                    <span className="tabular-nums text-purple-800 dark:text-[#00FF87]">
+                    <span className="tabular-nums text-purple-800 dark:text-primary">
                       {signed(half.wildcard.gain)}
                     </span>
                     <button
+                      type="button"
                       onClick={() => pinChip("wildcard", half.wildcard!.event)}
                       title={`Pin Wildcard to GW${half.wildcard.event}`}
-                      className="ml-1 text-zinc-400 hover:text-purple-700 dark:hover:text-[#00FF87]"
+                      className="ml-1 rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
                     >
                       📌
                     </button>
@@ -653,7 +658,7 @@ export default function ChipsPage() {
               return (
                 <section
                   key={chip}
-                  className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]"
+                  className="rounded-xl border border-zinc-200 bg-card p-4 dark:border-purple-900/40"
                 >
                   <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                     {CHIP_LABELS[chip]}
@@ -668,20 +673,21 @@ export default function ChipsPage() {
                         <li key={v.event} className="flex items-baseline justify-between gap-2">
                           <span className="text-zinc-700 dark:text-zinc-300">
                             {i === 0 && (
-                              <span className="mr-1.5 rounded bg-purple-950 px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-[#00FF87] dark:text-slate-950">
+                              <span className="mr-1.5 rounded bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
                                 Best
                               </span>
                             )}
                             GW{v.event}
                           </span>
                           <span className="flex items-center gap-1.5">
-                            <span className="tabular-nums font-semibold text-purple-800 dark:text-[#00FF87]">
+                            <span className="tabular-nums font-semibold text-purple-800 dark:text-primary">
                               {signed(v.gain)}
                             </span>
                             <button
+                              type="button"
                               onClick={() => pinChip(chip, v.event)}
                               title={`Pin ${CHIP_LABELS[chip]} to GW${v.event}`}
-                              className="text-zinc-400 hover:text-purple-700 dark:hover:text-[#00FF87]"
+                              className="rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
                             >
                               📌
                             </button>
@@ -713,7 +719,7 @@ export default function ChipsPage() {
           </div>
 
           {/* full calendar */}
-          <section className="mt-5 overflow-x-auto rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <section className="mt-5 overflow-x-auto rounded-xl border border-zinc-200 bg-card p-4 dark:border-purple-900/40">
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               Gameweek by gameweek
             </h2>

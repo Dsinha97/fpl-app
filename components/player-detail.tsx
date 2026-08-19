@@ -99,7 +99,7 @@ export function PlayerDetail({
       <div className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</div>
       <div
         className={`text-sm font-semibold tabular-nums ${
-          accent ? "text-purple-800 dark:text-[#00FF87]" : "text-zinc-900 dark:text-zinc-100"
+          accent ? "text-purple-800 dark:text-primary" : "text-zinc-900 dark:text-zinc-100"
         }`}
       >
         {value}
@@ -113,7 +113,7 @@ export function PlayerDetail({
       role="dialog"
       aria-label={`${player.web_name} details`}
       style={{ top, left, width: PANEL_WIDTH, maxHeight: PANEL_MAX_HEIGHT }}
-      className={`z-40 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-3 shadow-2xl dark:border-purple-700 dark:bg-[#1E0234] ${
+      className={`z-40 overflow-y-auto rounded-lg border border-zinc-200 bg-card p-3 shadow-2xl dark:border-purple-700 ${
         fixed ? "fixed" : "absolute"
       }`}
     >
@@ -132,7 +132,7 @@ export function PlayerDetail({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="-mr-1 -mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
+          className="-mr-1 -mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
         >
           ×
         </button>
@@ -256,10 +256,11 @@ export function PlayerDetail({
       {!owned && onAdd && (
         <div className="mt-3 flex gap-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
           <button
+            type="button"
             onClick={() => onAdd(player.id)}
             disabled={addDisabledReason !== null}
             title={addDisabledReason ?? `${addLabel}: ${player.web_name}`}
-            className="flex-1 rounded bg-purple-950 px-2 py-1 font-medium text-white transition-colors hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+            className="flex-1 rounded bg-primary px-2 py-1 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
           >
             {addLabel}
           </button>
@@ -282,35 +283,38 @@ export function PlayerDetail({
       <div className="mt-3 flex gap-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
         {onSetCaptain && (
         <button
+          type="button"
           onClick={() => {
             onSetCaptain(player.id);
             onClose();
           }}
           disabled={player.is_captain}
-          className="flex-1 rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 disabled:opacity-40 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+          className="flex-1 rounded border border-input px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 dark:hover:border-primary dark:hover:text-primary"
         >
           {player.is_captain ? "Captain" : "Set C"}
         </button>
         )}
         {onSetVice && (
         <button
+          type="button"
           onClick={() => {
             onSetVice(player.id);
             onClose();
           }}
           disabled={player.is_vice_captain}
-          className="flex-1 rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 disabled:opacity-40 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+          className="flex-1 rounded border border-input px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 dark:hover:border-primary dark:hover:text-primary"
         >
           {player.is_vice_captain ? "Vice" : "Set VC"}
         </button>
         )}
         {onRemove && (
         <button
+          type="button"
           onClick={() => {
             onRemove(player.id);
             onClose();
           }}
-          className="flex-1 rounded border border-zinc-300 px-2 py-1 font-medium text-red-600 transition-colors hover:border-red-500 dark:border-purple-800/60 dark:text-red-400"
+          className="flex-1 rounded border border-input px-2 py-1 font-medium text-danger transition-colors hover:border-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Remove
         </button>
@@ -320,8 +324,9 @@ export function PlayerDetail({
 
       {owned && onFindReplacement && (
         <button
+          type="button"
           onClick={() => onFindReplacement(player.id)}
-          className="mt-1.5 min-h-9 w-full rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+          className="mt-1.5 min-h-9 w-full rounded border border-input px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary dark:hover:text-primary"
         >
           Replace
         </button>
