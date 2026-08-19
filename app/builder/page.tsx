@@ -213,6 +213,7 @@ export default function BuilderPage() {
   const [strategy, setStrategy] = useState<Strategy>("max_points");
   const [risk, setRisk] = useState<RiskLevel>("medium");
   const [optimizeNote, setOptimizeNote] = useState<string | null>(null);
+  const [optimizerRunning, setOptimizerRunning] = useState(false);
 
   /** Season and next gameweek, kept for the lazy per-gameweek series fetch below. */
   const [season, setSeason] = useState<string | null>(null);
@@ -715,46 +716,59 @@ export default function BuilderPage() {
     setSaved("Reset to the last saved squad");
   };
 
+  // Was a plain synchronous call from onClick with no busy state and no
+  // disabling of the trigger buttons, so a double-click on "Rebuild" ran the
+  // knapsack search twice in quick succession (Sprint 19, Stage 3). Gated the
+  // same way as the deadline optimiser: guard against re-entry, disable the
+  // triggers while running, and yield one frame via setTimeout(0) so the
+  // "Optimising…" label can actually paint before the search blocks the
+  // thread.
   const runOptimizer = (clearFirst: boolean) => {
+    if (optimizerRunning) return;
+    setOptimizerRunning(true);
     // Snapshot before touching anything, so a rebuild is always reversible.
     setPreviousTeam(team);
 
-    const base = clearFirst
-      ? { ...team, players: [], captain: null, viceCaptain: null, startingXI: [], benchOrder: [] }
-      : team;
+    setTimeout(() => {
+      const base = clearFirst
+        ? { ...team, players: [], captain: null, viceCaptain: null, startingXI: [], benchOrder: [] }
+        : team;
 
-    const result = optimizeSquad({
-      pool: optimizerPool,
-      rules,
-      locked: base.players,
-      horizon,
-      strategy,
-      risk,
-    });
+      const result = optimizeSquad({
+        pool: optimizerPool,
+        rules,
+        locked: base.players,
+        horizon,
+        strategy,
+        risk,
+      });
 
-    if (result.error) {
-      setOptimizeNote(result.error);
-      setPreviousTeam(null);
-      return;
-    }
+      if (result.error) {
+        setOptimizeNote(result.error);
+        setPreviousTeam(null);
+        setOptimizerRunning(false);
+        return;
+      }
 
-    const poolById = new Map(optimizerPool.map((p) => [p.id, p]));
-    const armband = suggestArmband(result.picks, poolById, horizon);
+      const poolById = new Map(optimizerPool.map((p) => [p.id, p]));
+      const armband = suggestArmband(result.picks, poolById, horizon);
 
-    persist({
-      ...base,
-      players: result.picks,
-      strategy,
-      captain: base.captain ?? armband.captain,
-      viceCaptain: base.viceCaptain ?? armband.vice,
-    });
+      persist({
+        ...base,
+        players: result.picks,
+        strategy,
+        captain: base.captain ?? armband.captain,
+        viceCaptain: base.viceCaptain ?? armband.vice,
+      });
 
-    setOptimizeNote(
-      `Filled ${result.filled} slot${result.filled === 1 ? "" : "s"}` +
-        (result.lowReliability > 0
-          ? ` · ${result.lowReliability} projected mostly from a position/price prior`
-          : ""),
-    );
+      setOptimizeNote(
+        `Filled ${result.filled} slot${result.filled === 1 ? "" : "s"}` +
+          (result.lowReliability > 0
+            ? ` · ${result.lowReliability} projected mostly from a position/price prior`
+            : ""),
+      );
+      setOptimizerRunning(false);
+    }, 0);
   };
 
   // -------------------------------------------------------- filtering
@@ -1866,16 +1880,18 @@ export default function BuilderPage() {
               <button
                 type="button"
                 onClick={() => runOptimizer(false)}
-                className="flex-1 rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                disabled={optimizerRunning}
+                className="flex-1 rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Fill remaining
+                {optimizerRunning ? "Optimising…" : "Fill remaining"}
               </button>
               <button
                 type="button"
                 onClick={() => runOptimizer(true)}
-                className="rounded-md border border-input px-3 py-1.5 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                disabled={optimizerRunning}
+                className="rounded-md border border-input px-3 py-1.5 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Rebuild
+                {optimizerRunning ? "Optimising…" : "Rebuild"}
               </button>
             </div>
             <div className="mt-2 flex items-start justify-between gap-2 text-[11px]">

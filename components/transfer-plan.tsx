@@ -21,6 +21,9 @@ interface TransferPlanProps {
   /** Signature of the basket currently loaded, so the active row is marked. */
   loadedSignature: string | null;
   loading: boolean;
+  /** True once horizon/free transfers/decision margin/chip plan have moved since this result was computed. */
+  stale?: boolean;
+  onRerun?: () => void;
 }
 
 export const signatureOf = (moves: TransferMove[]) =>
@@ -82,6 +85,8 @@ export function TransferPlan({
   onLoad,
   loadedSignature,
   loading,
+  stale = false,
+  onRerun,
 }: TransferPlanProps) {
   // Collapsed by default — TRANSFER_MODEL_NOTE runs to a full paragraph and
   // ate the whole screen below the branch list on mobile. Same idiom as the
@@ -90,7 +95,7 @@ export function TransferPlan({
   const chipSummary = result ? summarizeChipTerms(result) : null;
 
   return (
-    <section className="mt-5 rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+    <section className="mt-5 rounded-xl border border-zinc-200 bg-card p-4 dark:border-purple-900/40">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -101,6 +106,16 @@ export function TransferPlan({
             below.
           </p>
         </div>
+        {stale && onRerun && (
+          <button
+            type="button"
+            onClick={onRerun}
+            disabled={loading}
+            className="order-first flex w-full items-center justify-between gap-2 rounded-md border border-warning-border bg-warning-surface px-2.5 py-1.5 text-xs font-medium text-warning-foreground transition-colors hover:bg-warning-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 sm:order-none sm:w-auto"
+          >
+            {loading ? "Re-running…" : "Inputs changed — re-run"}
+          </button>
+        )}
         <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
           <span title="Rolling is only worth something the model cannot see: injury news, price moves, rotation hints. That value is yours to assert, not the model's to claim.">
             Value of waiting for news
@@ -213,9 +228,9 @@ function BranchRow({
     <li
       className={`rounded-lg border px-3 py-2 ${
         blocked
-          ? "border-zinc-200 bg-zinc-50 dark:border-purple-900/30 dark:bg-[#2A0A45]/30"
+          ? "border-zinc-200 bg-zinc-50 dark:border-purple-900/30 dark:bg-secondary/30"
           : isRecommended
-            ? "border-purple-400 bg-purple-50/50 dark:border-[#00FF87]/50 dark:bg-[#00FF87]/5"
+            ? "border-purple-400 bg-purple-50/50 dark:border-primary/50 dark:bg-primary/5"
             : "border-zinc-200 dark:border-purple-900/40"
       }`}
     >
@@ -229,7 +244,7 @@ function BranchRow({
             {branch.label}
           </span>
           {isRecommended && (
-            <span className="rounded bg-purple-950 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-[#00FF87] dark:text-slate-950">
+            <span className="rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
               Best
             </span>
           )}

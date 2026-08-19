@@ -25,7 +25,7 @@ const signed = (v: number, digits = 1) => {
  */
 export function TransferPath({ result, loading, onRun, hasChipPlan }: TransferPathProps) {
   return (
-    <section className="mt-5 rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+    <section className="mt-5 rounded-xl border border-zinc-200 bg-card p-4 dark:border-purple-900/40">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Transfer path</h2>

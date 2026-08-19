@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { InfoTooltip } from "@/components/info-tooltip";
@@ -225,22 +225,57 @@ export default function ChipsPage() {
     return (playerId: number, event: number) => predsByPlayer.get(playerId)?.get(event);
   }, [predsByPlayer]);
 
-  const result = useMemo(() => {
-    if (!team || pool.length === 0 || windowStart === null) return null;
-    if (team.players.length !== rules.squadSize) return null;
-    return runChipEngine({
-      team,
-      pool,
-      lookup,
-      predAt,
-      availabilityOf,
-      isPenaltyTaker,
-      rules,
-      chipDefinitions,
-      fixturesPerEvent,
-      windowStart,
-      windowEnd,
-    });
+  /**
+   * `runChipEngine` walks every chip's whole window, a real bounded search
+   * over up to a season's gameweeks — it used to sit in a bare useMemo and
+   * freeze the tab on every recompute, with no busy indicator at all (unlike
+   * `/transfers`, this page had none to begin with). Gated the same way as
+   * `optimizeTransfers` above: button-triggered, one setTimeout(0) so a busy
+   * state can paint, auto-run once on first load, and a signature so
+   * switching drafts surfaces "re-run" instead of quietly recomputing (or,
+   * worse, showing the previous draft's schedule under the new draft's name).
+   */
+  const [result, setResult] = useState<ReturnType<typeof runChipEngine> | null>(null);
+  const [resultLoading, setResultLoading] = useState(false);
+  const [resultSignature, setResultSignature] = useState<string | null>(null);
+
+  const resultSignatureInputs = useMemo(
+    () =>
+      JSON.stringify({
+        draftId: team?.draftId ?? null,
+        playerIds: team ? team.players.map((p) => p.playerId).join(",") : null,
+        windowStart,
+        windowEnd,
+      }),
+    [team, windowStart, windowEnd],
+  );
+  const resultStale =
+    result !== null && resultSignature !== null && resultSignature !== resultSignatureInputs;
+  const resultReady =
+    !!team && pool.length > 0 && windowStart !== null && team.players.length === rules.squadSize;
+
+  const runResult = useCallback(() => {
+    if (!team || pool.length === 0 || windowStart === null) return;
+    if (team.players.length !== rules.squadSize) return;
+    setResultLoading(true);
+    setTimeout(() => {
+      const next = runChipEngine({
+        team,
+        pool,
+        lookup,
+        predAt,
+        availabilityOf,
+        isPenaltyTaker,
+        rules,
+        chipDefinitions,
+        fixturesPerEvent,
+        windowStart,
+        windowEnd,
+      });
+      setResult(next);
+      setResultSignature(resultSignatureInputs);
+      setResultLoading(false);
+    }, 0);
   }, [
     team,
     pool,
@@ -253,7 +288,15 @@ export default function ChipsPage() {
     fixturesPerEvent,
     windowStart,
     windowEnd,
+    resultSignatureInputs,
   ]);
+
+  useEffect(() => {
+    if (!resultReady || result !== null || resultLoading) return;
+    const t = setTimeout(runResult, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resultReady]);
 
   const byChipEvent = useMemo(() => {
     const map = new Map<ChipKind, Map<number, ChipValuation>>();
@@ -489,6 +532,23 @@ export default function ChipsPage() {
           {team.name} has {team.players.length} of {rules.squadSize} players. Chip values need a
           complete squad.
         </p>
+      )}
+
+      {!loading && team && team.players.length === rules.squadSize && (resultLoading || resultStale) && (
+        <div className="mt-5 flex items-center justify-between gap-2 rounded-md border border-warning-border bg-warning-surface px-3 py-2 text-sm text-warning-foreground">
+          <span>
+            {resultLoading ? "Recalculating chip values…" : "Squad changed since these values were computed."}
+          </span>
+          {!resultLoading && (
+            <button
+              type="button"
+              onClick={runResult}
+              className="shrink-0 rounded-md border border-warning-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-warning-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Re-run
+            </button>
+          )}
+        </div>
       )}
 
       {result && team && presets.length > 0 && (

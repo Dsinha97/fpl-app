@@ -137,6 +137,9 @@ export default function TransfersPage() {
   const [applied, setApplied] = useState<string | null>(null);
   const [pathResult, setPathResult] = useState<TransferPathResult | null>(null);
   const [pathLoading, setPathLoading] = useState(false);
+  const [plan, setPlan] = useState<ReturnType<typeof optimizeTransfers> | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [planSignature, setPlanSignature] = useState<string | null>(null);
 
   // Drafts live in localStorage, so they can only be read after mount — an
   // effect is the right place despite the set-state-in-effect lint preference.
@@ -503,28 +506,62 @@ export default function TransfersPage() {
 
   const pool = useMemo(() => [...scoredById.values()], [scoredById]);
 
-  /** The weekly decision: roll, spend, take a hit, or wildcard. */
-  const plan = useMemo(() => {
-    if (!team || scoredById.size === 0 || nextEvent === null) return null;
-    if (team.players.length !== rules.squadSize) return null;
-    return optimizeTransfers({
-      team,
-      pool,
-      scoredById,
-      lookup,
-      xpOf,
-      availabilityOf,
-      isPenaltyTaker,
-      seriesOf,
-      rules,
-      horizon,
-      freeTransfers,
-      event: nextEvent,
-      wildcard,
-      decisionMargin,
-      chip: chipContext ?? undefined,
-      predAt,
-    });
+  /**
+   * The weekly decision: roll, spend, take a hit, or wildcard. This is a real
+   * search over candidate baskets, not a lookup, so it used to run inside a
+   * bare useMemo — freezing the tab on every keystroke that touched horizon,
+   * free transfers, or the decision margin, with a `loading={plan === null}`
+   * flag that was only ever true *before* the memo ran, never during it. Now
+   * gated like `runTransferPath` below: button-triggered, one setTimeout(0)
+   * to let the busy state paint, and a signature of the inputs that mattered
+   * last time it ran so a changed input surfaces "re-run", not a stale
+   * number silently presented as current.
+   */
+  const planSignatureInputs = useMemo(
+    () =>
+      JSON.stringify({
+        draftId: team?.draftId ?? null,
+        playerIds: team ? team.players.map((p) => p.playerId).join(",") : null,
+        horizon,
+        freeTransfers,
+        decisionMargin,
+        nextEvent,
+        wildcard,
+        chipContext,
+      }),
+    [team, horizon, freeTransfers, decisionMargin, nextEvent, wildcard, chipContext],
+  );
+  const planStale = plan !== null && planSignature !== null && planSignature !== planSignatureInputs;
+  const planReady =
+    !!team && scoredById.size > 0 && nextEvent !== null && team.players.length === rules.squadSize;
+
+  const runPlan = useCallback(() => {
+    if (!team || scoredById.size === 0 || nextEvent === null) return;
+    if (team.players.length !== rules.squadSize) return;
+    setPlanLoading(true);
+    setTimeout(() => {
+      const result = optimizeTransfers({
+        team,
+        pool,
+        scoredById,
+        lookup,
+        xpOf,
+        availabilityOf,
+        isPenaltyTaker,
+        seriesOf,
+        rules,
+        horizon,
+        freeTransfers,
+        event: nextEvent,
+        wildcard,
+        decisionMargin,
+        chip: chipContext ?? undefined,
+        predAt,
+      });
+      setPlan(result);
+      setPlanSignature(planSignatureInputs);
+      setPlanLoading(false);
+    }, 0);
   }, [
     team,
     pool,
@@ -542,7 +579,19 @@ export default function TransfersPage() {
     nextEvent,
     wildcard,
     decisionMargin,
+    planSignatureInputs,
   ]);
+
+  // Auto-run once, the first time the page has everything it needs — so
+  // opening /transfers still shows a plan without requiring a click. Every
+  // change after that surfaces the "inputs changed" banner instead of
+  // silently re-running, per Sprint 19 Stage 3.
+  useEffect(() => {
+    if (!planReady || plan !== null || planLoading) return;
+    const t = setTimeout(runPlan, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planReady]);
 
   /** Forward multi-gameweek path — a bounded but real search, gated behind a button like `/deadline`'s optimiser. */
   const runTransferPath = useCallback(() => {
@@ -828,7 +877,9 @@ export default function TransfersPage() {
             setApplied(null);
           }}
           loadedSignature={moves.length > 0 ? signatureOf(moves) : null}
-          loading={plan === null}
+          loading={planLoading}
+          stale={planStale}
+          onRerun={runPlan}
         />
       )}
 
