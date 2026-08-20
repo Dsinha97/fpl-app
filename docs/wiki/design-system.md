@@ -122,6 +122,19 @@ carries rank consistently.
 Content-preservation was verified by diffing each page's full rendered text before and after — this
 stage changes weight and padding only, never drops a section or a disclosure string.
 
+### Packing, not just ranking (2026-08-20)
+
+Ranking cards fixed *which* card matters more; it left the actual defect the owner reported
+unfixed — short cards (four rows of one dropdown each in the chip plan editor; a two-line readiness
+list) still burned a full-width row of dead space. The follow-on pass repacked rather than
+re-ranked: `/deadline` pairs Squad readiness ‖ Availability and Captain & starting XI ‖ Chip call
+side by side (`sm:`/`lg:grid-cols-2`); `/chips` pairs its two chip-schedule halves the same way
+(GW1-19 / GW20-38 — FPL grants each chip once per half, so these were always two independent
+decisions, never one that should be summed); and a new `CollapsibleCard` primitive (see
+[Disclosure](#disclosure) below) collapses the chip plan editor, `/deadline`'s price & news watch,
+and `/chips`' gameweek-by-gameweek table to a title + one-line summary by default. Full detail:
+[rivals-and-card-density.md](../sprints/rivals-and-card-density.md).
+
 ## Component hierarchy and disclosure (Stage 4b)
 
 The same defect existed one level down. `components/player-detail.tsx`'s `stat()` grid rendered all
@@ -156,6 +169,14 @@ tokens (`bg-popover`/`border-border`) and gained a focus-visible ring in this sp
 before. Prefer it over a native `title` for anything that isn't purely decorative, and over a bare
 paragraph for anything that would otherwise compete with a page's primary content for visual weight.
 
+`components/ui/collapsible-card.tsx` (added 2026-08-20) is the second disclosure primitive — for a
+whole card collapsing to a title + one-line summary, not an inline note. It was extracted for the
+[card-packing pass](#packing-not-just-ranking-2026-08-20) above rather than adding a third hand-copy
+of the shape. It deliberately did **not** absorb the two `noteOpen` collapses named just above: both
+are compact single-line notes with no real title (`text-[10px]`/muted styling), and forcing them
+into `CollapsibleCard`'s title+tier layout would have visibly changed their size for no reader
+benefit. They're still the open follow-on work; the primitive now exists for whoever picks it up.
+
 ## Typography (Stage 5)
 
 All 13 page-title `<h1>`s share one identical class string
@@ -186,4 +207,6 @@ opportunistic follow-on work.
 
 See also: [frontend-conventions.md](frontend-conventions.md) (theme boot script, static-export
 traps), [risk-scoring.md](risk-scoring.md) (the FDR colour system's CVD validation, the one colour
-system that predates and outperforms this page's semantic tokens), [sprints/sprint-19.md](../sprints/sprint-19.md).
+system that predates and outperforms this page's semantic tokens), [sprints/sprint-19.md](../sprints/sprint-19.md),
+[sprints/rivals-and-card-density.md](../sprints/rivals-and-card-density.md) (the 2026-08-20 packing
+follow-on).

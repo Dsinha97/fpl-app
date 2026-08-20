@@ -26,6 +26,7 @@ themselves. See [roadmap.md](../roadmap.md) for the authoritative status table.
 | 2026-08-18 | Sprint 17a — walk-forward model validation; found the xP model underperforms a naive last-5-gameweeks baseline out-of-sample | [xp-model.md](xp-model.md#out-of-sample-validation-sprint-17a) |
 | 2026-08-19 | Sprint 18 — Effective Starting XI budget, a chip-sequencing bug fix + calendar-derived presets, transfer reversibility | [lineup-captain-bench.md](lineup-captain-bench.md#bench-cost-sprint-18), [chip-plan.md](chip-plan.md) |
 | 2026-08-19/20 | Sprint 19 — Design System & Interaction Feedback: fixed Geist Sans never applying, adopted focus-visible states, stopped the transfer/chip optimiser freeze, ranked the cards on `/deadline`/`/transfers`/`/chips`, promoted xP to the dominant number in the player detail panel | [design-system.md](design-system.md) |
+| 2026-08-20 | Rivals fixes & card density — `/team` rivals sync before writing and gained a This season / Career tab; `CollapsibleCard` primitive repacks `/deadline`, `/transfers`, `/chips` | [manager-profile.md](manager-profile.md), [design-system.md](design-system.md#packing-not-just-ranking-2026-08-20) |
 | 2026-08-21 (upcoming) | GW1 deadline — unblocks Sprint 13's dry-run checklist | [deadline-and-matchday.md](deadline-and-matchday.md) |
 
 See also: [blocked-and-data-gaps.md](blocked-and-data-gaps.md) for what's still waiting and why.

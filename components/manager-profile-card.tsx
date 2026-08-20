@@ -1,4 +1,7 @@
-import type { ManagerProfile, RivalComparison } from "@/lib/manager-profile";
+"use client";
+
+import { useState } from "react";
+import type { ManagerProfile, RivalRow } from "@/lib/manager-profile";
 
 const CONFIDENCE_STYLE: Record<ManagerProfile["confidence"], string> = {
   high: "text-emerald-700 dark:text-emerald-400",
@@ -145,65 +148,165 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
   );
 }
 
+/** A gap that may not exist yet (no career record on one side, or no gameweeks played) — never fabricated as 0. */
+function GapCell({ gap, decimals = 1 }: { gap: number | null; decimals?: number }) {
+  if (gap === null) {
+    return <td className="py-1.5 text-right tabular-nums text-zinc-400">—</td>;
+  }
+  return (
+    <td
+      className={`py-1.5 text-right tabular-nums font-medium ${
+        gap > 0
+          ? "text-emerald-700 dark:text-emerald-400"
+          : gap < 0
+            ? "text-amber-700 dark:text-amber-400"
+            : "text-zinc-500"
+      }`}
+    >
+      {gap > 0 ? "+" : ""}
+      {gap.toFixed(decimals)}
+    </td>
+  );
+}
+
+type RivalTab = "season" | "career";
+
 /**
- * Other managers already loaded, compared on career percentile median.
- *
- * A "career" comparison, not a current-season one — pre-season there is no
- * live rank for anyone, so the change plan's example of a live percentile gap
- * cannot be shown yet. That distinction is the caption, not an afterthought.
+ * Other managers already loaded, compared two ways: this season's points
+ * (once any gameweek has been played) and career median percentile. Rivals
+ * with no history for a given half render "—" rather than being dropped —
+ * a first-season manager still belongs on the this-season tab.
  */
-export function RivalTable({ rivals }: { rivals: RivalComparison[] }) {
+export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
+  const anySeasonData = rivals.some((r) => r.season !== null);
+  const [tab, setTab] = useState<RivalTab>(anySeasonData ? "season" : "career");
+
   if (rivals.length === 0) return null;
-  const sorted = [...rivals].sort((a, b) => b.gap - a.gap);
+
+  const tabButton = (id: RivalTab, label: string) => (
+    <button
+      type="button"
+      onClick={() => setTab(id)}
+      aria-current={tab === id ? "page" : undefined}
+      className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+        tab === id
+          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-[#00FF87] dark:ring-1 dark:ring-[#00FF87]/40"
+          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/50"
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-        Rivals — career median percentile
-      </h3>
-      <p className="mt-1 text-xs text-zinc-500">
-        Compares full career records, not this season — nobody has a current rank yet.
-      </p>
-      <table className="mt-3 w-full text-sm">
-        <thead>
-          <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-            <th className="py-1.5">Manager</th>
-            <th className="py-1.5 text-right">Seasons</th>
-            <th className="py-1.5 text-right">Median</th>
-            <th className="py-1.5 text-right">Best</th>
-            <th className="py-1.5 text-right">Worst</th>
-            <th className="py-1.5 text-right">Gap</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((r) => (
-            <tr
-              key={r.entryId}
-              className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
-            >
-              <td className="py-1.5 text-zinc-800 dark:text-zinc-200">{r.teamName}</td>
-              <td className="py-1.5 text-right tabular-nums text-zinc-500">{r.seasons}</td>
-              <td className="py-1.5 text-right tabular-nums text-zinc-800 dark:text-zinc-200">
-                {r.median.toFixed(1)}
-              </td>
-              <td className="py-1.5 text-right tabular-nums text-zinc-500">{r.best.toFixed(0)}</td>
-              <td className="py-1.5 text-right tabular-nums text-zinc-500">{r.worst.toFixed(0)}</td>
-              <td
-                className={`py-1.5 text-right tabular-nums font-medium ${
-                  r.gap > 0
-                    ? "text-emerald-700 dark:text-emerald-400"
-                    : r.gap < 0
-                      ? "text-amber-700 dark:text-amber-400"
-                      : "text-zinc-500"
-                }`}
-              >
-                {r.gap > 0 ? "+" : ""}
-                {r.gap.toFixed(1)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Rivals</h3>
+        <div className="flex gap-1 rounded-lg border border-zinc-200 p-0.5 dark:border-purple-900/40">
+          {tabButton("season", "This season")}
+          {tabButton("career", "Career")}
+        </div>
+      </div>
+
+      {tab === "season" ? (
+        anySeasonData ? (
+          <table className="mt-3 w-full text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+                <th className="py-1.5">Manager</th>
+                <th className="py-1.5 text-right">GW pts</th>
+                <th className="py-1.5 text-right">Total</th>
+                <th className="py-1.5 text-right">Rank</th>
+                <th className="py-1.5 text-right">Gap</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...rivals]
+                .sort((a, b) => (b.season?.pointsGap ?? -Infinity) - (a.season?.pointsGap ?? -Infinity))
+                .map((r) => (
+                  <tr
+                    key={r.entryId}
+                    className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
+                  >
+                    <td className="py-1.5 text-zinc-800 dark:text-zinc-200">{r.teamName}</td>
+                    {r.season ? (
+                      <>
+                        <td className="py-1.5 text-right tabular-nums text-zinc-800 dark:text-zinc-200">
+                          {r.season.lastEventPoints}
+                        </td>
+                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                          {r.season.totalPoints}
+                        </td>
+                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                          {r.season.overallRank?.toLocaleString() ?? "—"}
+                        </td>
+                        <GapCell gap={r.season.pointsGap} decimals={0} />
+                      </>
+                    ) : (
+                      <td colSpan={4} className="py-1.5 text-right text-xs text-zinc-400">
+                        No gameweeks played yet
+                      </td>
+                    )}
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="mt-3 text-xs text-zinc-500">
+            Nobody has played a gameweek yet — this-season comparisons appear once GW1 results
+            are in.
+          </p>
+        )
+      ) : (
+        <>
+          <p className="mt-1 text-xs text-zinc-500">Full career records, oldest to newest.</p>
+          <table className="mt-3 w-full text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+                <th className="py-1.5">Manager</th>
+                <th className="py-1.5 text-right">Seasons</th>
+                <th className="py-1.5 text-right">Median</th>
+                <th className="py-1.5 text-right">Best</th>
+                <th className="py-1.5 text-right">Worst</th>
+                <th className="py-1.5 text-right">Gap</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...rivals]
+                .sort((a, b) => (b.career?.gap ?? -Infinity) - (a.career?.gap ?? -Infinity))
+                .map((r) => (
+                  <tr
+                    key={r.entryId}
+                    className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
+                  >
+                    <td className="py-1.5 text-zinc-800 dark:text-zinc-200">{r.teamName}</td>
+                    {r.career ? (
+                      <>
+                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                          {r.career.seasons}
+                        </td>
+                        <td className="py-1.5 text-right tabular-nums text-zinc-800 dark:text-zinc-200">
+                          {r.career.median.toFixed(1)}
+                        </td>
+                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                          {r.career.best.toFixed(0)}
+                        </td>
+                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                          {r.career.worst.toFixed(0)}
+                        </td>
+                        <GapCell gap={r.career.gap} />
+                      </>
+                    ) : (
+                      <td colSpan={4} className="py-1.5 text-right text-xs text-zinc-400">
+                        First season
+                      </td>
+                    )}
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </>
+      )}
     </div>
   );
 }

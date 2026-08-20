@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
 import { resolveStopEvent, setChipPlanEntry } from "@/lib/chip-plan";
+import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import {
   CHIP_LABELS,
   runChipEngine,
@@ -621,11 +622,13 @@ export default function ChipsPage() {
           </div>
 
           {/* per-half schedules — FPL grants each chip once per half, so these
-              are two independent decisions, not one combined total. */}
+              are two independent decisions, not one combined total. Side by
+              side rather than stacked: neither half outranks the other. */}
+          <div className="mt-5 grid gap-5 lg:grid-cols-2">
           {result.schedules.map((half) => (
             <section
               key={half.label}
-              className="mt-5 rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40"
+              className="rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -717,6 +720,7 @@ export default function ChipsPage() {
               )}
             </section>
           ))}
+          </div>
 
           {/* per-chip shortlists */}
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -788,11 +792,14 @@ export default function ChipsPage() {
           </div>
 
           {/* full calendar */}
-          <section className="mt-5 overflow-x-auto rounded-xl border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border">
-            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Gameweek by gameweek
-            </h2>
-            <table className="mt-2 w-full min-w-[420px] text-sm">
+          <CollapsibleCard
+            title="Gameweek by gameweek"
+            tier="supporting"
+            className="mt-5"
+            summary={events.length > 0 ? `GW${events[0]}–${events[events.length - 1]}` : undefined}
+          >
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px] text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-[10px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
                   <th className="py-1.5 pr-2">GW</th>
@@ -826,7 +833,8 @@ export default function ChipsPage() {
                 ))}
               </tbody>
             </table>
-          </section>
+            </div>
+          </CollapsibleCard>
         </>
       )}
     </main>

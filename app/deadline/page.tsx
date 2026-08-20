@@ -12,6 +12,7 @@ import { layoutFromLineup, PitchView, type SquadLayout } from "@/components/pitc
 import type { PlayerData } from "@/components/player-card";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { ChipPlanEditor } from "@/components/chip-plan-editor";
+import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { TransferPath } from "@/components/transfer-path";
 import { planTransferPath, type TransferPathResult } from "@/lib/transfer-path";
 import { chipContextFor, validateChipPlan, type ChipDefinitionRow } from "@/lib/chip-plan";
@@ -810,9 +811,10 @@ export default function DeadlinePage() {
             </p>
           </section>
 
-          {/* ------------------------------------------------------ readiness */}
+          {/* ------------------------------------- readiness & availability */}
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
           {validation && (
-            <section className={`mt-5 ${cardSupporting}`}>
+            <section className={cardSupporting}>
               <h2 className={supportingHeading}>Squad readiness</h2>
               {validation.isLegal ? (
                 <p className="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
@@ -862,7 +864,7 @@ export default function DeadlinePage() {
           )}
 
           {/* --------------------------------------------------- availability */}
-          <section className={`mt-5 ${cardSupporting}`}>
+          <section className={cardSupporting}>
             <h2 className={supportingHeading}>Availability</h2>
             {alerts.length === 0 ? (
               <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
@@ -882,9 +884,25 @@ export default function DeadlinePage() {
               </ul>
             )}
           </section>
+          </div>
 
-          {/* -------------------------------------------------- captain & XI */}
-          <section className={`mt-5 ${card}`}>
+          {/* --------------------------------------------------- chip plan */}
+          <ChipPlanEditor
+            plan={team.chipPlan}
+            chipDefinitions={chipDefinitions}
+            nextEvent={ctx.nextEvent}
+            lastEvent={ctx.windowEnd}
+            activeChip={team.activeChip}
+            onChange={(next: ChipPlan) => {
+              saveDraft({ ...team, chipPlan: next });
+              setDrafts(listDrafts());
+            }}
+            className="mt-5"
+          />
+
+          {/* --------------------------------- captain & XI ‖ chip call */}
+          <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          <section className={card}>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                 Captain &amp; starting XI — GW{ctx.nextEvent}
@@ -951,25 +969,12 @@ export default function DeadlinePage() {
             )}
           </section>
 
-          {/* --------------------------------------------------- chip plan */}
-          <ChipPlanEditor
-            plan={team.chipPlan}
-            chipDefinitions={chipDefinitions}
-            nextEvent={ctx.nextEvent}
-            lastEvent={ctx.windowEnd}
-            activeChip={team.activeChip}
-            onChange={(next: ChipPlan) => {
-              saveDraft({ ...team, chipPlan: next });
-              setDrafts(listDrafts());
-            }}
-          />
-
           {/* -------------------------------------------------------- chips */}
-          <section className={`mt-5 ${card}`}>
+          <section className={card}>
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               Chip call — GW{ctx.nextEvent}
             </h2>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
               {[benchBoost, tripleCaptain].map((v) =>
                 v ? (
                   <div key={v.chip} className="rounded-md border border-zinc-200 px-3 py-2 dark:border-purple-900/40">
@@ -1008,6 +1013,7 @@ export default function DeadlinePage() {
               .
             </p>
           </section>
+          </div>
 
           {/* ---------------------------------------------------- transfers */}
           <section className={`mt-5 ${card}`}>
@@ -1087,14 +1093,20 @@ export default function DeadlinePage() {
           )}
 
           {/* ------------------------------------------------- price & news */}
-          <section className={`mt-5 ${cardSupporting}`}>
-            <h2 className={supportingHeading}>Price &amp; news watch</h2>
-            {feedLoading && <p className="mt-2 text-sm text-zinc-500">Loading…</p>}
-            {!feedLoading && feedRows.length === 0 && (
-              <p className="mt-2 text-sm text-zinc-500">Nothing has changed for this squad recently.</p>
-            )}
+          <CollapsibleCard
+            title="Price & news watch"
+            tier="supporting"
+            className="mt-5"
+            summary={
+              feedLoading
+                ? "Loading…"
+                : feedRows.length === 0
+                  ? "Nothing has changed for this squad recently."
+                  : `${feedRows.length} change${feedRows.length === 1 ? "" : "s"} flagged`
+            }
+          >
             {!feedLoading && feedRows.length > 0 && (
-              <ul className="mt-2 divide-y divide-zinc-100 dark:divide-purple-900/30">
+              <ul className="divide-y divide-zinc-100 dark:divide-purple-900/30">
                 {feedRows.slice(0, 20).map((row, i) => {
                   const { icon, text } = describe(row);
                   return (
@@ -1115,7 +1127,7 @@ export default function DeadlinePage() {
               </Link>
               .
             </p>
-          </section>
+          </CollapsibleCard>
         </>
       )}
     </main>

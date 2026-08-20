@@ -37,6 +37,7 @@ file, not separate files.
 | [sprints/sprint-17a.md](sprints/sprint-17a.md) | live | Walk-forward model validation — found the xP model underperforms a naive last-5-gameweeks baseline out-of-sample. |
 | [sprints/sprint-18.md](sprints/sprint-18.md) | live | Effective Starting XI budget, a chip-sequencing bug fix + calendar-derived presets, transfer reversibility. |
 | [sprints/sprint-19.md](sprints/sprint-19.md) | live | Design system & interaction feedback — font/focus/freeze fixes, card hierarchy, xP promoted to the dominant number. |
+| [sprints/rivals-and-card-density.md](sprints/rivals-and-card-density.md) | live | Rivals sync-before-write + this-season tab fix on `/team`; `CollapsibleCard` primitive repacks `/deadline`, `/transfers`, `/chips`. |
 
 ## Source specs
 

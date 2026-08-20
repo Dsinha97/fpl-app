@@ -14,6 +14,7 @@ import {
   type ChipDefinitionRow,
 } from "@/lib/chip-plan";
 import { EMPTY_CHIP_PLAN, type ChipKind, type ChipPlan } from "@/lib/team-state";
+import { CollapsibleCard } from "@/components/ui/collapsible-card";
 
 const CHIP_ORDER: ChipKind[] = ["wildcard", "freehit", "bboost", "3xc"];
 
@@ -25,6 +26,7 @@ export interface ChipPlanEditorProps {
   activeChip: string | null;
   /** Called with the next plan; the page decides how to persist it (saveDraft). */
   onChange: (next: ChipPlan) => void;
+  className?: string;
 }
 
 /** Replaces whatever this chip has pinned inside `[def.startEvent, stop]`, so picking a new gameweek for a half moves the pin rather than adding a second one. */
@@ -53,6 +55,7 @@ export function ChipPlanEditor({
   lastEvent,
   activeChip,
   onChange,
+  className = "mt-4",
 }: ChipPlanEditorProps) {
   const validation = validateChipPlan(plan, chipDefinitions, nextEvent, lastEvent, activeChip);
   const entries = (plan ?? EMPTY_CHIP_PLAN).entries;
@@ -75,23 +78,27 @@ export function ChipPlanEditor({
   const appliedCount = validation.usable.length;
   const totalCount = entries.length;
 
-  return (
-    <div className="mt-4 rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Chip plan</h2>
-        {totalCount === 0 ? (
-          <p className="text-xs text-zinc-500">
-            No chips planned. The optimiser is treating every gameweek the same.
-          </p>
-        ) : (
-          <p className="text-xs text-zinc-500">
-            {appliedCount} of {totalCount} planned chip{totalCount === 1 ? "" : "s"} applied
-            {appliedCount < totalCount ? " — see problems below" : ""}.
-          </p>
-        )}
-      </div>
+  // Collapsed summary: the planned window for each chip, in CHIP_ORDER — the
+  // essential detail (docs/wiki/design-system.md's tier rule: a supporting
+  // card shows context, but this is the primary decision itself, so it needs
+  // to survive the collapse).
+  const summary = CHIP_ORDER.map((chip) => {
+    const chipEntries = entries.filter((e) => e.chip === chip).sort((a, b) => a.event - b.event);
+    const windows = chipEntries.map((e) => `GW${e.event}`).join(", ");
+    return `${CHIP_LABELS[chip]} ${windows || "not planned"}`;
+  }).join(" · ");
 
-      <div className="mt-3 flex flex-col gap-3">
+  return (
+    <CollapsibleCard title="Chip plan" summary={summary} tier="primary" className={className}>
+      <p className="text-xs text-zinc-500">
+        {totalCount === 0
+          ? "No chips planned. The optimiser is treating every gameweek the same."
+          : `${appliedCount} of ${totalCount} planned chip${totalCount === 1 ? "" : "s"} applied${
+              appliedCount < totalCount ? " — see problems below" : ""
+            }.`}
+      </p>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {CHIP_ORDER.map((chip) => {
           const defs = defsByChip.get(chip) ?? [];
           if (defs.length === 0) return null;
@@ -157,6 +164,6 @@ export function ChipPlanEditor({
           );
         })}
       </div>
-    </div>
+    </CollapsibleCard>
   );
 }

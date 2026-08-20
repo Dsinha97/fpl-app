@@ -133,39 +133,88 @@ export function buildManagerProfile(records: SeasonRecord[]): ManagerProfile | n
   };
 }
 
-export interface RivalComparison {
-  entryId: number;
-  teamName: string;
+export interface CareerComparison {
   seasons: number;
   median: number;
   best: number;
   worst: number;
-  /** medianScore(me) - medianScore(rival), in percentile-score points. Positive: I am ahead. */
-  gap: number;
+  /** medianScore(me) - medianScore(rival), in percentile-score points. Null if either side has no career record — never fabricated as 0. */
+  gap: number | null;
 }
 
 /**
  * Compare a profile against a rival's, on career medians.
  *
- * Deliberately not a "current season" comparison — the change plan's §17
- * example ("My Percentile 97.2% vs Rival 98.5%") reads as a live in-season
- * figure, but pre-season there is no current rank for anyone. Labelling it
- * "career" here is what stops the UI from implying a number that does not
- * exist yet.
+ * `mine` is nullable: the signed-in owner may themselves be a first-season
+ * manager with no career record, and that must not hide every rival's row —
+ * it just means the gap column reads "—" instead of a number.
  */
-export function compareToRival(
-  mine: ManagerProfile,
-  rivalEntryId: number,
-  rivalTeamName: string,
-  rival: ManagerProfile,
-): RivalComparison {
+export function compareToRival(mine: ManagerProfile | null, rival: ManagerProfile): CareerComparison {
   return {
-    entryId: rivalEntryId,
-    teamName: rivalTeamName,
     seasons: rival.seasons,
     median: rival.median,
     best: rival.best,
     worst: rival.worst,
-    gap: mine.median - rival.median,
+    gap: mine ? mine.median - rival.median : null,
   };
+}
+
+/** One row of a manager's `manager_gameweek_history`, this season. */
+export interface GameweekRecord {
+  event: number;
+  points: number;
+  totalPoints: number;
+  overallRank: number | null;
+}
+
+export interface SeasonToDate {
+  /** Gameweeks played so far this season. */
+  events: number;
+  lastEvent: number;
+  lastEventPoints: number;
+  totalPoints: number;
+  overallRank: number | null;
+}
+
+/** Build a this-season summary from gameweek rows. Null on an empty season — GW1 hasn't been played by anyone yet, not a zero. */
+export function buildSeasonToDate(rows: GameweekRecord[]): SeasonToDate | null {
+  if (rows.length === 0) return null;
+  const sorted = [...rows].sort((a, b) => a.event - b.event);
+  const last = sorted[sorted.length - 1];
+  return {
+    events: sorted.length,
+    lastEvent: last.event,
+    lastEventPoints: last.points,
+    totalPoints: last.totalPoints,
+    overallRank: last.overallRank,
+  };
+}
+
+export interface SeasonComparison {
+  events: number;
+  lastEvent: number;
+  lastEventPoints: number;
+  totalPoints: number;
+  overallRank: number | null;
+  /** totalPoints(me) - totalPoints(rival) as of the rival's latest gameweek. Null if either side has no season rows yet. */
+  pointsGap: number | null;
+}
+
+export function compareSeasonToDate(mine: SeasonToDate | null, rival: SeasonToDate): SeasonComparison {
+  return {
+    events: rival.events,
+    lastEvent: rival.lastEvent,
+    lastEventPoints: rival.lastEventPoints,
+    totalPoints: rival.totalPoints,
+    overallRank: rival.overallRank,
+    pointsGap: mine ? mine.totalPoints - rival.totalPoints : null,
+  };
+}
+
+/** One rival, as shown in the Rivals table — either half may be absent. */
+export interface RivalRow {
+  entryId: number;
+  teamName: string;
+  career: CareerComparison | null;
+  season: SeasonComparison | null;
 }

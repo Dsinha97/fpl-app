@@ -2,6 +2,12 @@
 
 One line per entry, most recent first.
 
+- 2026-08-20 — Ingested `docs/sprints/rivals-and-card-density.md`: updated `manager-profile.md`
+  (rivals sync-before-write, a no-career-record rival no longer dropped, the new This season /
+  Career tab) and `design-system.md` (new "Packing, not just ranking" section under Card hierarchy,
+  the new `CollapsibleCard` disclosure primitive and why it didn't absorb the two existing bespoke
+  note-collapses); added a `roadmap.md` row, a `docs/README.md` row, and a `timeline.md` row. No new
+  page.
 - 2026-08-20 — Ingested `docs/sprints/sprint-19.md`: new page `design-system.md` (tokens, semantic
   colour, button/state vocabulary, the busy-state pattern, card hierarchy, disclosure) under
   Cross-cutting; updated `frontend-conventions.md`'s Theme section to point at it, added it to

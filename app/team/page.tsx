@@ -10,7 +10,14 @@ import { CountryFlag, flagCode, SeasonsBadge, TeamCrest } from "@/components/ide
 import { ManagerProfileCard, RivalTable } from "@/components/manager-profile-card";
 import { PitchView, type SquadLayout } from "@/components/pitch-view";
 import type { PlayerData } from "@/components/player-card";
-import { buildManagerProfile, compareToRival, type ManagerProfile, type RivalComparison } from "@/lib/manager-profile";
+import {
+  buildManagerProfile,
+  buildSeasonToDate,
+  compareSeasonToDate,
+  compareToRival,
+  type ManagerProfile,
+  type RivalRow,
+} from "@/lib/manager-profile";
 import { IMPORTED_SQUAD_NOTE, importedDraftName, teamStateFromPicks } from "@/lib/fpl-squad";
 import { listDrafts, resolveRequestedDraft, saveDraft, uniqueDraftName } from "@/lib/drafts";
 import {
@@ -122,7 +129,9 @@ interface TeamData {
   nextGw: NextGw | null;
   rules: SquadRules;
   profile: ManagerProfile | null;
-  rivals: RivalComparison[];
+  rivals: RivalRow[];
+  /** IDs from manager_rivals, whether or not each one resolved to a row above — lets a stuck/unresolved rival still be removed. */
+  rivalEntryIds: number[];
 }
 
 // -------------------------------------------------------------- helpers
@@ -310,7 +319,22 @@ export default function TeamPage() {
       // connected on this deployment" scan, which was fine with one user and
       // wrong the moment there are accounts. Signed-out visitors simply see
       // no rivals rather than a stale global list.
-      let rivals: RivalComparison[] = [];
+      //
+      // A rival is shown once they're in `managers` at all — not gated on
+      // having a career profile. A first-season manager (no past seasons)
+      // still has this-season rows once GW1 is played, and dropping them
+      // from the list entirely (the old behaviour) made an added rival look
+      // like the add silently failed.
+      const mySeasonToDate = buildSeasonToDate(
+        ((gwRes.data as GwRow[]) ?? []).map((g) => ({
+          event: g.event,
+          points: g.points ?? 0,
+          totalPoints: g.total_points ?? 0,
+          overallRank: g.overall_rank,
+        })),
+      );
+
+      let rivals: RivalRow[] = [];
       let rivalEntryIds: number[] = [];
       if (user) {
         const { data: rivalRows } = await supabase
@@ -320,35 +344,60 @@ export default function TeamPage() {
         rivalEntryIds = (rivalRows ?? []).map((r) => r.entry_id as number);
       }
 
-      if (profile && rivalEntryIds.length > 0) {
+      if (rivalEntryIds.length > 0) {
         const { data: otherManagers } = await supabase
           .from("managers")
           .select("entry_id, team_name")
           .in("entry_id", rivalEntryIds);
 
         if (otherManagers && otherManagers.length > 0) {
-          const { data: rivalSeasons } = await supabase
-            .from("manager_season_history")
-            .select("entry_id, season_name, rank_percentage")
-            .in("entry_id", otherManagers.map((r) => r.entry_id));
+          const rivalIds = otherManagers.map((r) => r.entry_id);
+          const [{ data: rivalSeasons }, { data: rivalGws }] = await Promise.all([
+            supabase
+              .from("manager_season_history")
+              .select("entry_id, season_name, rank_percentage")
+              .in("entry_id", rivalIds),
+            supabase
+              .from("manager_gameweek_history")
+              .select("entry_id, event, points, total_points, overall_rank")
+              .in("entry_id", rivalIds),
+          ]);
 
-          const byRival = new Map<number, { season_name: string; rank_percentage: number }[]>();
+          const seasonsByRival = new Map<number, { season_name: string; rank_percentage: number }[]>();
           for (const row of rivalSeasons ?? []) {
             if (row.rank_percentage === null) continue;
-            const list = byRival.get(row.entry_id) ?? [];
+            const list = seasonsByRival.get(row.entry_id) ?? [];
             list.push({ season_name: row.season_name, rank_percentage: row.rank_percentage });
-            byRival.set(row.entry_id, list);
+            seasonsByRival.set(row.entry_id, list);
           }
 
-          rivals = otherManagers.flatMap((r) => {
-            const rows = (byRival.get(r.entry_id) ?? []).sort((a, b) =>
+          const gwsByRival = new Map<number, { event: number; points: number; totalPoints: number; overallRank: number | null }[]>();
+          for (const row of rivalGws ?? []) {
+            const list = gwsByRival.get(row.entry_id) ?? [];
+            list.push({
+              event: row.event,
+              points: row.points ?? 0,
+              totalPoints: row.total_points ?? 0,
+              overallRank: row.overall_rank,
+            });
+            gwsByRival.set(row.entry_id, list);
+          }
+
+          rivals = otherManagers.map((r) => {
+            const seasonRows = (seasonsByRival.get(r.entry_id) ?? []).sort((a, b) =>
               a.season_name.localeCompare(b.season_name),
             );
             const rivalProfile = buildManagerProfile(
-              rows.map((s) => ({ seasonName: s.season_name, rankPercentage: s.rank_percentage })),
+              seasonRows.map((s) => ({ seasonName: s.season_name, rankPercentage: s.rank_percentage })),
             );
-            if (!rivalProfile) return [];
-            return [compareToRival(profile, r.entry_id, r.team_name ?? `Entry ${r.entry_id}`, rivalProfile)];
+            const rivalSeasonToDate = buildSeasonToDate(gwsByRival.get(r.entry_id) ?? []);
+
+            return {
+              entryId: r.entry_id,
+              teamName: r.team_name ?? `Entry ${r.entry_id}`,
+              career: rivalProfile ? compareToRival(profile, rivalProfile) : null,
+              season: rivalSeasonToDate ? compareSeasonToDate(mySeasonToDate, rivalSeasonToDate) : null,
+            };
           });
         }
       }
@@ -455,6 +504,7 @@ export default function TeamPage() {
         rules,
         profile,
         rivals,
+        rivalEntryIds,
       });
       setSavedId(entryId);
       localStorage.setItem("fpl_manager_id", String(entryId));
@@ -776,17 +826,43 @@ export default function TeamPage() {
   // that recomputes just the rivals table.
   const [rivalInput, setRivalInput] = useState("");
   const [rivalBusy, setRivalBusy] = useState(false);
+  const [rivalError, setRivalError] = useState<string | null>(null);
 
+  // Sync the candidate before ever writing to manager_rivals — a bare
+  // upsert used to accept any integer, and an entry that never resolved
+  // (typo, wrong ID) sat invisibly in the table with no way to remove it
+  // from the UI and no error shown. sync-manager also has to succeed for
+  // an entry with zero completed seasons (a brand-new manager): it writes
+  // `managers` unconditionally and only skips manager_season_history when
+  // `past` is empty, so a first-season rival still resolves here.
   const addRival = useCallback(async () => {
     const id = Number(rivalInput.trim());
-    if (!user || !savedId || !Number.isInteger(id) || id <= 0) return;
+    if (!Number.isInteger(id) || id <= 0) {
+      setRivalError("Enter a numeric FPL Manager ID.");
+      return;
+    }
+    if (!user || !savedId) return;
     setRivalBusy(true);
+    setRivalError(null);
     try {
+      const { error: fnError } = await supabase.functions.invoke("sync-manager", {
+        body: { entry_id: id },
+      });
+      if (fnError) {
+        if (fnError instanceof FunctionsHttpError) {
+          const body = await fnError.context.json().catch(() => null);
+          throw new Error(body?.error ?? "sync failed");
+        }
+        throw fnError;
+      }
+
       await supabase
         .from("manager_rivals")
         .upsert({ user_id: user.id, entry_id: id }, { onConflict: "user_id,entry_id" });
       setRivalInput("");
       await connect(savedId);
+    } catch (err) {
+      setRivalError(err instanceof Error ? err.message : String(err));
     } finally {
       setRivalBusy(false);
     }
@@ -1309,13 +1385,24 @@ export default function TeamPage() {
           )}
 
           {/* ------------------------------------- manager intelligence */}
-          {data?.profile && (
+          {/* Always shown once a manager is connected — previously gated on
+              having a career profile, which hid the add-rival box entirely
+              for a first-season manager (no past seasons of their own). The
+              career card becomes the conditional piece instead. */}
+          {data?.manager && (
             <section className="mt-8">
               <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
                 Manager Profile
               </h2>
               <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-                <ManagerProfileCard profile={data.profile} />
+                {data.profile ? (
+                  <ManagerProfileCard profile={data.profile} />
+                ) : (
+                  <div className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-500 dark:border-purple-900/40 dark:bg-[#1E0234]">
+                    First season — no career record yet. A career percentile profile needs at
+                    least one completed season.
+                  </div>
+                )}
                 <div>
                   <RivalTable rivals={data.rivals} />
 
@@ -1326,7 +1413,10 @@ export default function TeamPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <input
                           value={rivalInput}
-                          onChange={(e) => setRivalInput(e.target.value)}
+                          onChange={(e) => {
+                            setRivalInput(e.target.value);
+                            if (rivalError) setRivalError(null);
+                          }}
                           inputMode="numeric"
                           placeholder="Add rival by Manager ID"
                           className="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus:border-[#00FF87]"
@@ -1337,28 +1427,35 @@ export default function TeamPage() {
                           disabled={rivalBusy || !rivalInput.trim()}
                           className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
                         >
-                          Add
+                          {rivalBusy ? "Adding…" : "Add"}
                         </button>
                       </div>
-                      {data.rivals.length > 0 && (
+                      {rivalError && (
+                        <p className="mt-1.5 text-xs text-red-700 dark:text-red-400">{rivalError}</p>
+                      )}
+                      {data.rivalEntryIds.length > 0 && (
                         <ul className="mt-2 flex flex-wrap gap-1.5">
-                          {data.rivals.map((r) => (
-                            <li
-                              key={r.entryId}
-                              className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-purple-950/50 dark:text-zinc-300"
-                            >
-                              {r.teamName}
-                              <button
-                                type="button"
-                                onClick={() => void removeRival(r.entryId)}
-                                disabled={rivalBusy}
-                                aria-label={`Remove ${r.teamName} as a rival`}
-                                className="text-zinc-400 hover:text-red-600 disabled:opacity-50 dark:hover:text-red-400"
+                          {data.rivalEntryIds.map((entryId) => {
+                            const resolved = data.rivals.find((r) => r.entryId === entryId);
+                            const label = resolved?.teamName ?? `Entry ${entryId} (unresolved)`;
+                            return (
+                              <li
+                                key={entryId}
+                                className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-purple-950/50 dark:text-zinc-300"
                               >
-                                ×
-                              </button>
-                            </li>
-                          ))}
+                                {label}
+                                <button
+                                  type="button"
+                                  onClick={() => void removeRival(entryId)}
+                                  disabled={rivalBusy}
+                                  aria-label={`Remove ${label} as a rival`}
+                                  className="text-zinc-400 hover:text-red-600 disabled:opacity-50 dark:hover:text-red-400"
+                                >
+                                  ×
+                                </button>
+                              </li>
+                            );
+                          })}
                         </ul>
                       )}
                     </div>
