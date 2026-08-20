@@ -62,6 +62,14 @@ export interface PlayerData {
   /** The rate-uncertainty band around expected_points — see RateBand. */
   rate_lower?: number | null;
   rate_upper?: number | null;
+  /**
+   * GW1 predicted-lineup layer (lib/gw1-lineups.ts) — undefined hides the
+   * badge/detail block, same convention as `reliability` above. Gone once
+   * GW1 is scored.
+   */
+  gw1_tier?: "locked" | "medium" | "high" | null;
+  gw1_in_predicted_xi?: boolean | null;
+  gw1_note?: string | null;
 }
 
 interface PlayerCardProps {

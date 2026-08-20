@@ -38,6 +38,14 @@ export interface ScoredPlayer {
   availability: number;
   /** Official FDR for each of the next fixtures, in gameweek order. */
   fdrRun: number[];
+  /**
+   * GW1-only predicted-lineup override from `lib/gw1-lineups.ts`. Read by
+   * `riskScore` at horizon 1 only — see the gate there. Never affects `xp`.
+   * Deliberately not folded into `startProbability`/`expectedMinutes` above:
+   * those are read by other horizons and by the detail panel's "Start %" /
+   * "Exp. mins" figures, which must stay the model's own numbers.
+   */
+  gw1?: { startProbability: number; expectedMinutes: number; tier: "locked" | "medium" | "high"; note?: string };
 }
 
 /**
@@ -164,12 +172,19 @@ export const RISK_MODEL_NOTE =
 const MAX_FDR_SD = 1.6;
 
 export function riskScore(p: ScoredPlayer, horizon: Horizon, seasonWindow?: number): number {
-  const rotation = 1 - (p.startProbability ?? p.availability);
+  // GW1 predicted-lineup override (lib/gw1-lineups.ts) — a one-off,
+  // horizon-1-only read. `injury` and `fixtureVariance` are untouched: FPL's
+  // own status/news is better evidence than a video, and the override says
+  // nothing about fixtures.
+  const gw1 = horizon === 1 ? p.gw1 : undefined;
+
+  const rotation = 1 - (gw1?.startProbability ?? p.startProbability ?? p.availability);
   const injury = 1 - p.availability;
 
   // Minutes uncertainty peaks in the middle: a player nailed on for 90 and one
   // certain not to feature are both predictable; a 45-minute player is not.
-  const share = p.expectedMinutes === null ? 0.5 : clamp(p.expectedMinutes / 90, 0, 1);
+  const effectiveMinutes = gw1?.expectedMinutes ?? p.expectedMinutes;
+  const share = effectiveMinutes === null ? 0.5 : clamp(effectiveMinutes / 90, 0, 1);
   const minutes = 1 - Math.abs(share - 0.5) * 2;
 
   const run = p.fdrRun.slice(0, fixturesFor(horizon, seasonWindow));

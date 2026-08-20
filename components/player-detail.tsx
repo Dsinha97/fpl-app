@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { FixtureCell } from "./fdr-badge";
 import { AvailabilityBadge, RoleBadges } from "./player-status-icons";
 import { ConfidenceBadge, RateBand } from "./confidence-badge";
+import { Gw1Badge } from "./gw1-badge";
 import type { PlayerData } from "./player-card";
 
 const POSITION_NAME: Record<number, string> = {
@@ -201,6 +202,23 @@ export function PlayerDetail({
         >
           <span className="font-medium text-zinc-600 dark:text-zinc-300">System</span> · {player.system}
         </p>
+      )}
+
+      {/* GW1 predicted lineup — affects the risk figure and the badges only, never xP */}
+      {player.gw1_tier && (
+        <div className="mt-2.5 flex items-start gap-2 border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40 dark:text-zinc-400">
+          <Gw1Badge
+            tier={player.gw1_tier}
+            note={player.gw1_note}
+            inPredictedXi={player.gw1_in_predicted_xi ?? undefined}
+            className="mt-0.5"
+          />
+          <span>
+            {player.gw1_in_predicted_xi === false ? "Not in the GW1 predicted XI" : "In the GW1 predicted XI"}
+            {player.gw1_note ? ` — ${player.gw1_note}` : ""}
+            {" · affects risk, not xP"}
+          </span>
+        </div>
       )}
 
       {/* availability */}

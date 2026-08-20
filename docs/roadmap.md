@@ -48,6 +48,18 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
+- **GW1 predicted-lineup layer — built 2026-08-20, remove after GW1 is scored.** A one-off,
+  single-source read (`lib/gw1-lineups.ts`) fills the one gap the cold-start xP model can't:
+  which of several similarly-rated squad players actually starts GW1. Feeds `riskScore` at
+  horizon 1 only — never `xp` — gated by a page toggle (off by default) and `nextEvent === 1`,
+  wired into `/deadline` and `/transfers`. 262 names from a predicted-lineups video were
+  resolved against the live `players` table; 23 turned out stale (wrong club, or not in FPL's
+  2026-27 list at all — Salah and Bernardo Silva among them) and were owner-corrected. **Delete
+  in one commit once GW1 is scored**: `lib/gw1-lineups.ts`, `components/gw1-badge.tsx`, the
+  `ScoredPlayer.gw1` field and its two-line read in `riskScore` (`lib/scoring.ts`), the toggle
+  and `gw1_*` fields on `/deadline` and `/transfers`, and the `PlayerData.gw1_*` fields /
+  detail-panel block. `PlayerData.is_rotation_risk` and `RotationIcon` predate this and stay —
+  they're for the real Risk Engine once it exists.
 - **Deadline Hub — built 2026-08-14.** With Sprint 13 unverifiable, Sprint 15 blocked, and Sprint 17
   unfittable (all three below), a real gap remained: nothing gathered pre-deadline decisions into one
   place. `/deadline` does — live countdown, `validateSquad` legality, per-player availability alerts,

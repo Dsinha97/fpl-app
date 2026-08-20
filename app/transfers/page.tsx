@@ -17,6 +17,7 @@ import {
   xpFor,
   type ScoredPlayer,
 } from "@/lib/scoring";
+import { withGw1Context, GW1_SOURCE_NOTE } from "@/lib/gw1-lineups";
 import {
   MAX_FREE_TRANSFERS,
   simulateTransfers,
@@ -131,6 +132,9 @@ export default function TransfersPage() {
    * than inventing a second way to waive the hit.
    */
   const [wildcardMode, setWildcardMode] = useState(false);
+  // GW1-only predicted-lineup layer (lib/gw1-lineups.ts) — off by default, and
+  // the toggle itself disappears once nextEvent !== 1. See GW1_SOURCE_NOTE.
+  const [gw1Enabled, setGw1Enabled] = useState(false);
   const [decisionMargin, setDecisionMargin] = useState(DEFAULT_DECISION_MARGIN);
   /** The squad slot currently being filled, if any. */
   const [pickingFor, setPickingFor] = useState<number | null>(null);
@@ -443,6 +447,12 @@ export default function TransfersPage() {
     [seriesById],
   );
 
+  /** `scoredById` with the GW1 layer folded in — no-op unless the toggle is on and this is GW1. */
+  const gw1ScoredById = useMemo(
+    () => withGw1Context(scoredById, { enabled: gw1Enabled, nextEvent: nextEvent ?? 0 }),
+    [scoredById, gw1Enabled, nextEvent],
+  );
+
   /** `seasonWindow` is `windowEnd - nextEvent + 1` (see the fetch above), so this recovers the real season-end gameweek without a second query. */
   const lastEvent = nextEvent !== null ? nextEvent + seasonWindow - 1 : null;
 
@@ -460,14 +470,14 @@ export default function TransfersPage() {
   }, [chipPlanUsable, nextEvent, horizon, seasonWindow]);
 
   const simulation = useMemo(() => {
-    if (!team || scoredById.size === 0) return null;
+    if (!team || gw1ScoredById.size === 0) return null;
     return simulateTransfers({
       team,
       moves,
       // Wildcard mode waives the hit outright, whatever the real free-transfer
       // count is — the same trick the optimizer's own wildcard branch uses.
       freeTransfers: wildcardMode ? moves.length : freeTransfers,
-      scoredById,
+      scoredById: gw1ScoredById,
       isPenaltyTaker,
       lookup,
       xpOf,
@@ -481,7 +491,7 @@ export default function TransfersPage() {
     moves,
     wildcardMode,
     freeTransfers,
-    scoredById,
+    gw1ScoredById,
     isPenaltyTaker,
     lookup,
     xpOf,
@@ -505,7 +515,7 @@ export default function TransfersPage() {
         ? `This draft already has the ${team.activeChip} chip active.`
         : null;
 
-  const pool = useMemo(() => [...scoredById.values()], [scoredById]);
+  const pool = useMemo(() => [...gw1ScoredById.values()], [gw1ScoredById]);
 
   /**
    * The weekly decision: roll, spend, take a hit, or wildcard. This is a real
@@ -534,17 +544,17 @@ export default function TransfersPage() {
   );
   const planStale = plan !== null && planSignature !== null && planSignature !== planSignatureInputs;
   const planReady =
-    !!team && scoredById.size > 0 && nextEvent !== null && team.players.length === rules.squadSize;
+    !!team && gw1ScoredById.size > 0 && nextEvent !== null && team.players.length === rules.squadSize;
 
   const runPlan = useCallback(() => {
-    if (!team || scoredById.size === 0 || nextEvent === null) return;
+    if (!team || gw1ScoredById.size === 0 || nextEvent === null) return;
     if (team.players.length !== rules.squadSize) return;
     setPlanLoading(true);
     setTimeout(() => {
       const result = optimizeTransfers({
         team,
         pool,
-        scoredById,
+        scoredById: gw1ScoredById,
         lookup,
         xpOf,
         availabilityOf,
@@ -566,7 +576,7 @@ export default function TransfersPage() {
   }, [
     team,
     pool,
-    scoredById,
+    gw1ScoredById,
     lookup,
     xpOf,
     availabilityOf,
@@ -819,6 +829,19 @@ export default function TransfersPage() {
           />
           Apply as Wildcard (no hit)
         </label>
+        {nextEvent === 1 && (
+          <label
+            className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400"
+            title={GW1_SOURCE_NOTE}
+          >
+            <input
+              type="checkbox"
+              checked={gw1Enabled}
+              onChange={(e) => setGw1Enabled(e.target.checked)}
+            />
+            GW1 predicted lineups
+          </label>
+        )}
         {moves.length > 0 && (
           <button
             type="button"
@@ -940,10 +963,10 @@ export default function TransfersPage() {
               </thead>
               <tbody>
                 {team.players.map((pick) => {
-                  const s = scoredById.get(pick.playerId);
+                  const s = gw1ScoredById.get(pick.playerId);
                   const row = rowById.get(pick.playerId);
                   const move = movesByOut.get(pick.playerId);
-                  const incoming = move ? scoredById.get(move.inId) : undefined;
+                  const incoming = move ? gw1ScoredById.get(move.inId) : undefined;
 
                   return (
                     <tr
