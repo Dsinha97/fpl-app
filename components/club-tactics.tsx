@@ -54,13 +54,13 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
         context, not folded into any projection.
       </p>
 
-      <div className="mt-4 grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-4 flex flex-wrap gap-3">
         {clubs.map(({ teamId, teamName, teamShort, teamCode, profile }) => {
           const open = expanded.has(teamId);
           return (
             <div
               key={teamId}
-              className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]"
+              className="w-full overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234] sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.333%-0.5rem)]"
             >
               <button
                 onClick={() => toggle(teamId)}

@@ -724,6 +724,25 @@ function wildcardBranch(input: OptimizeTransfersInput): Branch {
     blocked: null,
   };
 
+  const forcedChip = chipForcedAt(input.chip, input.event);
+  if (forcedChip && forcedChip !== "wildcard") {
+    return { ...base, blocked: `${CHIP_LABELS[forcedChip]} is planned for GW${input.event} instead of a Wildcard.` };
+  }
+  const bonusHere = input.chip?.bonus.find((b) => b.event === input.event)?.chip ?? null;
+  if (bonusHere) {
+    return { ...base, blocked: `${CHIP_LABELS[bonusHere]} is planned for GW${input.event} instead of a Wildcard.` };
+  }
+  // `chip.excluded` fans a plan's wildcard out across every event from its own
+  // through the window end (chipContextFor, lib/chip-plan.ts), so the origin
+  // gameweek is the *earliest* wildcard-tagged entry, not just any entry that
+  // isn't this event — otherwise the wildcard's own gameweek would see its own
+  // forward shadow and wrongly block itself.
+  const wildcardEvents = input.chip?.excluded.filter((x) => x.chip === "wildcard").map((x) => x.event) ?? [];
+  const wildcardOrigin = wildcardEvents.length > 0 ? Math.min(...wildcardEvents) : null;
+  if (wildcardOrigin !== null && wildcardOrigin !== input.event) {
+    return { ...base, blocked: `A Wildcard is already planned for GW${wildcardOrigin} in this window.` };
+  }
+
   if (!input.wildcard.available) {
     return { ...base, blocked: input.wildcard.reason ?? "Wildcard unavailable." };
   }

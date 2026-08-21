@@ -245,7 +245,7 @@ export function planTransferPath(input: TransferPathInput): TransferPathResult {
         event: input.event,
         moves: branch.moves,
         simulation: sim,
-        chip: branch.kind === "wildcard" ? "wildcard" : (openingBonusChip ?? null),
+        chip: opening === null ? (branch.kind === "wildcard" ? "wildcard" : null) : openingBonusChip ?? null,
         fieldedPicks: sim.resultingTeam.players,
         freeTransfersBefore: input.freeTransfers,
         freeTransfersAfter,

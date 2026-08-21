@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { TeamCrest } from "./identity";
 import {
   DISPLAY_STAT_ORDER,
@@ -128,38 +129,63 @@ interface LiveFixtureCardProps {
  * for the squad's own fixture(s) on /deadline's live hub.
  */
 export function LiveFixtureCard({ fixture, teams, playersById, squadElementIds }: LiveFixtureCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const home = teams.get(fixture.team_h);
   const away = teams.get(fixture.team_a);
   const stats = parseFixtureStats(fixture.stats);
   const live = fixture.started === true && fixture.finished !== true;
   const hasScore = fixture.team_h_score !== null && fixture.team_a_score !== null;
+  const expandable = hasFixtureStats(stats);
+
+  const scoreRow = (
+    <div className="mt-2 flex items-center justify-center gap-3">
+      <div className="flex flex-1 items-center justify-end gap-2">
+        <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          {home?.name ?? "—"}
+        </span>
+        <TeamCrest teamCode={home?.code} shortName={home?.short_name} className="h-7 w-6" />
+      </div>
+      <span className="shrink-0 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+        {hasScore ? `${fixture.team_h_score} – ${fixture.team_a_score}` : "vs"}
+      </span>
+      <div className="flex flex-1 items-center gap-2">
+        <TeamCrest teamCode={away?.code} shortName={away?.short_name} className="h-7 w-6" />
+        <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          {away?.name ?? "—"}
+        </span>
+      </div>
+      {expandable && (
+        <span
+          aria-hidden="true"
+          className={`shrink-0 text-zinc-400 transition-transform ${expanded ? "" : "rotate-180"}`}
+        >
+          ⌃
+        </span>
+      )}
+    </div>
+  );
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]">
+    <div className="w-full rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234] sm:w-[calc(50%-0.375rem)]">
       {live && (
         <span className="flex w-fit items-center gap-1.5 rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400" aria-hidden="true" />
           Live{fixture.minutes !== null ? ` · ${fixture.minutes}′` : ""}
         </span>
       )}
-      <div className="mt-2 flex items-center justify-center gap-3">
-        <div className="flex flex-1 items-center justify-end gap-2">
-          <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-            {home?.name ?? "—"}
-          </span>
-          <TeamCrest teamCode={home?.code} shortName={home?.short_name} className="h-7 w-6" />
-        </div>
-        <span className="shrink-0 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
-          {hasScore ? `${fixture.team_h_score} – ${fixture.team_a_score}` : "vs"}
-        </span>
-        <div className="flex flex-1 items-center gap-2">
-          <TeamCrest teamCode={away?.code} shortName={away?.short_name} className="h-7 w-6" />
-          <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-            {away?.name ?? "—"}
-          </span>
-        </div>
-      </div>
-      {hasFixtureStats(stats) && (
+      {expandable ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="w-full text-left"
+        >
+          {scoreRow}
+        </button>
+      ) : (
+        scoreRow
+      )}
+      {expandable && expanded && (
         <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-purple-900/40">
           <FixtureStatBreakdown
             stats={stats}

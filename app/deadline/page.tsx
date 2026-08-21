@@ -494,7 +494,8 @@ export default function DeadlinePage() {
           "id, event, kickoff_time, team_h, team_a, team_h_score, team_a_score, started, finished, minutes, stats",
         )
         .eq("season", liveEvent.season)
-        .eq("event", liveEvent.event);
+        .eq("event", liveEvent.event)
+        .order("kickoff_time", { ascending: true });
       if (!cancelled) setLiveFixtures((data ?? []) as LiveFixtureData[]);
     })();
     return () => {
@@ -836,7 +837,9 @@ export default function DeadlinePage() {
     const squadTeamIds = new Set(
       [...squadElementIds].map((id) => rowById.get(id)?.team_id).filter((id): id is number => id !== undefined),
     );
-    return liveFixtures.filter((f) => squadTeamIds.has(f.team_h) || squadTeamIds.has(f.team_a));
+    return liveFixtures
+      .filter((f) => squadTeamIds.has(f.team_h) || squadTeamIds.has(f.team_a))
+      .sort((a, b) => (a.kickoff_time ?? "9").localeCompare(b.kickoff_time ?? "9"));
   }, [liveFixtures, squadElementIds, rowById]);
 
   // Past-gameweek results for the squad's "recent form" ticker (player-
@@ -1054,7 +1057,7 @@ export default function DeadlinePage() {
               </div>
 
               {squadLiveFixtures.length > 0 && (
-                <div className="mb-3 grid gap-3 sm:grid-cols-2">
+                <div className="mb-3 flex flex-wrap gap-3">
                   {squadLiveFixtures.map((f) => (
                     <LiveFixtureCard
                       key={f.id}
