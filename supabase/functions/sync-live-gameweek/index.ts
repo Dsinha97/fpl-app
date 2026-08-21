@@ -105,6 +105,10 @@ Deno.serve(async (req) => {
         defensive_contribution: int(s.defensive_contribution),
 
         in_dreamteam: bool(s.in_dreamteam),
+        // FPL's own per-stat points breakdown — verbatim, so the player
+        // detail panel's live table is FPL's arithmetic, not a second
+        // implementation of scoring_rules' thresholds.
+        explain: e.explain ?? null,
         raw: s,
         observed_at: observedAt,
       };

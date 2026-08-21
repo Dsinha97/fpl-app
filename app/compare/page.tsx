@@ -44,6 +44,10 @@ interface PlayerRow {
   penalties_order: number | null;
   direct_freekicks_order: number | null;
   corners_and_indirect_freekicks_order: number | null;
+  total_points: number | null;
+  bonus: number | null;
+  form: number | null;
+  defensive_contribution: number | null;
 }
 
 interface UpcomingFixture {
@@ -95,7 +99,7 @@ export default function ComparePage() {
           supabase
             .from("players")
             .select(
-              "id, web_name, first_name, second_name, known_name, team_id, element_type, now_cost, selected_by_percent, points_per_game, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order",
+              "id, web_name, first_name, second_name, known_name, team_id, element_type, now_cost, selected_by_percent, points_per_game, total_points, bonus, form, defensive_contribution, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order",
             )
             .eq("season", gw.season)
             .limit(1000),
@@ -279,6 +283,8 @@ export default function ComparePage() {
     return { best, contested: holders > 1 };
   };
 
+  const playersById = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
+
   const metricRows: {
     label: string;
     dir: Direction;
@@ -316,6 +322,32 @@ export default function ComparePage() {
       dir: "high",
       value: (p) => p.ownership,
       format: (v) => (v === null ? "—" : `${v}%`),
+    },
+    {
+      label: "Total pts",
+      dir: "high",
+      value: (p) => playersById.get(p.id)?.total_points ?? null,
+      format: (v) => (v === null ? "—" : v.toString()),
+    },
+    {
+      label: "Bonus pts",
+      dir: "high",
+      value: (p) => playersById.get(p.id)?.bonus ?? null,
+      format: (v) => (v === null ? "—" : v.toString()),
+    },
+    {
+      label: "Form",
+      dir: "high",
+      value: (p) => playersById.get(p.id)?.form ?? null,
+      format: (v) => (v === null ? "—" : v.toFixed(1)),
+      hint: "FPL's own form figure — reads 0 for everyone pre-season and only becomes meaningful once the season is scoring.",
+    },
+    {
+      label: "DC actions",
+      dir: "high",
+      value: (p) => playersById.get(p.id)?.defensive_contribution ?? null,
+      format: (v) => (v === null ? "—" : v.toString()),
+      hint: "Raw defensive-contribution action count (clearances + blocks + interceptions + tackles, plus recoveries for MID/FWD) — not points. FPL only scores DC on crossing a positional threshold: 10 for defenders, 12 for midfielders.",
     },
     {
       label: "PPG (last season)",

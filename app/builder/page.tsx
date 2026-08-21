@@ -103,6 +103,10 @@ interface PlayerRow {
   direct_freekicks_order: number | null;
   corners_and_indirect_freekicks_order: number | null;
   points_per_game: number | null;
+  total_points: number | null;
+  bonus: number | null;
+  form: number | null;
+  defensive_contribution: number | null;
 }
 
 interface XpRow {
@@ -245,7 +249,7 @@ export default function BuilderPage() {
             supabase
               .from("players")
               .select(
-                "id, code, web_name, first_name, second_name, known_name, team_id, team_code, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, points_per_game",
+                "id, code, web_name, first_name, second_name, known_name, team_id, team_code, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, points_per_game, total_points, bonus, form, defensive_contribution",
               )
               .eq("season", gw.season)
               .limit(1000),
@@ -1012,6 +1016,10 @@ export default function BuilderPage() {
         expected_minutes: event !== undefined ? (agg?.expectedMinutes ?? null) : (pred?.expected_minutes ?? null),
         start_probability: event !== undefined ? (agg?.startProbability ?? null) : (pred?.start_probability ?? null),
         system: tacticalByTeam.get(row.team_id) ?? null,
+        season_total_points: row.total_points,
+        season_bonus: row.bonus,
+        dc_actions: row.defensive_contribution,
+        form: row.form,
         reliability: xp.get(row.id)?.reliability ?? undefined,
         prior_weight: xp.get(row.id)?.prior_weight ?? null,
         rate_lower: xp.get(row.id)?.xp_5_lower ?? null,

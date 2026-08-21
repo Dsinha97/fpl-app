@@ -8,6 +8,7 @@ import { Gw1Badge } from "./gw1-badge";
 import type { PlayerData } from "./player-card";
 import { ago } from "@/lib/change-feed";
 import { sourceBadge } from "@/lib/news-feed";
+import { liveStatLabel } from "@/lib/fixture-stats";
 
 const POSITION_NAME: Record<number, string> = {
   1: "Goalkeeper",
@@ -25,9 +26,14 @@ const STATUS_TEXT: Record<string, string> = {
   n: "Not in squad",
 };
 
-/** Panel width and max height, also used to keep it inside the pitch. */
-export const PANEL_WIDTH = 268;
-export const PANEL_MAX_HEIGHT = 340;
+/**
+ * Panel width and max height, also used to keep it inside the pitch. Raised
+ * from 268x340 for the live-breakdown/season-stats/past-results sections —
+ * both PitchView's positioning and the picker's `fixed` placement read these
+ * constants directly, so they stay in sync automatically.
+ */
+export const PANEL_WIDTH = 320;
+export const PANEL_MAX_HEIGHT = 460;
 
 interface PlayerDetailProps {
   player: PlayerData;
@@ -172,6 +178,41 @@ export function PlayerDetail({
         )}
       </div>
 
+      {/*
+        Live points breakdown — FPL's own explain array (lib/gameweek-state.ts),
+        never recomputed from scoring_rules. Only populated by a caller that
+        has already loaded a live gameweek's detail (currently /team) — hidden
+        entirely elsewhere, same "undefined hides the section" convention as
+        the rest of this panel.
+      */}
+      {player.live_breakdown && player.live_breakdown.length > 0 && (
+        <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
+          <div className="text-[10px] uppercase tracking-wide text-zinc-500">
+            Live points this gameweek
+          </div>
+          <table className="mt-1 w-full text-[11px]">
+            <tbody>
+              {player.live_breakdown.map((line) => (
+                <tr key={line.identifier} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                  <td className="py-1 text-zinc-600 dark:text-zinc-400">{liveStatLabel(line.identifier)}</td>
+                  <td className="py-1 text-right tabular-nums text-zinc-500">{line.value}</td>
+                  <td className="py-1 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                    {line.points}
+                  </td>
+                </tr>
+              ))}
+              <tr>
+                <td className="pt-1 font-semibold text-zinc-900 dark:text-zinc-100">Total</td>
+                <td />
+                <td className="pt-1 text-right font-bold tabular-nums text-purple-800 dark:text-primary">
+                  {player.live_breakdown.reduce((sum, l) => sum + l.points, 0)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* supporting numbers */}
       <div className="mt-2.5 grid grid-cols-3 gap-2 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
         {stat("Price", `£${(player.now_cost / 10).toFixed(1)}m`)}
@@ -195,6 +236,59 @@ export function PlayerDetail({
             : "—",
         )}
       </div>
+
+      {/*
+        Season-to-date stats, already on `players` — dc_actions is a raw
+        action count (clearances + blocks + interceptions + tackles, or the
+        same plus recoveries for MID/FWD), not points: FPL only scores DC
+        on crossing a positional threshold (10 for defenders, 12 for
+        midfielders), so labelling this "DC Pts" would be wrong.
+      */}
+      {player.season_total_points !== undefined && (
+        <div className="mt-2.5 grid grid-cols-3 gap-2 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
+          {stat("Total pts", player.season_total_points?.toString() ?? "—", true)}
+          {stat("Bonus pts", player.season_bonus?.toString() ?? "—")}
+          {stat(
+            "DC actions",
+            player.dc_actions !== undefined && player.dc_actions !== null
+              ? player.dc_actions.toString()
+              : "—",
+          )}
+          {player.form !== undefined && (
+            <div className="col-span-3">
+              <div className="text-[10px] uppercase tracking-wide text-zinc-500">Form</div>
+              <div className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                {player.form !== null ? player.form.toFixed(1) : "—"}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* recent results — the mirror of "Next fixtures" below, looking backward */}
+      {player.past_results && player.past_results.length > 0 && (
+        <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
+          <div className="text-[10px] uppercase tracking-wide text-zinc-500">Recent form</div>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {player.past_results.slice(-6).map((r) => (
+              <span
+                key={r.event}
+                title={`GW${r.event} · ${r.points} points`}
+                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold shadow-sm ${
+                  r.points >= 6
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                    : r.points >= 2
+                      ? "bg-zinc-100 text-zinc-700 dark:bg-[#2A0A45] dark:text-zinc-300"
+                      : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                }`}
+              >
+                {r.points}pts {r.opponent_short_name.toUpperCase()}
+                {r.is_home ? "(H)" : "(A)"}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* club system — Sprint 12.5, context only, never folded into xP */}
       {player.system && (

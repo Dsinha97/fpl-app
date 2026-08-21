@@ -78,6 +78,26 @@ export interface PlayerData {
    * squad's headlines cheaply (currently /deadline, /team).
    */
   headlines?: import("@/lib/news-feed").NewsHeadline[];
+
+  /**
+   * FPL's own live per-stat points breakdown (player_live_stats.explain via
+   * lib/gameweek-state.ts) for the gameweek being played right now. Same
+   * "undefined hides the section" convention as reliability/headlines —
+   * only populated where a caller has already loaded a live gameweek's
+   * detail (currently /team). `null` (vs. undefined) means the caller
+   * checked and there is genuinely no live/finalised row yet.
+   */
+  live_breakdown?: import("@/lib/gameweek-state").LiveStatLine[] | null;
+
+  // --- season stats, already on players — undefined hides each row ------
+  season_total_points?: number | null;
+  season_bonus?: number | null;
+  /** Action count (CBIT), not points — DC only scores on crossing a positional threshold. */
+  dc_actions?: number | null;
+  form?: number | null;
+
+  /** Past gameweeks' results — the mirror of `upcoming`, looking backward. */
+  past_results?: import("@/lib/player-history").PastResult[];
 }
 
 interface PlayerCardProps {

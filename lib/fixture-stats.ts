@@ -83,3 +83,30 @@ export function parseFixtureStats(raw: unknown): Map<string, FixtureStatLine> {
 export function hasFixtureStats(stats: Map<string, FixtureStatLine>): boolean {
   return stats.size > 0;
 }
+
+/** Readable labels for the broader identifier set player_live_stats.explain uses
+ *  (scoring stats, not just fan-facing events) — the player detail panel's live
+ *  breakdown table. */
+const LIVE_STAT_LABELS: Record<string, string> = {
+  minutes: "Minutes played",
+  goals_scored: "Goals",
+  assists: "Assists",
+  clean_sheets: "Clean sheets",
+  goals_conceded: "Goals conceded",
+  own_goals: "Own goals",
+  penalties_saved: "Penalties saved",
+  penalties_missed: "Penalties missed",
+  yellow_cards: "Yellow cards",
+  red_cards: "Red cards",
+  saves: "Saves",
+  bonus: "Bonus",
+  defensive_contribution: "Defensive contribution",
+};
+
+/** Falls back to a humanised identifier for anything not in the curated map above. */
+export function liveStatLabel(identifier: string): string {
+  return (
+    LIVE_STAT_LABELS[identifier] ??
+    identifier.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase())
+  );
+}

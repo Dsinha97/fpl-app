@@ -66,6 +66,7 @@ import {
 import { MAX_FREE_TRANSFERS, TRANSFER_MODEL_NOTE } from "@/lib/transfers";
 import { ago, describe, type FeedRow } from "@/lib/change-feed";
 import { confidentEntities, sourceBadge, type NewsRow } from "@/lib/news-feed";
+import { loadPastResults, type PastResult } from "@/lib/player-history";
 
 interface PlayerRow {
   id: number;
@@ -76,6 +77,10 @@ interface PlayerRow {
   now_cost: number | null;
   selected_by_percent: number | null;
   points_per_game: number | null;
+  total_points: number | null;
+  bonus: number | null;
+  form: number | null;
+  defensive_contribution: number | null;
   status: string | null;
   news: string | null;
   chance_of_playing_next_round: number | null;
@@ -195,6 +200,7 @@ export default function DeadlinePage() {
   const [liveTick, setLiveTick] = useState(0);
   const [liveTeamsById, setLiveTeamsById] = useState<Map<number, LiveFixtureTeam>>(new Map());
   const [liveFixtures, setLiveFixtures] = useState<LiveFixtureData[]>([]);
+  const [pastResultsByPlayer, setPastResultsByPlayer] = useState<Map<number, PastResult[]>>(new Map());
 
   // -------------------------------------------------------------- squad source
   //
@@ -252,7 +258,7 @@ export default function DeadlinePage() {
               // direct_freekicks_order / corners_and_indirect_freekicks_order
               // added for the squad pitch's role badges. One string literal —
               // concatenating collapses the row type (CLAUDE.md).
-              "id, code, web_name, team_id, element_type, now_cost, selected_by_percent, points_per_game, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order",
+              "id, code, web_name, team_id, element_type, now_cost, selected_by_percent, points_per_game, total_points, bonus, form, defensive_contribution, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order",
             )
             .eq("season", seasonCtx.season)
             .limit(1000),
@@ -726,10 +732,15 @@ export default function DeadlinePage() {
           gw1_in_predicted_xi:
             gw1Enabled && ctx.nextEvent === 1 ? GW1_BY_ID.get(row.id)?.inPredictedXi ?? null : null,
           gw1_note: gw1Enabled && ctx.nextEvent === 1 ? GW1_BY_ID.get(row.id)?.note ?? null : null,
+          season_total_points: row.total_points,
+          season_bonus: row.bonus,
+          dc_actions: row.defensive_contribution,
+          form: row.form,
+          past_results: pastResultsByPlayer.get(row.id) ?? [],
         },
       ];
     });
-  }, [team, ctx, rowById, predAt, teamMeta, nextFixtureByTeam, xpById, gw1Enabled]);
+  }, [team, ctx, rowById, predAt, teamMeta, nextFixtureByTeam, xpById, gw1Enabled, pastResultsByPlayer]);
 
   /**
    * The pitch shows the XI **you entered**, not the optimiser's. The Captain &
@@ -827,6 +838,25 @@ export default function DeadlinePage() {
     );
     return liveFixtures.filter((f) => squadTeamIds.has(f.team_h) || squadTeamIds.has(f.team_a));
   }, [liveFixtures, squadElementIds, rowById]);
+
+  // Past-gameweek results for the squad's "recent form" ticker (player-
+  // detail.tsx) — one query per squad change, not per player.
+  useEffect(() => {
+    if (!ctx || squadElementIds.size === 0) return;
+    let cancelled = false;
+    (async () => {
+      const shortById = new Map([...teamMeta].map(([id, m]) => [id, m.short]));
+      try {
+        const rows = await loadPastResults(ctx.season, [...squadElementIds], shortById);
+        if (!cancelled) setPastResultsByPlayer(rows);
+      } catch {
+        // Non-critical — the ticker just stays empty rather than erroring the page.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ctx, squadElementIds, teamMeta]);
 
   // ------------------------------------------------------- transfer optimiser
   //

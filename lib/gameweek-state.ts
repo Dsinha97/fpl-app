@@ -73,6 +73,13 @@ export function matchStatusForTeam(teamId: number, fixtures: FixtureRow[]): Play
   return "not_started";
 }
 
+/** One stat line from FPL's own event/{id}/live/ explain array — the exact points breakdown. */
+export interface LiveStatLine {
+  identifier: string;
+  value: number;
+  points: number;
+}
+
 export interface LivePlayerDetail {
   points: number;
   minutes: number;
@@ -80,6 +87,15 @@ export interface LivePlayerDetail {
   bps: number;
   /** Only ever true from the live snapshot — sync-player-history doesn't carry it post-match. */
   inDreamteam: boolean;
+  /**
+   * FPL's own per-stat points breakdown (player_live_stats.explain),
+   * flattened across fixtures (a DGW's two fixtures both contribute to one
+   * player's total) and summed by identifier. Only ever populated from the
+   * live snapshot — player_gameweek_stats has no equivalent column, so a
+   * finalised gameweek's rows carry `null` here, same "undefined/null hides
+   * the section" convention PlayerData already uses.
+   */
+  explain: LiveStatLine[] | null;
 }
 
 /**
@@ -91,6 +107,37 @@ export interface LivePlayerDetail {
  * player_live_stats itself rather than widening that shared helper's return
  * shape for one caller.
  */
+/**
+ * FPL's explain array is one entry per fixture (`[{fixture, stats: [...]}]`)
+ * so a double gameweek's two fixtures both contribute to the same player —
+ * flattened here and summed by identifier, matching how `loadLiveDetail`
+ * already sums points/minutes/bonus/bps across a DGW's rows. Points, not
+ * value, are summed: a repeated identifier (minutes in each of two
+ * fixtures) should add its points, not overwrite them.
+ */
+function flattenExplain(raw: unknown): LiveStatLine[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const byIdentifier = new Map<string, LiveStatLine>();
+  for (const fixtureBlock of raw) {
+    const stats = (fixtureBlock as { stats?: unknown })?.stats;
+    if (!Array.isArray(stats)) continue;
+    for (const s of stats) {
+      const line = s as { identifier?: unknown; value?: unknown; points?: unknown };
+      if (typeof line.identifier !== "string") continue;
+      const existing = byIdentifier.get(line.identifier);
+      const value = typeof line.value === "number" ? line.value : 0;
+      const points = typeof line.points === "number" ? line.points : 0;
+      if (existing) {
+        existing.value += value;
+        existing.points += points;
+      } else {
+        byIdentifier.set(line.identifier, { identifier: line.identifier, value, points });
+      }
+    }
+  }
+  return byIdentifier.size > 0 ? [...byIdentifier.values()] : null;
+}
+
 export async function loadLiveDetail(
   season: string,
   event: number,
@@ -113,7 +160,8 @@ export async function loadLiveDetail(
 
     for (const r of data ?? []) {
       const id = r.player_id as number;
-      const acc = byPlayer.get(id) ?? { points: 0, minutes: 0, bonus: 0, bps: 0, inDreamteam: false };
+      const acc =
+        byPlayer.get(id) ?? { points: 0, minutes: 0, bonus: 0, bps: 0, inDreamteam: false, explain: null };
       acc.points += (r.total_points as number | null) ?? 0;
       acc.minutes += (r.minutes as number | null) ?? 0;
       acc.bonus += (r.bonus as number | null) ?? 0;
@@ -128,7 +176,7 @@ export async function loadLiveDetail(
 
   const { data: live, error: liveError } = await supabase
     .from("player_live_stats")
-    .select("player_id, total_points, minutes, bonus, bps, in_dreamteam")
+    .select("player_id, total_points, minutes, bonus, bps, in_dreamteam, explain")
     .eq("season", season)
     .eq("event", event)
     .in("player_id", ids);
@@ -141,6 +189,7 @@ export async function loadLiveDetail(
       bonus: (r.bonus as number | null) ?? 0,
       bps: (r.bps as number | null) ?? 0,
       inDreamteam: (r.in_dreamteam as boolean | null) ?? false,
+      explain: flattenExplain(r.explain),
     });
   }
 
@@ -281,6 +330,8 @@ export interface GameweekState {
   statusByElement: Map<number, PlayerMatchStatus>;
   /** Squad's players with a live/finalised row, sorted by BPS descending. */
   bpsRace: Array<{ element: number; bps: number; bonus: number }>;
+  /** Per-player detail, including the explain breakdown — see LivePlayerDetail. */
+  detailByElement: Map<number, LivePlayerDetail>;
 }
 
 /** Everything /deadline's live card group renders, assembled from the pieces above. */
@@ -345,5 +396,6 @@ export async function loadGameweekState(
     autoSubs,
     statusByElement,
     bpsRace,
+    detailByElement: detail,
   };
 }

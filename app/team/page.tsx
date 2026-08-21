@@ -31,6 +31,7 @@ import {
   type SquadPoints,
 } from "@/lib/manager-picks";
 import { loadSeasonContext } from "@/lib/season-context";
+import { loadLiveDetail, type LiveStatLine } from "@/lib/gameweek-state";
 import { DEFAULT_RULES, type SquadRules } from "@/lib/team-state";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { useAuth } from "@/components/auth-provider";
@@ -252,6 +253,10 @@ export default function TeamPage() {
   // Squad section: which of the two views, and which gameweek in the second.
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
   const [eventPoints, setEventPoints] = useState<Map<number, ActualPoints>>(new Map());
+  // FPL's own live points breakdown (player_live_stats.explain) for the
+  // selected gameweek — a finalised gameweek carries null per player, same
+  // "undefined/null hides the section" convention player-detail.tsx follows.
+  const [explainByElement, setExplainByElement] = useState<Map<number, LiveStatLine[] | null>>(new Map());
   const [eventProvisional, setEventProvisional] = useState(false);
   const [pointsLoading, setPointsLoading] = useState(false);
   const [pointsError, setPointsError] = useState<string | null>(null);
@@ -627,14 +632,15 @@ export default function TeamPage() {
       setPointsLoading(true);
       setPointsError(null);
       try {
-        const result = await loadEventPoints(
-          data.nextGw!.season,
-          selectedEvent,
-          picks.map((p) => p.element),
-        );
+        const elements = picks.map((p) => p.element);
+        const [result, liveDetail] = await Promise.all([
+          loadEventPoints(data.nextGw!.season, selectedEvent, elements),
+          loadLiveDetail(data.nextGw!.season, selectedEvent, elements),
+        ]);
         if (cancelled) return;
         setEventPoints(result.byPlayer);
         setEventProvisional(result.provisional);
+        setExplainByElement(new Map([...liveDetail.byPlayer].map(([id, d]) => [id, d.explain])));
       } catch (err) {
         if (!cancelled) setPointsError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -716,9 +722,13 @@ export default function TeamPage() {
         isCaptain: p.isCaptain,
         isVice: p.isViceCaptain,
       });
-      return card ? [card] : [];
+      if (!card) return [];
+      // FPL's own live breakdown — only meaningful for the gameweek result
+      // being looked at, so it's attached here rather than in the generic
+      // toCard shared with other squad views.
+      return [{ ...card, live_breakdown: explainByElement.get(p.element) ?? null }];
     });
-  }, [gwPicks, eventPoints, toCard]);
+  }, [gwPicks, eventPoints, explainByElement, toCard]);
 
   const gwLayout: SquadLayout | null = useMemo(() => {
     if (!gwPicks || !data || !gwScore) return null;
