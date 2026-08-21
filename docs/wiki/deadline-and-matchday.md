@@ -113,10 +113,39 @@ themes before trusting it. — [sprint-13.md](../sprints/sprint-13.md)
 Not a code-review catch; the first real live fixture found it. See
 [data-pipeline.md](data-pipeline.md#sync-fixtures-self-gated-cadence-fixed-2026-08-21) for the fix.
 
+### Live fixture event detail, and the `/fixtures` collapse fix — built 2026-08-21, same evening
+
+Watching the live hub through the real opener surfaced two more gaps, fixed the same evening as the
+dry run above.
+
+**`fixtures.stats` already carried FPL's full per-fixture event breakdown** — goals, assists, own
+goals, penalties, cards, provisional bonus, each split home/away with the scoring player's element
+id — refreshed by the same self-gated `sync-fixtures` cron. Nothing rendered it. `lib/fixture-stats.ts`
+parses it once (`parseFixtureStats`); a shared `components/live-fixtures.tsx` renders it in two
+places from that one parse:
+
+- **`/deadline`'s live hub** — a `LiveFixtureCard` per fixture the squad is actually involved in
+  (filtered by the squad's own club ids), tagging owned players `(in your squad)` in the accent
+  colour. Also gained a "View in My Team →" link, since the pitch/gameweek-result view already
+  lives there.
+- **`/fixtures`' Schedule tab** — the same breakdown as an expandable row on any fixture, without
+  squad tagging (that page has no squad context). Verified live: expanding the GW1 opener's row
+  showed Saka/Havertz goals, Calafiori/Tzolis assists, and bonus marked provisional, matching the
+  match's real state.
+
+**`/fixtures` was separately found collapsing the gameweek actually being played.**
+`FixtureSchedule`'s "which sections start open" logic only compared against `gameweeks.is_next` —
+which flips to the *next* gameweek the moment the current one's deadline passes, hours before it's
+actually played (the same `is_next`-vs-`is_current` trap the live hub itself had to route around,
+above). A gameweek now also stays open while any of its fixtures has started and not every fixture
+has finished, closing again once the gameweek ends or the next deadline passes. Verified live: GW1
+stayed expanded showing the real 2-0 scoreline while `is_next` already pointed at GW2.
+
 See also: [data-pipeline.md](data-pipeline.md) (`sync-live-gameweek`'s cron and self-gating),
 [blocked-and-data-gaps.md](blocked-and-data-gaps.md), [fpl-authentication.md](fpl-authentication.md)
 (the import mechanism and its naming rule), [manager-profile.md](manager-profile.md) (`/team`'s
 other section, the career percentile profile — a different topic on the same page),
 [ownership-and-leagues.md](ownership-and-leagues.md) (the other Sprint-10/13-adjacent build that
 landed the same evening — mini-league effective ownership, a different quantity from anything on
-this page).
+this page), [frontend-conventions.md](frontend-conventions.md#player-detail-panel-live-breakdown-season-stats-and-recent-form)
+(the player detail panel's own GW1-follow-up additions, built alongside this).

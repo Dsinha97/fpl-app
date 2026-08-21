@@ -98,6 +98,21 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   for the leagues in `manager_leagues` (`sync-league-picks`, `lib/ownership.ts`) — the top-1k sample
   itself stays blocked until 314 is rank-ordered by a scored gameweek. See
   [sprints/sprint-10.md](sprints/sprint-10.md).
+- **GW1 live-hub follow-ups — built 2026-08-21, same evening.** Using the app during the real
+  opener surfaced four gaps, all fixed against data already in the database (only one new
+  column, `player_live_stats.explain`):
+  - **Live fixture event detail** — `fixtures.stats` already carried FPL's full goals/assists/
+    cards/bonus breakdown; a new shared `LiveFixtures` component renders it on `/deadline`'s
+    live hub (squad-aware) and as an expandable row on `/fixtures`' Schedule tab.
+  - **`/fixtures` no longer collapses the gameweek being played** — `gameweeks.is_next` flips to
+    the *next* gameweek at the current one's deadline, hours before it's played;
+    `FixtureSchedule` now keeps a gameweek open while any fixture is genuinely live.
+  - **Player detail panel** gained FPL's own live points breakdown (`explain`, stored verbatim —
+    never a second implementation of `scoring_rules`), season totals, and DC action counts
+    (explicitly labelled actions, not points) on `/team`, `/deadline`, `/builder`, and `/compare`.
+  - **News feed duplicates fixed** — BBC's `<guid>` carries a changing `#fragment`, so 46% of
+    `news_items` were re-fetched copies of the same article. Fixed at ingestion and cleaned up
+    the existing 150 duplicate rows. See [sprints/additional-info.md](sprints/additional-info.md).
 - **Sprints 15–17**, not started:
   - **15 Action Layer** — submit lineup, captain, transfers, chips. Always with explicit
     confirmation; credentials server-side only.

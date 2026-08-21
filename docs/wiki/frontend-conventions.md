@@ -41,6 +41,39 @@ are optional — `/builder` passes all three, `/deadline` and `/team`'s new read
 none, and `components/player-detail.tsx`'s action buttons render only when their handler exists.
 See [deadline-and-matchday.md](deadline-and-matchday.md).
 
+## Player detail panel: live breakdown, season stats, and recent form
+
+Built 2026-08-21, alongside the live-hub follow-ups in
+[deadline-and-matchday.md](deadline-and-matchday.md#live-fixture-event-detail-and-the-fixtures-collapse-fix--built-2026-08-21-same-evening).
+`components/player-detail.tsx` stays a **pure render** component — it never fetches, and every new
+section follows the panel's existing convention: an `undefined` field on `PlayerData`
+(`components/player-card.tsx`) hides the section entirely, the same rule `reliability`/`headlines`
+already established.
+
+- **Live points breakdown** (`PlayerData.live_breakdown`) — FPL's own per-stat points table
+  (Minutes played, Assists, …, Total), sourced from `player_live_stats.explain` via
+  `lib/gameweek-state.ts`'s `loadLiveDetail`, which flattens a double gameweek's two fixture
+  entries and sums by identifier. This is FPL's own arithmetic stored verbatim — CLAUDE.md's "one
+  quantity, one implementation" rules out recomputing it from `scoring_rules`' thresholds a second
+  time. Only wired on `/team`, the one page that already loads a selected gameweek's live detail.
+- **Season stats** (`season_total_points`/`season_bonus`/`dc_actions`/`form`) — already-loaded
+  `players` columns, added to `/deadline`, `/builder`, and `/compare`'s comparison table.
+  `dc_actions` is deliberately not called "DC points": it's the raw action count (clearances +
+  blocks + interceptions + tackles, plus recoveries for MID/FWD), and FPL only scores it on
+  crossing a positional threshold (10 for defenders, 12 for midfielders) — see
+  [xp-model.md](xp-model.md) for the same distinction in the xP engine's own `XDC_MODEL_NOTE`.
+  `/players` was left alone — it renders its own inline table, not this panel.
+- **Recent form** (`past_results`) — the backward-looking mirror of the existing `upcoming` fixture
+  ticker, from a new `lib/player-history.ts` reading `player_gameweek_stats`, DGW-summed into one
+  entry per event the same way `squadPointsFor`/`loadEventPoints` already do.
+- **Panel size** raised 268×340 → 320×460 for the new sections. `PitchView`'s positioning and the
+  picker's `fixed` placement both read `PANEL_WIDTH`/`PANEL_MAX_HEIGHT` directly, so neither needed
+  a separate change to stay in sync.
+
+Verified live against the real GW1 opener: `/team`'s live breakdown matched a real player's
+minutes/assists/total exactly against the FPL app; `/deadline` and `/compare`'s season-stat rows
+agreed on identical figures for the same player, confirming both surfaces read the same columns.
+
 ## Horizon is a page-level control, and "season" is a string
 
 `Horizon = 1 | 3 | 5 | 8 | 19 | "season"` (`HORIZONS`, `horizonLabel`, `horizonLength` in

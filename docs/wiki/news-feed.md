@@ -105,3 +105,15 @@ outside the Feeds tab itself — a wrong headline attached to a squad player is 
 - **A feed URL returning 200 doesn't mean it's RSS.** Both dead FFS sub-feeds return HTML
   pages at 200 — `parseFeed` returns `[]` rather than throwing, and `sync-news` records that
   as a per-source error without aborting the run.
+- **A `<guid>` isn't always stable — found live, 2026-08-21, 46% of rows.** BBC's guid is the
+  article URL with a `#fragment` that changes with the item's position in the feed (`#17`,
+  `#4`, `#5`...), so every refetch inserted a new row under the `(source_id, guid)` unique
+  constraint. `normaliseGuid` (`_shared/rss.ts`) strips a URL-shaped guid's fragment and BBC's
+  own `at_medium`/`at_campaign` tracking params — **and only those**: FantasyFootballScout's
+  guid uses a real, identifying `?p=<id>` query param that must not be stripped, verified by
+  checking no normalisation group ever merged two different article titles. `sync-news` also
+  dedupes its own fetch batch by (normalised) guid before upserting — the same trap
+  `ingest-fpl-archive` hit with repeated CSV rows and fixed the same way (last occurrence
+  wins; a plain array can't apply two conflicting rows in one upsert statement). A migration
+  cleaned up the 150 pre-fix duplicate rows, verified in a rolled-back transaction first (316 →
+  166 rows, zero orphaned `news_item_entities`) before applying for real.

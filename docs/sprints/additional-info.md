@@ -183,3 +183,44 @@ since those are exactly the columns it exists to refresh) and runs every 2 minut
 other self-gating sync already pays. Confirmed live: the new cron fired unassisted twice while GW1's
 opener was in progress, both `success`. Not a code-review finding — found by the first real live
 fixture, the exact reason CLAUDE.md's "verify against real data, not `?force=1`" rule exists.
+
+## GW1 live-hub follow-ups — built 2026-08-21, same evening
+
+Watching the app through GW1's opener surfaced four more real gaps, on top of the cron fix above.
+All fixed against data already in the database.
+
+- **Live fixture event detail, and the `/fixtures` collapse fix.** `fixtures.stats` already
+  carried FPL's own goals/assists/cards/bonus breakdown per fixture — nothing rendered it. New
+  `lib/fixture-stats.ts` parses it once; a shared `components/live-fixtures.tsx` renders it both
+  on `/deadline`'s live hub (tagging the squad's own players) and as an expandable row on
+  `/fixtures`' Schedule tab. Separately, `/fixtures` was found collapsing the gameweek actually
+  being played — `gameweeks.is_next` flips to the *next* gameweek the moment the current one's
+  deadline passes, hours before it's played, and `FixtureSchedule`'s "which sections start open"
+  logic only looked at `is_next`. It now also stays open while any fixture in that gameweek has
+  started and not every fixture has finished. `/deadline`'s live hub also gained a "View in My
+  Team →" link.
+- **Player detail panel — live breakdown, season stats, recent form.** `player_live_stats` gained
+  an `explain` column (migration) storing FPL's own per-stat points breakdown verbatim —
+  `event/{id}/live/` already returns it, `sync-live-gameweek` previously dropped it. Rendered on
+  `/team` as a Statistic/Value/Pts table, never a second implementation of `scoring_rules`'
+  thresholds. Season-to-date stats (total points, bonus, form, defensive-contribution actions) and
+  a new `lib/player-history.ts` (past-gameweek points) surface on `/deadline`, `/builder`, and
+  `/compare` — `defensive_contribution` is explicitly labelled "DC actions", not points, since FPL
+  only scores it on crossing a positional threshold (10 DEF / 12 MID). `/players` was left alone:
+  it has no `PlayerDetail` panel, just its own inline table. The panel itself widened
+  268×340 → 320×460 for the new sections.
+- **News feed duplicates fixed — 46% of rows were re-fetched copies.** BBC's `<guid>` is the
+  article URL with a `#fragment` that changes with the item's position in the feed, so every
+  refetch inserted a new row under the `(source_id, guid)` unique constraint — 150 of 316 rows.
+  `_shared/rss.ts`'s `normaliseGuid` strips the fragment and BBC's own tracking params (and only
+  those — FantasyFootballScout's guid uses a real, identifying `?p=<id>` query param that must
+  not be stripped); `sync-news` now dedupes its own fetch batch before upserting, the same trap
+  and fix `ingest-fpl-archive` already used for repeated CSV rows. A migration cleaned up the
+  existing duplicates, verified in a rolled-back transaction first (316 → 166 rows, zero orphaned
+  `news_item_entities`, zero remaining duplicate groups) before applying for real.
+
+Verified live throughout: the Schedule tab's expand toggle showed real Saka/Havertz goals and
+provisional bonus for the GW1 opener; `/team`'s live breakdown matched a real player's minutes/
+assists/total exactly; `/deadline`'s and `/compare`'s season-stat rows agreed on the same figures
+from the same underlying data; a manual `sync-news` run wrote zero same-source duplicates and
+`/deadline`'s squad-scoped headline count dropped 57 → 45.

@@ -64,3 +64,12 @@ One line per entry, most recent first.
   (league 314's blocker reworded from "empty" to "not yet rank-ordered", since the deadline changed
   what's actually blocked) to point at the new page rather than restate the old "blocked pre-season"
   claim. `index.md` and `timeline.md` updated.
+- 2026-08-21 (evening) — GW1 live-hub follow-ups from real use ingested. `deadline-and-matchday.md`
+  gained a new subsection (live fixture event detail shared between `/deadline` and `/fixtures`, the
+  `is_next`-vs-live-gameweek collapse fix, the My Team link). New section in
+  `frontend-conventions.md` for the player detail panel's live breakdown/season-stats/recent-form
+  additions and its `undefined`-hides-a-section convention extended to three new fields — cross-
+  linked to `xp-model.md`'s existing `XDC_MODEL_NOTE` for why `dc_actions` isn't called points.
+  `news-feed.md` gained a new "Gotchas" entry for the guid-normalisation fix (46% of rows were
+  re-fetched duplicates) — a real production bug, not a Sprint 20 build-time finding, so filed
+  alongside the others rather than backdated into the sprint's own section. `timeline.md` updated.
