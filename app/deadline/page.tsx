@@ -17,6 +17,8 @@ import { TransferPath } from "@/components/transfer-path";
 import { planTransferPath, type TransferPathResult } from "@/lib/transfer-path";
 import { chipContextFor, validateChipPlan, type ChipDefinitionRow } from "@/lib/chip-plan";
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
+import { loadManagerPicks, type ManagerPick } from "@/lib/manager-picks";
+import { loadGameweekState, LIVE_MODEL_NOTE, type GameweekState } from "@/lib/gameweek-state";
 import {
   hasConsistentLineup,
   HORIZONS,
@@ -173,6 +175,18 @@ export default function DeadlinePage() {
   const [newsLoading, setNewsLoading] = useState(false);
 
   const [now, setNow] = useState(() => Date.now());
+
+  // ------------------------------------------------------------- live hub
+  //
+  // Sprint 13. `ctx.nextEvent` (is_next) is the gameweek being *planned* —
+  // once GW1 kicks off it's already GW2, so live tracking reads a separate
+  // "is_current" gameweek rather than piggy-backing on ctx.
+  const [liveEvent, setLiveEvent] = useState<{ season: string; event: number } | null>(null);
+  const [liveStarted, setLiveStarted] = useState(false);
+  const [gwState, setGwState] = useState<GameweekState | null>(null);
+  const [gwStateLoading, setGwStateLoading] = useState(false);
+  const [gwStateError, setGwStateError] = useState<string | null>(null);
+  const [liveTick, setLiveTick] = useState(0);
 
   // -------------------------------------------------------------- squad source
   //
@@ -399,6 +413,84 @@ export default function DeadlinePage() {
       }
     })();
   }, []);
+
+  // ------------------------------------------------------------- live hub
+  //
+  // Polled independently of the once-a-second countdown timer — sync-live-
+  // gameweek itself only runs every 2 minutes, so anything faster than that
+  // is wasted reads.
+  useEffect(() => {
+    const id = setInterval(() => setLiveTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Which gameweek is actually live right now, independent of what's being
+  // planned. Cheap and safe to poll: one row, cache-friendly, and this is
+  // the only place on the page that needs "is_current" rather than "is_next".
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: gw } = await supabase
+        .from("gameweeks")
+        .select("season, id")
+        .eq("is_current", true)
+        .limit(1)
+        .maybeSingle();
+      if (cancelled || !gw) return;
+      const season = gw.season as string;
+      const event = gw.id as number;
+      setLiveEvent({ season, event });
+
+      const { count } = await supabase
+        .from("fixtures")
+        .select("id", { count: "exact", head: true })
+        .eq("season", season)
+        .eq("event", event)
+        .eq("started", true);
+      if (!cancelled) setLiveStarted((count ?? 0) > 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [liveTick]);
+
+  const resolvedEntryId = entryId ?? team?.entryId ?? null;
+
+  useEffect(() => {
+    if (!liveEvent || !liveStarted || !resolvedEntryId || rowById.size === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setGwState(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setGwStateLoading(true);
+      setGwStateError(null);
+      try {
+        const byEvent = await loadManagerPicks(liveEvent.season, resolvedEntryId);
+        const picks: ManagerPick[] | undefined = byEvent.get(liveEvent.event);
+        if (!picks) {
+          if (!cancelled) setGwState(null);
+          return;
+        }
+        const state = await loadGameweekState(
+          liveEvent.season,
+          liveEvent.event,
+          picks,
+          (id) => rowById.get(id)?.element_type,
+          (id) => rowById.get(id)?.team_id,
+        );
+        if (!cancelled) setGwState(state);
+      } catch (err) {
+        if (!cancelled) setGwStateError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (!cancelled) setGwStateLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [liveEvent, liveStarted, resolvedEntryId, rowById, liveTick]);
 
   // ------------------------------------------------------------- price/news
   //
@@ -841,6 +933,102 @@ export default function DeadlinePage() {
               </p>
             )}
           </div>
+
+          {/* ------------------------------------------------------ live hub */}
+          {/* Sprint 13. Only rendered once a GW1+ fixture has actually kicked
+              off — before that this section doesn't exist, so nothing about
+              the pre-deadline planning page above changes. */}
+          {liveStarted && liveEvent && (
+            <section className={`mt-5 ${card}`}>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  Live — GW{liveEvent.event}
+                  {gwState?.provisional && (
+                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                      Provisional
+                    </span>
+                  )}
+                </h2>
+                <InfoTooltip label="About live figures">{LIVE_MODEL_NOTE}</InfoTooltip>
+              </div>
+
+              {gwStateLoading && <p className="text-sm text-zinc-500">Loading live scores…</p>}
+              {gwStateError && (
+                <p className="text-sm text-red-700 dark:text-red-300">{gwStateError}</p>
+              )}
+              {!gwStateLoading && !gwStateError && !gwState && (
+                <p className="text-sm text-zinc-500">
+                  No picks recorded for this manager for GW{liveEvent.event} yet.
+                </p>
+              )}
+
+              {gwState && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-3xl font-bold tabular-nums text-purple-900 dark:text-primary">
+                      {gwState.liveTotal}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      Live points, starters + captain{gwState.autoSubs.length > 0 ? " + projected subs" : ""}.
+                      Bench score ({gwState.squadPoints.benchRaw}) only counts under a live Bench
+                      Boost.
+                    </p>
+                    {gwState.captaincy.handedOver && (
+                      <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                        Captain didn&apos;t feature — armband projected onto the vice-captain (
+                        {rowById.get(gwState.captaincy.effectiveElement)?.web_name ?? `#${gwState.captaincy.effectiveElement}`}
+                        ).
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className={supportingHeading}>Player status</p>
+                    <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      {(() => {
+                        const counts = { not_started: 0, playing: 0, finished: 0 };
+                        for (const s of gwState.statusByElement.values()) counts[s] += 1;
+                        return `${counts.playing} playing · ${counts.not_started} yet to play · ${counts.finished} finished`;
+                      })()}
+                    </p>
+                  </div>
+
+                  {gwState.autoSubs.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <p className={supportingHeading}>Projected auto-subs</p>
+                      <ul className="mt-1 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        {gwState.autoSubs.map((sub) => (
+                          <li key={`${sub.outElement}-${sub.inElement}`}>
+                            {rowById.get(sub.inElement)?.web_name ?? `#${sub.inElement}`} on for{" "}
+                            {rowById.get(sub.outElement)?.web_name ?? `#${sub.outElement}`}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {gwState.bpsRace.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <p className={supportingHeading}>BPS race (provisional bonus)</p>
+                      <ul className="mt-1 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        {gwState.bpsRace
+                          .filter((r) => r.bps > 0)
+                          .slice(0, 5)
+                          .map((r) => (
+                            <li key={r.element} className="flex justify-between">
+                              <span>{rowById.get(r.element)?.web_name ?? `#${r.element}`}</span>
+                              <span className="tabular-nums">
+                                {r.bps} bps{r.bonus > 0 ? ` · +${r.bonus} bonus so far` : ""}
+                              </span>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
 
           {/* ---------------------------------------------------------- squad */}
           <section className="mt-5">

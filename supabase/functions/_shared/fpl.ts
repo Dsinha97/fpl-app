@@ -178,6 +178,33 @@ export async function getEntryPicks(entryId: number, event: number): Promise<Ent
   }
 }
 
+// -------------------------------------------------------------- leagues
+
+export interface LeagueStandingEntry {
+  entry: number;
+  entry_name: string;
+  player_name: string;
+  rank: number;
+  rank_sort: number;
+  last_rank: number;
+  total: number;
+  event_total: number;
+  [k: string]: unknown;
+}
+
+export interface ClassicLeagueStandingsPage {
+  league: { id: number; name: string; max_entries: number | null; [k: string]: unknown };
+  standings: {
+    has_next: boolean;
+    page: number;
+    results: LeagueStandingEntry[];
+  };
+}
+
+/** One page (50 entries) of a classic league's standings. */
+export const getClassicLeagueStandings = (leagueId: number, page: number) =>
+  fplFetch<ClassicLeagueStandingsPage>(`/leagues-classic/${leagueId}/standings/?page_standings=${page}`);
+
 // ------------------------------------------------------------- fixtures
 
 export interface Fixture {
