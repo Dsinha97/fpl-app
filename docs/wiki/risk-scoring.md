@@ -11,8 +11,12 @@ The original spec:
 RiskScore = 0.30 Rotation + 0.25 Injury + 0.20 Minutes + 0.15 FixtureVariance − 0.10 EO
 ```
 
-EO (effective ownership) has no data source until Sprint 10 (league 314 is empty pre-season), so
-the term is **dropped and the remaining four weights renormalised** over the surviving 0.90:
+EO (effective ownership) here means the **field's** ownership — every FPL entry, or at least a top-1k
+sample of it — and that still has no data source: league 314 only unblocks a *rank-ordered* top-1k
+sample once GW1 is scored (see [ownership-and-leagues.md](ownership-and-leagues.md) for the exact
+mini-league EO that *did* unblock at the GW1 deadline — a genuinely different quantity, scoped to a
+few-hundred-person league rather than the whole field, and not wired into this formula). So the term
+is **dropped and the remaining four weights renormalised** over the surviving 0.90:
 
 ```
 0.333 Rotation + 0.278 Injury + 0.222 Minutes + 0.167 FixtureVariance

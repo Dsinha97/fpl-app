@@ -25,9 +25,9 @@ file, not separate files.
 | [sprints/sprint-05.md](sprints/sprint-05.md) | historical | Scenario Lab & Draft Management. |
 | [sprints/sprint-08.md](sprints/sprint-08.md) | historical | Transfer Simulator. |
 | [sprints/sprint-09.md](sprints/sprint-09.md) | historical | Transfer Optimizer. |
-| [sprints/sprint-10.md](sprints/sprint-10.md) | live (blocked) | Ownership Intelligence — not built; the build plan for when league 314 unblocks. |
+| [sprints/sprint-10.md](sprints/sprint-10.md) | live | Ownership Intelligence — exact-slice mini-league EO built 2026-08-21 (`sync-league-picks`, `lib/ownership.ts`); the top-1k sample stays blocked until league 314 is rank-ordered. |
 | [sprints/sprint-12.md](sprints/sprint-12.md) | historical | Chip Strategy Engine + §12A (Manager Percentile Profile) + §12.5 (PL Team Manager Intelligence) + §12.6 (Defensive Contribution fix). |
-| [sprints/sprint-13.md](sprints/sprint-13.md) | live (staged) | Live Matchday Hub — not built; the GW1 dry-run checklist. |
+| [sprints/sprint-13.md](sprints/sprint-13.md) | historical | Live Matchday Hub — built and verified live 2026-08-21 against the real GW1 opener; also fixed a `sync-fixtures` cron lag the dry run found. |
 | [sprints/sprint-14.md](sprints/sprint-14.md) | historical | Authentication & Team Sync + §14.1–§14.4 + the FPL-login probe. |
 | [sprints/cold-start-patch.md](sprints/cold-start-patch.md) | mixed | Phase 1 (empirical-Bayes rate priors) historical; phase 2 (external-league enrichment) partially delivered by Sprint 15.6, rest deferred/gated, findings still current. |
 | [sprints/hidden-gems.md](sprints/hidden-gems.md) | historical | Sprint 15.5 — value-discovery archetype filter (`player_rate_profile`, `lib/hidden-gems.ts`); also records why `worldfootballR` doesn't help cold-start. |

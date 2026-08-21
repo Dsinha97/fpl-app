@@ -29,7 +29,8 @@ is maintained, and [log.md](log.md) for the edit history.
 | [hidden-gems.md](hidden-gems.md) | The value-discovery archetype filter and why it needed no external data |
 | [manager-profile.md](manager-profile.md) | The owner's own career percentile profile |
 | [club-tactical-profiles.md](club-tactical-profiles.md) | PL head-coach tactical data, shipped as disclosed context rather than an xP term |
-| [deadline-and-matchday.md](deadline-and-matchday.md) | The pre-deadline decision hub, and the staged (not yet built) live-matchday hub |
+| [deadline-and-matchday.md](deadline-and-matchday.md) | The pre-deadline decision hub and the live-matchday hub, now one route in two phases |
+| [ownership-and-leagues.md](ownership-and-leagues.md) | Exact mini-league effective ownership, unblocked at the GW1 deadline — distinct from the still-blocked field-wide top-1k sample |
 
 ## Platform
 

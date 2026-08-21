@@ -52,3 +52,15 @@ One line per entry, most recent first.
   No new page; the leagues/FDR/table additions are UI-surface work already covered by
   `docs/sprints/sprint-21.md` and didn't change any engine or data-model concept this wiki
   tracks.
+- 2026-08-21 — Sprint 13 (Live Matchday Hub, built and verified live) and Sprint 10's mini-league
+  EO exact slice ingested, both triggered by the GW1 deadline. `deadline-and-matchday.md`'s Live
+  Matchday Hub section rewritten from "staged" to built, with the `lib/gameweek-state.ts` design
+  (captaincy handover, projected auto-subs, provisional BPS race) and the dry-run checklist
+  results. New page `ownership-and-leagues.md` for the exact-EO pipeline
+  (`sync-league-picks`, `lib/ownership.ts`) — a genuinely new topic, distinct from the still-blocked
+  field-wide top-1k sample `risk-scoring.md` already covered. Updated `data-pipeline.md` (new
+  self-gated `sync-fixtures` cadence — a real gap the dry run found, documented with its own
+  subsection), `risk-scoring.md`, `glossary.md`, `methodology.md`, and `blocked-and-data-gaps.md`
+  (league 314's blocker reworded from "empty" to "not yet rank-ordered", since the deadline changed
+  what's actually blocked) to point at the new page rather than restate the old "blocked pre-season"
+  claim. `index.md` and `timeline.md` updated.

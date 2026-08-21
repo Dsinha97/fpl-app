@@ -24,8 +24,10 @@ transfer optimiser's roll-vs-spend decision. See [transfer-engine.md](transfer-e
 **`TeamState`** — the one shared squad shape every page consumes. See
 [frontend-conventions.md](frontend-conventions.md).
 
-**EO** — effective ownership (captain 2×, triple captain 3×, bench 0×). Blocked until league 314
-populates; see [blocked-and-data-gaps.md](blocked-and-data-gaps.md).
+**EO** — effective ownership (captain 2×, triple captain 3×, bench 0×). Exact for a mini-league since
+the GW1 deadline made picks public — see [ownership-and-leagues.md](ownership-and-leagues.md). The
+field-wide top-1k version the risk formula needs is still blocked on league 314 being rank-ordered;
+see [blocked-and-data-gaps.md](blocked-and-data-gaps.md).
 
 **FDR** — fixture difficulty rating. Currently the official FPL rating; a custom analytical version
 is blocked on team strength being zero pre-season. See [fpl-api-constraints.md](fpl-api-constraints.md).

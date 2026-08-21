@@ -172,3 +172,14 @@ Five small independent items, taken alongside Sprint 12.5 immediately after Spri
 - **Sprint 12.5 — PL Team Manager Intelligence, buildable slice — built.** See [sprint-12.md](sprint-12.md).
 - **Squad reconciliation, phase 2 — built and shipped.** See [squad-reconciliation.md](squad-reconciliation.md);
   this is the one item that needed a gate before shipping, and it passed.
+
+## sync-fixtures cron fix — found and fixed during GW1 kickoff (2026-08-21)
+
+Sprint 13's dry run (see [sprint-13.md](sprint-13.md)) hit a real gap: `sync-fixtures` ran hourly, so
+`fixtures.started` — the flag `sync-live-gameweek`'s gate trusts — stayed false for up to ~55 minutes
+after kickoff, keeping the live hub blind even though matches were live. `sync-fixtures` now self-gates
+on `kickoff_time` (it can't gate on `started`/`finished` the way `sync-live-gameweek` gates on them,
+since those are exactly the columns it exists to refresh) and runs every 2 minutes, the same cost every
+other self-gating sync already pays. Confirmed live: the new cron fired unassisted twice while GW1's
+opener was in progress, both `success`. Not a code-review finding — found by the first real live
+fixture, the exact reason CLAUDE.md's "verify against real data, not `?force=1`" rule exists.

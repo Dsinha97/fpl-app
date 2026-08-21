@@ -7,8 +7,7 @@ live index this page expands on.
 | Blocked | Reason | Detail |
 |---|---|---|
 | Team strength (0 for all 20 clubs) | Pre-season placeholder; blocks custom FDR and any TeamAttack term | [fpl-api-constraints.md](fpl-api-constraints.md), [risk-scoring.md](risk-scoring.md) |
-| League 314 standings (empty) | Pre-season; blocks all of Sprint 10 (Ownership Intelligence — EO, differentials, template) | [roadmap.md](../roadmap.md) |
-| `sync-live-gameweek` write path | Never executed — no live fixture yet | [deadline-and-matchday.md](deadline-and-matchday.md) |
+| League 314 rank-ordering (top-1k sample) | Standings populated at the GW1 deadline (2026-08-21), but every entry ties on 0 until GW1 is scored; blocks only Sprint 10's top-1k sample — the exact mini-league slice unblocked the same day, see [ownership-and-leagues.md](ownership-and-leagues.md) | [roadmap.md](../roadmap.md) |
 | Automated FPL credential login | PingOne offers no password grant; the one reachable flow opens with bot detection | [fpl-authentication.md](fpl-authentication.md) |
 | `positionCalibration` | Fitted **in-sample**; needs a refit against real 2026/27 results before any accuracy claim is trusted. Walk-forward evidence for why now exists: out-of-sample the model underperforms a naive last-5-gameweeks baseline in every season tested | [xp-model.md](xp-model.md#out-of-sample-validation-sprint-17a) |
 | Cold-start, remaining 66 players + `dc90` for all 33 covered | No fittable source exists yet (overseas/academy players; no PL-side CBIT data for 2024/25) | [cold-start-priors.md](cold-start-priors.md) |
@@ -18,11 +17,12 @@ live index this page expands on.
 
 ## Distinguishing "blocked" from "not started"
 
-Sprint 13 (Live Matchday Hub) and Sprint 15 (Action Layer) are **not started but not blocked** in
-the same sense — they're sequenced after a real-world event (GW1) or a prerequisite sprint, not
-stuck on a missing data source. Sprint 17 (Historical Analytics & ML) additionally needs
-`positionCalibration` refit against real results first. See [roadmap.md](../roadmap.md#next-up) for
-the live sequencing.
+Sprint 15 (Action Layer) is **not started but not blocked** in the same sense as the table above —
+it's sequenced after a prerequisite sprint, not stuck on a missing data source. Sprint 13 (Live
+Matchday Hub) was in that category until the GW1 deadline it was sequenced after actually arrived
+(2026-08-21) — it's built now, see [deadline-and-matchday.md](deadline-and-matchday.md). Sprint 17
+(Historical Analytics & ML) additionally needs `positionCalibration` refit against real results
+first. See [roadmap.md](../roadmap.md#next-up) for the live sequencing.
 
 ## The pattern: disclose, don't hide
 

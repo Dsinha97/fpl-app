@@ -88,7 +88,9 @@ never a bare net figure. See [transfer-engine.md](transfer-engine.md).
 ## A blocked option that vanishes reads as a bug; its reason is information
 
 Applies throughout: the transfer optimiser's wildcard row before GW2, the chip engine's GW20–38
-half before those predictions exist, Sprint 10's ownership features before league 314 populates. See
+half before those predictions exist, Sprint 10's field-wide EO sample before league 314 is
+rank-ordered (the mini-league slice of the same sprint unblocked at the GW1 deadline — see
+[ownership-and-leagues.md](ownership-and-leagues.md)). See
 [blocked-and-data-gaps.md](blocked-and-data-gaps.md).
 
 ## Squad rules and scoring rules come from the database, never hardcoded

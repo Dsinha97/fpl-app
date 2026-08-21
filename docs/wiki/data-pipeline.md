@@ -20,10 +20,11 @@ running with the service role — nothing in the front end can mutate league dat
 | Function | Cron | Writes |
 |---|---|---|
 | `sync-bootstrap` | `*/30 * * * *` | `teams`, `players`, `gameweeks`, `element_types`, `game_settings`, `chip_definitions`, snapshots |
-| `sync-fixtures` | `0 * * * *` | `fixtures`, `fixture_changes` |
+| `sync-fixtures` | `*/2 * * * *`, self-gated | `fixtures`, `fixture_changes` |
 | `sync-player-history` | `*/10 * * * *` | `player_gameweek_stats`, `player_season_history` — cursor-batched, so ~700 `element-summary` calls spread across runs instead of one timing out |
-| `sync-live-gameweek` | `*/2 * * * *` | `player_live_stats` — has only ever taken its no-op branch; see [deadline-and-matchday.md](deadline-and-matchday.md) |
+| `sync-live-gameweek` | `*/2 * * * *`, self-gated | `player_live_stats` — took its no-op branch every day until GW1's first kickoff (2026-08-21), then wrote 600 real rows; see [deadline-and-matchday.md](deadline-and-matchday.md) |
 | `sync-manager` | manual only | `managers`, `manager_*` — `invoke_sync` POSTs an empty body so it has no `entry_id` to schedule with; only runs when `/team` calls it directly |
+| `sync-league-picks` | manual only, on-demand | `league_entries`, `league_entry_picks` — same reason as `sync-manager`: no `entry_id`/`league_id` to schedule with. See [ownership-and-leagues.md](ownership-and-leagues.md) |
 | `generate-predictions` | `5,35 * * * *` | `player_predictions` — see [xp-model.md](xp-model.md) |
 | `fpl-session` / `fpl-my-team` | manual | see [fpl-authentication.md](fpl-authentication.md) — the two functions that verify a Supabase JWT before touching anything |
 | `ingest-fpl-archive` | manual, one-off backfill | `player_gameweek_stats` for past seasons (2022-23 through 2025-26) — see below |
@@ -31,6 +32,20 @@ running with the service role — nothing in the front end can mutate league dat
 `public.invoke_sync(text)` is the single pg_cron entry point (revoked from `anon`/`authenticated`).
 Every run writes a `sync_runs` row (`success | partial | error | skipped`), which is what `/status`
 renders.
+
+### `sync-fixtures` self-gated cadence (fixed 2026-08-21)
+
+Ran unconditionally hourly until GW1's kickoff dry run (see
+[deadline-and-matchday.md](deadline-and-matchday.md)) found the gap this created:
+`sync-live-gameweek`'s own gate trusts `fixtures.started`, so an hourly refresh left it blind for up
+to ~55 minutes into a genuinely live match. `sync-fixtures` can't self-gate on `started`/`finished`
+the way `sync-live-gameweek` does — those are exactly the columns it exists to refresh, so trusting
+them would let a stale "not started" suppress the very sync that would correct it. It gates on
+`kickoff_time` instead, which doesn't go stale on this timescale: any fixture kicking off within the
+next 15 minutes or the last 3 hours (covers delays/stoppage time) always gets the full pull;
+otherwise it falls back to an hourly floor via its own `sync_runs` history, so the rest of the day
+(price moves, postponements) still refreshes without polling every 2 minutes for no reason. Confirmed
+live: the new cadence fired unassisted twice while GW1's opener was in progress, both `success`.
 
 ## Backfilling seasons the FPL API no longer serves
 

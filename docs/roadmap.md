@@ -19,13 +19,13 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 7 | Replacement Finder | **Built** — builder panel, `findReplacements` | — |
 | 8 | Transfer Simulator | **Built** — `/transfers`, `lib/transfers.ts` | [sprints/sprint-08.md](sprints/sprint-08.md) |
 | 9 | Transfer Optimizer (up to 5 banked FTs) | **Built** — `/transfers` plan panel, `lib/transfer-optimizer.ts` | [sprints/sprint-09.md](sprints/sprint-09.md) |
-| 10 | Ownership Intelligence | Not started — **blocked**, league 314 empty pre-season | [sprints/sprint-10.md](sprints/sprint-10.md) |
+| 10 | Ownership Intelligence | **Exact-slice built** 2026-08-21 — mini-league EO (`sync-league-picks`, `lib/ownership.ts`); top-1k sample still **blocked** until 314 is rank-ordered | [sprints/sprint-10.md](sprints/sprint-10.md) |
 | 11 | Captain & Bench Optimizer | **Built** — `lib/lineup.ts` | — |
 | 12A | Manager Percentile Profile | **Built** — `/team`, `lib/manager-profile.ts` | [sprints/sprint-12.md](sprints/sprint-12.md#sprint-12a--manager-percentile-profile-built) |
 | 12 | Chip Strategy Engine | **Built** — `/chips`, `lib/chips.ts` | [sprints/sprint-12.md](sprints/sprint-12.md) |
 | 12.5 | PL Team (Club) Manager Intelligence | **Built** — buildable slice only (phases 1/2/7–9); phases 3–6 blocked on validation | [sprints/sprint-12.md](sprints/sprint-12.md#sprint-125--pl-team-club-manager-intelligence-buildable-slice-built-2026-08-07) |
 | 12.6 | Defensive Contribution engine fix, plus five surface fixes | **Built** — xP engine v1.4.0 | [sprints/sprint-12.md](sprints/sprint-12.md#sprint-126--defensive-contribution-engine-fix-plus-five-surface-fixes-built-2026-08-08) |
-| 13 | Live Matchday Hub | Not started — **staged for GW1** | [sprints/sprint-13.md](sprints/sprint-13.md) |
+| 13 | Live Matchday Hub | **Built and verified live** 2026-08-21 — GW1 kickoff dry run passed; live card group on `/deadline` (`lib/gameweek-state.ts`) | [sprints/sprint-13.md](sprints/sprint-13.md) |
 | 14 | Authentication & Team Sync | **Built**, plus 14.1–14.4 | [sprints/sprint-14.md](sprints/sprint-14.md) |
 | 15.5 | Hidden Gems (value-discovery filter) | **Built** — `player_rate_profile`, `lib/hidden-gems.ts`, `/players` + builder filters | [sprints/hidden-gems.md](sprints/hidden-gems.md) |
 | 15.6 | Championship cold-start priors (FootyStats PDF drop) | **Built** — xP engine v1.5.0, `external_player_seasons`, 33 players re-primed | [sprints/championship-priors.md](sprints/championship-priors.md) |
@@ -87,10 +87,17 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   total is never reconciled with FPL's own gameweek score, since `automatic_subs` isn't synced.
   Verified against a seeded-and-reverted GW1 in Supabase, since `manager_picks` is genuinely empty
   before the real GW1 deadline (2026-08-21).
-- **Sprint 13 (Live Matchday Hub)** — staged, not started. `sync-live-gameweek`'s write path has
-  never executed (no live fixture yet, GW1 deadline 2026-08-21); building against it now would be
-  unverifiable. See [sprints/sprint-13.md](sprints/sprint-13.md) for the GW1 dry-run checklist to
-  run the moment the first fixture kicks off.
+- **Sprint 13 (Live Matchday Hub) — built and verified live, 2026-08-21.** The GW1 dry-run checklist
+  passed against the real opening fixture: `sync-live-gameweek` left its `skipped` branch, a spot-check
+  matched FPL's own live feed exactly, and `/deadline`'s new live card group (`lib/gameweek-state.ts`)
+  rendered correctly against the owner's real GW1 squad in both themes. The dry run also found a real
+  gap — `sync-fixtures` only ran hourly, so `fixtures.started` lagged kickoff by up to ~55 minutes —
+  fixed same day with a self-gated 2-minute cadence; see [sprints/sprint-13.md](sprints/sprint-13.md).
+- **Sprint 10 (Ownership Intelligence), exact slice — built 2026-08-21.** The same deadline made any
+  entry's picks public, not just the top-1k template's, so mini-league effective ownership is now exact
+  for the leagues in `manager_leagues` (`sync-league-picks`, `lib/ownership.ts`) — the top-1k sample
+  itself stays blocked until 314 is rank-ordered by a scored gameweek. See
+  [sprints/sprint-10.md](sprints/sprint-10.md).
 - **Sprints 15–17**, not started:
   - **15 Action Layer** — submit lineup, captain, transfers, chips. Always with explicit
     confirmation; credentials server-side only.
@@ -111,7 +118,7 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 | Blocked | Reason | Detail |
 |---|---|---|
 | Team strength (0 for all 20 clubs) | Pre-season; blocks custom FDR and `TeamAttackStrength` | — |
-| League 314 standings (empty) | Pre-season; blocks all of Sprint 10 | [sprints/sprint-10.md](sprints/sprint-10.md) |
+| League 314 rank-ordering (top-1k sample) | Standings populated at the GW1 deadline (2026-08-21), but every entry ties on 0 points until GW1 is scored; blocks only Sprint 10's top-1k sample — the exact mini-league slice is unblocked | [sprints/sprint-10.md](sprints/sprint-10.md) |
 | `sync-live-gameweek` write path | Never executed — no live fixture yet | [sprints/sprint-13.md](sprints/sprint-13.md) |
 | Automated FPL credential login | PingOne offers no password grant; the one reachable flow opens with bot detection | [sprints/sprint-14.md](sprints/sprint-14.md#fpl-login-is-blocked--automated-credential-login-not-the-session-handoff) |
 | `positionCalibration` | Fitted in-sample; needs a refit against real 2026/27 results. Walk-forward evidence for why now exists: out-of-sample the model underperforms a naive last-5-gameweeks baseline in every season tested | [sprints/sprint-17a.md](sprints/sprint-17a.md) |

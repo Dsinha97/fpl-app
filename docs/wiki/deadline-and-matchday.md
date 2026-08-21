@@ -1,7 +1,7 @@
 # Deadline Hub & Live Matchday Hub
 
-Related, not-yet-merged surfaces for pre-deadline and in-play decisions — Deadline Hub and My
-Team's Squad view (both built), and Live Matchday Hub (staged, not built).
+Related surfaces for pre-deadline and in-play decisions, all built — Deadline Hub, My Team's Squad
+view, and Live Matchday Hub, which now share `/deadline` as one route in two phases.
 
 ## Deadline Hub (`/deadline`, built 2026-08-14)
 
@@ -73,27 +73,50 @@ selector, the per-player points, the two-total summary, and the provisional labe
 path against; the harness covers that math, the live path doesn't yet. —
 [sprints/additional-info.md](../sprints/additional-info.md#squad-view-on-deadline-hub-and-my-team--built-2026-08-15)
 
-## Live Matchday Hub (Sprint 13, staged, not built)
+## Live Matchday Hub (Sprint 13, built and verified live 2026-08-21)
 
-Deliberately not started: `sync-live-gameweek`'s row-writing path has never executed (it no-ops
-without a live fixture, and GW1's deadline is 2026-08-21) — building a UI against an unverified
-write path would itself be unverifiable. The only work done ahead of time is what costs nothing and
-needs no live data: `player_live_stats`'s row count is now visible on `/status`, closing the one
-observability gap (previously there was no way to see the write path finally fire without querying
-the database directly).
+Held back deliberately until GW1's real deadline (2026-08-21 17:30 UTC) and first kickoff, so the
+GW1 dry-run checklist below could run against a genuinely live fixture rather than an unverifiable
+`?force=1` dry run. It passed, and the render layer shipped the same evening.
 
-**What it builds once live**: a `GameweekState` object — live score, provisional bonus, live overall
-rank, pending auto-substitutions, captain effective ownership, a safety score for the bench/captain
-decision already locked in. Every field already exists in `player_live_stats` or
-`manager_gameweek_history` — a read/render sprint, not a new sync.
+**`lib/gameweek-state.ts`** assembles a live gameweek from `manager_picks` +
+`player_live_stats`/`player_gameweek_stats` + `fixtures` + `element_types`, reusing
+`startersOf`/`benchOf`/`squadPointsFor` from `lib/manager-picks.ts` rather than re-deriving the
+starter/bench/captain split:
 
-**GW1 dry-run checklist**, to run the moment the first fixture kicks off: confirm `sync-live-gameweek`
-actually leaves its `skipped` branch on `/status`; spot-check one player's row against FPL's own live
-score; only then build the render layer against real rows — a shape that looks right against a
-forced `?force=1` dry run can still be wrong against what a live match actually populates.
-— [sprint-13.md](../sprints/sprint-13.md)
+- **Live total** — starters + captain, corrected for two things this app projects rather than takes
+  from FPL directly (FPL's own `automatic_subs` isn't synced, see the note below):
+  - `projectAutoSubs` — a starter who finishes on 0 minutes is projected to be replaced by the first
+    eligible bench player, checked against real `element_types.squad_min_play`/`squad_max_play` for
+    formation legality (never a hardcoded 1-3-2-1-style rule).
+  - `resolveCaptaincy` — the armband moves to the vice-captain only once the captain's own fixture has
+    *finished* with 0 minutes recorded — before that, nothing is decided, so a captain who's merely
+    not started yet keeps the armband rather than projecting a handover a 60th-minute introduction
+    would undo.
+- **Player status** (playing / yet to play / finished) and a **provisional BPS race**, both labelled
+  provisional — bonus isn't final until FPL confirms it post-match.
+- **Live overall rank** is shown only once FPL has actually published
+  `manager_gameweek_history.overall_rank` — "not published yet" rather than a computed guess.
 
-See also: [data-pipeline.md](data-pipeline.md) (`sync-live-gameweek`'s cron and no-op guards),
+Renders as a card group on `/deadline`, switched on whether any fixture in the live gameweek has
+started — before kickoff the page is byte-for-byte the pre-deadline planning page; after, the live
+group takes the top slot. One route, two phases, no duplicated squad loading.
+
+**GW1 dry-run checklist — run and passed:** `sync-live-gameweek`'s `sync_runs` row moved from 90
+consecutive `skipped` rows to `success` (600 elements) the moment `fixtures.started` flipped true; a
+spot-checked player row matched FPL's own `event/1/live/` payload exactly; the render layer was then
+checked against the owner's real GW1 squad (seeded from `manager_picks`, not synthetic) in both
+themes before trusting it. — [sprint-13.md](../sprints/sprint-13.md)
+
+**A real gap the dry run found, fixed same day:** `sync-fixtures` ran hourly, so `fixtures.started`
+— the flag `sync-live-gameweek`'s own gate trusts — lagged a genuine kickoff by up to ~55 minutes.
+Not a code-review catch; the first real live fixture found it. See
+[data-pipeline.md](data-pipeline.md#sync-fixtures-self-gated-cadence-fixed-2026-08-21) for the fix.
+
+See also: [data-pipeline.md](data-pipeline.md) (`sync-live-gameweek`'s cron and self-gating),
 [blocked-and-data-gaps.md](blocked-and-data-gaps.md), [fpl-authentication.md](fpl-authentication.md)
 (the import mechanism and its naming rule), [manager-profile.md](manager-profile.md) (`/team`'s
-other section, the career percentile profile — a different topic on the same page).
+other section, the career percentile profile — a different topic on the same page),
+[ownership-and-leagues.md](ownership-and-leagues.md) (the other Sprint-10/13-adjacent build that
+landed the same evening — mini-league effective ownership, a different quantity from anything on
+this page).
