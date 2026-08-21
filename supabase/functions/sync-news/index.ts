@@ -17,7 +17,7 @@
 import { currentSeason, jsonResponse, preflight, serviceClient, SyncRun } from "../_shared/sync.ts";
 import { chunk } from "../_shared/coerce.ts";
 import { fetchWithRetry } from "../_shared/http.ts";
-import { parseFeed, parsePubDate, stripTags } from "../_shared/rss.ts";
+import { parseFeed, parsePubDate, stripTags, type FeedItem } from "../_shared/rss.ts";
 import { resolveEntities, type PlayerRow, type TeamRow } from "../_shared/entities.ts";
 
 const FUNCTION_NAME = "sync-news";
@@ -31,6 +31,22 @@ interface NewsSource {
   url: string;
   include_categories: string[];
   exclude_categories: string[];
+}
+
+function buildNewsItemRow(sourceId: number, item: FeedItem, fetchedAt: string) {
+  const published = parsePubDate(item.pubDateRaw);
+  return {
+    source_id: sourceId,
+    guid: item.guid,
+    url: item.url,
+    title: item.title,
+    excerpt: item.descriptionHtml ? stripTags(item.descriptionHtml).slice(0, EXCERPT_MAX) : null,
+    author: item.author,
+    published_at: (published ?? new Date(fetchedAt)).toISOString(),
+    published_estimated: published === null,
+    categories: item.categories,
+    fetched_at: fetchedAt,
+  };
 }
 
 function passesFilter(categories: string[], include: string[], exclude: string[]): boolean {
@@ -92,21 +108,21 @@ Deno.serve(async (req) => {
         );
 
         const fetchedAt = new Date().toISOString();
-        const rows = kept.map((item) => {
-          const published = parsePubDate(item.pubDateRaw);
-          return {
-            source_id: source.id,
-            guid: item.guid,
-            url: item.url,
-            title: item.title,
-            excerpt: item.descriptionHtml ? stripTags(item.descriptionHtml).slice(0, EXCERPT_MAX) : null,
-            author: item.author,
-            published_at: (published ?? new Date(fetchedAt)).toISOString(),
-            published_estimated: published === null,
-            categories: item.categories,
-            fetched_at: fetchedAt,
-          };
-        });
+        // Keyed by guid — normaliseGuid (_shared/rss.ts) collapses a feed's
+        // per-request-varying guid decoration (BBC's changing #fragment) down
+        // to the article, so the same article can legitimately appear twice
+        // in one `kept` list. A plain array upsert can't apply two rows to
+        // the same (source_id, guid) inside one statement — same trap
+        // ingest-fpl-archive hit with repeated CSV rows; same fix, last
+        // occurrence wins.
+        const rowsByGuid = new Map<
+          string,
+          ReturnType<typeof buildNewsItemRow>
+        >();
+        for (const item of kept) {
+          rowsByGuid.set(item.guid, buildNewsItemRow(source.id, item, fetchedAt));
+        }
+        const rows = [...rowsByGuid.values()];
 
         const written: { id: number; title: string; excerpt: string | null; categories: string[] }[] = [];
         for (const batch of chunk(rows, 100)) {

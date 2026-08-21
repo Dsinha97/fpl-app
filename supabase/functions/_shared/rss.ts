@@ -93,6 +93,32 @@ function atomLink(block: string): string | null {
   return m ? m[1] : null;
 }
 
+// Tracking query params known to change per-request without identifying a
+// different article. Stripped only from URL-shaped guids — a non-URL guid
+// (some feeds use a bare numeric id) passes through untouched, since there's
+// nothing safe to strip from it.
+const TRACKING_PARAMS = ["at_medium", "at_campaign"];
+
+/**
+ * Normalises a guid so the same article doesn't re-insert on every refetch.
+ * Found live in production (2026-08-21): BBC's `<guid>` is the article URL
+ * with a `#fragment` that changes with the item's position in the feed
+ * (`#17`, `#4`, `#5`...) — the fragment and BBC's own tracking params are
+ * both request-varying, not article-identifying, so both are stripped
+ * before the guid ever reaches the `(source_id, guid)` unique constraint.
+ */
+export function normaliseGuid(guid: string): string {
+  let url: URL;
+  try {
+    url = new URL(guid);
+  } catch {
+    return guid; // not URL-shaped — nothing safe to strip
+  }
+  url.hash = "";
+  for (const param of TRACKING_PARAMS) url.searchParams.delete(param);
+  return url.toString();
+}
+
 /**
  * Parses an RSS 2.0 `<item>` or Atom `<entry>` feed. Returns [] rather than
  * throwing on a feed that isn't XML at all (e.g. a 200 that actually served
@@ -113,7 +139,7 @@ export function parseFeed(xml: string): FeedItem[] {
     if (!title || !link || !guid) continue; // not enough to identify the item
 
     items.push({
-      guid: decodeEntities(guid),
+      guid: normaliseGuid(decodeEntities(guid)),
       url: decodeEntities(link),
       title: decodeEntities(title),
       descriptionHtml: tag(block, "description") ?? tag(block, "content:encoded") ?? tag(block, "summary"),
