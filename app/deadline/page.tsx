@@ -1056,20 +1056,6 @@ export default function DeadlinePage() {
                 </div>
               </div>
 
-              {squadLiveFixtures.length > 0 && (
-                <div className="mb-3 flex flex-wrap gap-3">
-                  {squadLiveFixtures.map((f) => (
-                    <LiveFixtureCard
-                      key={f.id}
-                      fixture={f}
-                      teams={liveTeamsById}
-                      playersById={livePlayersById}
-                      squadElementIds={squadElementIds}
-                    />
-                  ))}
-                </div>
-              )}
-
               {gwStateLoading && <p className="text-sm text-zinc-500">Loading live scores…</p>}
               {gwStateError && (
                 <p className="text-sm text-red-700 dark:text-red-300">{gwStateError}</p>
@@ -1081,7 +1067,7 @@ export default function DeadlinePage() {
               )}
 
               {gwState && (
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="mb-3 grid gap-4 sm:grid-cols-2">
                   <div>
                     <p className="text-3xl font-bold tabular-nums text-purple-900 dark:text-primary">
                       {gwState.liveTotal}
@@ -1143,6 +1129,20 @@ export default function DeadlinePage() {
                       </ul>
                     </div>
                   )}
+                </div>
+              )}
+
+              {squadLiveFixtures.length > 0 && (
+                <div className="flex flex-wrap gap-3">
+                  {squadLiveFixtures.map((f) => (
+                    <LiveFixtureCard
+                      key={f.id}
+                      fixture={f}
+                      teams={liveTeamsById}
+                      playersById={livePlayersById}
+                      squadElementIds={squadElementIds}
+                    />
+                  ))}
                 </div>
               )}
             </section>
