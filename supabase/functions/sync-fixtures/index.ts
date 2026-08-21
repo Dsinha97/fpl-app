@@ -4,7 +4,19 @@
 // or kickoff time creates blanks and doubles, which drives chip planning, so
 // the change itself is worth keeping rather than just the current state.
 //
-// Runs hourly.
+// Runs every 2 minutes but self-gating, the same shape sync-live-gameweek
+// and sync-player-history already use (see the scheduling migration's own
+// comment: "avoid unnecessarily aggressive polling... self-gating, so their
+// short intervals cost one cheap query on most invocations"). This one can't
+// gate on fixtures.started/finished the way sync-live-gameweek gates on
+// them — those are exactly the columns this function exists to refresh, so
+// trusting them here would let a stale "not started" suppress the very sync
+// that would correct it. It gates on kickoff_time instead, which doesn't go
+// stale on this timescale: a fixture kicking off soon or in the last few
+// hours (covers delays/stoppage time) always gets the full pull; anything
+// quieter falls back to an hourly floor so the rest of the day (price
+// moves, postponements) still refreshes without polling every 2 minutes for
+// no reason.
 
 import { getFixtures } from "../_shared/fpl.ts";
 import { currentSeason, jsonResponse, preflight, serviceClient, SyncRun } from "../_shared/sync.ts";
@@ -15,15 +27,59 @@ const FUNCTION_NAME = "sync-fixtures";
 /** Fields whose changes are worth an audit row. */
 const TRACKED = ["event", "kickoff_time"] as const;
 
+const LIVE_WINDOW_HOURS = 3;
+const FORCE_INTERVAL_MINUTES = 55;
+
 Deno.serve(async (req) => {
   const cors = preflight(req);
   if (cors) return cors;
 
   const db = serviceClient();
+  const url = new URL(req.url);
+  const force = url.searchParams.get("force") === "1";
+
   const run = await SyncRun.start(db, FUNCTION_NAME);
 
   try {
     const season = await currentSeason(db);
+
+    if (!force) {
+      const now = new Date();
+      const windowStart = new Date(now.getTime() - LIVE_WINDOW_HOURS * 3_600_000).toISOString();
+      const windowEnd = new Date(now.getTime() + 15 * 60_000).toISOString();
+
+      const { count: imminentOrLive, error: fixturesError } = await db
+        .from("fixtures")
+        .select("id", { count: "exact", head: true })
+        .eq("season", season)
+        .gte("kickoff_time", windowStart)
+        .lte("kickoff_time", windowEnd);
+      if (fixturesError) throw new Error(`fixtures: ${fixturesError.message}`);
+
+      if (!imminentOrLive) {
+        const { data: lastSuccess } = await db
+          .from("sync_runs")
+          .select("finished_at")
+          .eq("function_name", FUNCTION_NAME)
+          .eq("status", "success")
+          .order("finished_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const minutesSince = lastSuccess?.finished_at
+          ? (now.getTime() - new Date(lastSuccess.finished_at).getTime()) / 60_000
+          : Infinity;
+
+        if (minutesSince < FORCE_INTERVAL_MINUTES) {
+          await run.finish("skipped", {
+            season,
+            details: { reason: "no fixture imminent or live, synced recently", minutesSince },
+          });
+          return jsonResponse({ ok: true, season, skipped: "no fixture imminent or live" });
+        }
+      }
+    }
+
     const fixtures = await getFixtures();
 
     // Existing state, to diff against before overwriting it.
