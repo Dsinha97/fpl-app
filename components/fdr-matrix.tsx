@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { fdrTheme, type FdrRating } from "@/lib/fdr";
+import { averageFdr, fdrTheme, fixtureCellsByTeam, type FdrCell, type FdrRating } from "@/lib/fdr";
 import { FDRBadge, FixtureCell } from "./fdr-badge";
 
 export interface MatrixFixture {
@@ -16,16 +16,21 @@ export interface MatrixTeam {
   id: number;
   name: string;
   short_name: string;
-}
-
-interface Cell {
-  opp: string;
-  home: boolean;
-  fdr: number;
+  /** FPL's own league position — 0 for every team pre-season, since FPL publishes no table until GW1 is scored. */
+  position?: number | null;
 }
 
 /** Column counts for the matrix — a window width, not an xP horizon. */
 const HORIZONS = [5, 8, 10, 38] as const;
+
+type SortOrder = "position" | "az" | "easiest" | "hardest";
+
+const SORT_LABELS: Record<SortOrder, string> = {
+  position: "Table position",
+  az: "Team A–Z",
+  easiest: "Easiest run",
+  hardest: "Hardest run",
+};
 
 export function FdrMatrix({
   teams,
@@ -37,56 +42,56 @@ export function FdrMatrix({
   nextGw: number | null;
 }) {
   const [horizon, setHorizon] = useState<number>(8);
+  const [sort, setSort] = useState<SortOrder>("easiest");
+  const [search, setSearch] = useState("");
 
-  const { gwCols, rows } = useMemo(() => {
-    if (nextGw === null) return { gwCols: [] as number[], rows: [] };
+  // Every position reads 0 pre-season (FPL publishes no table until GW1 is
+  // scored) — sorting by it would just be "sorted by zero, tie-broken by
+  // whatever order the query returned", not a real standing. Disabled with
+  // an explanation rather than silently letting the option no-op.
+  const positionsKnown = teams.some((t) => (t.position ?? 0) > 0);
 
-    const lastGw = Math.min(nextGw + horizon - 1, 38);
-    const cols: number[] = [];
-    for (let g = nextGw; g <= lastGw; g++) cols.push(g);
+  const { gwCols, byTeam } = useMemo(
+    () => fixtureCellsByTeam(teams, fixtures, nextGw, horizon),
+    [teams, fixtures, nextGw, horizon],
+  );
 
-    const shortOf = new Map(teams.map((t) => [t.id, t.short_name]));
-    const byTeam = new Map<number, Map<number, Cell[]>>();
+  const rows = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const filtered = term
+      ? teams.filter(
+          (t) => t.name.toLowerCase().includes(term) || t.short_name.toLowerCase().includes(term),
+        )
+      : teams;
 
-    for (const f of fixtures) {
-      if (f.event === null || f.event < nextGw || f.event > lastGw) continue;
+    const withAvg = filtered.map((team) => ({
+      team,
+      cells: byTeam.get(team.id) ?? new Map<number, FdrCell[]>(),
+      avg: averageFdr(byTeam, team.id, gwCols),
+    }));
 
-      const push = (teamId: number, cell: Cell) => {
-        if (!byTeam.has(teamId)) byTeam.set(teamId, new Map());
-        const m = byTeam.get(teamId)!;
-        if (!m.has(f.event!)) m.set(f.event!, []);
-        m.get(f.event!)!.push(cell);
-      };
-
-      push(f.team_h, {
-        opp: shortOf.get(f.team_a) ?? "?",
-        home: true,
-        fdr: f.team_h_difficulty ?? 3,
-      });
-      push(f.team_a, {
-        opp: shortOf.get(f.team_h) ?? "?",
-        home: false,
-        fdr: f.team_a_difficulty ?? 3,
-      });
+    switch (sort) {
+      case "position":
+        return withAvg.sort((a, b) => (a.team.position ?? 99) - (b.team.position ?? 99));
+      case "az":
+        return withAvg.sort((a, b) => a.team.name.localeCompare(b.team.name));
+      case "hardest":
+        return withAvg.sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1));
+      case "easiest":
+      default:
+        return withAvg.sort((a, b) => (a.avg ?? 99) - (b.avg ?? 99));
     }
-
-    const rows = teams
-      .map((t) => {
-        const cells = byTeam.get(t.id) ?? new Map<number, Cell[]>();
-        const fdrs = cols.flatMap((g) => (cells.get(g) ?? []).map((c) => c.fdr));
-        const avg = fdrs.length > 0 ? fdrs.reduce((a, b) => a + b, 0) / fdrs.length : null;
-        return { team: t, cells, avg };
-      })
-      .sort((a, b) => (a.avg ?? 99) - (b.avg ?? 99));
-
-    return { gwCols: cols, rows };
-  }, [teams, fixtures, nextGw, horizon]);
+  }, [teams, byTeam, gwCols, sort, search]);
 
   return (
     <>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-zinc-500">
-          Sorted easiest run first · green ring = home, red ring = away
+          {sort === "easiest" && `Sorted easiest ${horizon === 38 ? "season" : `${horizon}-GW`} run first`}
+          {sort === "hardest" && `Sorted hardest ${horizon === 38 ? "season" : `${horizon}-GW`} run first`}
+          {sort === "az" && "Sorted A–Z"}
+          {sort === "position" && "Sorted by table position"}
+          {" · green ring = home, red ring = away"}
         </p>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-zinc-500">Window</span>
@@ -106,6 +111,36 @@ export function FdrMatrix({
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search team…"
+          className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+        />
+        <label className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
+          Sort
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortOrder)}
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+          >
+            {(Object.keys(SORT_LABELS) as SortOrder[]).map((s) => (
+              <option key={s} value={s} disabled={s === "position" && !positionsKnown}>
+                {SORT_LABELS[s]}
+                {s === "position" && !positionsKnown ? " (not published yet)" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        {sort === "position" && !positionsKnown && (
+          <span className="text-xs text-zinc-500">
+            FPL hasn&apos;t published table positions yet — showing GW1 order instead.
+          </span>
+        )}
       </div>
 
       {/* Legend */}
@@ -183,6 +218,13 @@ export function FdrMatrix({
                 })}
               </tr>
             ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={gwCols.length + 2} className="px-3 py-6 text-center text-zinc-500">
+                  No team matches &quot;{search}&quot;.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

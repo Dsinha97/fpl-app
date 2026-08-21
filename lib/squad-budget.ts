@@ -14,7 +14,7 @@
 // Gems made with the video's literal percentile thresholds (see
 // docs/wiki/hidden-gems.md): keep the shape of the idea, derive the number.
 
-import type { PlayerMeta, SquadRules, TeamState } from "./team-state";
+import { hasConsistentLineup, type PlayerMeta, type SquadRules, type TeamState } from "./team-state";
 import type { LineupResult } from "./lineup";
 
 /** The one implementation of "money spent on a set of picks" — see
@@ -62,7 +62,8 @@ export interface SquadBudget {
  * and silently pricing the missing id at 0 would understate `benchSpend`
  * without ever surfacing that anything was wrong — exactly the kind of
  * quietly-shrunken number CLAUDE.md's "drop, renormalise, disclose" rule
- * exists to prevent.
+ * exists to prevent. Used for the `lineup` fallback only; `state`'s own
+ * arrays are checked by the shared `hasConsistentLineup` below.
  */
 function isValidSplit(state: TeamState, starters: number[], bench: number[]): boolean {
   const combined = [...starters, ...bench];
@@ -75,10 +76,8 @@ function resolveSplit(
   state: TeamState,
   lineup?: LineupResult | null,
 ): { starters: number[]; bench: number[] } | null {
-  if (state.startingXI.length > 0 && state.benchOrder.length > 0) {
-    if (isValidSplit(state, state.startingXI, state.benchOrder)) {
-      return { starters: state.startingXI, bench: state.benchOrder };
-    }
+  if (hasConsistentLineup(state)) {
+    return { starters: state.startingXI, bench: state.benchOrder };
   }
   if (lineup && isValidSplit(state, lineup.starters, lineup.bench)) {
     return { starters: lineup.starters, bench: lineup.bench };

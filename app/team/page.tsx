@@ -1,13 +1,13 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { CountryFlag, flagCode, SeasonsBadge, TeamCrest } from "@/components/identity";
 import { ManagerProfileCard, RivalTable } from "@/components/manager-profile-card";
+import { ManagerLeagues, type ManagerLeagueRow } from "@/components/manager-leagues";
 import { PitchView, type SquadLayout } from "@/components/pitch-view";
 import type { PlayerData } from "@/components/player-card";
 import { loadSquadHeadlines, type NewsHeadline } from "@/lib/news-feed";
@@ -20,7 +20,7 @@ import {
   type RivalRow,
 } from "@/lib/manager-profile";
 import { IMPORTED_SQUAD_NOTE, importedDraftName, teamStateFromPicks } from "@/lib/fpl-squad";
-import { listDrafts, resolveRequestedDraft, saveDraft, uniqueDraftName } from "@/lib/drafts";
+import { saveDraft, uniqueDraftName } from "@/lib/drafts";
 import {
   layoutFromPicks,
   loadEventPoints,
@@ -31,8 +31,7 @@ import {
   type SquadPoints,
 } from "@/lib/manager-picks";
 import { loadSeasonContext } from "@/lib/season-context";
-import { DEFAULT_RULES, type PlayerMeta, type SquadRules, type TeamState } from "@/lib/team-state";
-import { squadBudget } from "@/lib/squad-budget";
+import { DEFAULT_RULES, type SquadRules } from "@/lib/team-state";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { useAuth } from "@/components/auth-provider";
 
@@ -248,12 +247,10 @@ export default function TeamPage() {
   const [data, setData] = useState<TeamData | null>(null);
   const [importing, setImporting] = useState(false);
 
-  const { user, loading: authLoading, entryId: linkedEntryId, teamName: linkedTeamName, profileLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   // Squad section: which of the two views, and which gameweek in the second.
-  const [squadMode, setSquadMode] = useState<"current" | "gw">("current");
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
-  const [importedDraft, setImportedDraft] = useState<TeamState | null>(null);
   const [eventPoints, setEventPoints] = useState<Map<number, ActualPoints>>(new Map());
   const [eventProvisional, setEventProvisional] = useState(false);
   const [pointsLoading, setPointsLoading] = useState(false);
@@ -567,93 +564,43 @@ export default function TeamPage() {
     }
   }, [data, router]);
 
-  // ------------------------------------------------------------ squad view
-  //
-  // The squad shown by default is the one imported from FPL — real purchase
-  // prices, and what the owner actually entered — matched to this manager by
-  // entry id, falling back to the import naming rule (lib/fpl-squad.ts) for
-  // squads imported before entry ids were recorded. Same resolution as
-  // /deadline, so the two pages never disagree about "my squad".
-  useEffect(() => {
-    if (profileLoading) return;
-    const list = listDrafts().filter((d) => d.source === "fpl");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setImportedDraft(
-      resolveRequestedDraft(list, "", { entryId: linkedEntryId, teamName: linkedTeamName }) ?? null,
-    );
-  }, [linkedEntryId, linkedTeamName, profileLoading]);
-
-  /**
-   * The current squad, as a TeamState the pitch can render.
-   *
-   * The import wins; without one, the latest `manager_picks` gameweek is
-   * turned into the same shape by the same constructor the Import button
-   * uses — but deliberately **not** saved. Looking at a squad should never
-   * silently create a draft.
-   */
-  const currentSquad: { state: TeamState; from: "import" | "picks" } | null = useMemo(() => {
-    if (importedDraft) return { state: importedDraft, from: "import" };
-    if (!data || data.picks.length === 0) return null;
-    const latestEvent = data.picks[0].event;
-    const gw = data.gwHistory.find((g) => g.event === latestEvent);
-    return {
-      state: teamStateFromPicks(
-        data.picks,
-        (id) => data.players.get(id)?.now_cost ?? undefined,
-        {
-          entryId: data.manager.entry_id,
-          event: latestEvent,
-          activeChip: gw?.active_chip ?? null,
-          bank: data.manager.last_deadline_bank,
-          value: data.manager.last_deadline_value,
-        },
-        data.rules,
-        data.manager.team_name ?? `Entry ${data.manager.entry_id}`,
-      ),
-      from: "picks",
-    };
-  }, [importedDraft, data]);
-
   // ------------------------------------------------------------- headlines
   //
   // One squad-wide query for confident RSS links (Sprint 20), so the pitch's
   // PlayerDetail popover can show "In the news" without each panel fetching
   // its own data — same shared-query shape as /deadline's team-news strip.
+  // Keyed off the most recent picks (`data.picks`), the same source the
+  // Squad list section below uses, rather than the gameweek currently being
+  // viewed — headlines are supplementary context, not worth a refetch on
+  // every gameweek change in the selector.
   const [headlinesByCode, setHeadlinesByCode] = useState<Map<number, NewsHeadline[]>>(new Map());
   useEffect(() => {
-    if (!currentSquad || !data) return;
-    const codes = currentSquad.state.players
-      .map((p) => data.players.get(p.playerId)?.code)
+    if (!data || data.picks.length === 0) return;
+    const codes = data.picks
+      .map((p) => data.players.get(p.element)?.code)
       .filter((c): c is number => c !== undefined);
     if (codes.length === 0) return;
     loadSquadHeadlines(supabase, codes).then(setHeadlinesByCode);
-  }, [currentSquad, data]);
+  }, [data]);
 
-  const metaList = useMemo<PlayerMeta[]>(
-    () =>
-      data
-        ? [...data.players.values()].map((p) => ({
-            id: p.id,
-            elementType: p.element_type,
-            teamId: p.team_id,
-            nowCost: p.now_cost ?? 0,
-            webName: p.web_name ?? "",
-          }))
-        : [],
-    [data],
-  );
-  const metaByIdForBudget = useMemo(() => new Map(metaList.map((p) => [p.id, p])), [metaList]);
-  const lookupForBudget = useCallback(
-    (id: number) => metaByIdForBudget.get(id),
-    [metaByIdForBudget],
-  );
-
-  /** Effective XI budget for the current squad — only shown when the
-   *  imported/derived TeamState carries a valid XI/bench split. */
-  const currentBudget = useMemo(() => {
-    if (!currentSquad || !data) return null;
-    return squadBudget(currentSquad.state, data.rules, lookupForBudget, metaList);
-  }, [currentSquad, data, lookupForBudget, metaList]);
+  // --------------------------------------------------------------- leagues
+  //
+  // entry.leagues.classic (Sprint 21) — already synced onto managers.raw by
+  // sync-manager on every connect, promoted into its own table
+  // (manager_leagues) so this is one small query rather than parsing jsonb.
+  const [leagues, setLeagues] = useState<ManagerLeagueRow[]>([]);
+  useEffect(() => {
+    const entryId = data?.manager.entry_id;
+    if (!entryId) return;
+    (async () => {
+      const { data: rows } = await supabase
+        .from("manager_leagues")
+        .select("league_id, name, league_type, entry_rank, entry_last_rank, rank_count")
+        .eq("entry_id", entryId)
+        .order("name");
+      setLeagues((rows ?? []) as ManagerLeagueRow[]);
+    })();
+  }, [data?.manager.entry_id]);
 
   /** Gameweeks with picks, newest first — what the selector offers. */
   const pickedEvents = useMemo(
@@ -671,7 +618,7 @@ export default function TeamPage() {
   // season up front — a season's worth of per-fixture rows for every player
   // ever picked is a few thousand, and most of them are never displayed.
   useEffect(() => {
-    if (squadMode !== "gw" || selectedEvent === null || !data?.nextGw) return;
+    if (selectedEvent === null || !data?.nextGw) return;
     const picks = data.picksByEvent.get(selectedEvent);
     if (!picks) return;
 
@@ -698,7 +645,7 @@ export default function TeamPage() {
     return () => {
       cancelled = true;
     };
-  }, [squadMode, selectedEvent, data]);
+  }, [selectedEvent, data]);
 
   /** Shared card mapping for both views — the two differ only in the number they carry. */
   const toCard = useCallback(
@@ -739,36 +686,6 @@ export default function TeamPage() {
     [data, headlinesByCode],
   );
 
-  const currentCards: PlayerData[] = useMemo(() => {
-    if (!currentSquad) return [];
-    return currentSquad.state.players.flatMap((p) => {
-      const card = toCard(p.playerId, {
-        value: data?.xp1.get(p.playerId) ?? null,
-        valueNote: "Expected points, next gameweek",
-        decimals: 1,
-        isCaptain: currentSquad.state.captain === p.playerId,
-        isVice: currentSquad.state.viceCaptain === p.playerId,
-      });
-      return card ? [card] : [];
-    });
-  }, [currentSquad, toCard, data]);
-
-  const currentLayout: SquadLayout | null = useMemo(() => {
-    if (!currentSquad || !data) return null;
-    const { startingXI, benchOrder } = currentSquad.state;
-    if (startingXI.length !== 11) return null;
-    const typeOf = (id: number) => data.players.get(id)?.element_type;
-    const count = (type: number) => startingXI.filter((id) => typeOf(id) === type).length;
-    const xiXp = startingXI.reduce((sum, id) => sum + (data.xp1.get(id) ?? 0), 0);
-    return {
-      starters: startingXI,
-      bench: benchOrder,
-      formation: `${count(2)}-${count(3)}-${count(4)}`,
-      // Not a projection of auto-subs — this is the squad as entered.
-      subProbability: new Map(),
-      benchSummary: `your XI ${xiXp.toFixed(1)} xP next gameweek`,
-    };
-  }, [currentSquad, data]);
 
   const gwPicks = useMemo(
     () => (data && selectedEvent !== null ? (data.picksByEvent.get(selectedEvent) ?? null) : null),
@@ -1039,122 +956,46 @@ export default function TeamPage() {
           </section>
 
           {/* ---------------------------------------------- squad view */}
-          {data && (currentSquad || pickedEvents.length > 0) && (
+          {/*
+            This used to offer a "Current squad" mode too — TeamState.players
+            derived straight from the import/latest-picks, shown regardless
+            of whether startingXI/benchOrder still matched it. That split
+            could go stale after a transfer (see hasConsistentLineup in
+            lib/team-state.ts) and PitchView silently dropped whichever
+            players it couldn't place, rendering a short squad with no error.
+            The real picks a gameweek was actually played with — this
+            section's only remaining mode — don't carry that risk, since
+            FPL publishes them as an already-consistent XI/bench. See
+            docs/wiki/frontend-conventions.md.
+          */}
+          {data && (
             <section className="mt-8">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
                   Squad view
                 </h2>
 
-                {/*
-                  Two views of the same team: what you have now, and what you
-                  put out in a given gameweek. A radio group rather than a
-                  boolean switch — the second view carries its own gameweek
-                  choice, and hiding that behind a toggle state would make the
-                  thing on screen ambiguous. Matches the segmented control in
-                  components/account-menu.tsx.
-                */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <div
-                    role="radiogroup"
-                    aria-label="Which squad to show"
-                    className="flex items-center gap-1 rounded-md border border-zinc-200 p-0.5 dark:border-purple-900/40"
-                  >
-                    {([
-                      ["current", "Current squad"],
-                      ["gw", "Gameweek result"],
-                    ] as const).map(([mode, label]) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        role="radio"
-                        aria-checked={squadMode === mode}
-                        disabled={mode === "gw" && pickedEvents.length === 0}
-                        onClick={() => setSquadMode(mode)}
-                        className={`rounded px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                          squadMode === mode
-                            ? "border border-purple-600 bg-purple-50 text-purple-800 dark:border-[#00FF87] dark:bg-[#00FF87]/10 dark:text-[#00FF87]"
-                            : "border border-transparent text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Hidden entirely pre-GW1 rather than shown empty. */}
-                  {squadMode === "gw" && pickedEvents.length > 0 && (
-                    <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-                      Gameweek
-                      <select
-                        value={selectedEvent ?? ""}
-                        onChange={(e) => setSelectedEvent(Number(e.target.value))}
-                        className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
-                      >
-                        {pickedEvents.map((event) => (
-                          <option key={event} value={event}>
-                            GW{event}
-                            {data.finishedEvents.has(event) ? "" : " (live)"}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                </div>
+                {/* Hidden entirely pre-GW1 rather than shown empty. */}
+                {pickedEvents.length > 0 && (
+                  <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+                    Gameweek
+                    <select
+                      value={selectedEvent ?? ""}
+                      onChange={(e) => setSelectedEvent(Number(e.target.value))}
+                      className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                    >
+                      {pickedEvents.map((event) => (
+                        <option key={event} value={event}>
+                          GW{event}
+                          {data.finishedEvents.has(event) ? "" : " (live)"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
               </div>
 
-              {squadMode === "current" && currentSquad && (
-                <>
-                  <PitchView
-                    squad={currentCards}
-                    quota={data.rules.positionQuota}
-                    layout={currentLayout}
-                  />
-                  {currentBudget?.splitKnown && (
-                    <p className="mt-2 text-xs text-zinc-500">
-                      XI £{(currentBudget.xiSpend! / 10).toFixed(1)}m · bench £
-                      {(currentBudget.benchSpend! / 10).toFixed(1)}m
-                      {currentBudget.benchSurplus! > 0 && (
-                        <span className="text-amber-700 dark:text-amber-400">
-                          {" "}
-                          (£{(currentBudget.benchSurplus! / 10).toFixed(1)}m above the cheapest legal bench)
-                        </span>
-                      )}
-                    </p>
-                  )}
-                  <p className="mt-2 text-xs text-zinc-500">
-                    {currentSquad.from === "import" ? (
-                      <>
-                        From your imported squad{" "}
-                        <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                          {currentSquad.state.name}
-                        </span>{" "}
-                        — real purchase prices.{" "}
-                        <Link
-                          href={`/builder/?draft=${currentSquad.state.draftId}`}
-                          className="text-purple-800 underline dark:text-[#00FF87]"
-                        >
-                          Open in Builder
-                        </Link>
-                      </>
-                    ) : (
-                      <>
-                        <InfoTooltip label="About this squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>{" "}
-                        Built from FPL&apos;s published picks — not saved as a draft.{" "}
-                        <a
-                          href="/settings/?tab=import"
-                          className="text-purple-800 underline dark:text-[#00FF87]"
-                        >
-                          Import your squad
-                        </a>{" "}
-                        for real purchase prices.
-                      </>
-                    )}
-                  </p>
-                </>
-              )}
-
-              {squadMode === "current" && !currentSquad && (
+              {pickedEvents.length === 0 && (
                 <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-[#1E0234]">
                   No squad to show yet — FPL publishes picks after the first deadline.{" "}
                   <a
@@ -1167,35 +1008,27 @@ export default function TeamPage() {
                 </p>
               )}
 
-              {squadMode === "gw" && (
-                <>
-                  {pointsError && (
-                    <p className="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-                      {pointsError}
-                    </p>
-                  )}
-                  {pointsLoading && <p className="mt-3 text-sm text-zinc-500">Loading points…</p>}
-                  {!pointsLoading && gwLayout && (
-                    <PitchView
-                      squad={gwCards}
-                      quota={data.rules.positionQuota}
-                      layout={gwLayout}
-                    />
-                  )}
-                  {!pointsLoading && gwScore && selectedEvent !== null && (
-                    <GameweekSummary
-                      event={selectedEvent}
-                      score={gwScore}
-                      history={data.gwHistory.find((g) => g.event === selectedEvent) ?? null}
-                      captainName={
-                        gwScore.captain
-                          ? (data.players.get(gwScore.captain.element)?.web_name ?? "Captain")
-                          : null
-                      }
-                      provisional={eventProvisional || !data.finishedEvents.has(selectedEvent)}
-                    />
-                  )}
-                </>
+              {pointsError && (
+                <p className="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+                  {pointsError}
+                </p>
+              )}
+              {pointsLoading && <p className="mt-3 text-sm text-zinc-500">Loading points…</p>}
+              {!pointsLoading && gwLayout && (
+                <PitchView squad={gwCards} quota={data.rules.positionQuota} layout={gwLayout} />
+              )}
+              {!pointsLoading && gwScore && selectedEvent !== null && (
+                <GameweekSummary
+                  event={selectedEvent}
+                  score={gwScore}
+                  history={data.gwHistory.find((g) => g.event === selectedEvent) ?? null}
+                  captainName={
+                    gwScore.captain
+                      ? (data.players.get(gwScore.captain.element)?.web_name ?? "Captain")
+                      : null
+                  }
+                  provisional={eventProvisional || !data.finishedEvents.has(selectedEvent)}
+                />
               )}
             </section>
           )}
@@ -1399,6 +1232,16 @@ export default function TeamPage() {
                   </tbody>
                 </table>
               </div>
+            </section>
+          )}
+
+          {/* -------------------------------------------------- leagues */}
+          {leagues.length > 0 && (
+            <section className="mt-8">
+              <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+                Your Leagues
+              </h2>
+              <ManagerLeagues leagues={leagues} />
             </section>
           )}
 

@@ -477,18 +477,63 @@ export function sameSquadState(a: TeamState, b: TeamState): boolean {
   );
 }
 
+/**
+ * True when `startingXI`/`benchOrder` exactly reconstitute `players` — 11
+ * starters, everyone else on the bench once each, nobody missing or
+ * duplicated. Callers that render or price a lineup should check this rather
+ * than just `startingXI.length === 11`, which passes even when the array
+ * holds a stale id: caught on a real draft where `startingXI` named a player
+ * no longer in `players` at all, and the length check alone let it through
+ * silently (see docs/wiki/frontend-conventions.md).
+ *
+ * The one implementation of this check — `/deadline` and `squadBudget`
+ * (lib/squad-budget.ts) each carried their own copy before this existed.
+ */
+export function hasConsistentLineup(state: TeamState): boolean {
+  const { startingXI, benchOrder, players } = state;
+  if (startingXI.length !== 11) return false;
+  if (benchOrder.length !== players.length - 11) return false;
+
+  const combined = [...startingXI, ...benchOrder];
+  if (combined.length !== new Set(combined).size) return false; // no id placed twice
+
+  const squadIds = new Set(players.map((p) => p.playerId));
+  return combined.length === squadIds.size && combined.every((id) => squadIds.has(id));
+}
+
 export function addPlayer(state: TeamState, meta: PlayerMeta): TeamState {
+  const players = [...state.players, { playerId: meta.id, purchasePrice: meta.nowCost }];
+  // A player added while no explicit lineup exists stays unplaced — that's
+  // "let the optimiser decide", not a bench slot. Once a lineup *has* been
+  // set, though, leaving the new player off both arrays is exactly the drift
+  // this function used to cause: `startingXI`/`benchOrder` would then have
+  // fewer ids than `players`, and hasConsistentLineup would (correctly) call
+  // the whole lineup stale from this point on. New picks join the bench,
+  // which is always legal to append to.
+  const hadLineup = state.startingXI.length > 0 && state.benchOrder.length > 0;
   return {
     ...state,
-    players: [...state.players, { playerId: meta.id, purchasePrice: meta.nowCost }],
+    players,
+    benchOrder: hadLineup ? [...state.benchOrder, meta.id] : state.benchOrder,
     updatedAt: new Date().toISOString(),
   };
 }
 
 export function removePlayer(state: TeamState, playerId: number): TeamState {
+  const players = state.players.filter((p) => p.playerId !== playerId);
+  const startingXI = state.startingXI.filter((id) => id !== playerId);
+  const benchOrder = state.benchOrder.filter((id) => id !== playerId);
+  // Removing a starter breaks the 11-a-side XI; removing anyone breaks the
+  // bench's 1:1 match with the remaining squad. Either way the split is no
+  // longer consistent, and a 10-man "XI" is worse to display than no XI at
+  // all — every consumer (PitchView, squadBudget) already has a documented
+  // fallback for "no explicit lineup set".
+  const stillConsistent = startingXI.length === 11 && benchOrder.length === players.length - 11;
   return {
     ...state,
-    players: state.players.filter((p) => p.playerId !== playerId),
+    players,
+    startingXI: stillConsistent ? startingXI : [],
+    benchOrder: stillConsistent ? benchOrder : [],
     captain: state.captain === playerId ? null : state.captain,
     viceCaptain: state.viceCaptain === playerId ? null : state.viceCaptain,
     updatedAt: new Date().toISOString(),

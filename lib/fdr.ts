@@ -78,3 +78,86 @@ export const venueRing = (home: boolean): string =>
   home
     ? "ring-2 ring-offset-1 ring-green-400 ring-offset-white dark:ring-offset-[#1E0234]"
     : "ring-2 ring-offset-1 ring-red-400 ring-offset-white dark:ring-offset-[#1E0234]";
+
+// ------------------------------------------------------- fixture windows
+//
+// The fixture -> per-team-per-gameweek mapping (Sprint 21), extracted out of
+// FdrMatrix so the /fixtures Table tab's next-5 strip uses the exact same
+// blanks/doubles handling as the FDR matrix rather than a second copy
+// (CLAUDE.md: one quantity, one implementation).
+
+export interface FdrCell {
+  opp: string;
+  home: boolean;
+  fdr: number;
+}
+
+export interface FdrTeamRef {
+  id: number;
+  short_name: string;
+}
+
+export interface FdrFixtureRef {
+  event: number | null;
+  team_h: number;
+  team_a: number;
+  team_h_difficulty: number | null;
+  team_a_difficulty: number | null;
+}
+
+/**
+ * For each team, a map of gameweek -> that gameweek's fixture(s) across a
+ * window of `windowSize` gameweeks starting at `fromGw` (capped at GW38).
+ * A blank gameweek is simply absent from the inner map; a double has 2+
+ * entries.
+ */
+export function fixtureCellsByTeam(
+  teams: FdrTeamRef[],
+  fixtures: FdrFixtureRef[],
+  fromGw: number | null,
+  windowSize: number,
+): { gwCols: number[]; byTeam: Map<number, Map<number, FdrCell[]>> } {
+  if (fromGw === null) return { gwCols: [], byTeam: new Map() };
+
+  const lastGw = Math.min(fromGw + windowSize - 1, 38);
+  const gwCols: number[] = [];
+  for (let g = fromGw; g <= lastGw; g++) gwCols.push(g);
+
+  const shortOf = new Map(teams.map((t) => [t.id, t.short_name]));
+  const byTeam = new Map<number, Map<number, FdrCell[]>>();
+
+  for (const f of fixtures) {
+    if (f.event === null || f.event < fromGw || f.event > lastGw) continue;
+
+    const push = (teamId: number, cell: FdrCell) => {
+      if (!byTeam.has(teamId)) byTeam.set(teamId, new Map());
+      const m = byTeam.get(teamId)!;
+      if (!m.has(f.event!)) m.set(f.event!, []);
+      m.get(f.event!)!.push(cell);
+    };
+
+    push(f.team_h, {
+      opp: shortOf.get(f.team_a) ?? "?",
+      home: true,
+      fdr: f.team_h_difficulty ?? 3,
+    });
+    push(f.team_a, {
+      opp: shortOf.get(f.team_h) ?? "?",
+      home: false,
+      fdr: f.team_a_difficulty ?? 3,
+    });
+  }
+
+  return { gwCols, byTeam };
+}
+
+/** Mean FDR across `gwCols` for one team, or null when it has no fixtures in the window. */
+export function averageFdr(
+  byTeam: Map<number, Map<number, FdrCell[]>>,
+  teamId: number,
+  gwCols: number[],
+): number | null {
+  const cells = byTeam.get(teamId) ?? new Map<number, FdrCell[]>();
+  const fdrs = gwCols.flatMap((g) => (cells.get(g) ?? []).map((c) => c.fdr));
+  return fdrs.length > 0 ? fdrs.reduce((a, b) => a + b, 0) / fdrs.length : null;
+}

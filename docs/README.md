@@ -39,6 +39,7 @@ file, not separate files.
 | [sprints/sprint-19.md](sprints/sprint-19.md) | live | Design system & interaction feedback — font/focus/freeze fixes, card hierarchy, xP promoted to the dominant number. |
 | [sprints/rivals-and-card-density.md](sprints/rivals-and-card-density.md) | live | Rivals sync-before-write + this-season tab fix on `/team`; `CollapsibleCard` primitive repacks `/deadline`, `/transfers`, `/chips`. |
 | [sprints/sprint-20.md](sprints/sprint-20.md) | live | RSS News Ingestion — `sync-news`, table-driven `news_sources`, tiered entity resolution, `/news` (renamed from `/changes`) Feeds tab, player-panel headlines, `/deadline` team-news strip. |
+| [sprints/sprint-21.md](sprints/sprint-21.md) | live | Fixed `/team`'s stale-XI player-dropping bug at the root (`hasConsistentLineup`), removed the broken "Current squad" mode, added a leagues list (`manager_leagues`), FDR search/sort, and a Premier League Table tab on `/fixtures`. |
 
 ## Source specs
 

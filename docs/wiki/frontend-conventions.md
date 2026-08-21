@@ -16,6 +16,19 @@ draft is this manager's own import?" survives a rename; see
 [fpl-authentication.md](fpl-authentication.md) for the naming rule and
 [deadline-and-matchday.md](deadline-and-matchday.md) for what it defaults.
 
+**`startingXI`/`benchOrder` can drift from `players` — always check `hasConsistentLineup`
+before trusting them, never just `startingXI.length === 11`.** Neither `addPlayer` nor
+`removePlayer` used to touch the XI/bench split at all, so a transfer could leave `startingXI`
+naming a player no longer in `players`, or a removed player still occupying a bench slot. A
+length check alone passes on a stale array — only `hasConsistentLineup(state)`
+(`lib/team-state.ts`) actually verifies `startingXI ∪ benchOrder === players` with no id
+missing or duplicated. `PitchView` silently drops whichever ids it can't place rather than
+erroring, so the failure mode is a squad that quietly renders short, not a crash — caught on
+a real draft (Sprint 21) where this had already happened. `addPlayer`/`removePlayer` now keep
+the split consistent going forward, and `lib/drafts.ts`'s `readAll()` sanitizes (clears both
+arrays) any draft that already isn't, on every read — so a stale draft heals itself rather than
+needing a migration.
+
 ## One pitch component for a projection or a known XI
 
 `PitchView` (`components/pitch-view.tsx`) draws a `SquadLayout` — starters, bench, formation, a

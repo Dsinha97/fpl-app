@@ -118,6 +118,34 @@ Deno.serve(async (req) => {
       counts.managers = 1;
     }
 
+    // -------------------------------------------------------------- leagues
+    // entry.leagues.classic rides on the same payload already fetched above
+    // — no second FPL call. h2h leagues are not modelled; nothing in this
+    // app scores anything but classic points.
+
+    {
+      const classic = entry.leagues?.classic ?? [];
+      if (classic.length > 0) {
+        const { error } = await db.from("manager_leagues").upsert(
+          classic.map((l) => ({
+            entry_id: entryId,
+            league_id: l.id,
+            name: str(l.name),
+            league_type: l.league_type,
+            scoring: str(l.scoring),
+            start_event: int(l.start_event),
+            entry_rank: int(l.entry_rank),
+            entry_last_rank: int(l.entry_last_rank),
+            rank_count: int(l.rank_count),
+            synced_at: new Date().toISOString(),
+          })),
+          { onConflict: "entry_id,league_id" },
+        );
+        if (error) throw new Error(`manager_leagues: ${error.message}`);
+      }
+      counts.leagues = classic.length;
+    }
+
     // ------------------------------------------------------- season history
 
     if (history.past.length > 0) {

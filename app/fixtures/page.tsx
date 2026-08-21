@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { FdrMatrix } from "@/components/fdr-matrix";
+import { LeagueTable, type StandingsTeam } from "@/components/league-table";
 import {
   FixtureSchedule,
   localZone,
   type ScheduleFixture,
   type ScheduleGameweek,
-  type ScheduleTeam,
 } from "@/components/fixture-schedule";
 import { ClubTacticsGrid, type ClubTactics } from "@/components/club-tactics";
 import { toTacticalProfile, type PlManagerRow } from "@/lib/tactical-profile";
@@ -19,10 +19,10 @@ interface FixtureRow extends ScheduleFixture {
   team_a_difficulty: number | null;
 }
 
-type Tab = "schedule" | "fdr" | "clubs";
+type Tab = "schedule" | "fdr" | "table" | "clubs";
 
 export default function FixturesPage() {
-  const [teams, setTeams] = useState<ScheduleTeam[]>([]);
+  const [teams, setTeams] = useState<StandingsTeam[]>([]);
   const [fixtures, setFixtures] = useState<FixtureRow[]>([]);
   const [gameweeks, setGameweeks] = useState<ScheduleGameweek[]>([]);
   const [nextGw, setNextGw] = useState<number | null>(null);
@@ -46,7 +46,9 @@ export default function FixturesPage() {
         const [teamsRes, fixturesRes, gwsRes, managersRes] = await Promise.all([
           supabase
             .from("teams")
-            .select("id, code, name, short_name, tactical_manager_id")
+            .select(
+              "id, code, name, short_name, tactical_manager_id, position, played, win, draw, loss, points, form",
+            )
             .eq("season", gw.season)
             .order("name"),
           // No event filter: the schedule tab shows completed gameweeks too.
@@ -75,7 +77,7 @@ export default function FixturesPage() {
         if (gwsRes.error) throw new Error(gwsRes.error.message);
         if (managersRes.error) throw new Error(managersRes.error.message);
 
-        const teamRows = (teamsRes.data ?? []) as (ScheduleTeam & {
+        const teamRows = (teamsRes.data ?? []) as (StandingsTeam & {
           tactical_manager_id: string | null;
         })[];
         setTeams(teamRows);
@@ -138,6 +140,7 @@ export default function FixturesPage() {
       <div className="mt-4 flex gap-1 rounded-lg border border-zinc-200 p-1 dark:border-purple-900/40">
         {tabButton("schedule", "Schedule", "✓")}
         {tabButton("fdr", "FDR", "▦")}
+        {tabButton("table", "Table", "≡")}
         {tabButton("clubs", "Clubs", "🎽")}
       </div>
 
@@ -165,6 +168,10 @@ export default function FixturesPage() {
 
       {!loading && !error && tab === "fdr" && (
         <FdrMatrix teams={teams} fixtures={fixtures} nextGw={nextGw} />
+      )}
+
+      {!loading && !error && tab === "table" && (
+        <LeagueTable teams={teams} fixtures={fixtures} nextGw={nextGw} />
       )}
 
       {!loading && !error && tab === "clubs" && (

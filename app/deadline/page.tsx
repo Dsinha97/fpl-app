@@ -18,6 +18,7 @@ import { planTransferPath, type TransferPathResult } from "@/lib/transfer-path";
 import { chipContextFor, validateChipPlan, type ChipDefinitionRow } from "@/lib/chip-plan";
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
 import {
+  hasConsistentLineup,
   HORIZONS,
   horizonLabel,
   horizonLength,
@@ -607,12 +608,7 @@ export default function DeadlinePage() {
     if (!team || !ctx) return null;
     if (!lineup) return null;
 
-    const xiSet = new Set(team.startingXI);
-    const usable =
-      team.startingXI.length === 11 &&
-      team.benchOrder.length === team.players.length - 11 &&
-      team.players.every((p) => xiSet.has(p.playerId) || team.benchOrder.includes(p.playerId));
-    if (!usable) return layoutFromLineup(lineup);
+    if (!hasConsistentLineup(team)) return layoutFromLineup(lineup);
 
     const typeOf = (id: number) => rowById.get(id)?.element_type;
     const count = (type: number) =>

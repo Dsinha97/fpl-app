@@ -46,3 +46,9 @@ One line per entry, most recent first.
   feed-reality-check findings, tiered entity resolution, where headlines surface, gotchas),
   linked from `index.md`'s Platform section. Updated `data-pipeline.md` to point at it and note
   `change_feed`/`news_feed` are deliberately separate views.
+- 2026-08-21 — Sprint 21 (squad-view fix, leagues, FDR sort, league table) ingested:
+  `frontend-conventions.md`'s `TeamState` section gained the `hasConsistentLineup` invariant —
+  the root cause of `/team` dropping squad players and why a length check alone isn't enough.
+  No new page; the leagues/FDR/table additions are UI-surface work already covered by
+  `docs/sprints/sprint-21.md` and didn't change any engine or data-model concept this wiki
+  tracks.

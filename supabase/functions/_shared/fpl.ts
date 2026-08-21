@@ -107,12 +107,29 @@ export const getBootstrap = () => fplFetch<Bootstrap>("/bootstrap-static/");
 
 // -------------------------------------------------------- manager entry
 
+export interface EntryLeague {
+  id: number;
+  name: string;
+  /** 's' = system (general/broadcaster leagues FPL creates), 'x' = invitational (code-joined). */
+  league_type: string;
+  scoring: string;
+  start_event: number;
+  entry_rank: number | null;
+  entry_last_rank: number | null;
+  rank_count: number | null;
+  [k: string]: unknown;
+}
+
 export interface Entry {
   id: number;
   name: string;
   player_first_name: string | null;
   player_last_name: string | null;
   entered_events: number[];
+  leagues?: {
+    classic?: EntryLeague[];
+    [k: string]: unknown;
+  };
   [k: string]: unknown;
 }
 

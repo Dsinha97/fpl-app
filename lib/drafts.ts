@@ -1,6 +1,6 @@
 import { isImportedDraftFor } from "./fpl-squad";
 import { totalSpend } from "./squad-budget";
-import type { TeamState } from "./team-state";
+import { hasConsistentLineup, type TeamState } from "./team-state";
 
 // Draft persistence.
 //
@@ -48,7 +48,21 @@ function readAll(): TeamState[] {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as TeamState[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    // One-off repair, on every read, for drafts saved before addPlayer/
+    // removePlayer kept startingXI/benchOrder in sync with players (see
+    // hasConsistentLineup, lib/team-state.ts) — real data had a draft whose
+    // XI named a player no longer in the squad at all. A stale split is
+    // worse than none: PitchView drops whichever players it can't place
+    // rather than erroring, so the squad silently looked short. Clearing
+    // just the XI/bench assignment is data-preserving (every player stays)
+    // and every consumer already has a documented "no explicit lineup set"
+    // fallback. Read-only — nothing is written back here, so this can't
+    // fight with a save in progress; the correction is naturally persisted
+    // the next time the draft is actually saved.
+    return (parsed as TeamState[]).map((d) =>
+      hasConsistentLineup(d) ? d : { ...d, startingXI: [], benchOrder: [] },
+    );
   } catch {
     // A corrupt blob should not take the page down; treat it as no drafts.
     return [];
