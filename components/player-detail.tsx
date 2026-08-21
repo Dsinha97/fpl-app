@@ -6,6 +6,8 @@ import { AvailabilityBadge, RoleBadges } from "./player-status-icons";
 import { ConfidenceBadge, RateBand } from "./confidence-badge";
 import { Gw1Badge } from "./gw1-badge";
 import type { PlayerData } from "./player-card";
+import { ago } from "@/lib/change-feed";
+import { sourceBadge } from "@/lib/news-feed";
 
 const POSITION_NAME: Record<number, string> = {
   1: "Goalkeeper",
@@ -243,6 +245,36 @@ export function PlayerDetail({
           {player.news && <p className="mt-0.5 text-zinc-500">{player.news}</p>}
         </div>
       </div>
+
+      {/*
+        In the news — Sprint 20. Undefined hides the section entirely (same
+        convention as `reliability`/`system` above): the panel never fetches
+        its own headlines, only renders what the caller already queried for
+        the whole squad. Capped at 3 — this popover is 268px wide and already
+        dense, so this is a pointer to /news, not a reader.
+      */}
+      {player.headlines && player.headlines.length > 0 && (
+        <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
+          <div className="text-[10px] uppercase tracking-wide text-zinc-500">In the news</div>
+          <ul className="mt-1 space-y-1.5">
+            {player.headlines.slice(0, 3).map((h, i) => (
+              <li key={i}>
+                <a
+                  href={h.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="line-clamp-2 text-[11px] font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+                >
+                  {h.title}
+                </a>
+                <div className="text-[10px] text-zinc-500">
+                  {sourceBadge(h)} · {ago(h.published_at)}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* set-piece roles */}
       {(player.is_penalty_taker || player.is_freekick_taker || player.is_corner_taker) && (

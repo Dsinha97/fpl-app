@@ -15,6 +15,7 @@ import {
 import { projectionAtEvent } from "@/lib/transfer-optimizer";
 import { cloneDraft, deleteDraft, listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
+import { loadSquadHeadlines, type NewsHeadline } from "@/lib/news-feed";
 import {
   addPlayer,
   blockedReason,
@@ -444,6 +445,16 @@ export default function BuilderPage() {
   );
   /** A stable primitive key, so the fetch below only re-runs when the picks actually change. */
   const squadKey = squadIds.join(",");
+
+  // Confident RSS headlines (Sprint 20) for the squad, one query shared via
+  // lib/news-feed.ts rather than a second copy of /team's fetch.
+  const [headlinesByCode, setHeadlinesByCode] = useState<Map<number, NewsHeadline[]>>(new Map());
+  useEffect(() => {
+    const codes = squadIds.map((id) => rowById.get(id)?.code).filter((c): c is number => c !== undefined);
+    if (codes.length === 0) return;
+    loadSquadHeadlines(supabase, codes).then(setHeadlinesByCode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [squadKey, rowById]);
 
   const [squadEventRows, setSquadEventRows] = useState<Map<number, Map<number, SquadEventRow[]>>>(
     new Map(),
@@ -1012,6 +1023,7 @@ export default function BuilderPage() {
         // page's horizon so the ticker shows the run the numbers beside it
         // were computed over, capped at MAX_TICKER_GWS.
         upcoming: fixtures.slice(0, Math.min(MAX_TICKER_GWS, horizonLength(horizon, seasonWindow))),
+        headlines: headlinesByCode.get(row.code),
       };
     },
     [
@@ -1026,6 +1038,7 @@ export default function BuilderPage() {
       teamShort,
       tacticalByTeam,
       squadEventAgg,
+      headlinesByCode,
     ],
   );
 

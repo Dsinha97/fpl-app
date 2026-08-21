@@ -107,7 +107,11 @@ the incoming bootstrap against the last stored value and writes to
 `player_price_history`, `player_ownership_history`, `player_status_history`, and
 `player_news` only when something actually moved. Naively snapshotting 700 players every
 30 minutes would be ~7.8M rows a season; this is ~25k. `fixture_changes` does the same for
-kickoff times and results. The `change_feed` view unions them for `/changes`.
+kickoff times and results. The `change_feed` view unions them for `/news`. Sprint 20 adds a
+second, independent pipeline — `sync-news` ingests RSS headlines into `news_items`/
+`news_item_entities`, unioned by the `news_feed` view — surfaced on `/news`'s Feeds tab
+rather than merged into `change_feed`, since one is verified database fact and the other is
+third-party editorial with a probabilistic entity link.
 
 `player_predictions` stores one row per player per gameweek per model version;
 `prediction_models` records the version and parameters. Since **v1.1.0** each row also carries the
@@ -165,7 +169,7 @@ Static export, so no server components fetching at request time, no route handle
 | `/settings` | Account details (link a Manager ID) and Import squad (paste `my-team` JSON) tabs (Sprint 14.3). `/settings/fpl` is a redirect to `?tab=import`, kept for old links |
 | `/players` | Explorer: paginated, searchable, position/team/price filters |
 | `/fixtures` | Schedule and FDR matrix sub-tabs |
-| `/changes` | The `change_feed` view — prices, ownership, status, news, fixture changes |
+| `/news` | The `change_feed` view (prices, ownership, status, news, fixture changes) plus a Feeds tab over `news_feed` (RSS headlines, Sprint 20). Renamed from `/changes`, which redirects here |
 | `/builder` | Pitch UI, paginated picker, squad optimiser, lineup engine, replacement finder, per-gameweek planning dropdown |
 | `/scenarios` | Draft manager: SquadScore ranking, 2–4 draft comparison, save timeline |
 | `/transfers` | Weekly transfer plan, then basket simulation with hits and sell prices |

@@ -79,7 +79,7 @@ npm run build        # static export to out/ — must pass before pushing
 
 ## Project structure
 
-- `app/` — routes (`/` `/team` `/players` `/fixtures` `/changes` `/builder` `/scenarios`
+- `app/` — routes (`/` `/team` `/players` `/fixtures` `/news` `/builder` `/scenarios`
   `/transfers` `/compare` `/status`)
 - `lib/` — the model layer: `team-state.ts` plus the optimiser, lineup, scoring, squad-score,
   transfer and transfer-optimiser engines. All pure, so they are testable without React or network

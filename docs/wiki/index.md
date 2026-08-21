@@ -36,6 +36,7 @@ is maintained, and [log.md](log.md) for the edit history.
 | Page | What it covers |
 |---|---|
 | [data-pipeline.md](data-pipeline.md) | Edge Functions, cron cadence, change-detected snapshotting |
+| [news-feed.md](news-feed.md) | RSS ingestion, table-driven feed config, tiered player/club entity resolution, where headlines surface |
 | [database-and-rls.md](database-and-rls.md) | The two RLS shapes this schema uses, and how to verify a new policy |
 | [fpl-api-constraints.md](fpl-api-constraints.md) | Row caps, pre-season placeholder fields, asset URL shapes |
 | [fpl-authentication.md](fpl-authentication.md) | Why credential login is blocked, and the three generations of workaround |

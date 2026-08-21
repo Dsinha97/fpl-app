@@ -14,7 +14,7 @@ export const NAV = [
   { href: "/players", label: "Players" },
   { href: "/compare", label: "Compare" },
   { href: "/fixtures", label: "Fixtures" },
-  { href: "/changes", label: "Changes" },
+  { href: "/news", label: "News" },
   { href: "/status", label: "Status" },
 ] as const;
 

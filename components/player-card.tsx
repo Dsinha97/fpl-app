@@ -70,6 +70,14 @@ export interface PlayerData {
   gw1_tier?: "locked" | "medium" | "high" | null;
   gw1_in_predicted_xi?: boolean | null;
   gw1_note?: string | null;
+  /**
+   * Confident RSS headlines about this player (Sprint 20's news_feed view,
+   * lib/news-feed.ts's headlineFrom). Same convention as `reliability` —
+   * undefined hides the "In the news" section rather than the panel fetching
+   * its own data; only populated where the caller already queried the
+   * squad's headlines cheaply (currently /deadline, /team).
+   */
+  headlines?: import("@/lib/news-feed").NewsHeadline[];
 }
 
 interface PlayerCardProps {

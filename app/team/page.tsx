@@ -10,6 +10,7 @@ import { CountryFlag, flagCode, SeasonsBadge, TeamCrest } from "@/components/ide
 import { ManagerProfileCard, RivalTable } from "@/components/manager-profile-card";
 import { PitchView, type SquadLayout } from "@/components/pitch-view";
 import type { PlayerData } from "@/components/player-card";
+import { loadSquadHeadlines, type NewsHeadline } from "@/lib/news-feed";
 import {
   buildManagerProfile,
   buildSeasonToDate,
@@ -88,6 +89,7 @@ interface PickRow {
 
 interface PlayerRow {
   id: number;
+  code: number;
   web_name: string | null;
   now_cost: number | null;
   selected_by_percent: number | null;
@@ -451,7 +453,7 @@ export default function TeamPage() {
           const { data: playerRows } = await supabase
             .from("players")
             .select(
-              "id, web_name, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, element_type, team_id",
+              "id, code, web_name, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, element_type, team_id",
             )
             .eq("season", nextGw.season)
             .order("id")
@@ -612,6 +614,21 @@ export default function TeamPage() {
     };
   }, [importedDraft, data]);
 
+  // ------------------------------------------------------------- headlines
+  //
+  // One squad-wide query for confident RSS links (Sprint 20), so the pitch's
+  // PlayerDetail popover can show "In the news" without each panel fetching
+  // its own data — same shared-query shape as /deadline's team-news strip.
+  const [headlinesByCode, setHeadlinesByCode] = useState<Map<number, NewsHeadline[]>>(new Map());
+  useEffect(() => {
+    if (!currentSquad || !data) return;
+    const codes = currentSquad.state.players
+      .map((p) => data.players.get(p.playerId)?.code)
+      .filter((c): c is number => c !== undefined);
+    if (codes.length === 0) return;
+    loadSquadHeadlines(supabase, codes).then(setHeadlinesByCode);
+  }, [currentSquad, data]);
+
   const metaList = useMemo<PlayerMeta[]>(
     () =>
       data
@@ -716,9 +733,10 @@ export default function TeamPage() {
         team_short: data?.teamMeta.get(row.team_id)?.short ?? null,
         news: row.news,
         ownership: row.selected_by_percent,
+        headlines: headlinesByCode.get(row.code),
       };
     },
-    [data],
+    [data, headlinesByCode],
   );
 
   const currentCards: PlayerData[] = useMemo(() => {

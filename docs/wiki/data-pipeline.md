@@ -57,7 +57,12 @@ apply twice in one statement — fixed by deduping on `(player_id, fixture)` bef
 and writes to `player_price_history` / `player_ownership_history` / `player_status_history` /
 `player_news` **only when something actually moved**. Naively snapshotting 700 players every 30
 minutes would be ~7.8M rows a season; this is ~25k. `fixture_changes` applies the same idea to
-kickoff times and results. `change_feed` (a view) unions all of them for `/changes`.
+kickoff times and results. `change_feed` (a view) unions all of them for `/news`.
+
+A second, separate pipeline — [news-feed.md](news-feed.md) — ingests third-party RSS
+headlines (Sprint 20) into `news_items`/`news_item_entities`, unioned by `news_feed`. It is
+deliberately not merged into `change_feed`: those rows are verified facts derived from the
+FPL API itself, RSS rows are editorial content with a probabilistic player/club link.
 
 ## `player_predictions` and the row cap
 

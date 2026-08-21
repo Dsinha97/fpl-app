@@ -1,7 +1,11 @@
 // Thin client for the official FPL API.
 //
 // The FPL API is unauthenticated but does throttle, so every call goes through
-// a single place with a timeout, bounded retries, and exponential backoff.
+// a single place with a timeout, bounded retries, and exponential backoff —
+// now shared with sync-news's RSS fetches via _shared/http.ts, rather than a
+// second copy of the same retry loop.
+
+import { fetchWithRetry, HttpError } from "./http.ts";
 
 const FPL_BASE = "https://fantasy.premierleague.com/api";
 // Courtesy contact point sent to FPL on every request. Points at the live site
@@ -16,42 +20,21 @@ export class FplHttpError extends Error {
   }
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 export async function fplFetch<T>(
   path: string,
   opts: { retries?: number; timeoutMs?: number } = {},
 ): Promise<T> {
-  const retries = opts.retries ?? 3;
-  const timeoutMs = opts.timeoutMs ?? 20_000;
-
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const res = await fetch(`${FPL_BASE}${path}`, {
-        headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-
-      if (!res.ok) {
-        // 4xx other than 429 will not fix themselves; fail fast.
-        const retryable = res.status === 429 || res.status >= 500;
-        const err = new FplHttpError(res.status, `GET ${path} returned ${res.status}`);
-        if (!retryable) throw err;
-        lastError = err;
-      } else {
-        return await res.json() as T;
-      }
-    } catch (err) {
-      if (err instanceof FplHttpError && err.status < 500 && err.status !== 429) throw err;
-      lastError = err;
-    }
-
-    if (attempt < retries) await sleep(500 * 2 ** attempt);
+  try {
+    const text = await fetchWithRetry(`${FPL_BASE}${path}`, {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      retries: opts.retries,
+      timeoutMs: opts.timeoutMs,
+    });
+    return JSON.parse(text) as T;
+  } catch (err) {
+    if (err instanceof HttpError) throw new FplHttpError(err.status, err.message);
+    throw err;
   }
-
-  throw lastError;
 }
 
 // ---------------------------------------------------------------- types

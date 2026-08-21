@@ -38,6 +38,7 @@ file, not separate files.
 | [sprints/sprint-18.md](sprints/sprint-18.md) | live | Effective Starting XI budget, a chip-sequencing bug fix + calendar-derived presets, transfer reversibility. |
 | [sprints/sprint-19.md](sprints/sprint-19.md) | live | Design system & interaction feedback — font/focus/freeze fixes, card hierarchy, xP promoted to the dominant number. |
 | [sprints/rivals-and-card-density.md](sprints/rivals-and-card-density.md) | live | Rivals sync-before-write + this-season tab fix on `/team`; `CollapsibleCard` primitive repacks `/deadline`, `/transfers`, `/chips`. |
+| [sprints/sprint-20.md](sprints/sprint-20.md) | live | RSS News Ingestion — `sync-news`, table-driven `news_sources`, tiered entity resolution, `/news` (renamed from `/changes`) Feeds tab, player-panel headlines, `/deadline` team-news strip. |
 
 ## Source specs
 

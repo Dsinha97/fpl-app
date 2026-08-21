@@ -56,6 +56,7 @@ import {
 } from "@/lib/transfer-optimizer";
 import { MAX_FREE_TRANSFERS, TRANSFER_MODEL_NOTE } from "@/lib/transfers";
 import { ago, describe, type FeedRow } from "@/lib/change-feed";
+import { confidentEntities, sourceBadge, type NewsRow } from "@/lib/news-feed";
 
 interface PlayerRow {
   id: number;
@@ -166,6 +167,9 @@ export default function DeadlinePage() {
 
   const [feedRows, setFeedRows] = useState<FeedRow[]>([]);
   const [feedLoading, setFeedLoading] = useState(false);
+
+  const [newsRows, setNewsRows] = useState<NewsRow[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
 
   const [now, setNow] = useState(() => Date.now());
 
@@ -421,6 +425,52 @@ export default function DeadlinePage() {
       setFeedLoading(false);
     })();
   }, [team, rowById]);
+
+  // ------------------------------------------------------------- team news
+  //
+  // RSS headlines (Sprint 20's news_feed view) linked to this squad's players
+  // or their clubs. Filtered client-side against the squad's codes rather
+  // than a server-side jsonb containment query, the way change_feed's
+  // `.in("player_code", codes)` works — the entities column is an aggregated
+  // array per item, not a queryable column, and the last-7-days page this
+  // pulls is small enough that client filtering is the simpler correct
+  // choice. Only confident links (>= 0.85) surface here — a wrong headline
+  // attached to a squad player is worse than no headline at all.
+  useEffect(() => {
+    if (!team || rowById.size === 0) return;
+    const playerCodes = new Set(
+      team.players.map((p) => rowById.get(p.playerId)?.code).filter((c): c is number => c !== undefined),
+    );
+    const clubCodes = new Set(
+      team.players
+        .map((p) => teamMeta.get(rowById.get(p.playerId)?.team_id ?? -1)?.code)
+        .filter((c): c is number => c !== undefined),
+    );
+    if (playerCodes.size === 0 && clubCodes.size === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setNewsRows([]);
+      return;
+    }
+    (async () => {
+      setNewsLoading(true);
+      const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+      const { data } = await supabase
+        .from("news_feed")
+        .select("*")
+        .gte("published_at", since)
+        .order("published_at", { ascending: false })
+        .limit(300);
+      const rows = ((data ?? []) as NewsRow[]).filter((row) =>
+        confidentEntities(row).some(
+          (e) =>
+            (e.entity_type === "player" && playerCodes.has(e.entity_id)) ||
+            (e.entity_type === "team" && clubCodes.has(e.entity_id)),
+        ),
+      );
+      setNewsRows(rows);
+      setNewsLoading(false);
+    })();
+  }, [team, rowById, teamMeta]);
 
   // ---------------------------------------------------------------- helpers
 
@@ -1150,11 +1200,55 @@ export default function DeadlinePage() {
               </ul>
             )}
             <p className="mt-2 text-xs text-zinc-500">
-              <Link href="/changes" className="underline-offset-2 hover:underline">
+              <Link href="/news" className="underline-offset-2 hover:underline">
                 See every change, not just this squad
               </Link>
               .
             </p>
+          </CollapsibleCard>
+
+          {/* ---------------------------------------------------- team news */}
+          <CollapsibleCard
+            title="Team news"
+            tier="supporting"
+            className="mt-3"
+            summary={
+              newsLoading
+                ? "Loading…"
+                : newsRows.length === 0
+                  ? "No recent headlines for this squad."
+                  : `${newsRows.length} headline${newsRows.length === 1 ? "" : "s"}`
+            }
+          >
+            <p className="text-[11px] text-zinc-500">
+              Third-party reporting, not verified data — see{" "}
+              <Link href="/news" className="underline-offset-2 hover:underline">
+                every source
+              </Link>
+              .
+            </p>
+            {!newsLoading && newsRows.length > 0 && (
+              <ul className="mt-2 divide-y divide-zinc-100 dark:divide-purple-900/30">
+                {newsRows.slice(0, 15).map((row) => (
+                  <li key={row.id} className="py-2 text-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <a
+                        href={row.url}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="min-w-0 flex-1 font-medium underline-offset-2 hover:underline"
+                      >
+                        {row.title}
+                      </a>
+                      <span className="shrink-0 text-xs text-zinc-400">{ago(row.published_at)}</span>
+                    </div>
+                    <span className="mt-0.5 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {sourceBadge(row)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CollapsibleCard>
         </>
       )}

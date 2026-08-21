@@ -42,3 +42,7 @@ One line per entry, most recent first.
 - 2026-08-15 — Wiki created: moved 7 source specs + the API-Football PDF into `docs/sources/`,
   repaired 18 markdown links + 3 code/SQL comments, built 22 topic pages synthesising `docs/` and
   `CLAUDE.md`/`AGENTS.md`, added `index.md`/`log.md`/`AGENTS.md`.
+- 2026-08-21 — Sprint 20 (RSS News Ingestion) ingested: new page `news-feed.md` (schema, the
+  feed-reality-check findings, tiered entity resolution, where headlines surface, gotchas),
+  linked from `index.md`'s Platform section. Updated `data-pipeline.md` to point at it and note
+  `change_feed`/`news_feed` are deliberately separate views.
