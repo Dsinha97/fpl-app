@@ -20,6 +20,12 @@ import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
 import { loadManagerPicks, type ManagerPick } from "@/lib/manager-picks";
 import { loadGameweekState, LIVE_MODEL_NOTE, type GameweekState } from "@/lib/gameweek-state";
 import {
+  LiveFixtureCard,
+  type LiveFixtureData,
+  type LiveFixturePlayer,
+  type LiveFixtureTeam,
+} from "@/components/live-fixtures";
+import {
   hasConsistentLineup,
   HORIZONS,
   horizonLabel,
@@ -187,6 +193,8 @@ export default function DeadlinePage() {
   const [gwStateLoading, setGwStateLoading] = useState(false);
   const [gwStateError, setGwStateError] = useState<string | null>(null);
   const [liveTick, setLiveTick] = useState(0);
+  const [liveTeamsById, setLiveTeamsById] = useState<Map<number, LiveFixtureTeam>>(new Map());
+  const [liveFixtures, setLiveFixtures] = useState<LiveFixtureData[]>([]);
 
   // -------------------------------------------------------------- squad source
   //
@@ -267,7 +275,7 @@ export default function DeadlinePage() {
             .order("event"),
           // Crests and kit graphics need the team *code*, and the fixture
           // ticker needs short names — neither is on the players row.
-          supabase.from("teams").select("id, code, short_name").eq("season", seasonCtx.season),
+          supabase.from("teams").select("id, code, name, short_name").eq("season", seasonCtx.season),
         ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
 
@@ -297,13 +305,21 @@ export default function DeadlinePage() {
         });
 
         const meta = new Map<number, { code: number | null; short: string }>();
+        const liveTeams = new Map<number, LiveFixtureTeam>();
         for (const t of teamsRes.data ?? []) {
           meta.set(t.id as number, {
             code: (t.code as number | null) ?? null,
             short: t.short_name as string,
           });
+          liveTeams.set(t.id as number, {
+            id: t.id as number,
+            code: (t.code as number | null) ?? null,
+            name: t.name as string,
+            short_name: t.short_name as string,
+          });
         }
         setTeamMeta(meta);
+        setLiveTeamsById(liveTeams);
 
         const fdrRuns = new Map<number, number[]>();
         const nextFixtures = new Map<number, NextFixture>();
@@ -453,6 +469,32 @@ export default function DeadlinePage() {
       cancelled = true;
     };
   }, [liveTick]);
+
+  // The live event's fixtures, with FPL's own event breakdown (`stats` —
+  // lib/fixture-stats.ts), refreshed on the same tick as the live-started
+  // check above. Only fetched once something is actually live, so this
+  // costs nothing pre-kickoff.
+  useEffect(() => {
+    if (!liveEvent || !liveStarted) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLiveFixtures([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("fixtures")
+        .select(
+          "id, event, kickoff_time, team_h, team_a, team_h_score, team_a_score, started, finished, minutes, stats",
+        )
+        .eq("season", liveEvent.season)
+        .eq("event", liveEvent.event);
+      if (!cancelled) setLiveFixtures((data ?? []) as LiveFixtureData[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [liveEvent, liveStarted, liveTick]);
 
   const resolvedEntryId = entryId ?? team?.entryId ?? null;
 
@@ -765,6 +807,27 @@ export default function DeadlinePage() {
     return chipContextFor(chipPlanUsable, ctx.nextEvent, toEvent);
   }, [chipPlanUsable, ctx, horizon]);
 
+  // ---------------------------------------------------------- live fixtures
+  //
+  // Sprint 13 follow-up: which of the live gameweek's fixtures the squad is
+  // actually involved in, so the live hub shows match detail rather than
+  // just the aggregate total above.
+  const squadElementIds = useMemo(() => new Set(team?.players.map((p) => p.playerId) ?? []), [team]);
+
+  const livePlayersById = useMemo(() => {
+    const map = new Map<number, LiveFixturePlayer>();
+    for (const [id, row] of rowById) map.set(id, { webName: row.web_name, teamId: row.team_id });
+    return map;
+  }, [rowById]);
+
+  const squadLiveFixtures = useMemo(() => {
+    if (squadElementIds.size === 0) return [];
+    const squadTeamIds = new Set(
+      [...squadElementIds].map((id) => rowById.get(id)?.team_id).filter((id): id is number => id !== undefined),
+    );
+    return liveFixtures.filter((f) => squadTeamIds.has(f.team_h) || squadTeamIds.has(f.team_a));
+  }, [liveFixtures, squadElementIds, rowById]);
+
   // ------------------------------------------------------- transfer optimiser
   //
   // ~1,875 simulateTransfers calls (BEAM_WIDTH 8 + FUNDER_WIDTH 4, MAX_BASKET 3,
@@ -949,8 +1012,30 @@ export default function DeadlinePage() {
                     </span>
                   )}
                 </h2>
-                <InfoTooltip label="About live figures">{LIVE_MODEL_NOTE}</InfoTooltip>
+                <div className="flex items-center gap-3">
+                  <Link
+                    href="/team/"
+                    className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                  >
+                    View in My Team →
+                  </Link>
+                  <InfoTooltip label="About live figures">{LIVE_MODEL_NOTE}</InfoTooltip>
+                </div>
               </div>
+
+              {squadLiveFixtures.length > 0 && (
+                <div className="mb-3 grid gap-3 sm:grid-cols-2">
+                  {squadLiveFixtures.map((f) => (
+                    <LiveFixtureCard
+                      key={f.id}
+                      fixture={f}
+                      teams={liveTeamsById}
+                      playersById={livePlayersById}
+                      squadElementIds={squadElementIds}
+                    />
+                  ))}
+                </div>
+              )}
 
               {gwStateLoading && <p className="text-sm text-zinc-500">Loading live scores…</p>}
               {gwStateError && (

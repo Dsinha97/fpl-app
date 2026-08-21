@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { TeamCrest } from "./identity";
+import { FixtureStatBreakdown, type LiveFixturePlayer } from "./live-fixtures";
+import { hasFixtureStats, parseFixtureStats } from "@/lib/fixture-stats";
 
 export interface ScheduleFixture {
   id: number;
@@ -15,6 +17,10 @@ export interface ScheduleFixture {
   started: boolean | null;
   finished: boolean | null;
   minutes: number | null;
+  /** FPL's per-fixture event breakdown, verbatim — see lib/fixture-stats.ts. Optional so a
+   *  caller that hasn't fetched it yet (or a fixture with none published) just hides the
+   *  expand affordance rather than erroring. */
+  stats?: unknown;
 }
 
 export interface ScheduleTeam {
@@ -74,6 +80,9 @@ interface FixtureScheduleProps {
   gameweeks: ScheduleGameweek[];
   /** The next gameweek, used to decide which sections start open. */
   nextGw: number | null;
+  /** Player names for the expandable event breakdown (lib/fixture-stats.ts). Omitted hides
+   *  the expand affordance — a caller that hasn't loaded players yet just shows scores. */
+  playersById?: Map<number, LiveFixturePlayer>;
 }
 
 /**
@@ -85,9 +94,13 @@ interface FixtureScheduleProps {
  */
 const OPEN_AHEAD = 2;
 
-export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw }: FixtureScheduleProps) {
+export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersById }: FixtureScheduleProps) {
   // The state records deviations from the default, so toggling flips a section.
   const [toggled, setToggled] = useState<Set<number>>(new Set());
+  // Snapshotted once at mount (a lazy initialiser, not a render-time call) —
+  // this only gates whether an in-progress gameweek should still be forced
+  // open, not a live countdown, so it doesn't need a ticking clock.
+  const [now] = useState(() => Date.now());
 
   const byEvent = new Map<number, ScheduleFixture[]>();
   for (const f of fixtures) {
@@ -103,6 +116,27 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw }: FixtureS
   const events = [...byEvent.keys()].sort((a, b) => a - b);
   const gwMeta = new Map(gameweeks.map((g) => [g.id, g]));
 
+  /**
+   * A gameweek being played wins over the nextGw window below. `nextGw`
+   * (gameweeks.is_next) flips to the *following* gameweek the moment its
+   * deadline passes — hours before it's actually played — so without this,
+   * the gameweek someone is watching live collapses right when it matters.
+   * Stops overriding once every fixture is finished, or once the next
+   * gameweek's own deadline has passed (whichever the viewer is still
+   * checking back for) — matching what "in progress" should mean, not just
+   * "has a kickoff time in the past".
+   */
+  const inProgress = (event: number): boolean => {
+    const list = byEvent.get(event) ?? [];
+    if (list.length === 0) return false;
+    const anyStarted = list.some((f) => f.started === true);
+    const allFinished = list.every((f) => f.finished === true);
+    if (!anyStarted || allFinished) return false;
+    const nextDeadline = nextGw !== null ? gwMeta.get(nextGw)?.deadline_time : undefined;
+    if (nextDeadline && now > new Date(nextDeadline).getTime()) return false;
+    return true;
+  };
+
   if (events.length === 0) {
     return <p className="mt-6 text-sm text-zinc-500">No fixtures have been published yet.</p>;
   }
@@ -113,7 +147,8 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw }: FixtureS
         const list = byEvent.get(event)!;
         const meta = gwMeta.get(event);
         const openByDefault =
-          nextGw === null ? event <= OPEN_AHEAD : event >= nextGw && event < nextGw + OPEN_AHEAD;
+          inProgress(event) ||
+          (nextGw === null ? event <= OPEN_AHEAD : event >= nextGw && event < nextGw + OPEN_AHEAD);
         const open = toggled.has(event) ? !openByDefault : openByDefault;
 
         return (
@@ -176,7 +211,7 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw }: FixtureS
                           {formatDay(f.kickoff_time!)}
                         </div>
                       )}
-                      <FixtureRow fixture={f} teams={teams} />
+                      <FixtureRow fixture={f} teams={teams} playersById={playersById} />
                     </div>
                   );
                 })}
@@ -192,10 +227,14 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw }: FixtureS
 function FixtureRow({
   fixture: f,
   teams,
+  playersById,
 }: {
   fixture: ScheduleFixture;
   teams: Map<number, ScheduleTeam>;
+  playersById?: Map<number, LiveFixturePlayer>;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   const home = teams.get(f.team_h);
   const away = teams.get(f.team_a);
 
@@ -206,8 +245,11 @@ function FixtureRow({
   const homeWon = complete && f.team_h_score! > f.team_a_score!;
   const awayWon = complete && f.team_a_score! > f.team_h_score!;
 
-  return (
-    <div className="flex items-center gap-2 border-b border-zinc-100 px-3 py-2 text-sm last:border-0 dark:border-purple-900/30">
+  const stats = playersById ? parseFixtureStats(f.stats) : null;
+  const expandable = stats !== null && hasFixtureStats(stats);
+
+  const row = (
+    <div className="flex items-center gap-2 px-3 py-2 text-sm">
       {/* home */}
       <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
         <span
@@ -265,6 +307,37 @@ function FixtureRow({
       <span className="hidden w-10 shrink-0 text-right text-[10px] uppercase text-zinc-400 sm:block">
         GW{f.event}
       </span>
+      {expandable && (
+        <span aria-hidden="true" className={`shrink-0 text-zinc-400 transition-transform ${expanded ? "" : "rotate-180"}`}>
+          ⌃
+        </span>
+      )}
+    </div>
+  );
+
+  // Border lives on this outer element in both branches, whichever is
+  // actually returned as the sibling in the day's fixture list — a border
+  // on the inner `row` div would sit one level deeper once a row becomes
+  // expandable, breaking `last:border-0`'s sibling-position check.
+  if (!expandable) {
+    return <div className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">{row}</div>;
+  }
+
+  return (
+    <div className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className="w-full text-left transition-colors hover:bg-zinc-50 dark:hover:bg-purple-950/30"
+      >
+        {row}
+      </button>
+      {expanded && (
+        <div className="bg-zinc-50 px-4 py-3 dark:bg-[#160126]">
+          <FixtureStatBreakdown stats={stats!} playersById={playersById!} provisional={live} />
+        </div>
+      )}
     </div>
   );
 }

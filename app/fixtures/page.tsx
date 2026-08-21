@@ -13,6 +13,7 @@ import {
 } from "@/components/fixture-schedule";
 import { ClubTacticsGrid, type ClubTactics } from "@/components/club-tactics";
 import { toTacticalProfile, type PlManagerRow } from "@/lib/tactical-profile";
+import type { LiveFixturePlayer } from "@/components/live-fixtures";
 
 interface FixtureRow extends ScheduleFixture {
   team_h_difficulty: number | null;
@@ -28,6 +29,7 @@ export default function FixturesPage() {
   const [nextGw, setNextGw] = useState<number | null>(null);
   const [tab, setTab] = useState<Tab>("schedule");
   const [clubTactics, setClubTactics] = useState<ClubTactics[]>([]);
+  const [playersById, setPlayersById] = useState<Map<number, LiveFixturePlayer>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +45,7 @@ export default function FixturesPage() {
         if (gwError) throw new Error(gwError.message);
         if (!gw) throw new Error("No upcoming gameweek found.");
 
-        const [teamsRes, fixturesRes, gwsRes, managersRes] = await Promise.all([
+        const [teamsRes, fixturesRes, gwsRes, managersRes, playersRes] = await Promise.all([
           supabase
             .from("teams")
             .select(
@@ -52,10 +54,14 @@ export default function FixturesPage() {
             .eq("season", gw.season)
             .order("name"),
           // No event filter: the schedule tab shows completed gameweeks too.
+          // `stats` carries FPL's own per-fixture event breakdown (goals,
+          // assists, cards, bonus) — see lib/fixture-stats.ts — for the
+          // expandable row detail, refreshed every 2 minutes by the
+          // self-gated sync-fixtures cron.
           supabase
             .from("fixtures")
             .select(
-              "id, event, kickoff_time, provisional_start_time, team_h, team_a, team_h_score, team_a_score, started, finished, minutes, team_h_difficulty, team_a_difficulty",
+              "id, event, kickoff_time, provisional_start_time, team_h, team_a, team_h_score, team_a_score, started, finished, minutes, team_h_difficulty, team_a_difficulty, stats",
             )
             .eq("season", gw.season),
           supabase
@@ -71,11 +77,25 @@ export default function FixturesPage() {
               "manager_key, name, current_club, preferred_formation, buildup_style, pressing_intensity, source_file, tactical_traits, modifiers",
             )
             .eq("season", gw.season),
+          // Names for the expandable fixture-event breakdown. The API caps
+          // every response at 1000 rows however big .limit() asks — see
+          // CLAUDE.md — 600ish players today is comfortably under that.
+          supabase.from("players").select("id, web_name, team_id").eq("season", gw.season).limit(1000),
         ]);
         if (teamsRes.error) throw new Error(teamsRes.error.message);
         if (fixturesRes.error) throw new Error(fixturesRes.error.message);
         if (gwsRes.error) throw new Error(gwsRes.error.message);
         if (managersRes.error) throw new Error(managersRes.error.message);
+        if (playersRes.error) throw new Error(playersRes.error.message);
+
+        setPlayersById(
+          new Map(
+            (playersRes.data ?? []).map((p) => [
+              p.id as number,
+              { webName: p.web_name as string, teamId: p.team_id as number },
+            ]),
+          ),
+        );
 
         const teamRows = (teamsRes.data ?? []) as (StandingsTeam & {
           tactical_manager_id: string | null;
@@ -162,6 +182,7 @@ export default function FixturesPage() {
             teams={teamsById}
             gameweeks={gameweeks}
             nextGw={nextGw}
+            playersById={playersById}
           />
         </>
       )}
