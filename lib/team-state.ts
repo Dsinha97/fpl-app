@@ -57,6 +57,18 @@ export interface TeamState {
   notes: string;
   createdAt: string;
   updatedAt: string;
+
+  /**
+   * The squad every draft-aware page opens on by default, beating the
+   * newest-saved fallback (and the FPL-import preference on /deadline) but
+   * still losing to an explicit `?draft=` link — see `resolveRequestedDraft`
+   * (lib/drafts.ts). Optional exactly as `entryId`/`chipPlan` are: every
+   * draft already in localStorage and in `team_drafts.payload` keeps parsing
+   * unchanged. At most one draft is pinned at a time — set only through
+   * `setPinnedDraft`, which enforces that invariant in the one place that
+   * owns the store, rather than here.
+   */
+  pinned?: boolean;
 }
 
 /** The four chips FPL grants, once each per season half. */

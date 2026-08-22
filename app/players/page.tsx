@@ -537,6 +537,10 @@ export default function PlayersPage() {
                 {header("Price", "price")}
                 {header("xP GW", "xp1")}
                 {header(`xP ${horizonLabel(horizon)}`, "xpH")}
+                {header("Pts", "gwPoints")}
+                {header("G", "goals")}
+                {header("A", "assists")}
+                {header("Mins", "minutes")}
                 <th className="px-2 py-2">
                   <span className="flex items-center gap-1.5">
                     <button
@@ -551,7 +555,7 @@ export default function PlayersPage() {
                         sortKey === "xdc" ? "text-purple-800 dark:text-[#00FF87]" : ""
                       }`}
                     >
-                      xDefcon
+                      XD
                       {sortKey === "xdc" ? (sortDesc ? " ↓" : " ↑") : ""}
                     </button>
                     <InfoTooltip label="What is xDefcon?">
@@ -563,10 +567,6 @@ export default function PlayersPage() {
                 </th>
                 {header("xP/£m", "value")}
                 {header("Own %", "ownership")}
-                {header("Pts", "gwPoints")}
-                {header("G", "goals")}
-                {header("A", "assists")}
-                {header("Mins", "minutes")}
                 {header(`Pts ${historySeason || "LY"}`, "points")}
                 {header(`xG ${historySeason || "LY"}`, "xg")}
                 {header(`xA ${historySeason || "LY"}`, "xa")}
@@ -648,6 +648,14 @@ export default function PlayersPage() {
                       </span>
                       <RateBand lower={bandLower ?? undefined} upper={bandUpper ?? undefined} />
                     </td>
+                    {/* Current season — the emphasised block (bold/accent), set
+                        off from the muted last-season trio further right. */}
+                    <td className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                      {p.total_points ?? "—"}
+                    </td>
+                    <td className="px-2 py-1.5 font-semibold tabular-nums">{p.goals_scored ?? "—"}</td>
+                    <td className="px-2 py-1.5 font-semibold tabular-nums">{p.assists ?? "—"}</td>
+                    <td className="px-2 py-1.5 font-semibold tabular-nums">{p.minutes ?? "—"}</td>
                     <td className="px-2 py-1.5 tabular-nums">
                       {XDC_POSITIONS.has(p.element_type)
                         ? xdcForHorizon(x, horizon)?.toFixed(2) ?? "—"
@@ -659,10 +667,6 @@ export default function PlayersPage() {
                     <td className="px-2 py-1.5 tabular-nums">
                       {p.selected_by_percent !== null ? `${p.selected_by_percent}%` : "—"}
                     </td>
-                    <td className="px-2 py-1.5 font-semibold tabular-nums">{p.total_points ?? "—"}</td>
-                    <td className="px-2 py-1.5 tabular-nums">{p.goals_scored ?? "—"}</td>
-                    <td className="px-2 py-1.5 tabular-nums">{p.assists ?? "—"}</td>
-                    <td className="px-2 py-1.5 tabular-nums">{p.minutes ?? "—"}</td>
                     <td className="px-2 py-1.5 tabular-nums text-zinc-500">{h?.total_points ?? "—"}</td>
                     <td className="px-2 py-1.5 tabular-nums text-zinc-500">{h?.expected_goals ?? "—"}</td>
                     <td className="px-2 py-1.5 tabular-nums text-zinc-500">{h?.expected_assists ?? "—"}</td>

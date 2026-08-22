@@ -14,6 +14,7 @@ import {
   importDrafts,
   listDrafts,
   renameDraft,
+  setPinnedDraft,
   type DraftSnapshot,
 } from "@/lib/drafts";
 import {
@@ -635,18 +636,49 @@ export default function ScenariosPage() {
                     )}
                     <p className="mt-0.5 text-[11px] text-zinc-500">
                       #{rank + 1} · saved {formatWhen(draft.updatedAt)}
+                      {draft.pinned && (
+                        <span
+                          className="ml-1.5 rounded bg-amber-100 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                          title="Every draft-aware page opens on this squad by default"
+                        >
+                          pinned
+                        </span>
+                      )}
                     </p>
                   </div>
-                  <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[11px] text-zinc-500">
-                    <input
-                      type="checkbox"
-                      checked={picked}
-                      onChange={() => toggleSelect(draft.draftId)}
-                      disabled={!picked && selected.length >= MAX_COMPARE}
-                      className="accent-purple-800 dark:accent-[#00FF87]"
-                    />
-                    compare
-                  </label>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPinnedDraft(draft.pinned ? null : draft.draftId);
+                        refresh();
+                      }}
+                      title={
+                        draft.pinned
+                          ? "Unpin — stop opening this squad by default"
+                          : "Pin — open this squad by default everywhere"
+                      }
+                      className={`text-[13px] leading-none transition-colors ${
+                        draft.pinned
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-zinc-300 hover:text-amber-600 dark:text-zinc-600 dark:hover:text-amber-400"
+                      }`}
+                      aria-pressed={draft.pinned === true}
+                      aria-label={draft.pinned ? `Unpin ${draft.name}` : `Pin ${draft.name}`}
+                    >
+                      📌
+                    </button>
+                    <label className="flex cursor-pointer items-center gap-1 text-[11px] text-zinc-500">
+                      <input
+                        type="checkbox"
+                        checked={picked}
+                        onChange={() => toggleSelect(draft.draftId)}
+                        disabled={!picked && selected.length >= MAX_COMPARE}
+                        className="accent-purple-800 dark:accent-[#00FF87]"
+                      />
+                      compare
+                    </label>
+                  </div>
                 </div>
 
                 {/* score */}

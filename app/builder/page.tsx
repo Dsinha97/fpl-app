@@ -13,7 +13,14 @@ import {
   type LineupCandidate,
 } from "@/lib/lineup";
 import { projectionAtEvent } from "@/lib/transfer-optimizer";
-import { cloneDraft, deleteDraft, listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
+import {
+  cloneDraft,
+  deleteDraft,
+  listDrafts,
+  resolveRequestedDraft,
+  saveDraft,
+  setPinnedDraft,
+} from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
 import { loadSquadHeadlines, type NewsHeadline } from "@/lib/news-feed";
 import {
@@ -1603,6 +1610,22 @@ export default function BuilderPage() {
                 label: "New",
                 onSelect: () => switchTeam(emptyTeamState(rules)),
                 description: isDirty ? "Unsaved changes will be lost" : undefined,
+              },
+              {
+                label: team.pinned ? "Unpin" : "Pin",
+                onSelect: () => {
+                  const nextPinned = !team.pinned;
+                  setPinnedDraft(nextPinned ? team.draftId : null);
+                  setDrafts(listDrafts());
+                  // Only the pin flag changes — team/savedTeam otherwise stay
+                  // exactly as they were, so this can't mark an unrelated
+                  // in-progress edit dirty or clobber it.
+                  setTeam((t) => ({ ...t, pinned: nextPinned || undefined }));
+                  setSavedTeam((s) => (s ? { ...s, pinned: nextPinned || undefined } : s));
+                },
+                disabled: savedTeam === null,
+                disabledReason: "Save this draft before pinning it",
+                description: "Open this squad by default everywhere",
               },
               {
                 label: "Clone",

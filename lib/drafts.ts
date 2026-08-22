@@ -172,19 +172,30 @@ export interface DraftPreference {
 }
 
 /**
- * Resolve which draft a page should open initially: the `?draft=<id>` query
- * param if present and still valid, else the most recently saved draft, else
- * none. Shared by every page that can be deep-linked from another draft-aware
- * page (builder, scenarios, chips, transfers) so "open the squad I was just
- * looking at" behaves the same everywhere instead of silently falling back to
- * whichever draft was edited most recently.
+ * Resolve which draft a page should open initially, in order:
+ *
+ * 1. The `?draft=<id>` query param, if present and still valid — an explicit
+ *    deep link always wins.
+ * 2. The pinned draft (`TeamState.pinned`, set via `setPinnedDraft`), if any.
+ * 3. `prefer`'s FPL-import match, on the two pages this applies to.
+ * 4. The most recently saved draft, else none.
+ *
+ * Shared by every page that can be deep-linked from another draft-aware page
+ * (builder, scenarios, chips, transfers, deadline) so "open the squad I was
+ * just looking at" behaves the same everywhere instead of silently falling
+ * back to whichever draft was edited most recently.
+ *
+ * The pin outranks `prefer` deliberately: `prefer` is this function's own
+ * *guess* at which squad the owner means (an FPL import, by entry id or
+ * name) — a pin is the owner's explicit statement, and a guess should not
+ * outrank a statement.
  *
  * `prefer` narrows the fallback for the two pages that are about the *real*
  * team rather than an experiment (/deadline, /team): a throwaway draft edited
  * five minutes ago should not outrank the squad actually imported from FPL.
  * The match is by `entryId` first and by the `importedDraftName` rule second,
  * so an import for a different manager — or a manual draft that happens to be
- * newer — never wins. A deep link always still wins over both.
+ * newer — never wins.
  */
 export function resolveRequestedDraft(
   list: TeamState[],
@@ -194,6 +205,9 @@ export function resolveRequestedDraft(
   const wanted = new URLSearchParams(search).get("draft");
   const requested = wanted ? list.find((d) => d.draftId === wanted) : undefined;
   if (requested) return requested;
+
+  const pinned = list.find((d) => d.pinned === true);
+  if (pinned) return pinned;
 
   if (prefer) {
     // `list` is already sorted newest-first, so the first match is the most
@@ -220,6 +234,30 @@ export function saveDraft(state: TeamState): TeamState {
   writeAll(drafts);
   recordSnapshot(stamped);
   return stamped;
+}
+
+/**
+ * Pins one draft as the squad every draft-aware page opens on by default,
+ * unpinning whichever draft (if any) held the pin before — `TeamState.pinned`
+ * is "at most one true" by construction, and this is the only place that
+ * invariant is enforced. Pass `null` to unpin without pinning anything else.
+ *
+ * Routed through the same stamped-`updatedAt` + single `writeAll` path
+ * `saveDraft` uses, so `onDraftsChanged` fires and lib/draft-sync.ts treats
+ * the pin like any other edit — it pushes to `team_drafts.payload` and
+ * follows a signed-in user to their next device.
+ */
+export function setPinnedDraft(draftId: string | null): void {
+  const drafts = readAll();
+  const now = new Date().toISOString();
+  const next = drafts.map((d) => {
+    const shouldBePinned = d.draftId === draftId;
+    if ((d.pinned ?? false) === shouldBePinned) return d;
+    return shouldBePinned
+      ? { ...d, pinned: true, updatedAt: now }
+      : { ...d, pinned: undefined, updatedAt: now };
+  });
+  writeAll(next);
 }
 
 /** Append to the timeline, skipping saves that changed nothing worth showing. */
@@ -301,6 +339,10 @@ export function cloneDraft(state: TeamState): TeamState {
     name: uniqueDraftName(`${state.name} (copy)`),
     createdAt: now,
     updatedAt: now,
+    // Never carry the pin to the copy — pinned is "at most one true" across
+    // the whole store, and a straight spread would otherwise leave two
+    // drafts pinned at once.
+    pinned: undefined,
   };
   return saveDraft(copy);
 }
