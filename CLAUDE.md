@@ -172,11 +172,13 @@ or `tsc --noEmit` breaks on Deno globals.
   the two conventions in one screen.
 - **`total_players` is a pre-season snapshot, not a field size** — it climbs ~4× before
   GW1. Nothing consumes it yet; `game_settings.updated_at` is the sample-time record.
-- **CSS Grid stretches every cell in a row to its tallest sibling.** A `grid ...
+- **CSS Grid — and flex rows — stretch every cell to its tallest sibling.** A `grid ...
   sm:grid-cols-2`-style pairing of independently-expandable/variable-height cards (e.g.
   `LiveFixtureCard`, `ClubTacticsGrid`) shows dead space (default `stretch`) or ragged bottoms
-  (`items-start`) once one card expands and its row-mate doesn't. Use `flex flex-wrap` with a
-  fixed `w-[calc(...)]` basis per card instead, so each card's height is independent of its row.
+  (`items-start`) once one card expands and its row-mate doesn't. Switching to `flex flex-wrap`
+  with a fixed `w-[calc(...)]` basis per card is only half the fix — flex rows default to
+  `align-items: stretch` too, so an expanded card still inflates its still-collapsed row-mate.
+  Add `self-start` on the card itself alongside the `w-[calc(...)]` basis.
 
 ## Communication style
 

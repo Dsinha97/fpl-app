@@ -491,7 +491,7 @@ export default function DeadlinePage() {
       const { data } = await supabase
         .from("fixtures")
         .select(
-          "id, event, kickoff_time, team_h, team_a, team_h_score, team_a_score, started, finished, minutes, stats",
+          "id, event, kickoff_time, team_h, team_a, team_h_score, team_a_score, started, finished, finished_provisional, minutes, stats",
         )
         .eq("season", liveEvent.season)
         .eq("event", liveEvent.event)

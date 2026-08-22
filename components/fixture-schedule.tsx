@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { TeamCrest } from "./identity";
-import { FixtureStatBreakdown, type LiveFixturePlayer } from "./live-fixtures";
+import { FixtureStatBreakdown, matchStatus, type LiveFixturePlayer } from "./live-fixtures";
 import { hasFixtureStats, parseFixtureStats } from "@/lib/fixture-stats";
 
 export interface ScheduleFixture {
@@ -16,6 +16,8 @@ export interface ScheduleFixture {
   team_a_score: number | null;
   started: boolean | null;
   finished: boolean | null;
+  /** FPL's own "bonus confirmed" flag — a match can be `finished` with bonus still provisional. */
+  finished_provisional: boolean | null;
   minutes: number | null;
   /** FPL's per-fixture event breakdown, verbatim — see lib/fixture-stats.ts. Optional so a
    *  caller that hasn't fetched it yet (or a fixture with none published) just hides the
@@ -239,11 +241,16 @@ function FixtureRow({
   const away = teams.get(f.team_a);
 
   const hasScore = f.team_h_score !== null && f.team_a_score !== null;
-  const complete = f.finished === true && hasScore;
-  const live = f.started === true && f.finished !== true;
+  // `finished` and `finished_provisional` are separate FPL flags — a match
+  // can be full time with bonus not yet confirmed, so `finished` alone
+  // isn't enough to say the result is settled. See matchStatus (live-fixtures.tsx).
+  const status = matchStatus(f);
+  const complete = status === "finished" && hasScore;
+  const provisionalFT = status === "finished_provisional" && hasScore;
+  const live = status === "live";
 
-  const homeWon = complete && f.team_h_score! > f.team_a_score!;
-  const awayWon = complete && f.team_a_score! > f.team_h_score!;
+  const homeWon = (complete || provisionalFT) && f.team_h_score! > f.team_a_score!;
+  const awayWon = (complete || provisionalFT) && f.team_a_score! > f.team_h_score!;
 
   const stats = playersById ? parseFixtureStats(f.stats) : null;
   const expandable = stats !== null && hasFixtureStats(stats);
@@ -269,6 +276,16 @@ function FixtureRow({
         {complete ? (
           <span className="flex min-w-[4.5rem] items-center justify-center gap-1.5 rounded border border-zinc-300 px-2 py-1 font-semibold tabular-nums text-zinc-900 dark:border-purple-800/60 dark:text-zinc-100">
             {f.team_h_score} <span className="text-zinc-400">–</span> {f.team_a_score}
+          </span>
+        ) : provisionalFT ? (
+          <span
+            className="flex min-w-[4.5rem] flex-col items-center justify-center gap-0.5 rounded border border-zinc-300 px-2 py-1 font-semibold tabular-nums text-zinc-900 dark:border-purple-800/60 dark:text-zinc-100"
+            title="Full time — bonus points not yet confirmed by FPL"
+          >
+            <span>
+              {f.team_h_score} <span className="text-zinc-400">–</span> {f.team_a_score}
+            </span>
+            <span className="text-[9px] font-normal uppercase tracking-wide text-zinc-500">FT · bonus tbc</span>
           </span>
         ) : live ? (
           <span className="flex min-w-[4.5rem] items-center justify-center gap-1.5 rounded border border-emerald-500/60 bg-emerald-50 px-2 py-1 font-semibold tabular-nums text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
@@ -335,7 +352,7 @@ function FixtureRow({
       </button>
       {expanded && (
         <div className="bg-zinc-50 px-4 py-3 dark:bg-[#160126]">
-          <FixtureStatBreakdown stats={stats!} playersById={playersById!} provisional={live} />
+          <FixtureStatBreakdown stats={stats!} playersById={playersById!} provisional={!complete} />
         </div>
       )}
     </div>

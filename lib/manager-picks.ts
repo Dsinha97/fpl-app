@@ -30,6 +30,8 @@ export interface ActualPoints {
   /** Summed across the event's fixtures — a double gameweek has two. */
   points: number;
   minutes: number;
+  goals: number;
+  assists: number;
   /** How many fixtures contributed. 2 marks a DGW on the card. */
   fixtures: number;
 }
@@ -125,8 +127,21 @@ export interface EventPointsResult {
  * `player_gameweek_stats` is keyed per **fixture** (season, player_id,
  * fixture), so a double gameweek is two rows and reading one of them loses
  * half the return — every field here is summed per player, not taken from a
- * single row. When no finalised rows exist yet (a gameweek in progress), falls
- * back to `player_live_stats`, which is one row per event and provisional.
+ * single row.
+ *
+ * Finalised and live rows are merged **per player**, by whichever source has
+ * recorded more minutes — not by whether a finalised row merely exists.
+ * sync-player-history's element-summary read can carry a *pre-kickoff*
+ * placeholder row for the event's own fixture (zeroed stats, `kickoff_time`
+ * in the future) well before it's played, so "a finalised row exists" is not
+ * the same as "this player's result is settled" — verified directly against
+ * GW1: two players' finalised rows sat at 0 points/0 minutes with a same-day
+ * future kickoff while `player_live_stats` already showed 80 minutes played.
+ * Taking the higher-minutes source per player self-corrects once the
+ * finalised row is rewritten after the match, and a genuine 0-minute
+ * result (an unused sub) is unaffected since neither source has more to
+ * offer. `provisional` reports whether *any* player in the result came from
+ * the live snapshot.
  *
  * Per-event and lazy by design: a whole season for a ~50-element pick history
  * is a few thousand rows, so pages fetch the event the user is looking at
@@ -141,11 +156,12 @@ export async function loadEventPoints(
   if (playerIds.length === 0) return { byPlayer, provisional: false };
 
   const ids = [...new Set(playerIds)];
+  const finalisedByPlayer = new Map<number, ActualPoints>();
 
   for (let from = 0; ; from += PAGE_ROWS) {
     const { data, error } = await supabase
       .from("player_gameweek_stats")
-      .select("player_id, total_points, minutes")
+      .select("player_id, total_points, minutes, goals_scored, assists")
       .eq("season", season)
       .eq("event", event)
       .in("player_id", ids)
@@ -155,37 +171,60 @@ export async function loadEventPoints(
 
     for (const r of data ?? []) {
       const id = r.player_id as number;
-      const acc = byPlayer.get(id) ?? { points: 0, minutes: 0, fixtures: 0 };
+      const acc = finalisedByPlayer.get(id) ?? { points: 0, minutes: 0, goals: 0, assists: 0, fixtures: 0 };
       acc.points += (r.total_points as number | null) ?? 0;
       acc.minutes += (r.minutes as number | null) ?? 0;
+      acc.goals += (r.goals_scored as number | null) ?? 0;
+      acc.assists += (r.assists as number | null) ?? 0;
       acc.fixtures += 1;
-      byPlayer.set(id, acc);
+      finalisedByPlayer.set(id, acc);
     }
 
     if ((data?.length ?? 0) < PAGE_ROWS) break;
   }
 
-  if (byPlayer.size > 0) return { byPlayer, provisional: false };
-
-  // Nothing finalised for this event yet — fall back to the live snapshot,
-  // and say so rather than presenting provisional bonus as settled.
+  // Always fetch the live snapshot too — not just for players with no
+  // finalised row — since a finalised row can itself be the stale
+  // pre-kickoff placeholder described above.
   const { data: live, error: liveError } = await supabase
     .from("player_live_stats")
-    .select("player_id, total_points, minutes")
+    .select("player_id, total_points, minutes, goals_scored, assists")
     .eq("season", season)
     .eq("event", event)
     .in("player_id", ids);
   if (liveError) throw new Error(liveError.message);
 
+  const liveByPlayer = new Map<number, ActualPoints>();
   for (const r of live ?? []) {
-    byPlayer.set(r.player_id as number, {
+    liveByPlayer.set(r.player_id as number, {
       points: (r.total_points as number | null) ?? 0,
       minutes: (r.minutes as number | null) ?? 0,
+      goals: (r.goals_scored as number | null) ?? 0,
+      assists: (r.assists as number | null) ?? 0,
       fixtures: 1,
     });
   }
 
-  return { byPlayer, provisional: byPlayer.size > 0 };
+  let provisional = false;
+  for (const id of ids) {
+    const fin = finalisedByPlayer.get(id);
+    const liv = liveByPlayer.get(id);
+    if (fin && liv) {
+      if (liv.minutes > fin.minutes) {
+        byPlayer.set(id, liv);
+        provisional = true;
+      } else {
+        byPlayer.set(id, fin);
+      }
+    } else if (fin) {
+      byPlayer.set(id, fin);
+    } else if (liv) {
+      byPlayer.set(id, liv);
+      provisional = true;
+    }
+  }
+
+  return { byPlayer, provisional };
 }
 
 // -------------------------------------------------------------- shaping

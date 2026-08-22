@@ -173,6 +173,14 @@ const PAGE_ROWS = 1000;
  * legitimately differ, and reconciling them here would mean inventing the
  * missing subs. Both are shown, the hit is its own term, and the note explains
  * the gap — CLAUDE.md's "say what the number means".
+ *
+ * `score` (this app's asPicked figure) should now track `history.points`
+ * (FPL's own total) far more closely than before a still-playing player used
+ * to freeze at whatever their last finalised fixture showed —
+ * loadEventPoints (lib/manager-picks.ts) merges finalised and live rows
+ * per-player rather than gating the live fallback on the whole gameweek. Any
+ * remaining gap is the auto-subs/hit difference described above, not a stale
+ * read.
  */
 function GameweekSummary({
   event,
@@ -622,14 +630,31 @@ export default function TeamPage() {
   // Points are fetched for the gameweek being looked at, not for the whole
   // season up front — a season's worth of per-fixture rows for every player
   // ever picked is a few thousand, and most of them are never displayed.
+  // A gameweek in progress keeps refreshing every 60s (same idiom as
+  // /deadline's liveTick) — sync-live-gameweek itself only runs every 2min,
+  // but 60s means the pitch never sits on a stale number for long while
+  // matches are being played. A finished gameweek never re-fetches: nothing
+  // there changes, and there's no point polling settled history.
+  const [livePointsTick, setLivePointsTick] = useState(0);
+  const eventIsLive = selectedEvent !== null && data ? !data.finishedEvents.has(selectedEvent) : false;
+  useEffect(() => {
+    if (!eventIsLive) return;
+    const id = setInterval(() => setLivePointsTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, [eventIsLive]);
+
   useEffect(() => {
     if (selectedEvent === null || !data?.nextGw) return;
     const picks = data.picksByEvent.get(selectedEvent);
     if (!picks) return;
 
+    // Only the first fetch for a given event shows the loading state — a
+    // background poll refresh shouldn't flash the pitch back to empty.
+    const isPoll = livePointsTick > 0;
+
     let cancelled = false;
     (async () => {
-      setPointsLoading(true);
+      if (!isPoll) setPointsLoading(true);
       setPointsError(null);
       try {
         const elements = picks.map((p) => p.element);
@@ -644,14 +669,15 @@ export default function TeamPage() {
       } catch (err) {
         if (!cancelled) setPointsError(err instanceof Error ? err.message : String(err));
       } finally {
-        if (!cancelled) setPointsLoading(false);
+        if (!cancelled && !isPoll) setPointsLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [selectedEvent, data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEvent, data, livePointsTick]);
 
   /** Shared card mapping for both views — the two differ only in the number they carry. */
   const toCard = useCallback(
@@ -723,10 +749,20 @@ export default function TeamPage() {
         isVice: p.isViceCaptain,
       });
       if (!card) return [];
-      // FPL's own live breakdown — only meaningful for the gameweek result
-      // being looked at, so it's attached here rather than in the generic
-      // toCard shared with other squad views.
-      return [{ ...card, live_breakdown: explainByElement.get(p.element) ?? null }];
+      // FPL's own live breakdown, and this gameweek's raw goals/assists/mins —
+      // never multiplied by the armband, unlike the points value above — only
+      // meaningful for the gameweek result being looked at, so both are
+      // attached here rather than in the generic toCard shared with other
+      // squad views.
+      return [
+        {
+          ...card,
+          live_breakdown: explainByElement.get(p.element) ?? null,
+          gw_goals: scored?.goals ?? null,
+          gw_assists: scored?.assists ?? null,
+          gw_minutes: scored?.minutes ?? null,
+        },
+      ];
     });
   }, [gwPicks, eventPoints, explainByElement, toCard]);
 

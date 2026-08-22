@@ -60,7 +60,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
           return (
             <div
               key={teamId}
-              className="w-full overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234] sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.333%-0.5rem)]"
+              className="w-full self-start overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234] sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.333%-0.5rem)]"
             >
               <button
                 onClick={() => toggle(teamId)}

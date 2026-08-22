@@ -98,6 +98,17 @@ export interface PlayerData {
 
   /** Past gameweeks' results — the mirror of `upcoming`, looking backward. */
   past_results?: import("@/lib/player-history").PastResult[];
+
+  /**
+   * This gameweek's raw goals/assists/minutes — never multiplied by the
+   * armband, unlike `expected_points`. Same "undefined hides it" convention
+   * as the rest of this type: only populated where a caller has already
+   * loaded a gameweek's real stats (currently /team). All three are set
+   * together or not at all.
+   */
+  gw_goals?: number | null;
+  gw_assists?: number | null;
+  gw_minutes?: number | null;
 }
 
 interface PlayerCardProps {
@@ -152,6 +163,8 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
       player.chance_of_playing_next_round < 100);
 
   const hasXp = player.expected_points !== undefined && player.expected_points !== null;
+  const hasGwStats =
+    player.gw_goals !== undefined || player.gw_assists !== undefined || player.gw_minutes !== undefined;
 
   return (
     <button
@@ -226,9 +239,9 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
           score on /team), the number is the only thing in this row — center
           it and size it up rather than leaving it stranded on the left. */}
       <span
-        className={`flex w-full items-center rounded-b-md border-x border-b border-purple-700/80 bg-purple-900/90 px-1 py-0.5 text-purple-200 shadow-md dark:bg-slate-900/95 ${
-          player.next_fixture ? "justify-between py-0.5 text-[9px]" : "justify-center py-1"
-        }`}
+        className={`flex w-full items-center border-x border-t border-purple-700/80 bg-purple-900/90 px-1 py-0.5 text-purple-200 shadow-md dark:bg-slate-900/95 ${
+          hasGwStats ? "" : "rounded-b-md border-b"
+        } ${player.next_fixture ? "justify-between py-0.5 text-[9px]" : "justify-center py-1"}`}
       >
         {hasXp ? (
           <span
@@ -264,6 +277,17 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
           </FDRBadge>
         )}
       </span>
+
+      {/* This gameweek's goals/assists/minutes — a third micro-row, only
+          when the caller has real stats to show (currently /team's live
+          pitch). Card grows ~10px rather than crowding the points row. */}
+      {hasGwStats && (
+        <span className="flex w-full items-center justify-center gap-1.5 rounded-b-md border-x border-b border-purple-700/80 bg-purple-950/90 px-1 py-0.5 text-[8px] font-semibold tabular-nums text-purple-300 shadow-md dark:bg-slate-950/95">
+          <span title="Goals">⚽{player.gw_goals ?? 0}</span>
+          <span title="Assists">🅰{player.gw_assists ?? 0}</span>
+          <span title="Minutes played">{player.gw_minutes ?? 0}′</span>
+        </span>
+      )}
     </button>
   );
 }

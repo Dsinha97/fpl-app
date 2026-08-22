@@ -107,6 +107,9 @@ interface PlayerRow {
   bonus: number | null;
   form: number | null;
   defensive_contribution: number | null;
+  goals_scored: number | null;
+  assists: number | null;
+  minutes: number | null;
 }
 
 interface XpRow {
@@ -165,7 +168,7 @@ const FALLBACK_SEASON_WINDOW = 8;
 
 const money = (tenths: number) => `£${(tenths / 10).toFixed(1)}m`;
 
-type SortKey = "xp5" | "xp1" | "price" | "ownership";
+type SortKey = "xp5" | "xp1" | "price" | "ownership" | "points" | "goals" | "assists" | "minutes";
 
 export default function BuilderPage() {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -249,7 +252,7 @@ export default function BuilderPage() {
             supabase
               .from("players")
               .select(
-                "id, code, web_name, first_name, second_name, known_name, team_id, team_code, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, points_per_game, total_points, bonus, form, defensive_contribution",
+                "id, code, web_name, first_name, second_name, known_name, team_id, team_code, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, points_per_game, total_points, bonus, form, defensive_contribution, goals_scored, assists, minutes",
               )
               .eq("season", gw.season)
               .limit(1000),
@@ -948,6 +951,14 @@ export default function BuilderPage() {
           return p.now_cost ?? -1;
         case "ownership":
           return p.selected_by_percent ?? -1;
+        case "points":
+          return p.total_points ?? -1;
+        case "goals":
+          return p.goals_scored ?? -1;
+        case "assists":
+          return p.assists ?? -1;
+        case "minutes":
+          return p.minutes ?? -1;
       }
     };
 
@@ -2205,6 +2216,10 @@ export default function BuilderPage() {
                 <option value="xp1">xP GW</option>
                 <option value="price">Price</option>
                 <option value="ownership">Owned</option>
+                <option value="points">Points</option>
+                <option value="goals">Goals</option>
+                <option value="assists">Assists</option>
+                <option value="minutes">Minutes</option>
               </select>
             </div>
 
@@ -2278,6 +2293,10 @@ export default function BuilderPage() {
                               {teamShort.get(p.team_id)} · {POSITIONS[p.element_type]}
                               {/* Full name, so a hit on a hidden field doesn't look like a bug. */}
                               {fullName(p) ? ` · ${fullName(p)}` : ""}
+                              {/* Current-season totals — the table itself stays a narrow
+                                  5-column sidebar list, so these ride the existing sub-line
+                                  rather than adding columns. */}
+                              {` · ${p.total_points ?? 0}pts · ${p.goals_scored ?? 0}G · ${p.assists ?? 0}A`}
                             </span>
                           </button>
                         </td>

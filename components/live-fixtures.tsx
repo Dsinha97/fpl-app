@@ -32,8 +32,26 @@ export interface LiveFixtureData {
   team_a_score: number | null;
   started: boolean | null;
   finished: boolean | null;
+  /** FPL's own "bonus confirmed" flag — a match can be `finished` with bonus still provisional. */
+  finished_provisional: boolean | null;
   minutes: number | null;
   stats: unknown;
+}
+
+export type MatchStatus = "not_started" | "live" | "finished_provisional" | "finished";
+
+/**
+ * `finished` and `finished_provisional` are separate FPL flags — a match can
+ * be full time with bonus points not yet confirmed, so "finished" on its own
+ * isn't enough to say the result (and its bonus) is settled. Shared by the
+ * live hub card and the /fixtures schedule row so the two screens never
+ * disagree about what a given fixture's state means.
+ */
+export function matchStatus(fixture: Pick<LiveFixtureData, "started" | "finished" | "finished_provisional">): MatchStatus {
+  if (fixture.finished === true) return "finished";
+  if (fixture.finished_provisional === true) return "finished_provisional";
+  if (fixture.started === true) return "live";
+  return "not_started";
 }
 
 const showValue = (identifier: string, value: number) =>
@@ -133,9 +151,15 @@ export function LiveFixtureCard({ fixture, teams, playersById, squadElementIds }
   const home = teams.get(fixture.team_h);
   const away = teams.get(fixture.team_a);
   const stats = parseFixtureStats(fixture.stats);
-  const live = fixture.started === true && fixture.finished !== true;
   const hasScore = fixture.team_h_score !== null && fixture.team_a_score !== null;
   const expandable = hasFixtureStats(stats);
+
+  // Three states, not two: `finished` alone doesn't mean bonus is settled —
+  // FPL confirms bonus separately via `finished_provisional`, so a match can
+  // read full time with the Bonus row still marked provisional.
+  const status = matchStatus(fixture);
+  const live = status === "live";
+  const provisionalBonus = status !== "finished";
 
   const scoreRow = (
     <div className="mt-2 flex items-center justify-center gap-3">
@@ -166,11 +190,21 @@ export function LiveFixtureCard({ fixture, teams, playersById, squadElementIds }
   );
 
   return (
-    <div className="w-full rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234] sm:w-[calc(50%-0.375rem)]">
+    <div className="w-full self-start rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234] sm:w-[calc(50%-0.375rem)]">
       {live && (
         <span className="flex w-fit items-center gap-1.5 rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400" aria-hidden="true" />
           Live{fixture.minutes !== null ? ` · ${fixture.minutes}′` : ""}
+        </span>
+      )}
+      {status === "finished_provisional" && (
+        <span className="flex w-fit items-center gap-1.5 rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
+          FT · bonus provisional
+        </span>
+      )}
+      {status === "finished" && (
+        <span className="flex w-fit items-center gap-1.5 rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
+          FT
         </span>
       )}
       {expandable ? (
@@ -191,7 +225,7 @@ export function LiveFixtureCard({ fixture, teams, playersById, squadElementIds }
             stats={stats}
             playersById={playersById}
             squadElementIds={squadElementIds}
-            provisional={live}
+            provisional={provisionalBonus}
           />
         </div>
       )}

@@ -138,6 +138,17 @@ function flattenExplain(raw: unknown): LiveStatLine[] | null {
   return byIdentifier.size > 0 ? [...byIdentifier.values()] : null;
 }
 
+/**
+ * Finalised and live rows are merged **per player**, matching
+ * loadEventPoints (lib/manager-picks.ts) — by whichever source has recorded
+ * more minutes, not by whether a finalised row merely exists.
+ * sync-player-history's element-summary read can carry a *pre-kickoff*
+ * placeholder row for the event's own fixture (zeroed stats, kickoff still in
+ * the future), so a finalised row existing is not the same as the player's
+ * result being settled — see loadEventPoints' doc comment for the GW1
+ * evidence. Taking the higher-minutes source per player self-corrects once
+ * the finalised row is rewritten after the match.
+ */
 export async function loadLiveDetail(
   season: string,
   event: number,
@@ -146,6 +157,8 @@ export async function loadLiveDetail(
   const byPlayer = new Map<number, LivePlayerDetail>();
   const ids = [...new Set(playerIds)];
   if (ids.length === 0) return { byPlayer, provisional: false };
+
+  const finalisedByPlayer = new Map<number, LivePlayerDetail>();
 
   for (let from = 0; ; from += PAGE_ROWS) {
     const { data, error } = await supabase
@@ -161,18 +174,17 @@ export async function loadLiveDetail(
     for (const r of data ?? []) {
       const id = r.player_id as number;
       const acc =
-        byPlayer.get(id) ?? { points: 0, minutes: 0, bonus: 0, bps: 0, inDreamteam: false, explain: null };
+        finalisedByPlayer.get(id) ??
+        { points: 0, minutes: 0, bonus: 0, bps: 0, inDreamteam: false, explain: null };
       acc.points += (r.total_points as number | null) ?? 0;
       acc.minutes += (r.minutes as number | null) ?? 0;
       acc.bonus += (r.bonus as number | null) ?? 0;
       acc.bps += (r.bps as number | null) ?? 0;
-      byPlayer.set(id, acc);
+      finalisedByPlayer.set(id, acc);
     }
 
     if ((data?.length ?? 0) < PAGE_ROWS) break;
   }
-
-  if (byPlayer.size > 0) return { byPlayer, provisional: false };
 
   const { data: live, error: liveError } = await supabase
     .from("player_live_stats")
@@ -182,8 +194,9 @@ export async function loadLiveDetail(
     .in("player_id", ids);
   if (liveError) throw new Error(liveError.message);
 
+  const liveByPlayer = new Map<number, LivePlayerDetail>();
   for (const r of live ?? []) {
-    byPlayer.set(r.player_id as number, {
+    liveByPlayer.set(r.player_id as number, {
       points: (r.total_points as number | null) ?? 0,
       minutes: (r.minutes as number | null) ?? 0,
       bonus: (r.bonus as number | null) ?? 0,
@@ -193,7 +206,26 @@ export async function loadLiveDetail(
     });
   }
 
-  return { byPlayer, provisional: byPlayer.size > 0 };
+  let provisional = false;
+  for (const id of ids) {
+    const fin = finalisedByPlayer.get(id);
+    const liv = liveByPlayer.get(id);
+    if (fin && liv) {
+      if (liv.minutes > fin.minutes) {
+        byPlayer.set(id, liv);
+        provisional = true;
+      } else {
+        byPlayer.set(id, fin);
+      }
+    } else if (fin) {
+      byPlayer.set(id, fin);
+    } else if (liv) {
+      byPlayer.set(id, liv);
+      provisional = true;
+    }
+  }
+
+  return { byPlayer, provisional };
 }
 
 export interface FormationLimits {
@@ -361,7 +393,10 @@ export async function loadGameweekState(
   // squadPointsFor wants points-only rows — reuse it for the defensible term
   // split rather than re-deriving asPicked/benchRaw here.
   const pointsOnly = new Map(
-    [...detail].map(([id, d]) => [id, { points: d.points, minutes: d.minutes, fixtures: 1 }]),
+    [...detail].map(([id, d]) => [
+      id,
+      { points: d.points, minutes: d.minutes, goals: 0, assists: 0, fixtures: 1 },
+    ]),
   );
   const squadPoints = squadPointsFor(picks, pointsOnly);
 

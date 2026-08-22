@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FixtureCell } from "./fdr-badge";
 import { AvailabilityBadge, RoleBadges } from "./player-status-icons";
 import { ConfidenceBadge, RateBand } from "./confidence-badge";
@@ -27,13 +27,16 @@ const STATUS_TEXT: Record<string, string> = {
 };
 
 /**
- * Panel width and max height, also used to keep it inside the pitch. Raised
- * from 268x340 for the live-breakdown/season-stats/past-results sections —
- * both PitchView's positioning and the picker's `fixed` placement read these
- * constants directly, so they stay in sync automatically.
+ * Panel width and max height, also used to keep it inside the pitch.
+ * Lowered back from 460 to 340 (Sprint 21) now that everything past the
+ * metric grid and live breakdown sits behind "Show full details" and is
+ * collapsed by default — both PitchView's positioning and the picker's
+ * `fixed` placement read these constants directly, so they stay in sync
+ * automatically. The expanded state still scrolls within the panel's own
+ * `overflow-y-auto` rather than growing past this cap.
  */
 export const PANEL_WIDTH = 320;
-export const PANEL_MAX_HEIGHT = 460;
+export const PANEL_MAX_HEIGHT = 340;
 
 interface PlayerDetailProps {
   player: PlayerData;
@@ -81,6 +84,7 @@ export function PlayerDetail({
   fixed = false,
 }: PlayerDetailProps) {
   const panel = useRef<HTMLDivElement>(null);
+  const [showAll, setShowAll] = useState(false);
 
   // Any click outside the panel dismisses it, as does Escape. The listener is
   // bound to the panel rather than the pitch, so clicking the grass closes it
@@ -213,9 +217,45 @@ export function PlayerDetail({
         </div>
       )}
 
-      {/* supporting numbers */}
+      {/*
+        The metric grid — everything that used to be two separate grids
+        (price/xP/start-probability, then season totals), merged into one so
+        the popup's always-visible surface is metrics only. Sprint 20's
+        "the popup is getting too big": the rest lives behind Show full
+        details, below.
+      */}
       <div className="mt-2.5 grid grid-cols-3 gap-2 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
         {stat("Price", `£${(player.now_cost / 10).toFixed(1)}m`)}
+        {stat(
+          "Goals",
+          player.gw_goals !== undefined && player.gw_goals !== null ? player.gw_goals.toString() : "—",
+        )}
+        {stat(
+          "Assists",
+          player.gw_assists !== undefined && player.gw_assists !== null
+            ? player.gw_assists.toString()
+            : "—",
+        )}
+        {stat(
+          "Mins",
+          player.gw_minutes !== undefined && player.gw_minutes !== null
+            ? player.gw_minutes.toString()
+            : "—",
+        )}
+        {stat(
+          "Owned",
+          player.ownership !== undefined && player.ownership !== null
+            ? `${player.ownership}%`
+            : "—",
+        )}
+        {stat("Form", player.form !== undefined && player.form !== null ? player.form.toFixed(1) : "—")}
+        {stat(
+          "Total pts",
+          player.season_total_points !== undefined && player.season_total_points !== null
+            ? player.season_total_points.toString()
+            : "—",
+          true,
+        )}
         {stat("xP 5", player.xp5 !== undefined && player.xp5 !== null ? player.xp5.toFixed(1) : "—")}
         {stat(
           "Exp. mins",
@@ -229,195 +269,207 @@ export function PlayerDetail({
             ? `${Math.round(player.start_probability * 100)}%`
             : "—",
         )}
-        {stat(
-          "Owned",
-          player.ownership !== undefined && player.ownership !== null
-            ? `${player.ownership}%`
-            : "—",
-        )}
       </div>
 
       {/*
-        Season-to-date stats, already on `players` — dc_actions is a raw
-        action count (clearances + blocks + interceptions + tackles, or the
-        same plus recoveries for MID/FWD), not points: FPL only scores DC
-        on crossing a positional threshold (10 for defenders, 12 for
-        midfielders), so labelling this "DC Pts" would be wrong.
+        Everything below is context, not a metric to scan at a glance — the
+        popup used to open at this full height on every click, which was too
+        big (Sprint 20/21). Collapsed by default; the metric grid and live
+        breakdown above, and the actions below, stay visible regardless.
       */}
-      {player.season_total_points !== undefined && (
-        <div className="mt-2.5 grid grid-cols-3 gap-2 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
-          {stat("Total pts", player.season_total_points?.toString() ?? "—", true)}
-          {stat("Bonus pts", player.season_bonus?.toString() ?? "—")}
-          {stat(
-            "DC actions",
-            player.dc_actions !== undefined && player.dc_actions !== null
-              ? player.dc_actions.toString()
-              : "—",
+      <button
+        type="button"
+        onClick={() => setShowAll((v) => !v)}
+        aria-expanded={showAll}
+        className="mt-2.5 flex w-full items-center justify-between border-t border-zinc-100 pt-2.5 text-[11px] font-medium text-zinc-500 transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-900/40 dark:hover:text-primary"
+      >
+        {showAll ? "Hide full details" : "Show full details"}
+        <span
+          aria-hidden="true"
+          className={`text-zinc-400 transition-transform ${showAll ? "" : "rotate-180"}`}
+        >
+          ⌃
+        </span>
+      </button>
+
+      {showAll && (
+        <>
+          {/*
+            Season detail beyond the headline grid above — dc_actions is a
+            raw action count (clearances + blocks + interceptions + tackles,
+            or the same plus recoveries for MID/FWD), not points: FPL only
+            scores DC on crossing a positional threshold (10 for defenders,
+            12 for midfielders), so labelling this "DC Pts" would be wrong.
+          */}
+          {(player.season_bonus !== undefined || player.dc_actions !== undefined) && (
+            <div className="mt-2.5 grid grid-cols-2 gap-2 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
+              {stat("Bonus pts", player.season_bonus?.toString() ?? "—")}
+              {stat(
+                "DC actions",
+                player.dc_actions !== undefined && player.dc_actions !== null
+                  ? player.dc_actions.toString()
+                  : "—",
+              )}
+            </div>
           )}
-          {player.form !== undefined && (
-            <div className="col-span-3">
-              <div className="text-[10px] uppercase tracking-wide text-zinc-500">Form</div>
-              <div className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                {player.form !== null ? player.form.toFixed(1) : "—"}
+
+          {/* recent results — the mirror of "Next fixtures" below, looking backward */}
+          {player.past_results && player.past_results.length > 0 && (
+            <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
+              <div className="text-[10px] uppercase tracking-wide text-zinc-500">Recent form</div>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {player.past_results.slice(-6).map((r) => (
+                  <span
+                    key={r.event}
+                    title={`GW${r.event} · ${r.points} points`}
+                    className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold shadow-sm ${
+                      r.points >= 6
+                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                        : r.points >= 2
+                          ? "bg-zinc-100 text-zinc-700 dark:bg-[#2A0A45] dark:text-zinc-300"
+                          : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                    }`}
+                  >
+                    {r.points}pts {r.opponent_short_name.toUpperCase()}
+                    {r.is_home ? "(H)" : "(A)"}
+                  </span>
+                ))}
               </div>
             </div>
           )}
-        </div>
-      )}
 
-      {/* recent results — the mirror of "Next fixtures" below, looking backward */}
-      {player.past_results && player.past_results.length > 0 && (
-        <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
-          <div className="text-[10px] uppercase tracking-wide text-zinc-500">Recent form</div>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {player.past_results.slice(-6).map((r) => (
-              <span
-                key={r.event}
-                title={`GW${r.event} · ${r.points} points`}
-                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold shadow-sm ${
-                  r.points >= 6
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                    : r.points >= 2
-                      ? "bg-zinc-100 text-zinc-700 dark:bg-[#2A0A45] dark:text-zinc-300"
-                      : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
-                }`}
-              >
-                {r.points}pts {r.opponent_short_name.toUpperCase()}
-                {r.is_home ? "(H)" : "(A)"}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+          {/* club system — Sprint 12.5, context only, never folded into xP */}
+          {player.system && (
+            <p
+              className="mt-2.5 truncate border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40 dark:text-zinc-400"
+              title={`System: ${player.system} — tactical context, not applied to xP.`}
+            >
+              <span className="font-medium text-zinc-600 dark:text-zinc-300">System</span> · {player.system}
+            </p>
+          )}
 
-      {/* club system — Sprint 12.5, context only, never folded into xP */}
-      {player.system && (
-        <p
-          className="mt-2.5 truncate border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40 dark:text-zinc-400"
-          title={`System: ${player.system} — tactical context, not applied to xP.`}
-        >
-          <span className="font-medium text-zinc-600 dark:text-zinc-300">System</span> · {player.system}
-        </p>
-      )}
-
-      {/* GW1 predicted lineup — affects the risk figure and the badges only, never xP */}
-      {player.gw1_tier && (
-        <div className="mt-2.5 flex items-start gap-2 border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40 dark:text-zinc-400">
-          <Gw1Badge
-            tier={player.gw1_tier}
-            note={player.gw1_note}
-            inPredictedXi={player.gw1_in_predicted_xi ?? undefined}
-            className="mt-0.5"
-          />
-          <span>
-            {player.gw1_in_predicted_xi === false ? "Not in the GW1 predicted XI" : "In the GW1 predicted XI"}
-            {player.gw1_note ? ` — ${player.gw1_note}` : ""}
-            {" · affects risk, not xP"}
-          </span>
-        </div>
-      )}
-
-      {/* availability */}
-      <div className="mt-2.5 flex items-start gap-2 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
-        <AvailabilityBadge
-          status={player.status}
-          chanceOfPlaying={chance}
-          news={player.news}
-          size="w-4 h-4"
-        />
-        <div className="min-w-0 flex-1 text-[11px]">
-          <span
-            className={
-              statusCode === "a"
-                ? "font-medium text-emerald-700 dark:text-emerald-400"
-                : "font-medium text-amber-700 dark:text-amber-400"
-            }
-          >
-            {statusLabel}
-            {chance !== null && chance !== undefined && chance < 100 ? ` · ${chance}%` : ""}
-          </span>
-          {player.news && <p className="mt-0.5 text-zinc-500">{player.news}</p>}
-        </div>
-      </div>
-
-      {/*
-        In the news — Sprint 20. Undefined hides the section entirely (same
-        convention as `reliability`/`system` above): the panel never fetches
-        its own headlines, only renders what the caller already queried for
-        the whole squad. Capped at 3 — this popover is 268px wide and already
-        dense, so this is a pointer to /news, not a reader.
-      */}
-      {player.headlines && player.headlines.length > 0 && (
-        <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
-          <div className="text-[10px] uppercase tracking-wide text-zinc-500">In the news</div>
-          <ul className="mt-1 space-y-1.5">
-            {player.headlines.slice(0, 3).map((h, i) => (
-              <li key={i}>
-                <a
-                  href={h.url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="line-clamp-2 text-[11px] font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
-                >
-                  {h.title}
-                </a>
-                <div className="text-[10px] text-zinc-500">
-                  {sourceBadge(h)} · {ago(h.published_at)}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* set-piece roles */}
-      {(player.is_penalty_taker || player.is_freekick_taker || player.is_corner_taker) && (
-        <div className="mt-2.5 flex items-center gap-2 border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40">
-          <RoleBadges
-            penaltyOrder={player.is_penalty_taker ? 1 : null}
-            freeKickOrder={player.is_freekick_taker ? 1 : null}
-            cornerOrder={player.is_corner_taker ? 1 : null}
-            size="w-4 h-4"
-          />
-          <span>
-            {[
-              player.is_penalty_taker ? "penalties" : null,
-              player.is_freekick_taker ? "free kicks" : null,
-              player.is_corner_taker ? "corners" : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </span>
-        </div>
-      )}
-
-      {/* fixtures */}
-      {player.upcoming && player.upcoming.length > 0 && (
-        <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
-          <div className="text-[10px] uppercase tracking-wide text-zinc-500">Next fixtures</div>
-          <div className="mt-1.5 flex gap-1.5">
-            {player.upcoming.map((f) => (
-              <FixtureCell
-                key={f.event}
-                opponent={f.opponent_short_name}
-                home={f.is_home}
-                fdr={f.fdr}
-                gw={f.event}
-                team={player.team_short ?? undefined}
+          {/* GW1 predicted lineup — affects the risk figure and the badges only, never xP */}
+          {player.gw1_tier && (
+            <div className="mt-2.5 flex items-start gap-2 border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40 dark:text-zinc-400">
+              <Gw1Badge
+                tier={player.gw1_tier}
+                note={player.gw1_note}
+                inPredictedXi={player.gw1_in_predicted_xi ?? undefined}
+                className="mt-0.5"
               />
-            ))}
-          </div>
-        </div>
-      )}
+              <span>
+                {player.gw1_in_predicted_xi === false
+                  ? "Not in the GW1 predicted XI"
+                  : "In the GW1 predicted XI"}
+                {player.gw1_note ? ` — ${player.gw1_note}` : ""}
+                {" · affects risk, not xP"}
+              </span>
+            </div>
+          )}
 
-      {/* sub probability, bench only */}
-      {player.sub_probability !== undefined && player.sub_probability !== null && (
-        <p className="mt-2.5 border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40">
-          <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-            {Math.round(player.sub_probability * 100)}%
-          </span>{" "}
-          chance of being subbed on
-        </p>
+          {/* availability */}
+          <div className="mt-2.5 flex items-start gap-2 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
+            <AvailabilityBadge
+              status={player.status}
+              chanceOfPlaying={chance}
+              news={player.news}
+              size="w-4 h-4"
+            />
+            <div className="min-w-0 flex-1 text-[11px]">
+              <span
+                className={
+                  statusCode === "a"
+                    ? "font-medium text-emerald-700 dark:text-emerald-400"
+                    : "font-medium text-amber-700 dark:text-amber-400"
+                }
+              >
+                {statusLabel}
+                {chance !== null && chance !== undefined && chance < 100 ? ` · ${chance}%` : ""}
+              </span>
+              {player.news && <p className="mt-0.5 text-zinc-500">{player.news}</p>}
+            </div>
+          </div>
+
+          {/*
+            In the news — Sprint 20. Undefined hides the section entirely (same
+            convention as `reliability`/`system` above): the panel never fetches
+            its own headlines, only renders what the caller already queried for
+            the whole squad. Capped at 3 — this popover is 268px wide and already
+            dense, so this is a pointer to /news, not a reader.
+          */}
+          {player.headlines && player.headlines.length > 0 && (
+            <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
+              <div className="text-[10px] uppercase tracking-wide text-zinc-500">In the news</div>
+              <ul className="mt-1 space-y-1.5">
+                {player.headlines.slice(0, 3).map((h, i) => (
+                  <li key={i}>
+                    <a
+                      href={h.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="line-clamp-2 text-[11px] font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+                    >
+                      {h.title}
+                    </a>
+                    <div className="text-[10px] text-zinc-500">
+                      {sourceBadge(h)} · {ago(h.published_at)}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* set-piece roles */}
+          {(player.is_penalty_taker || player.is_freekick_taker || player.is_corner_taker) && (
+            <div className="mt-2.5 flex items-center gap-2 border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40">
+              <RoleBadges
+                penaltyOrder={player.is_penalty_taker ? 1 : null}
+                freeKickOrder={player.is_freekick_taker ? 1 : null}
+                cornerOrder={player.is_corner_taker ? 1 : null}
+                size="w-4 h-4"
+              />
+              <span>
+                {[
+                  player.is_penalty_taker ? "penalties" : null,
+                  player.is_freekick_taker ? "free kicks" : null,
+                  player.is_corner_taker ? "corners" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            </div>
+          )}
+
+          {/* fixtures */}
+          {player.upcoming && player.upcoming.length > 0 && (
+            <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
+              <div className="text-[10px] uppercase tracking-wide text-zinc-500">Next fixtures</div>
+              <div className="mt-1.5 flex gap-1.5">
+                {player.upcoming.map((f) => (
+                  <FixtureCell
+                    key={f.event}
+                    opponent={f.opponent_short_name}
+                    home={f.is_home}
+                    fdr={f.fdr}
+                    gw={f.event}
+                    team={player.team_short ?? undefined}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* sub probability, bench only */}
+          {player.sub_probability !== undefined && player.sub_probability !== null && (
+            <p className="mt-2.5 border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40">
+              <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                {Math.round(player.sub_probability * 100)}%
+              </span>{" "}
+              chance of being subbed on
+            </p>
+          )}
+        </>
       )}
 
       {/* actions — pool player: add, or find a swap for an owned one */}

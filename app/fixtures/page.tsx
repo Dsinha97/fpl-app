@@ -61,7 +61,7 @@ export default function FixturesPage() {
           supabase
             .from("fixtures")
             .select(
-              "id, event, kickoff_time, provisional_start_time, team_h, team_a, team_h_score, team_a_score, started, finished, minutes, team_h_difficulty, team_a_difficulty, stats",
+              "id, event, kickoff_time, provisional_start_time, team_h, team_a, team_h_score, team_a_score, started, finished, finished_provisional, minutes, team_h_difficulty, team_a_difficulty, stats",
             )
             .eq("season", gw.season),
           supabase

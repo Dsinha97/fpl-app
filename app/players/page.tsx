@@ -48,6 +48,13 @@ interface PlayerRow {
   penalties_order: number | null;
   direct_freekicks_order: number | null;
   corners_and_indirect_freekicks_order: number | null;
+  // Current-season totals — distinct from `HistoryRow` below, which is last
+  // season's (player_season_history). Both are shown, clearly labelled, so
+  // the two are never confused (CLAUDE.md: "say what the number means").
+  total_points: number | null;
+  goals_scored: number | null;
+  assists: number | null;
+  minutes: number | null;
 }
 
 interface HistoryRow {
@@ -111,7 +118,21 @@ const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FW
 /** Positions the defensive-contribution threshold can ever apply to — see XDC_MODEL_NOTE. */
 const XDC_POSITIONS = new Set([2, 3]);
 
-type SortKey = "price" | "ownership" | "points" | "xg" | "xa" | "run" | "xp1" | "xpH" | "xdc" | "value";
+type SortKey =
+  | "price"
+  | "ownership"
+  | "points"
+  | "xg"
+  | "xa"
+  | "run"
+  | "xp1"
+  | "xpH"
+  | "xdc"
+  | "value"
+  | "gwPoints"
+  | "goals"
+  | "assists"
+  | "minutes";
 
 /** Fallback when `player_xp_horizons` has no rows yet — matches `generate-predictions`' own floor. */
 const FALLBACK_SEASON_WINDOW = 8;
@@ -194,7 +215,7 @@ export default function PlayersPage() {
             .select(
               // Single string literal: supabase-js parses this at the type level,
               // so concatenation would collapse the row type to an error type.
-              "id, code, web_name, first_name, second_name, known_name, team_id, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order",
+              "id, code, web_name, first_name, second_name, known_name, team_id, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, total_points, goals_scored, assists, minutes",
             )
             .eq("season", gw.season)
             .limit(1000),
@@ -399,6 +420,14 @@ export default function PlayersPage() {
         case "run":
           // Lower FDR is better, so invert for a consistent "desc = best" sort.
           return avgFdr(p.team_id) === null ? -99 : -avgFdr(p.team_id)!;
+        case "gwPoints":
+          return p.total_points ?? -1;
+        case "goals":
+          return p.goals_scored ?? -1;
+        case "assists":
+          return p.assists ?? -1;
+        case "minutes":
+          return p.minutes ?? -1;
       }
     };
 
@@ -534,9 +563,13 @@ export default function PlayersPage() {
                 </th>
                 {header("xP/£m", "value")}
                 {header("Own %", "ownership")}
-                {header("Pts", "points")}
-                {header("xG", "xg")}
-                {header("xA", "xa")}
+                {header("Pts", "gwPoints")}
+                {header("G", "goals")}
+                {header("A", "assists")}
+                {header("Mins", "minutes")}
+                {header(`Pts ${historySeason || "LY"}`, "points")}
+                {header(`xG ${historySeason || "LY"}`, "xg")}
+                {header(`xA ${historySeason || "LY"}`, "xa")}
                 <th className="px-2 py-2">
                   <span className="flex items-center gap-1.5">
                     <button
@@ -626,9 +659,13 @@ export default function PlayersPage() {
                     <td className="px-2 py-1.5 tabular-nums">
                       {p.selected_by_percent !== null ? `${p.selected_by_percent}%` : "—"}
                     </td>
-                    <td className="px-2 py-1.5 tabular-nums">{h?.total_points ?? "—"}</td>
-                    <td className="px-2 py-1.5 tabular-nums">{h?.expected_goals ?? "—"}</td>
-                    <td className="px-2 py-1.5 tabular-nums">{h?.expected_assists ?? "—"}</td>
+                    <td className="px-2 py-1.5 font-semibold tabular-nums">{p.total_points ?? "—"}</td>
+                    <td className="px-2 py-1.5 tabular-nums">{p.goals_scored ?? "—"}</td>
+                    <td className="px-2 py-1.5 tabular-nums">{p.assists ?? "—"}</td>
+                    <td className="px-2 py-1.5 tabular-nums">{p.minutes ?? "—"}</td>
+                    <td className="px-2 py-1.5 tabular-nums text-zinc-500">{h?.total_points ?? "—"}</td>
+                    <td className="px-2 py-1.5 tabular-nums text-zinc-500">{h?.expected_goals ?? "—"}</td>
+                    <td className="px-2 py-1.5 tabular-nums text-zinc-500">{h?.expected_assists ?? "—"}</td>
                     <td className="px-2 py-1.5">
                       {/* Wraps to at most 3 rows and grows sideways instead of
                           down — the table already scrolls horizontally, so a
@@ -652,7 +689,7 @@ export default function PlayersPage() {
               })}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="px-3 py-6 text-center text-zinc-500">
+                  <td colSpan={17} className="px-3 py-6 text-center text-zinc-500">
                     No players match the current filters.
                   </td>
                 </tr>
