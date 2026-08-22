@@ -90,10 +90,21 @@ r to 0.830. Full detail: [phase-4-model.md §3](../phase-4-model.md#3-squad-reco
 - **`dc90` applies one aggregate defensive-contribution count to two different FPL scoring rules**
   (defenders score on CBIT, mid/forwards on CBIRT). The component stats exist in the database but no
   code path reads them yet — `XDC_MODEL_NOTE` in `lib/scoring.ts` discloses this in the UI.
-- **No current-season form** — rates come entirely from prior seasons until 2026/27 gameweeks
-  accrue.
+- **No current-season form — and structurally, no path exists for it to reach the model at all
+  (checked 2026-08-22).** Not "rates haven't accrued yet": `generate-predictions/index.ts` reads
+  `player_season_history` as its *only* per-player evidence, and that table can't gain a
+  current-season row mid-season — `sync-player-history` fills it from FPL's `history_past`, which
+  lists completed seasons only. Neither `player_gameweek_stats` nor `player_live_stats` is read by
+  the model anywhere. So between any two gameweeks a player's xP moves only on availability, price
+  band, fixtures/FDR, and squad reconciliation — never on what they actually did. Very likely the
+  largest single contributor to the walk-forward result above: the naive last-5-gameweeks baseline
+  it loses to is, definitionally, current-season form. A backtest-gated fix (blend
+  `player_gameweek_stats` into `weightedOwnRates` as a synthetic newest season, weighted by
+  accumulated minutes so a thin partial season self-balances) is proposed but not built — see
+  [roadmap.md](../roadmap.md#next-up) and [phase-4-model.md §4](../phase-4-model.md#4-honest-limitations)
+  for the full evidence and the exact MAE/r/bias gate it has to clear before shipping.
 - **Out-of-sample accuracy is currently worse than a naive baseline** — see the walk-forward
-  validation section above.
+  validation section above. (The current-season-form gap just above is the leading suspect why.)
 - **Fixture difficulty is the official FDR**, not a custom model — team attack/defence strength is
   zero for every club pre-season, which also blocks a calibrated fixture model (Phase 5, unbuilt).
 

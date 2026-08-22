@@ -135,6 +135,20 @@ decisions, never one that should be summed); and a new `CollapsibleCard` primiti
 and `/chips`' gameweek-by-gameweek table to a title + one-line summary by default. Full detail:
 [rivals-and-card-density.md](../sprints/rivals-and-card-density.md).
 
+### Expandable-card stretch (2026-08-22)
+
+A different card-pairing bug from the one above: `sm:grid-cols-2`/`flex-wrap` rows of
+**independently-expandable, variable-height** cards — `LiveFixtureCard` and `ClubTacticsGrid` on
+`/deadline`/`/fixtures`, not the fixed-content `CollapsibleCard` pairs above — stretch every card in
+a row to match its tallest sibling by default (`align-items: stretch`). Expand one card and its
+still-collapsed row-mate either shows dead space (`stretch`, the default) or a ragged bottom
+(`items-start`). Switching the container from CSS Grid to `flex flex-wrap` with a fixed
+`w-[calc(...)]` basis per card — the layout `/deadline`'s live hub already used — is only half the
+fix: flex rows default to `align-items: stretch` too, so an expanded card still inflates a
+collapsed neighbour. The actual fix is `self-start` on the card itself, alongside the
+`w-[calc(...)]` basis. Verified live: expanding the GW1 Hull–Man Utd card grew it to 436px while
+the still-collapsed Arsenal card beside it stayed at 80px. — CLAUDE.md's card-layout gotchas
+
 ## Component hierarchy and disclosure (Stage 4b)
 
 The same defect existed one level down. `components/player-detail.tsx`'s `stat()` grid rendered all

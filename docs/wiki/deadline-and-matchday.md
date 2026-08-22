@@ -148,4 +148,6 @@ other section, the career percentile profile — a different topic on the same p
 [ownership-and-leagues.md](ownership-and-leagues.md) (the other Sprint-10/13-adjacent build that
 landed the same evening — mini-league effective ownership, a different quantity from anything on
 this page), [frontend-conventions.md](frontend-conventions.md#player-detail-panel-live-breakdown-season-stats-and-recent-form)
-(the player detail panel's own GW1-follow-up additions, built alongside this).
+(the player detail panel's own GW1-follow-up additions, built alongside this),
+[design-system.md](design-system.md#expandable-card-stretch-2026-08-22) (`LiveFixtureCard`'s and
+`ClubTacticsGrid`'s row-stretch fix, found using this page's own real GW1 cards).

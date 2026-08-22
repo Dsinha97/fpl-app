@@ -236,9 +236,53 @@ starters less — is a different algorithm, not a parameter, and is recorded as 
   pre-season, so the custom analytical FDR of Phase 5 cannot be built yet.
 - **The calibration factors are fitted, not derived.** They should be refitted from real gameweek
   data and will likely shrink as the component model improves.
-- **No current-season form.** Rates come entirely from prior seasons. A player whose role has
-  changed — new manager, new position, transfer — will be mispriced until in-season data is blended
-  in.
+- **No current-season form — and no path exists for it to reach the model at all (checked
+  2026-08-22).** `generate-predictions/index.ts` reads `player_season_history` as its only
+  per-player evidence; neither `player_gameweek_stats` nor `player_live_stats` is read anywhere in
+  that function or in `xp-model.ts`. Its own `players` select pulls only
+  `id, code, team_id, element_type, status, chance_of_playing_next_round, now_cost` —
+  `total_points`, `goals_scored`, `minutes` and `form` sit on that row unselected. And
+  `player_season_history` structurally cannot pick up a current-season row mid-season:
+  `sync-player-history` fills it from FPL's `history_past`, which only lists *completed* seasons —
+  so the model's whole training table is frozen for the entire 2026/27 season regardless of how
+  many gameweeks are played. Between any two gameweeks, a player's xP moves only on availability,
+  price band, fixtures/FDR, squad reconciliation, and the shrinking prediction window.
+
+  This is not a theoretical gap — it is very likely the largest single contributor to the
+  out-of-sample walk-forward result above. [sprint-17a.md](sprints/sprint-17a.md) shows a naive
+  mean of the player's own last 5 gameweeks beating the model on both MAE and r in every target
+  season, with the model's bias trending more negative each season (-0.230 → -0.458 → -0.655):
+
+  | Season | Model MAE | Last-5 baseline MAE | Model r | Baseline r |
+  |---|---|---|---|---|
+  | 2023-24 | 2.316 | **2.034** | 0.227 | **0.369** |
+  | 2024-25 | 2.360 | **2.043** | 0.203 | **0.345** |
+  | 2025-26 | 2.546 | **2.061** | 0.153 | **0.341** |
+
+  **Proposed fix, not yet built:** aggregate the current season's `player_gameweek_stats` into a
+  synthetic newest-season row, in the same `SeasonRow` shape `weightedOwnRates` already consumes,
+  slotted at season rank 1 (currently weight 0.6). No new coefficient is needed to make this safe
+  for a thin partial season: `weightedOwnRates` computes `rate = Σ(w·stat) / Σ(w·minutes)` and
+  drives shrinkage off `n_eff = Σ(w·minutes)/90`, so the blend is **minutes-proportional, not
+  season-proportional** — 90 minutes at GW2 contributes 90×0.6 = 54 weighted minutes against a
+  full prior season's ~3000×0.3 = 900, and the existing empirical-Bayes shrinkage (§3) handles that
+  thin sample exactly as it already does for cold-start players, growing the current season's
+  influence on its own as minutes accumulate. The one open parameter is whether
+  `seasonWeights[0] = 0.6` is still right once rank 1 can be a partial season — that should be
+  swept with `scripts/backtest-walkforward.ts` (already importing the production model unmodified,
+  already has 4 seasons of archived `player_gameweek_stats` to replay against).
+
+  **Gate, per CLAUDE.md's "an acceptance threshold you invented is not evidence":** ship only if
+  the change improves both MAE *and* Pearson r against the table above in all three backtest
+  seasons, and does not worsen bias. A sweep that can't clear that is itself the finding — report
+  it, don't ship a coefficient tuned until the number looks reasonable. Shipping would also need a
+  `MODEL_VERSION` bump and a rewrite of `COLD_START_MODEL_NOTE` (`xp-model.ts`) and
+  `COLD_START_NOTE` (`lib/scoring.ts`), both of which currently state rates come entirely from
+  prior seasons.
+
+  **Adjacent finding:** `COMPARISON_WEIGHTS` (`lib/scoring.ts`) drops FPL's own `form` and
+  renormalises over 0.90 because FPL zeroes it between seasons — a premise that expires once
+  matches are actually being played. Worth revisiting on the same pass.
 - **`dc90` (defensive contribution) applies one aggregate count to two different FPL rules.** FPL
   scores defenders on clearances + blocks + interceptions + tackles, and midfielders/forwards on the
   same four plus recoveries — but the API exposes only the combined `defensive_contribution` total,

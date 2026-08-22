@@ -73,3 +73,17 @@ One line per entry, most recent first.
   `news-feed.md` gained a new "Gotchas" entry for the guid-normalisation fix (46% of rows were
   re-fetched duplicates) — a real production bug, not a Sprint 20 build-time finding, so filed
   alongside the others rather than backdated into the sprint's own section. `timeline.md` updated.
+- 2026-08-22 — Ingested CLAUDE.md's card-layout gotcha (the flex-row stretch fix, `self-start`
+  alongside the `w-[calc(...)]` basis on `LiveFixtureCard`/`ClubTacticsGrid`) and `roadmap.md` +
+  `phase-4-model.md`'s new write-up of the xP model's current-season-form gap. New subsection
+  "Expandable-card stretch" in `design-system.md` under Card hierarchy, cross-linked from
+  `deadline-and-matchday.md`'s live-hub section. `xp-model.md`'s "Known, disclosed gaps" rewrote the
+  one-line "No current-season form" bullet with the structural finding (no read path exists at
+  all, not just "hasn't accrued") and a cross-link to the gated proposal in `roadmap.md`/
+  `phase-4-model.md`. `timeline.md` updated; `.pending-ingest` cleared. **Tidy note, not fixed this
+  pass:** the pinned-squads feature (`TeamState.pinned`, `setPinnedDraft`), the `/players`/`/builder`
+  current-season Pts/G/A/Mins columns, and the live-hub points-freeze/FT-badge bug fixes have no
+  `docs/sprints/` or `roadmap.md` entry to ingest from — they shipped in code only. Also found
+  `log.md`'s actual practice is append-only (newest at the bottom), which contradicts this file's
+  own "most recent first" header at the top; not reordered here per the "don't restructure without
+  a plan" rule.

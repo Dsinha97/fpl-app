@@ -50,6 +50,18 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
+- **Blend current-season form into the xP model — not started, checked and written up
+  2026-08-22.** Confirmed by reading every code path that could carry it: `generate-predictions`
+  reads `player_season_history` only, never `player_gameweek_stats` or `player_live_stats`, and
+  `player_season_history` cannot gain a current-season row until the season ends (it's filled from
+  FPL's `history_past`, completed seasons only). So no gameweek's actual results can move next
+  gameweek's xP, all season — the model's per-gameweek accuracy is frozen at whatever
+  [sprint-17a.md](sprints/sprint-17a.md)'s walk-forward measured (worse than a naive last-5-gameweeks
+  average on both MAE and r, in every season tested). Proposed fix and, critically, the **backtest
+  gate it has to clear before shipping** — improve MAE and r in all three walk-forward seasons
+  without worsening bias, or the finding is that it doesn't help — are written up in
+  [phase-4-model.md](phase-4-model.md)'s "Honest limitations" section. No model code exists yet;
+  this is scope, not a built feature. Wiki: [xp-model.md](wiki/xp-model.md#known-disclosed-gaps).
 - **GW1 predicted-lineup layer — built 2026-08-20, remove after GW1 is scored.** A one-off,
   single-source read (`lib/gw1-lineups.ts`) fills the one gap the cold-start xP model can't:
   which of several similarly-rated squad players actually starts GW1. Feeds `riskScore` at
