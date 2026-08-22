@@ -886,12 +886,12 @@ export default function TeamPage() {
           onChange={(e) => setInputId(e.target.value)}
           inputMode="numeric"
           placeholder="e.g. 1234567"
-          className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus:border-[#00FF87]"
+          className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
         />
         <button
           type="submit"
           disabled={loading}
-          className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+          className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
         >
           {loading ? "Syncing…" : savedId ? "Refresh" : "Connect"}
         </button>
@@ -1088,7 +1088,7 @@ export default function TeamPage() {
                   type="button"
                   onClick={() => void handleImport()}
                   disabled={importing}
-                  className="rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                  className="rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
                 >
                   {importing ? "Importing…" : "Import as draft →"}
                 </button>
@@ -1326,13 +1326,13 @@ export default function TeamPage() {
                           }}
                           inputMode="numeric"
                           placeholder="Add rival by Manager ID"
-                          className="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus:border-[#00FF87]"
+                          className="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
                         />
                         <button
                           type="button"
                           onClick={() => void addRival()}
                           disabled={rivalBusy || !rivalInput.trim()}
-                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
                         >
                           {rivalBusy ? "Adding…" : "Add"}
                         </button>
@@ -1356,7 +1356,7 @@ export default function TeamPage() {
                                   onClick={() => void removeRival(entryId)}
                                   disabled={rivalBusy}
                                   aria-label={`Remove ${label} as a rival`}
-                                  className="text-zinc-400 hover:text-red-600 disabled:opacity-50 dark:hover:text-red-400"
+                                  className="text-zinc-400 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:hover:text-red-400"
                                 >
                                   ×
                                 </button>

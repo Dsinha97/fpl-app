@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
+import { FdrLegendContent, InfoTooltip, TapToReveal } from "@/components/info-tooltip";
 import { Spinner } from "@/components/ui/spinner";
 import { AvailabilityBadge } from "@/components/player-status-icons";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
@@ -1104,12 +1104,17 @@ export default function TransfersPage() {
                               </span>
                             )}
                             {exitRoutes !== undefined && (
-                              <span
-                                className="block text-[10px] text-zinc-400"
-                                title="Other legal candidates at this position after this swap — an exit route, not a ranking factor."
+                              <TapToReveal
+                                label="What is an exit route?"
+                                wrapperClassName="relative block"
+                                triggerClassName="text-[10px] text-zinc-400"
+                                trigger={`${exitRoutes} exit route${exitRoutes === 1 ? "" : "s"}`}
                               >
-                                {exitRoutes} exit route{exitRoutes === 1 ? "" : "s"}
-                              </span>
+                                <p>
+                                  Other legal candidates at this position after this swap — an
+                                  exit route, not a ranking factor.
+                                </p>
+                              </TapToReveal>
                             )}
                           </span>
                           <span className="shrink-0 text-right">
@@ -1137,8 +1142,11 @@ export default function TransfersPage() {
             )}
           </section>
 
-          {/* result */}
-          <aside className="space-y-4">
+          {/* result — order-first so the decision (net xP, hits, bank) shows
+              before the squad table and picker on a phone, where the grid
+              collapses to one column; lg:order-none restores the right-rail
+              position once there's room for both side by side. */}
+          <aside className="order-first space-y-4 lg:order-none">
             {simulation && moves.length === 0 && (
               <div className="rounded-xl border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border">
                 <p className="text-sm text-zinc-500">

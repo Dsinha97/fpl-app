@@ -75,7 +75,7 @@ import {
 } from "@/lib/hidden-gems";
 import { squadBudget, totalSpend } from "@/lib/squad-budget";
 import { GemBadge } from "@/components/gem-badge";
-import { InfoTooltip } from "@/components/info-tooltip";
+import { InfoTooltip, TapToReveal } from "@/components/info-tooltip";
 import { Spinner } from "@/components/ui/spinner";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { fullName } from "@/lib/player-search";
@@ -1585,7 +1585,7 @@ export default function BuilderPage() {
             value={team.name}
             onChange={(e) => persist({ ...team, name: e.target.value })}
             aria-label="Draft name"
-            className="w-36 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus:border-[#00FF87]"
+            className="w-36 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
           />
           <ActionMenu
             primaryLabel="Save"
@@ -1729,26 +1729,36 @@ export default function BuilderPage() {
                 <span className="text-zinc-500">
                   GW{effectiveEvent} chips
                 </span>
-                <span
-                  title={cheapChips.bboost.explanation.join(" ")}
-                  className="cursor-help text-zinc-700 dark:text-zinc-300"
+                <TapToReveal
+                  label="How is Bench Boost's gain calculated?"
+                  triggerClassName="text-zinc-700 dark:text-zinc-300"
+                  trigger={
+                    <>
+                      Bench Boost{" "}
+                      <span className="font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                        {cheapChips.bboost.gain >= 0 ? "+" : ""}
+                        {cheapChips.bboost.gain.toFixed(1)}
+                      </span>
+                    </>
+                  }
                 >
-                  Bench Boost{" "}
-                  <span className="font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
-                    {cheapChips.bboost.gain >= 0 ? "+" : ""}
-                    {cheapChips.bboost.gain.toFixed(1)}
-                  </span>
-                </span>
-                <span
-                  title={cheapChips.threeXC.explanation.join(" ")}
-                  className="cursor-help text-zinc-700 dark:text-zinc-300"
+                  <p>{cheapChips.bboost.explanation.join(" ")}</p>
+                </TapToReveal>
+                <TapToReveal
+                  label="How is Triple Captain's gain calculated?"
+                  triggerClassName="text-zinc-700 dark:text-zinc-300"
+                  trigger={
+                    <>
+                      Triple Captain{" "}
+                      <span className="font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                        {cheapChips.threeXC.gain >= 0 ? "+" : ""}
+                        {cheapChips.threeXC.gain.toFixed(1)}
+                      </span>
+                    </>
+                  }
                 >
-                  Triple Captain{" "}
-                  <span className="font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
-                    {cheapChips.threeXC.gain >= 0 ? "+" : ""}
-                    {cheapChips.threeXC.gain.toFixed(1)}
-                  </span>
-                </span>
+                  <p>{cheapChips.threeXC.explanation.join(" ")}</p>
+                </TapToReveal>
                 <Link
                   href={`/chips?draft=${team.draftId}`}
                   className="ml-auto text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
@@ -1861,12 +1871,13 @@ export default function BuilderPage() {
                     <span className="text-xs uppercase tracking-wide text-zinc-500">
                       Recommended captain
                     </span>
-                    <span
-                      className="text-xs font-semibold tabular-nums text-zinc-600 dark:text-zinc-300"
-                      title="Minutes certainty x availability x margin over the runner-up"
+                    <TapToReveal
+                      label="How is captain confidence calculated?"
+                      triggerClassName="text-xs font-semibold tabular-nums text-zinc-600 dark:text-zinc-300"
+                      trigger={`${Math.round(lineup.captain.confidence * 100)}% confidence`}
                     >
-                      {Math.round(lineup.captain.confidence * 100)}% confidence
-                    </span>
+                      <p>Minutes certainty x availability x margin over the runner-up.</p>
+                    </TapToReveal>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                     <span className="flex items-center gap-1.5">
@@ -2154,9 +2165,15 @@ export default function BuilderPage() {
                               <>
                                 {" "}
                                 ·{" "}
-                                <span title="Other legal candidates at this position after this swap — an exit route, not a ranking factor.">
-                                  {r.exitRoutes} exit route{r.exitRoutes === 1 ? "" : "s"}
-                                </span>
+                                <TapToReveal
+                                  label="What is an exit route?"
+                                  trigger={`${r.exitRoutes} exit route${r.exitRoutes === 1 ? "" : "s"}`}
+                                >
+                                  <p>
+                                    Other legal candidates at this position after this swap — an
+                                    exit route, not a ranking factor.
+                                  </p>
+                                </TapToReveal>
                               </>
                             )}
                           </p>

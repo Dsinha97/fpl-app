@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
+import { FdrLegendContent, InfoTooltip, TapToReveal } from "@/components/info-tooltip";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { DraftTimeline } from "@/components/draft-timeline";
 import {
@@ -496,7 +496,7 @@ export default function ScenariosPage() {
               key={h}
               onClick={() => setHorizon(h)}
               title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-              className={`rounded-md px-2.5 py-1 transition-colors ${
+              className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 horizon === h
                   ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
                   : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
@@ -517,14 +517,14 @@ export default function ScenariosPage() {
         {drafts.length > 0 && (
           <button
             onClick={handleExport}
-            className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
+            className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-600 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
           >
             Export drafts
           </button>
         )}
         <button
           onClick={() => importInputRef.current?.click()}
-          className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
+          className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-600 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
         >
           Import drafts
         </button>
@@ -615,7 +615,7 @@ export default function ScenariosPage() {
                             }
                           }}
                           aria-label="Draft name"
-                          className="w-full rounded border border-purple-400 bg-white px-1.5 py-0.5 text-sm font-semibold text-zinc-900 outline-none dark:border-[#00FF87] dark:bg-[#2A0A45] dark:text-zinc-100"
+                          className="w-full rounded border border-purple-400 bg-white px-1.5 py-0.5 text-sm font-semibold text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-[#00FF87] dark:bg-[#2A0A45] dark:text-zinc-100"
                         />
                         {renameError && (
                           <p className="mt-1 text-xs text-red-600 dark:text-red-400">{renameError}</p>
@@ -629,7 +629,7 @@ export default function ScenariosPage() {
                           setRenameError(null);
                         }}
                         title="Rename"
-                        className="max-w-full truncate text-left text-sm font-semibold text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+                        className="max-w-full truncate text-left text-sm font-semibold text-zinc-900 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-zinc-100"
                       >
                         {draft.name}
                       </button>
@@ -658,7 +658,7 @@ export default function ScenariosPage() {
                           ? "Unpin — stop opening this squad by default"
                           : "Pin — open this squad by default everywhere"
                       }
-                      className={`text-[13px] leading-none transition-colors ${
+                      className={`text-[13px] leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                         draft.pinned
                           ? "text-amber-600 dark:text-amber-400"
                           : "text-zinc-300 hover:text-amber-600 dark:text-zinc-600 dark:hover:text-amber-400"
@@ -750,13 +750,13 @@ export default function ScenariosPage() {
                       cloneDraft(draft);
                       refresh();
                     }}
-                    className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+                    className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
                   >
                     Clone
                   </button>
                   <button
                     onClick={() => openTimeline(draft.draftId)}
-                    className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+                    className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
                   >
                     Timeline
                   </button>
@@ -773,7 +773,7 @@ export default function ScenariosPage() {
                       refresh();
                     }}
                     onBlur={() => setConfirmDelete(null)}
-                    className={`rounded border px-2 py-1 font-medium transition-colors ${
+                    className={`rounded border px-2 py-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       confirmDelete === draft.draftId
                         ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
                         : "border-zinc-300 text-red-600 hover:border-red-500 dark:border-purple-800/60 dark:text-red-400"
@@ -861,7 +861,7 @@ export default function ScenariosPage() {
             <span className="flex items-center gap-3">
               <button
                 onClick={() => setSelected([])}
-                className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 dark:hover:text-[#00FF87]"
+                className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87]"
               >
                 Clear
               </button>
@@ -869,7 +869,7 @@ export default function ScenariosPage() {
                 onClick={() =>
                   comparisonRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
                 }
-                className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e078]"
+                className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e078]"
               >
                 Compare {chosen.length} drafts ↓
               </button>
@@ -1030,9 +1030,17 @@ function ComparisonRows({
             className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
           >
             <th className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
-              <span title={row.note} className={row.note ? "cursor-help underline decoration-dotted underline-offset-2" : ""}>
-                {row.label}
-              </span>
+              {row.note ? (
+                <TapToReveal
+                  label={`What does ${row.label} mean?`}
+                  triggerClassName="underline decoration-dotted underline-offset-2"
+                  trigger={row.label}
+                >
+                  <p>{row.note}</p>
+                </TapToReveal>
+              ) : (
+                row.label
+              )}
             </th>
             {nums.map((v, i) => (
               <td key={i} className="px-3 py-2 tabular-nums">

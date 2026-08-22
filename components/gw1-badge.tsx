@@ -1,10 +1,12 @@
 import type { Gw1Tier } from "@/lib/gw1-lineups";
+import { TapToReveal } from "@/components/info-tooltip";
 
 // GW1 predicted-lineup badge — same shape as `ConfidenceBadge`
 // (components/confidence-badge.tsx) and `GemBadge`: a bordered text pill,
-// colour-coded per tier, with the reasoning in `title` so nothing is
-// conveyed by colour alone. Gone once GW1 is scored, along with the rest of
-// lib/gw1-lineups.ts — see that file's header.
+// colour-coded per tier, with the reasoning in a click-toggled `TapToReveal`
+// panel so nothing is conveyed by colour alone and it's reachable on touch.
+// Gone once GW1 is scored, along with the rest of lib/gw1-lineups.ts — see
+// that file's header.
 
 const STYLE: Record<Gw1Tier, string> = {
   locked: "border-emerald-300 text-emerald-700 dark:border-emerald-800/60 dark:text-emerald-400",
@@ -31,15 +33,15 @@ export function Gw1Badge({
 }) {
   if (!tier) return null;
   const label = inPredictedXi === false ? "Not in the predicted XI" : "In the predicted XI";
-  const title = note ? `${label} — ${note}` : label;
 
   return (
-    <span
-      title={title}
-      aria-label={`GW1 predicted lineup: ${title}`}
-      className={`inline-flex shrink-0 cursor-help items-center whitespace-nowrap rounded border px-1 py-px text-[9px] font-medium uppercase tracking-wide ${STYLE[tier]} ${className}`}
+    <TapToReveal
+      label={`GW1 predicted lineup: ${label}`}
+      triggerClassName={`inline-flex shrink-0 items-center whitespace-nowrap rounded border px-1 py-px text-[9px] font-medium uppercase tracking-wide ${STYLE[tier]} ${className}`}
+      trigger={SHORT[tier]}
     >
-      {SHORT[tier]}
-    </span>
+      <p className="font-semibold text-zinc-900 dark:text-zinc-100">{label}</p>
+      {note && <p className="mt-1">{note}</p>}
+    </TapToReveal>
   );
 }

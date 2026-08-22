@@ -57,7 +57,7 @@ export function LeagueTable({
       )}
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
-        <table className="w-full border-collapse text-xs">
+        <table className="w-full min-w-[40rem] border-collapse text-xs">
           <thead>
             <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
               <th className="sticky left-0 z-10 bg-white px-2 py-2 text-center dark:bg-[#1E0234]">#</th>

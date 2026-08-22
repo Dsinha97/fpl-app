@@ -1,6 +1,8 @@
-# Cloudflare Pages header rules. Next copies everything in public/ to the export
-# root, so this ships as out/_headers. GitHub Pages ignores the file, which is why
-# it was safe to add before the host cutover.
+# Cloudflare header rules — read by Workers static assets (this app deploys via
+# wrangler.jsonc's `assets` block, not Pages), which uses the same `_headers`
+# convention Pages does. Next copies everything in public/ to the export root, so
+# this ships as out/_headers. GitHub Pages ignores the file, which is why it was
+# safe to add before the host cutover.
 #
 # script-src and style-src carry 'unsafe-inline' rather than a hash or nonce.
 # A nonce needs a server to mint one per request, which a static export does
@@ -17,6 +19,11 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://flagcdn.com https://resources.premierleague.com https://fantasy.premierleague.com; font-src 'self'; connect-src 'self' https://fyxyqxpscmqjyjxsyhms.supabase.co; object-src 'none'; base-uri 'self'
+  # Explicit rather than relying on the platform default: every HTML page
+  # (out/**/index.html) is content that changes on each deploy without a
+  # hashed filename, so it must revalidate on every request rather than sit
+  # in a shared cache — `/_next/static/*` below is the immutable exception.
+  Cache-Control: public, max-age=0, must-revalidate
 
 # Next content-hashes every filename under here, so a stale copy can never be
 # served for changed content and a one-year immutable cache is safe.

@@ -40,6 +40,7 @@ file, not separate files.
 | [sprints/rivals-and-card-density.md](sprints/rivals-and-card-density.md) | live | Rivals sync-before-write + this-season tab fix on `/team`; `CollapsibleCard` primitive repacks `/deadline`, `/transfers`, `/chips`. |
 | [sprints/sprint-20.md](sprints/sprint-20.md) | live | RSS News Ingestion — `sync-news`, table-driven `news_sources`, tiered entity resolution, `/news` (renamed from `/changes`) Feeds tab, player-panel headlines, `/deadline` team-news strip. |
 | [sprints/sprint-21.md](sprints/sprint-21.md) | live | Fixed `/team`'s stale-XI player-dropping bug at the root (`hasConsistentLineup`), removed the broken "Current squad" mode, added a leagues list (`manager_leagues`), FDR search/sort, and a Premier League Table tab on `/fixtures`. |
+| [sprints/design-audit-response.md](sprints/design-audit-response.md) | live | Response to an external design audit — sticky header `ContextBar`, current-season xG/xA + xMins on `/players`, nine hover-only tooltips made touch-accessible, focus rings and mobile-layout fixes on the pages Sprint 19 didn't reach. Most of the audit's own findings were checked and found false. |
 
 ## Source specs
 

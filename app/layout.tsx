@@ -6,6 +6,7 @@ import { DraftSyncProvider } from "@/components/draft-sync-provider";
 import { Monogram, Wordmark } from "@/components/brand";
 import { NavLinks } from "@/components/nav-links";
 import { AccountMenu } from "@/components/account-menu";
+import { ContextBar } from "@/components/context-bar";
 import { THEME_BOOT_SCRIPT } from "@/components/theme";
 import "./globals.css";
 
@@ -47,7 +48,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           <DraftSyncProvider />
-          <header className="border-b border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
             <nav className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 px-4">
               <Link href="/" className="flex shrink-0 items-center gap-2.5">
                 <Monogram size={30} />
@@ -58,6 +59,7 @@ export default function RootLayout({
                 <AccountMenu />
               </div>
             </nav>
+            <ContextBar />
           </header>
           <div className="flex flex-1 flex-col">{children}</div>
         </AuthProvider>

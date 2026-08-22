@@ -403,7 +403,7 @@ export default function ComparePage() {
               key={h}
               onClick={() => setHorizon(h)}
               title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-              className={`rounded-md px-2.5 py-1 transition-colors ${
+              className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 horizon === h
                   ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
                   : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
@@ -431,7 +431,7 @@ export default function ComparePage() {
               : "Add a player…"
           }
           disabled={selected.length >= MAX_COMPARE}
-          className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus:border-[#00FF87]"
+          className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
         />
         {suggestions.length > 0 && (
           <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg dark:border-purple-800/50 dark:bg-[#2A0A45]">
@@ -439,7 +439,7 @@ export default function ComparePage() {
               <li key={p.id}>
                 <button
                   onClick={() => add(p.id)}
-                  className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-purple-950/60"
+                  className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm text-zinc-800 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring dark:text-zinc-200 dark:hover:bg-purple-950/60"
                 >
                   <span className="min-w-0 truncate">
                     {p.web_name}
@@ -475,17 +475,22 @@ export default function ComparePage() {
       {!loading && chosen.length > 0 && (
         <>
           {/* metric table */}
+          {/* min-w rather than table-fixed's percentage columns — on a phone
+              viewport, four equal-percentage columns squeeze player names
+              and numbers illegibly small instead of scrolling. This is the
+              same overflow-x-auto + min-w + sticky-first-column pattern
+              app/players/page.tsx already uses for the same reason. */}
           <div className="mt-6 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
-            <table className="w-full table-fixed text-sm">
+            <table className="w-full min-w-[40rem] text-sm">
               <colgroup>
-                <col style={{ width: "12rem" }} />
+                <col style={{ width: "9rem" }} />
                 {chosen.map((p) => (
-                  <col key={p.id} style={{ width: `${100 / chosen.length}%` }} />
+                  <col key={p.id} style={{ width: "8rem" }} />
                 ))}
               </colgroup>
               <thead>
                 <tr className="border-b border-zinc-200 dark:border-purple-900/40">
-                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-zinc-500">
+                  <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-[#1E0234]">
                     Metric
                   </th>
                   {chosen.map((p) => {
@@ -510,7 +515,7 @@ export default function ComparePage() {
                           <button
                             onClick={() => setSelected((s) => s.filter((id) => id !== p.id))}
                             aria-label={`Remove ${p.webName}`}
-                            className="ml-auto shrink-0 text-zinc-400 transition-colors hover:text-red-500"
+                            className="ml-auto shrink-0 text-zinc-400 transition-colors hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             ×
                           </button>
@@ -532,7 +537,7 @@ export default function ComparePage() {
                       key={m.label}
                       className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
                     >
-                      <th className="px-3 py-1.5 text-left text-xs font-medium text-zinc-500">
+                      <th className="sticky left-0 z-10 bg-white px-3 py-1.5 text-left text-xs font-medium text-zinc-500 dark:bg-[#1E0234]">
                         <span className="flex items-center gap-1">
                           {m.label}
                           {m.hint && <InfoTooltip label={m.hint}>{m.hint}</InfoTooltip>}
@@ -563,7 +568,7 @@ export default function ComparePage() {
 
                 {/* set-piece roles — informational only, no winner to highlight */}
                 <tr className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-                  <th className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
+                  <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-[#1E0234]">
                     Set pieces
                   </th>
                   {chosen.map((p) => {
@@ -592,7 +597,7 @@ export default function ComparePage() {
 
                 {/* fixture runs */}
                 <tr className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-                  <th className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
+                  <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-[#1E0234]">
                     <span className="flex items-center gap-1">
                       Fixtures
                       <InfoTooltip>

@@ -1,4 +1,5 @@
 import { COLD_START_NOTE, RELIABILITY_LABELS } from "@/lib/scoring";
+import { TapToReveal } from "@/components/info-tooltip";
 
 type Reliability = "high" | "medium" | "low";
 
@@ -67,11 +68,13 @@ export function RateBand({
 }) {
   if (lower === null || lower === undefined || upper === null || upper === undefined) return null;
   return (
-    <span
-      title={COLD_START_NOTE}
-      className={`mt-0.5 block cursor-help text-[10px] tabular-nums text-zinc-400 ${className}`}
+    <TapToReveal
+      label="What does this range mean?"
+      wrapperClassName={`relative block ${className}`}
+      triggerClassName="mt-0.5 block text-[10px] tabular-nums text-zinc-400"
+      trigger={`${lower.toFixed(1)}–${upper.toFixed(1)}`}
     >
-      {lower.toFixed(1)}–{upper.toFixed(1)}
-    </span>
+      <p>{COLD_START_NOTE}</p>
+    </TapToReveal>
   );
 }

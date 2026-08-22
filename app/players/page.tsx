@@ -55,6 +55,20 @@ interface PlayerRow {
   goals_scored: number | null;
   assists: number | null;
   minutes: number | null;
+  // Current-season expected numbers, accrued over the same games as the
+  // fields above — distinct from `HistoryRow`'s last-season xG/xA and from
+  // `PredictionRow`'s forward-looking per-fixture expected_minutes.
+  expected_goals: number | null;
+  expected_assists: number | null;
+}
+
+/** One row of `player_predictions` for the upcoming gameweek only — the
+ * model's forward-looking minutes signal, not fetched here before this
+ * column existed (see the removed `availabilityOf` fallback comment). */
+interface PredictionRow {
+  player_id: number;
+  expected_minutes: number | null;
+  start_probability: number | null;
 }
 
 interface HistoryRow {
@@ -124,6 +138,9 @@ type SortKey =
   | "points"
   | "xg"
   | "xa"
+  | "xgCur"
+  | "xaCur"
+  | "xmins"
   | "run"
   | "xp1"
   | "xpH"
@@ -184,6 +201,8 @@ export default function PlayersPage() {
   const [runs, setRuns] = useState<Map<number, RunCell[]>>(new Map());
   const [xp, setXp] = useState<Map<number, XpRow>>(new Map());
   const [rateProfile, setRateProfile] = useState<Map<number, RateProfileRow>>(new Map());
+  const [predictions, setPredictions] = useState<Map<number, PredictionRow>>(new Map());
+  const [gwPlayed, setGwPlayed] = useState(0);
   const [historySeason, setHistorySeason] = useState<string>("");
   const [seasonWindow, setSeasonWindow] = useState(FALLBACK_SEASON_WINDOW);
   const [loading, setLoading] = useState(true);
@@ -209,39 +228,49 @@ export default function PlayersPage() {
         if (gwError) throw new Error(gwError.message);
         if (!gw) throw new Error("No upcoming gameweek found.");
 
-        const [playersRes, teamsRes, fixturesRes, latestSeasonRes, rateProfileRes] = await Promise.all([
-          supabase
-            .from("players")
-            .select(
-              // Single string literal: supabase-js parses this at the type level,
-              // so concatenation would collapse the row type to an error type.
-              "id, code, web_name, first_name, second_name, known_name, team_id, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, total_points, goals_scored, assists, minutes",
-            )
-            .eq("season", gw.season)
-            .limit(1000),
-          supabase.from("teams").select("id, short_name").eq("season", gw.season),
-          // No upper event bound — the horizon control can reach "season", and
-          // the fixture ticker slices client-side via horizonLength, same
-          // pattern /compare already uses for the same reason.
-          supabase
-            .from("fixtures")
-            .select("event, team_h, team_a, team_h_difficulty, team_a_difficulty")
-            .eq("season", gw.season)
-            .gte("event", gw.id),
-          supabase
-            .from("player_season_history")
-            .select("season_name")
-            .order("season_name", { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-          // Not season-scoped — player_rate_profile is keyed by player_code
-          // off the whole player_season_history table, same as the model's
-          // own recency-weighted rates.
-          supabase
-            .from("player_rate_profile")
-            .select("player_code, observed_minutes, dc90, cbit90, cbirt90, xgi90")
-            .limit(1000),
-        ]);
+        const [playersRes, teamsRes, fixturesRes, latestSeasonRes, rateProfileRes, predictionsRes] =
+          await Promise.all([
+            supabase
+              .from("players")
+              .select(
+                // Single string literal: supabase-js parses this at the type level,
+                // so concatenation would collapse the row type to an error type.
+                "id, code, web_name, first_name, second_name, known_name, team_id, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, total_points, goals_scored, assists, minutes, expected_goals, expected_assists",
+              )
+              .eq("season", gw.season)
+              .limit(1000),
+            supabase.from("teams").select("id, short_name").eq("season", gw.season),
+            // No upper event bound — the horizon control can reach "season", and
+            // the fixture ticker slices client-side via horizonLength, same
+            // pattern /compare already uses for the same reason.
+            supabase
+              .from("fixtures")
+              .select("event, team_h, team_a, team_h_difficulty, team_a_difficulty")
+              .eq("season", gw.season)
+              .gte("event", gw.id),
+            supabase
+              .from("player_season_history")
+              .select("season_name")
+              .order("season_name", { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+            // Not season-scoped — player_rate_profile is keyed by player_code
+            // off the whole player_season_history table, same as the model's
+            // own recency-weighted rates.
+            supabase
+              .from("player_rate_profile")
+              .select("player_code, observed_minutes, dc90, cbit90, cbirt90, xgi90")
+              .limit(1000),
+            // The model's per-fixture minutes projection for the upcoming
+            // gameweek — real per-player evidence, distinct from the status-
+            // only availabilityFromStatus fallback this page used before.
+            supabase
+              .from("player_predictions")
+              .select("player_id, expected_minutes, start_probability")
+              .eq("season", gw.season)
+              .eq("event", gw.id)
+              .limit(1000),
+          ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
         if (teamsRes.error) throw new Error(teamsRes.error.message);
         if (fixturesRes.error) throw new Error(fixturesRes.error.message);
@@ -295,12 +324,18 @@ export default function PlayersPage() {
 
         const xpList = (xpRows ?? []) as XpRow[];
         const rateProfileList = (rateProfileRes.data ?? []) as RateProfileRow[];
+        const predictionList = (predictionsRes.data ?? []) as PredictionRow[];
         setPlayers((playersRes.data ?? []) as PlayerRow[]);
         setTeamShort(shorts);
         setRuns(runMap);
         setXp(new Map(xpList.map((r) => [r.player_id, r])));
         setHistory(new Map(historyRows.map((h) => [h.player_code, h])));
         setRateProfile(new Map(rateProfileList.map((r) => [r.player_code, r])));
+        setPredictions(new Map(predictionList.map((r) => [r.player_id, r])));
+        // gw.id is the *next* (unplayed) gameweek, so games played so far is
+        // one less — floored at 0 for GW1, when current-season xG/xA is
+        // still all zero and the column should read "xG (0 GW)", not "-1".
+        setGwPlayed(Math.max(0, gw.id - 1));
 
         // first_event/last_event are constant across every row for one
         // season/model_version — any row gives the real prediction window.
@@ -324,9 +359,11 @@ export default function PlayersPage() {
 
   /**
    * Availability from status/chance-of-playing, same formula
-   * `app/builder/page.tsx`'s `availabilityOf` uses. `/players` doesn't fetch
-   * `player_predictions.start_probability`, so this is the best minutes
-   * signal available here and doubles as the Hidden Gems evidence floor.
+   * `app/builder/page.tsx`'s `availabilityOf` uses. Real per-fixture minutes
+   * evidence (`start_probability`/`expected_minutes`, fetched into
+   * `predictions` above) is wired into `toScoredPlayer` separately below;
+   * every `ScoredPlayer` consumer already prefers `startProbability` over
+   * this status-only figure via `startProbability ?? availability`.
    */
   const availabilityOf = (p: PlayerRow): number =>
     availabilityFromStatus(p.status, p.chance_of_playing_next_round);
@@ -351,8 +388,8 @@ export default function PlayersPage() {
     },
     reliability: x?.reliability ?? undefined,
     priorWeight: x?.prior_weight ?? null,
-    expectedMinutes: null,
-    startProbability: null,
+    expectedMinutes: predictions.get(p.id)?.expected_minutes ?? null,
+    startProbability: predictions.get(p.id)?.start_probability ?? null,
     availability: availabilityOf(p),
     fdrRun: (runs.get(p.team_id) ?? []).map((c) => c.fdr),
   });
@@ -384,7 +421,7 @@ export default function PlayersPage() {
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [players, rateProfile, xp, teamShort, runs],
+    [players, rateProfile, xp, teamShort, runs, predictions],
   );
 
   const gemsById = useMemo(() => {
@@ -417,6 +454,12 @@ export default function PlayersPage() {
           return h?.expected_goals ?? -1;
         case "xa":
           return h?.expected_assists ?? -1;
+        case "xgCur":
+          return p.expected_goals ?? -1;
+        case "xaCur":
+          return p.expected_assists ?? -1;
+        case "xmins":
+          return predictions.get(p.id)?.expected_minutes ?? -1;
         case "run":
           // Lower FDR is better, so invert for a consistent "desc = best" sort.
           return avgFdr(p.team_id) === null ? -99 : -avgFdr(p.team_id)!;
@@ -434,7 +477,7 @@ export default function PlayersPage() {
     rows.sort((a, b) => (sortDesc ? value(b) - value(a) : value(a) - value(b)));
     return rows.slice(0, 100);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, history, runs, xp, filters, sortKey, sortDesc, horizon, seasonWindow, gemsById]);
+  }, [players, history, runs, xp, filters, sortKey, sortDesc, horizon, seasonWindow, gemsById, predictions]);
 
   const header = (label: string, key: SortKey) => (
     <th className="px-2 py-2">
@@ -446,7 +489,7 @@ export default function PlayersPage() {
             setSortDesc(true);
           }
         }}
-        className={`uppercase tracking-wide transition-colors hover:text-purple-700 dark:hover:text-[#00FF87] ${
+        className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87] ${
           sortKey === key ? "text-purple-800 dark:text-[#00FF87]" : ""
         }`}
       >
@@ -486,7 +529,7 @@ export default function PlayersPage() {
               key={h}
               onClick={() => setHorizon(h)}
               title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-              className={`rounded-md px-2.5 py-1 transition-colors ${
+              className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 horizon === h
                   ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
                   : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
@@ -541,6 +584,9 @@ export default function PlayersPage() {
                 {header("G", "goals")}
                 {header("A", "assists")}
                 {header("Mins", "minutes")}
+                {header(`xG (${gwPlayed} GW)`, "xgCur")}
+                {header(`xA (${gwPlayed} GW)`, "xaCur")}
+                {header("xMins", "xmins")}
                 <th className="px-2 py-2">
                   <span className="flex items-center gap-1.5">
                     <button
@@ -551,7 +597,7 @@ export default function PlayersPage() {
                           setSortDesc(true);
                         }
                       }}
-                      className={`uppercase tracking-wide transition-colors hover:text-purple-700 dark:hover:text-[#00FF87] ${
+                      className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87] ${
                         sortKey === "xdc" ? "text-purple-800 dark:text-[#00FF87]" : ""
                       }`}
                     >
@@ -580,7 +626,7 @@ export default function PlayersPage() {
                           setSortDesc(true);
                         }
                       }}
-                      className={`uppercase tracking-wide transition-colors hover:text-purple-700 dark:hover:text-[#00FF87] ${
+                      className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87] ${
                         sortKey === "run" ? "text-purple-800 dark:text-[#00FF87]" : ""
                       }`}
                     >
@@ -656,6 +702,11 @@ export default function PlayersPage() {
                     <td className="px-2 py-1.5 font-semibold tabular-nums">{p.goals_scored ?? "—"}</td>
                     <td className="px-2 py-1.5 font-semibold tabular-nums">{p.assists ?? "—"}</td>
                     <td className="px-2 py-1.5 font-semibold tabular-nums">{p.minutes ?? "—"}</td>
+                    <td className="px-2 py-1.5 tabular-nums">{p.expected_goals?.toFixed(2) ?? "—"}</td>
+                    <td className="px-2 py-1.5 tabular-nums">{p.expected_assists?.toFixed(2) ?? "—"}</td>
+                    <td className="px-2 py-1.5 tabular-nums">
+                      {predictions.get(p.id)?.expected_minutes?.toFixed(0) ?? "—"}
+                    </td>
                     <td className="px-2 py-1.5 tabular-nums">
                       {XDC_POSITIONS.has(p.element_type)
                         ? xdcForHorizon(x, horizon)?.toFixed(2) ?? "—"
@@ -693,7 +744,7 @@ export default function PlayersPage() {
               })}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={17} className="px-3 py-6 text-center text-zinc-500">
+                  <td colSpan={20} className="px-3 py-6 text-center text-zinc-500">
                     No players match the current filters.
                   </td>
                 </tr>
@@ -712,7 +763,7 @@ export default function PlayersPage() {
             <span className="flex items-center gap-3">
               <button
                 onClick={() => setSelected(new Set())}
-                className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 dark:hover:text-[#00FF87]"
+                className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87]"
               >
                 Clear
               </button>

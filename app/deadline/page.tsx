@@ -17,6 +17,7 @@ import { TransferPath } from "@/components/transfer-path";
 import { planTransferPath, type TransferPathResult } from "@/lib/transfer-path";
 import { chipContextFor, validateChipPlan, type ChipDefinitionRow } from "@/lib/chip-plan";
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
+import { fmtCountdown } from "@/lib/countdown";
 import { loadManagerPicks, type ManagerPick } from "@/lib/manager-picks";
 import { loadGameweekState, LIVE_MODEL_NOTE, type GameweekState } from "@/lib/gameweek-state";
 import {
@@ -105,23 +106,6 @@ const PAGE_ROWS = 1000;
 const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
 const STATUS_SEVERITY: Record<string, number> = { s: 0, i: 0, u: 0, n: 0, d: 1, a: 2 };
-
-function fmtCountdown(deadline: string, now: number): { text: string; passed: boolean } {
-  const ms = new Date(deadline).getTime() - now;
-  if (ms <= 0) return { text: "Deadline has passed", passed: true };
-  const totalSecs = Math.floor(ms / 1000);
-  const days = Math.floor(totalSecs / 86_400);
-  const hours = Math.floor((totalSecs % 86_400) / 3600);
-  const mins = Math.floor((totalSecs % 3600) / 60);
-  const secs = totalSecs % 60;
-  const parts = [
-    days > 0 ? `${days}d` : null,
-    `${hours}h`,
-    `${mins}m`,
-    `${secs}s`,
-  ].filter(Boolean);
-  return { text: parts.join(" "), passed: false };
-}
 
 /**
  * Two tiers, not one — Sprint 19 Stage 4a. This page used to give every
@@ -1392,7 +1376,7 @@ export default function DeadlinePage() {
                       key={h}
                       onClick={() => setHorizon(h)}
                       title={h === "season" ? seasonHorizonNote(ctx.seasonWindow) : undefined}
-                      className={`rounded-md px-2 py-1 text-xs transition-colors ${
+                      className={`rounded-md px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                         horizon === h
                           ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
                           : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
@@ -1407,7 +1391,7 @@ export default function DeadlinePage() {
                   <select
                     value={freeTransfers}
                     onChange={(e) => setFreeTransfers(Number(e.target.value))}
-                    className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                    className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
                   >
                     {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
                       <option key={i} value={i}>
@@ -1434,7 +1418,7 @@ export default function DeadlinePage() {
                 <button
                   onClick={runTransferOptimizer}
                   disabled={transferLoading || team.players.length !== ctx.rules.squadSize}
-                  className="rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-900 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e078]"
+                  className="rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e078]"
                 >
                   {transferLoading ? "Searching…" : "Run optimiser"}
                 </button>

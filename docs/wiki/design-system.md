@@ -219,8 +219,17 @@ raw hex added there; existing occurrences are unaffected until a future pass tou
 [blocked-and-data-gaps.md](blocked-and-data-gaps.md) if this becomes a tracked gap rather than
 opportunistic follow-on work.
 
+The 2026-08-22 design-audit response (below) deliberately did **not** extend the token migration
+while it was in these files for an unrelated reason (a button's focus ring, a table's sticky
+column) — same reasoning as this section's own precedent: a mechanical hex→token replacement with
+no visual-regression suite is a worse trade done as a side effect of a different task than as its
+own reviewed pass. Warning count went 166→169 from that response's work, all in the same
+already-established literal pattern (`dark:bg-[#1E0234]` on new sticky table cells,
+`app/compare/page.tsx`), not a new one.
+
 See also: [frontend-conventions.md](frontend-conventions.md) (theme boot script, static-export
 traps), [risk-scoring.md](risk-scoring.md) (the FDR colour system's CVD validation, the one colour
 system that predates and outperforms this page's semantic tokens), [sprints/sprint-19.md](../sprints/sprint-19.md),
 [sprints/rivals-and-card-density.md](../sprints/rivals-and-card-density.md) (the 2026-08-20 packing
-follow-on).
+follow-on), [sprints/design-audit-response.md](../sprints/design-audit-response.md) (the 2026-08-22
+accessibility/focus-ring/mobile-layout follow-on, and what an external design audit got wrong).

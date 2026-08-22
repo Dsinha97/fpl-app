@@ -65,7 +65,7 @@ export function NavLinks() {
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`whitespace-nowrap border-b-2 py-1 transition-colors ${
+              className={`whitespace-nowrap border-b-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 active
                   ? "border-current font-medium text-purple-800 dark:text-[#00FF87]"
                   : "border-transparent text-zinc-600 hover:text-purple-800 dark:text-zinc-400 dark:hover:text-[#00FF87]"
@@ -87,7 +87,7 @@ export function NavLinks() {
           aria-label={open ? "Close navigation menu" : "Open navigation menu"}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="flex h-9 w-9 items-center justify-center rounded-md text-xl leading-none text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+          className="flex h-9 w-9 items-center justify-center rounded-md text-xl leading-none text-zinc-600 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-zinc-300 dark:hover:bg-purple-950/60"
         >
           <span aria-hidden="true">{open ? "×" : "☰"}</span>
         </button>
@@ -105,7 +105,7 @@ export function NavLinks() {
                   key={item.href}
                   href={item.href}
                   aria-current={active ? "page" : undefined}
-                  className={`block rounded-md px-3 py-2 text-sm transition-colors ${
+                  className={`block rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     active
                       ? "bg-purple-50 font-medium text-purple-800 dark:bg-purple-950/60 dark:text-[#00FF87]"
                       : "text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-purple-950/40"

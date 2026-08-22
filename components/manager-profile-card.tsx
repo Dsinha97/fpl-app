@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ManagerProfile, RivalRow } from "@/lib/manager-profile";
+import { TapToReveal } from "@/components/info-tooltip";
 
 const CONFIDENCE_STYLE: Record<ManagerProfile["confidence"], string> = {
   high: "text-emerald-700 dark:text-emerald-400",
@@ -97,33 +98,48 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
       {profile.spread !== null && profile.stdev !== null && profile.trend !== null ? (
         <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-zinc-100 pt-3 text-center dark:border-purple-900/40">
           <div>
-            <dt
-              className="cursor-help text-[10px] uppercase tracking-wide text-zinc-500 underline decoration-dotted underline-offset-2"
-              title="P90 minus P10 of percentile score across all seasons — the gap between a strong year and a weak one, ignoring the single best and worst outliers."
-            >
-              Spread
+            <dt>
+              <TapToReveal
+                label="What is Spread?"
+                triggerClassName="text-[10px] uppercase tracking-wide text-zinc-500 underline decoration-dotted underline-offset-2"
+                trigger="Spread"
+              >
+                <p>
+                  P90 minus P10 of percentile score across all seasons — the gap between a strong
+                  year and a weak one, ignoring the single best and worst outliers.
+                </p>
+              </TapToReveal>
             </dt>
             <dd className="tabular-nums text-zinc-800 dark:text-zinc-200">
               {profile.spread.toFixed(1)}
             </dd>
           </div>
           <div>
-            <dt
-              className="cursor-help text-[10px] uppercase tracking-wide text-zinc-500 underline decoration-dotted underline-offset-2"
-              title="Standard deviation of percentile score across all seasons."
-            >
-              Std dev
+            <dt>
+              <TapToReveal
+                label="What is Std dev?"
+                triggerClassName="text-[10px] uppercase tracking-wide text-zinc-500 underline decoration-dotted underline-offset-2"
+                trigger="Std dev"
+              >
+                <p>Standard deviation of percentile score across all seasons.</p>
+              </TapToReveal>
             </dt>
             <dd className="tabular-nums text-zinc-800 dark:text-zinc-200">
               {profile.stdev.toFixed(1)}
             </dd>
           </div>
           <div>
-            <dt
-              className="cursor-help text-[10px] uppercase tracking-wide text-zinc-500 underline decoration-dotted underline-offset-2"
-              title="Least-squares slope of percentile score across seasons, oldest to newest. Positive means improving over the career shown."
-            >
-              Trend
+            <dt>
+              <TapToReveal
+                label="What is Trend?"
+                triggerClassName="text-[10px] uppercase tracking-wide text-zinc-500 underline decoration-dotted underline-offset-2"
+                trigger="Trend"
+              >
+                <p>
+                  Least-squares slope of percentile score across seasons, oldest to newest.
+                  Positive means improving over the career shown.
+                </p>
+              </TapToReveal>
             </dt>
             <dd
               className={`tabular-nums ${
