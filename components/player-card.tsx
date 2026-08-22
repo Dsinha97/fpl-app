@@ -221,18 +221,25 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
       </span>
 
       {/* xP + next fixture. Always xP, never price — mixing the two units in
-          one column made a no-projection player look like a cheap one. */}
-      <span className="flex w-full items-center justify-between rounded-b-md border-x border-b border-purple-700/80 bg-purple-900/90 px-1 py-0.5 text-[9px] text-purple-200 shadow-md dark:bg-slate-900/95">
+          one column made a no-projection player look like a cheap one.
+          With no next fixture to show alongside it (e.g. a live gameweek's
+          score on /team), the number is the only thing in this row — center
+          it and size it up rather than leaving it stranded on the left. */}
+      <span
+        className={`flex w-full items-center rounded-b-md border-x border-b border-purple-700/80 bg-purple-900/90 px-1 py-0.5 text-purple-200 shadow-md dark:bg-slate-900/95 ${
+          player.next_fixture ? "justify-between py-0.5 text-[9px]" : "justify-center py-1"
+        }`}
+      >
         {hasXp ? (
           <span
-            className="text-[10px] font-bold text-emerald-400"
+            className={`font-bold text-emerald-400 ${player.next_fixture ? "text-[10px]" : "text-base"}`}
             title={player.value_note ?? "Expected points (xP) over the selected horizon"}
           >
             {player.expected_points!.toFixed(player.value_decimals ?? 1)}
           </span>
         ) : (
           <span
-            className="text-[10px] font-bold text-purple-400"
+            className={`font-bold text-purple-400 ${player.next_fixture ? "text-[10px]" : "text-base"}`}
             title="No xP projection — not enough prior-season minutes to model"
           >
             —
