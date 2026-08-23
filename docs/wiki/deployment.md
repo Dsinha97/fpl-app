@@ -57,8 +57,11 @@ gating too, since they get their own public URLs.
 
 ## CI/hosting housekeeping worth knowing about
 
-- **CSP** is set in `public/_headers` (`connect-src` for Supabase, `img-src` for the FPL/flag/crest
-  hosts, `'unsafe-inline'` script/style — a nonce needs a server this hosting shape doesn't have).
+- **CSP** is set in `public/_headers` (`connect-src` for Supabase and Cloudflare Web Analytics'
+  reporting endpoint, `img-src` for the FPL/flag/crest hosts, `script-src` additionally allowing
+  Cloudflare's analytics beacon (Sprint 25, opted in deliberately — was previously CSP-blocked, a
+  safe default that also meant nothing was being collected), `'unsafe-inline'` script/style — a
+  nonce needs a server this hosting shape doesn't have).
   The file's own comment used to call these "Cloudflare Pages header rules" although this project
   deploys via Workers static assets, not Pages — corrected 2026-08-22; Workers static assets reads
   `_headers` with the same convention Pages does, confirmed by the live site's response headers.

@@ -15,10 +15,16 @@
 # values (FDR colours, dynamic widths), which cannot be hashed in advance
 # either. This is the standard trade-off for a static Next.js export; a
 # server-rendered app could do better with per-request nonces.
+#
+# script-src/connect-src also allow Cloudflare's own Web Analytics beacon
+# (static.cloudflareinsights.com serves the script, cloudflareinsights.com
+# receives the metrics via sendBeacon/fetch) — Sprint 25, opted into
+# deliberately for visitor analytics; it was being silently CSP-blocked
+# before this, which is a safe default but meant nothing was collected.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://flagcdn.com https://resources.premierleague.com https://fantasy.premierleague.com; font-src 'self'; connect-src 'self' https://fyxyqxpscmqjyjxsyhms.supabase.co; object-src 'none'; base-uri 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://flagcdn.com https://resources.premierleague.com https://fantasy.premierleague.com; font-src 'self'; connect-src 'self' https://fyxyqxpscmqjyjxsyhms.supabase.co https://cloudflareinsights.com; object-src 'none'; base-uri 'self'
   # Explicit rather than relying on the platform default: every HTML page
   # (out/**/index.html) is content that changes on each deploy without a
   # hashed filename, so it must revalidate on every request rather than sit
