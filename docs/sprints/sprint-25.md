@@ -14,8 +14,20 @@ resolving — Cloudflare has no clean off switch for a Git-integration Worker's 
 so it stays a live fallback, no longer linked from any doc, still present in the Supabase Auth
 redirect allowlist alongside the new domain.
 
-- `wrangler.jsonc` declares both hosts as `custom_domain` routes rather than leaving them as
-  dashboard-only state, matching this project's config-in-repo convention.
+- `wrangler.jsonc` declares the apex as a `custom_domain` route. **First attempt registered
+  `www.fpldecision.com` as a `custom_domain` too, and that was wrong** — it makes the Worker
+  serve `www` directly (its own `200`) rather than letting it redirect, caught by curling both
+  hosts after the first deploy and seeing `www` come back `200` instead of `301`. Fixed by
+  narrowing `wrangler.jsonc` to the apex only and building `www` from two dashboard pieces
+  instead: a proxied `A` record for `www.fpldecision.com` pointing at the placeholder
+  `192.0.2.1` (Cloudflare's own recommended discard address — the proxy intercepts before any
+  origin fetch), and a Redirect Rule (`www.fpldecision.com/*` → `https://fpldecision.com/${1}`,
+  301, preserve query string) built from Cloudflare's own "Redirect from WWW to root" template.
+  A stray `*.fpldecision.com/*` Worker route from an earlier manual dashboard attempt was also
+  removed — it would have raced the redirect rule for the same hostname. Also turned on
+  **Always Use HTTPS** (SSL/TLS → Edge Certificates) so plain `http://` requests 301 to `https://`
+  — a Cloudflare toggle, not a second redirect rule, kept as one thing to reason about instead
+  of two.
 - Supabase Auth's Site URL and Redirect URLs were updated to include the new origin —
   `app/signin/page.tsx`'s `redirectTo` already derives from `window.location.origin`, so no code
   change there, but the origin still has to be allowlisted or Supabase silently falls back to
@@ -116,11 +128,22 @@ available in this session for the signed-in `/team`/`/deadline`/`/chips` surface
   (`bg-popover/80 backdrop-blur-md`) on a simulated hover-with-movement pointer sequence; body
   scroll confirmed unlocked (`modal={false}`) while a menu is open.
 
-**Known verification gap**: `/deadline`, `/team` and `/chips` need a signed-in manager with an
-imported squad — no credentials were available in this session, so the visual results there
-(card overlap fix, dead-space repack, team-news trim) are verified by code/type-check and by the
-`/fixtures`+`/players` patterns they share, not by looking at the actual pages. Worth a real
-pass before considering this fully closed. The desktop hover-open menu is also only verified via
-synthetic pointer events with coordinate deltas approximating hover-intent — worth a manual
-mouse check too, per `components/ui/action-menu.tsx`'s recorded caution about Base UI's
-press-then-drag model making controlled menus less predictable than they look on paper.
+**Live-domain verification, after the owner completed the dashboard steps**: `curl -I` against
+the real deploy confirmed all of — apex `200` with the `must-revalidate` header, `/team/` the
+same, `www.fpldecision.com` → `301` → `https://fpldecision.com/`, a `www` URL carrying a path
+and query string (`/players/?foo=bar`) redirecting with both preserved, and plain `http://`
+redirecting to `https://`. The Google OAuth button was click-tested against the live domain (not
+completed — that needs the owner's actual credentials) and confirmed the redirect correctly
+carries `redirect_to=https://fpldecision.com/auth/callback/` into Google's own sign-in page,
+so the Supabase Auth allowlist update took.
+
+**Known verification gap**: `/deadline`, `/team` and `/chips` still haven't been visually
+checked by an agent — no credentials were available in-session for the signed-in surfaces, and
+the Claude-in-Chrome extension wasn't connected to check the owner's own signed-in session
+either. Verified by code/type-check and by the `/fixtures`+`/players` patterns they share, not
+by looking at the actual pages. The owner signed in and reported no issues, but a real look-over
+is still worth doing before considering this fully closed. The desktop hover-open menu is also
+only verified via synthetic pointer events with coordinate deltas approximating hover-intent —
+worth a manual mouse check too, per `components/ui/action-menu.tsx`'s recorded caution about
+Base UI's press-then-drag model making controlled menus less predictable than they look on
+paper.

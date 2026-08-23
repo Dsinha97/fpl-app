@@ -33,7 +33,12 @@ the zone was already in the same account as the Worker. Apex is canonical, decla
 apex — **not** a `custom_domain`/Worker route. Registering both hosts as `custom_domain` was
 tried first and reverted: it makes the Worker serve `www` directly (its own `200`) instead of
 redirecting it, which is the opposite of "canonical apex." The redirect rule can't be expressed
-in `wrangler.jsonc`; it's dashboard-only, same as the domain attachment itself.
+in `wrangler.jsonc`; it's dashboard-only, same as the domain attachment itself. It needs a
+proxied DNS record to exist before it can fire — `www.fpldecision.com` is an `A` record pointed
+at `192.0.2.1` (a documentation/discard address; irrelevant since the proxy intercepts and
+redirects before any origin fetch happens). Plain `http://` is also 301'd to `https://` via
+**Always Use HTTPS** (SSL/TLS → Edge Certificates), a Cloudflare toggle rather than a second
+redirect rule.
 
 The original `fpl-app.deepayansinha.workers.dev` URL keeps resolving — Cloudflare has no clean
 way to turn it off for a Git-integration Worker — so it stays a live fallback even though it's no
