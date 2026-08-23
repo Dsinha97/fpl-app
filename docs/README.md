@@ -41,6 +41,7 @@ file, not separate files.
 | [sprints/sprint-20.md](sprints/sprint-20.md) | live | RSS News Ingestion — `sync-news`, table-driven `news_sources`, tiered entity resolution, `/news` (renamed from `/changes`) Feeds tab, player-panel headlines, `/deadline` team-news strip. |
 | [sprints/sprint-21.md](sprints/sprint-21.md) | live | Fixed `/team`'s stale-XI player-dropping bug at the root (`hasConsistentLineup`), removed the broken "Current squad" mode, added a leagues list (`manager_leagues`), FDR search/sort, and a Premier League Table tab on `/fixtures`. |
 | [sprints/design-audit-response.md](sprints/design-audit-response.md) | live | Response to an external design audit — sticky header `ContextBar`, current-season xG/xA + xMins on `/players`, nine hover-only tooltips made touch-accessible, focus rings and mobile-layout fixes on the pages Sprint 19 didn't reach. Most of the audit's own findings were checked and found false. |
+| [sprints/mobile-reachability.md](sprints/mobile-reachability.md) | live | Follow-on prompted by the owner's phone screenshot — moved the mobile nav trigger off a two-`ml-auto` float to the header's left edge, replaced the dropdown with a bottom sheet, fixed a real "FT 15" bug and made free transfers persist, extended tap-target hit areas and gave tooltips a flip-up. |
 
 ## Source specs
 

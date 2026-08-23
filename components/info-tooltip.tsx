@@ -32,7 +32,18 @@ export function TapToReveal({
   wrapperClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
+  // Prefer below the trigger, like every other popover in the app — flip
+  // above only when there truly isn't room, mirroring the same rule
+  // `pitch-view.tsx`'s panel positioning already follows. A trigger near the
+  // bottom of a long page (the /players table, the compare bar, a card deep
+  // in a list) used to always open downward regardless, rendering the panel
+  // below the fold.
+  const [openAbove, setOpenAbove] = useState(false);
   const wrapper = useRef<HTMLSpanElement>(null);
+  /** Panel height budget for the flip check — `w-72` content wraps to
+   * roughly this tall in practice; not measured live since the panel isn't
+   * in the DOM yet at the moment the flip direction has to be decided. */
+  const ESTIMATED_PANEL_HEIGHT = 160;
 
   useEffect(() => {
     if (!open) return;
@@ -58,8 +69,25 @@ export function TapToReveal({
         type="button"
         aria-label={label}
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${triggerClassName}`}
+        onClick={() => {
+          if (!open) {
+            const room = wrapper.current
+              ? window.innerHeight - wrapper.current.getBoundingClientRect().bottom
+              : Infinity;
+            setOpenAbove(room < ESTIMATED_PANEL_HEIGHT);
+          }
+          setOpen((v) => !v);
+        }}
+        // `relative` + an absolutely-positioned, invisible `before` pseudo-
+        // element extends the *hit* area without touching layout or the
+        // visible size of `trigger` — every one of these triggers (the "?"
+        // circle, badge pills, dotted-underline stat labels) is well under
+        // a 44px touch target otherwise. The neighbours these sit beside in
+        // practice (AvailabilityBadge/RoleBadges on /players, grid-separated
+        // stat cells on manager-profile-card) are static, non-interactive
+        // spans, not other buttons, so a 10px halo has nothing to steal a
+        // click from.
+        className={`relative before:absolute before:-inset-2.5 before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${triggerClassName}`}
       >
         {trigger}
       </button>
@@ -67,9 +95,9 @@ export function TapToReveal({
       {open && (
         <span
           role="dialog"
-          className={`absolute top-full z-30 mt-1 w-72 rounded-lg border border-border bg-popover p-3 text-left text-xs font-normal leading-relaxed text-zinc-700 shadow-lg dark:text-zinc-300 ${
-            align === "right" ? "right-0" : "left-0"
-          }`}
+          className={`absolute z-30 w-72 rounded-lg border border-border bg-popover p-3 text-left text-xs font-normal leading-relaxed text-zinc-700 shadow-lg dark:text-zinc-300 ${
+            openAbove ? "bottom-full mb-1" : "top-full mt-1"
+          } ${align === "right" ? "right-0" : "left-0"}`}
         >
           {children}
         </span>

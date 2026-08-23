@@ -98,3 +98,24 @@ rank-ordered (the mini-league slice of the same sprint unblocked at the GW1 dead
 `SquadRules` loads from `game_settings`; scoring values load from `scoring_rules`. Never hardcode 15
 players / £100m / 3-per-club, and never hardcode a points value — a mid-season FPL rule change
 should flow straight through without a code change.
+
+## Verify an external claim before implementing it
+
+An audit, a video, or a third-party report making a claim about this specific app or its data is not
+itself evidence — check it the same way an internal assumption gets checked, before acting on it.
+An external "AI-coded website" audit ranked a "critical DNS resolution failure" as its top-priority
+fix; a live `curl` against the deployed Worker returned `200` in 263ms with a cache hit — the
+auditor's own tooling had no outbound network access, not a real outage. The same audit's other
+headline claims (purple gradients, scroll hijacking, inverted hover states, a 3D pitch, hover-only
+xG/xA) were each checked against the actual source and found false — zero `bg-gradient-*` utilities
+app-wide, zero scroll listeners, zero `hover:opacity-*` dimming, a flat 2D `pitch.tsx`, and
+current-season xG/xA already rendered as plain table cells. Its one genuinely good, if buried,
+finding (no persistent deadline/bank/FT anywhere in the app's chrome) shipped; its confidently wrong
+top-priority "fix" (replace the brand purple with a neutral palette to look less AI-generated) did
+not. See [design-audit-response.md](../sprints/design-audit-response.md) for the full verified/false/
+rejected breakdown. The same audit also flagged `lib/fdr.ts`'s green-to-red ramp as needing to match
+FPL's own literal palette instead — wrongly: its header comment records a CVD (colour-vision-
+deficiency) ΔE validation with a 12.3 protan adjacent-pair separation, which the audit's suggested
+literal palette has no equivalent check for. (`design-system.md` used to cite `risk-scoring.md` for
+this validation, which contained no such content — a broken cross-link flagged in this pass's tidy
+note and corrected in the same pass to cite `lib/fdr.ts`'s own header comment directly.)

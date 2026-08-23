@@ -4,7 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/auth-provider";
 import { DraftSyncProvider } from "@/components/draft-sync-provider";
 import { Monogram, Wordmark } from "@/components/brand";
-import { NavLinks } from "@/components/nav-links";
+import { DesktopNav, MobileNav } from "@/components/nav-links";
 import { AccountMenu } from "@/components/account-menu";
 import { ContextBar } from "@/components/context-bar";
 import { THEME_BOOT_SCRIPT } from "@/components/theme";
@@ -49,12 +49,18 @@ export default function RootLayout({
         <AuthProvider>
           <DraftSyncProvider />
           <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
-            <nav className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 px-4">
+            <nav className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4 sm:gap-6">
+              {/* MobileNav renders first so its trigger is leftmost below
+                  `lg` — reachable without reaching across the wordmark from
+                  either hand. It's `lg:hidden` internally, so at desktop
+                  widths it contributes nothing and this has no effect on the
+                  logo/nav/account order below. */}
+              <MobileNav />
               <Link href="/" className="flex shrink-0 items-center gap-2.5">
                 <Monogram size={30} />
                 <Wordmark />
               </Link>
-              <NavLinks />
+              <DesktopNav />
               <div className="ml-auto flex shrink-0 items-center gap-3">
                 <AccountMenu />
               </div>

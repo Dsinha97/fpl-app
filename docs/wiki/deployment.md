@@ -42,6 +42,15 @@ deployments need gating too, since they get their own public URLs.
 
 - **CSP** is set in `public/_headers` (`connect-src` for Supabase, `img-src` for the FPL/flag/crest
   hosts, `'unsafe-inline'` script/style — a nonce needs a server this hosting shape doesn't have).
+  The file's own comment used to call these "Cloudflare Pages header rules" although this project
+  deploys via Workers static assets, not Pages — corrected 2026-08-22; Workers static assets reads
+  `_headers` with the same convention Pages does, confirmed by the live site's response headers.
+- **HTML `Cache-Control` is now explicit** (`public, max-age=0, must-revalidate`) rather than left to
+  the platform default — the live default already matched (confirmed via `curl -I` against the
+  deployed Worker before making it explicit), so this guards against a future default change rather
+  than changing current behaviour. `/_next/static/*` keeps its separate one-year immutable rule,
+  since Next content-hashes those filenames and HTML does not. See
+  [design-audit-response.md](../sprints/design-audit-response.md).
 - **Actions minutes are metered** on a private repo (unlike public repos, which were unlimited) —
   `deploy.yml` was deleted since Cloudflare's own Git integration handles deploys, roughly halving
   per-push consumption.

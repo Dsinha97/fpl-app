@@ -1984,7 +1984,7 @@ export default function BuilderPage() {
                     setPreviousTeam(null);
                     setOptimizeNote("Reverted to the previous squad");
                   }}
-                  className="shrink-0 rounded border border-input px-2 py-0.5 font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="relative shrink-0 before:absolute before:-inset-2.5 before:content-[''] rounded border border-input px-2 py-0.5 font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   ↩ Revert
                 </button>
@@ -2358,7 +2358,14 @@ export default function BuilderPage() {
                               if (replaceFor !== null) doSwap(replaceFor, meta);
                               else persist(addPlayer(team, meta));
                             }}
-                            className="rounded border border-input px-1.5 py-0.5 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-35 dark:hover:border-primary dark:hover:text-primary"
+                            // Horizontal-only hit-area expansion: this button
+                            // repeats in every row of a densely-packed pool
+                            // table, so a vertical halo would reach into the
+                            // identical button one row up/down — a misclick
+                            // there adds the wrong player, not a harmless
+                            // near-miss. Horizontal is safe: its neighbour is
+                            // this same cell's own padding, not another row.
+                            className="relative before:absolute before:-inset-x-2 before:content-[''] rounded border border-input px-1.5 py-0.5 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-35 dark:hover:border-primary dark:hover:text-primary"
                           >
                             {replaceFor !== null ? "⇄" : "+"}
                           </button>
@@ -2385,7 +2392,7 @@ export default function BuilderPage() {
                 type="button"
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={safePage === 0}
-                className="rounded border border-input px-2 py-0.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-35"
+                className="relative before:absolute before:-inset-2.5 before:content-[''] rounded border border-input px-2 py-0.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-35"
               >
                 ‹ Prev
               </button>
@@ -2397,7 +2404,7 @@ export default function BuilderPage() {
                 type="button"
                 onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
                 disabled={safePage >= pageCount - 1}
-                className="rounded border border-input px-2 py-0.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-35"
+                className="relative before:absolute before:-inset-2.5 before:content-[''] rounded border border-input px-2 py-0.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-35"
               >
                 Next ›
               </button>

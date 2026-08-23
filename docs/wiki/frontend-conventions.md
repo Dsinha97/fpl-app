@@ -66,9 +66,13 @@ already established.
 - **Recent form** (`past_results`) — the backward-looking mirror of the existing `upcoming` fixture
   ticker, from a new `lib/player-history.ts` reading `player_gameweek_stats`, DGW-summed into one
   entry per event the same way `squadPointsFor`/`loadEventPoints` already do.
-- **Panel size** raised 268×340 → 320×460 for the new sections. `PitchView`'s positioning and the
-  picker's `fixed` placement both read `PANEL_WIDTH`/`PANEL_MAX_HEIGHT` directly, so neither needed
-  a separate change to stay in sync.
+- **Panel size** raised 268×340 → 320×460 for the new sections when they first shipped, then lowered
+  back to 320×340 in Sprint 21 once everything past the metric grid and live breakdown moved behind
+  a "Show full details" toggle, collapsed by default — corrected here 2026-08-22 after two ingest
+  passes carried the intermediate 320×460 figure forward as current. `PitchView`'s positioning and
+  the picker's `fixed` placement both read `PANEL_WIDTH`/`PANEL_MAX_HEIGHT`
+  (`components/player-detail.tsx`) directly, so neither needed a separate change to stay in sync
+  with either size.
 
 Verified live against the real GW1 opener: `/team`'s live breakdown matched a real player's
 minutes/assists/total exactly against the FPL app; `/deadline` and `/compare`'s season-stat rows
@@ -121,6 +125,46 @@ vocabulary, the busy-state pattern, and the disclosure rule) is
   `/deadline` and `/team` need a manager's picks for a given gameweek, so the read and its
   correctness rules (starting XI from `position`, never `multiplier`; `player_gameweek_stats` summed
   per fixture for double gameweeks) live once. See [deadline-and-matchday.md](deadline-and-matchday.md).
+- **`fmtCountdown`** (`lib/countdown.ts`, 2026-08-22) — the "ms until an ISO deadline" formatter,
+  pulled out of `app/deadline/page.tsx` so the new sticky `ContextBar` and `/deadline` itself share
+  one implementation. See [deadline-and-matchday.md](deadline-and-matchday.md#the-countdown-left-this-page-2026-08-22-a-sticky-app-wide-contextbar).
+- **`freeTransfersDisplay`** (`lib/transfers.ts`, 2026-08-22) — the one honest reading of
+  `TeamState.freeTransfers`. That field is sometimes a sentinel, not a count: the FPL importer sets
+  it to `rules.squadSize` for FPL's pre-deadline "unlimited" transfer state, so `simulateTransfers`
+  never invents a hit FPL wouldn't charge. `/deadline` and `/transfers`' FT selects clamped this
+  separately before display; a new sticky `ContextBar` rendering it a third way, raw, is what
+  actually surfaced the bug live (a real "FT 15"). Returns `{ kind: "unlimited" }` when a wildcard
+  or free hit is the squad's `activeChip`, otherwise a count clamped to `[0, MAX_FREE_TRANSFERS]`
+  with anything above the cap — the sentinel — falling back to the documented default of 1. See
+  [mobile-reachability.md](../sprints/mobile-reachability.md).
+
+## `NavLinks` split into `DesktopNav`/`MobileNav` (2026-08-22)
+
+One component used to return a two-element fragment: the `hidden lg:flex` desktop row and the
+`lg:hidden` mobile trigger. That's fine as long as both siblings' relative position in the header
+never needs to differ — but moving just the mobile trigger to the header's left edge (see
+[design-system.md](design-system.md#bottom-sheet-added-2026-08-22-a-third-disclosure-shape-and-a-tap-target-floor))
+would have dragged the entire 10-item desktop row in front of the logo too, since fragment siblings
+share one DOM position regardless of which breakpoint currently shows which one. Split into two
+components so `app/layout.tsx` can place them independently — `<MobileNav />` first, then the logo,
+then `<DesktopNav />` — with no effect on the desktop layout, since `MobileNav`'s `lg:hidden`
+wrapper contributes zero width once it's hidden. The pattern generalises: a component that renders
+different content per breakpoint via CSS display, rather than one shared subtree, can't be safely
+reordered as a unit if the breakpoints ever need different relative positions.
+
+## `/players`' own data columns (2026-08-22)
+
+`/players` renders its own 16+-column sortable table rather than the shared `player-detail.tsx`
+panel (see above) — gained two more columns, both already-ingested data simply not yet selected:
+current-season `expected_goals`/`expected_assists` from `players` (labelled `xG (N GW)`/`xA (N GW)`
+so a one-gameweek sample is never read as a full-season rate), and an `expected_minutes`/
+`start_probability` fetch from `player_predictions` powering an `xMins` column and a `Start %` sort
+key. The same fetch also replaced `toScoredPlayer`'s hardcoded `expectedMinutes: null`/
+`startProbability: null` — previously hardcoded because this page never fetched the data — with the
+real values, so every `startProbability ?? availability` fallback already written into
+[hidden-gems.md](hidden-gems.md) and `lib/scoring.ts` now has real per-fixture minutes evidence on
+this page instead of the status-only fallback. See
+[design-audit-response.md](../sprints/design-audit-response.md).
 
 ## Static-export-specific traps
 

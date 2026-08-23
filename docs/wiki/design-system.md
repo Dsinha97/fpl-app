@@ -39,7 +39,8 @@ against the literal it replaced.
   (`eslint.config.mjs`, `no-restricted-syntax`, warning-level so it never blocks a build) stops the
   bleed on new code without forcing an unreviewed diff on old code. `lib/fdr.ts` is exempt — its
   `hexCode` field is a deliberate non-`className` value feeding SVG/canvas, and its palette is
-  CVD-validated (see [risk-scoring.md](risk-scoring.md) for the validation methodology it shares).
+  CVD-validated — `lib/fdr.ts`'s own header comment records a 12.3 ΔE adjacent-pair separation
+  (protan), against a 17.4 normal-vision floor, from the dataviz palette validator.
 
 ## Button and interaction states
 
@@ -61,9 +62,12 @@ shared components those pages use:
   documented in a comment: a genuinely `disabled` element drops out of the tab order, so a keyboard
   or screen-reader user would never reach the reason. Plain `disabled` remains correct where there is
   no reason worth giving.
-- **Follow-on work**: the remaining pages (`/players`, `/compare`, `/fixtures`, `/scenarios`, `/team`,
-  `/settings`) were not touched — the lint rule from Stage 1 keeps new code on those pages from
-  regressing further, but existing raw buttons there still lack focus rings.
+- **Follow-on closed 2026-08-22**: `/players`, `/compare`, `/fixtures`, `/scenarios`, `/team`,
+  `/settings`, and `/deadline`'s previously-missed controls, plus `components/nav-links.tsx` and the
+  signed-out home page's two CTAs, all gained the same `focus-visible:ring-2 focus-visible:ring-ring`
+  shape — closing the gap this bullet used to describe. The legacy `focus:border-*` inputs in the
+  same files were converted to `focus-visible:` alongside. See
+  [design-audit-response.md](../sprints/design-audit-response.md).
 
 ## The busy-state pattern (Stage 3)
 
@@ -149,6 +153,27 @@ collapsed neighbour. The actual fix is `self-start` on the card itself, alongsid
 `w-[calc(...)]` basis. Verified live: expanding the GW1 Hull–Man Utd card grew it to 436px while
 the still-collapsed Arsenal card beside it stayed at 80px. — CLAUDE.md's card-layout gotchas
 
+### Two more mobile-layout bugs, neither about stretch (2026-08-22)
+
+- **`/transfers`' decision summary rendered below the squad table and picker on a phone.** The
+  `<aside>` holding net xP/hits/bank sat second in `lg:grid-cols-[minmax(0,1fr)_360px]`'s DOM order
+  — a sensible right rail on desktop, but the grid collapses to one column below `lg`, so the actual
+  decision output landed under two other sections instead of leading them. Fixed with `order-first
+  lg:order-none` on the `<aside>` alone: `order-first` (`order: -9999`) wins on mobile where the
+  squad `<section>` has no explicit order (`0`), and `lg:order-none` resets both to `0` at the
+  breakpoint where DOM order (aside second) is the desired right-rail position again. Verified via
+  `getBoundingClientRect`: aside above section at 375px, side by side at 1280px.
+- **`/compare`'s metric table used `table-fixed` with percentage-width columns.** That layout can
+  never trigger its own `overflow-x-auto` wrapper — `table-fixed` caps the table at its container's
+  width by definition, so a phone viewport just divides the same pixels four ways instead of
+  scrolling, squeezing player names and numbers illegibly rather than failing loudly. Switched to
+  the `min-w-[...]` + sticky-first-column pattern `app/players/page.tsx` already established for the
+  identical reason: natural table sizing lets the table exceed its wrapper, `overflow-x-auto`
+  actually engages, and the row-label column stays pinned while scrolling. Verified: a 640px table
+  inside a 343px wrapper scrolls with "Metric" sticky at the wrapper's left edge.
+
+See [design-audit-response.md](../sprints/design-audit-response.md).
+
 ## Component hierarchy and disclosure (Stage 4b)
 
 The same defect existed one level down. `components/player-detail.tsx`'s `stat()` grid rendered all
@@ -191,6 +216,58 @@ are compact single-line notes with no real title (`text-[10px]`/muted styling), 
 into `CollapsibleCard`'s title+tier layout would have visibly changed their size for no reader
 benefit. They're still the open follow-on work; the primitive now exists for whoever picks it up.
 
+### `TapToReveal` (added 2026-08-22): the same primitive, an arbitrary trigger
+
+`InfoTooltip` always draws its own "?" circle — fine for a standalone note, wrong for a badge or a
+dotted-underline stat label that already *is* the trigger and would look doubled with a "?" glued
+next to it. `components/info-tooltip.tsx` was refactored so `InfoTooltip` is now a thin wrapper over
+a new `TapToReveal(trigger, children, label, wrapperClassName?)` — one click-toggle/Escape/
+outside-click implementation instead of two, per [methodology.md](methodology.md#one-quantity-one-implementation).
+
+It migrated the nine remaining `cursor-help`/native-`title` sites Sprint 19 flagged but didn't reach:
+`GemBadge`, `Gw1Badge`, `RateBand` (`components/confidence-badge.tsx`), the three stat definitions
+in `manager-profile-card.tsx`, the chip-gain and captain-confidence notes in `app/builder/page.tsx`,
+and the exit-route notes shared by `/builder` and `/transfers`. **Not** touched — still open, as
+above: the bare-paragraph pattern on `/scenarios`/`/compare` and `transfer-plan.tsx`'s bespoke
+`noteOpen` collapse; a different `/scenarios` row-header tooltip (table row labels with a `.note`
+field) was migrated to `TapToReveal` directly rather than through `InfoTooltip`, since a dotted-
+underline label is itself the trigger. See
+[design-audit-response.md](../sprints/design-audit-response.md).
+
+### Bottom sheet (added 2026-08-22): a third disclosure shape, and a tap-target floor
+
+`components/nav-links.tsx`'s mobile drawer was `absolute right-0 top-full … w-56` — a dropdown, the
+same shape `InfoTooltip`/`TapToReveal` and `AccountMenu` already use. Fine for a handful of items
+next to their trigger; wrong for 11 full navigation links, which used to land wherever the trigger
+happened to sit in the header regardless of which hand held the phone. Replaced with a sheet docked
+to the bottom edge (`fixed inset-x-0 bottom-0`, `max-h-[70vh] overflow-y-auto`, `rounded-t-2xl`,
+`env(safe-area-inset-bottom)`-aware) plus a `bg-black/40` backdrop — the app's first backdrop and
+its first bottom-anchored popover. All three of `TapToReveal`'s existing dismiss paths (outside
+click, Escape, and here also route-change) still apply, since the sheet stays inside the trigger's
+own wrapper's DOM subtree — `fixed` positioning changes where something paints, not what contains
+it — but the backdrop needed its own click handler: clicking it is a click "outside" the sheet's
+*content* while still being inside that same DOM subtree, so the existing containment check alone
+wouldn't close it. See [mobile-reachability.md](../sprints/mobile-reachability.md).
+
+The same pass added a **tap-target floor** to `TapToReveal` itself: `relative` plus an absolutely-
+positioned, empty `before` pseudo-element (`before:-inset-2.5`, i.e. 10px on every side) extends the
+*hit* area without touching the trigger's visible size — the "?" circle stays a visible 16×16px with
+an effective 36×36px hit box. Verified via `getComputedStyle(el, '::before')` rather than
+`getBoundingClientRect`, since a pseudo-element extends hit-testing without appearing in the real
+element's own box. Applied everywhere `TapToReveal` renders except one: `app/builder/page.tsx`'s
+pool `+`/`⇄` button repeats in every row of a densely-packed table, so a *vertical* halo would reach
+into the identical button one row up or down — a misclick there adds the wrong player, not a
+harmless near-miss. That one button gets a horizontal-only halo (`-inset-x-2`) instead, verified
+against the real ~16px row-to-row gap.
+
+`InfoTooltip`'s panel also learned to flip: it was `absolute top-full` unconditionally, so a trigger
+near the bottom of a long page opened a panel that rendered below the fold. It now measures the
+room below the trigger at open time and flips to `bottom-full` when short — the same "prefer below,
+flip above when there is not enough room" rule `components/pitch-view.tsx`'s panel positioning
+already followed, reimplemented as a plain viewport-height check rather than that component's full
+wrapper-relative pixel calculation, since `TapToReveal` has no equivalent bounded wrapper to
+position against at every one of its call sites.
+
 ## Typography (Stage 5)
 
 All 13 page-title `<h1>`s share one identical class string
@@ -228,8 +305,10 @@ already-established literal pattern (`dark:bg-[#1E0234]` on new sticky table cel
 `app/compare/page.tsx`), not a new one.
 
 See also: [frontend-conventions.md](frontend-conventions.md) (theme boot script, static-export
-traps), [risk-scoring.md](risk-scoring.md) (the FDR colour system's CVD validation, the one colour
-system that predates and outperforms this page's semantic tokens), [sprints/sprint-19.md](../sprints/sprint-19.md),
+traps), `lib/fdr.ts` (the FDR colour system's own CVD validation — see its header comment — the one
+colour system that predates and outperforms this page's semantic tokens), [sprints/sprint-19.md](../sprints/sprint-19.md),
 [sprints/rivals-and-card-density.md](../sprints/rivals-and-card-density.md) (the 2026-08-20 packing
 follow-on), [sprints/design-audit-response.md](../sprints/design-audit-response.md) (the 2026-08-22
-accessibility/focus-ring/mobile-layout follow-on, and what an external design audit got wrong).
+accessibility/focus-ring/mobile-layout follow-on, and what an external design audit got wrong),
+[sprints/mobile-reachability.md](../sprints/mobile-reachability.md) (the same day's follow-on: the
+bottom sheet, the tap-target floor, and a real "FT 15" bug).

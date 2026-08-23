@@ -20,7 +20,8 @@ import {
   type RivalRow,
 } from "@/lib/manager-profile";
 import { IMPORTED_SQUAD_NOTE, importedDraftName, teamStateFromPicks } from "@/lib/fpl-squad";
-import { saveDraft, uniqueDraftName } from "@/lib/drafts";
+import { listDrafts, onDraftsChanged, resolveRequestedDraft, saveDraft, uniqueDraftName } from "@/lib/drafts";
+import { freeTransfersDisplay, MAX_FREE_TRANSFERS } from "@/lib/transfers";
 import {
   layoutFromPicks,
   loadEventPoints,
@@ -32,7 +33,7 @@ import {
 } from "@/lib/manager-picks";
 import { loadSeasonContext } from "@/lib/season-context";
 import { loadLiveDetail, type LiveStatLine } from "@/lib/gameweek-state";
-import { DEFAULT_RULES, type SquadRules } from "@/lib/team-state";
+import { DEFAULT_RULES, type SquadRules, type TeamState } from "@/lib/team-state";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { useAuth } from "@/components/auth-provider";
 
@@ -256,7 +257,23 @@ export default function TeamPage() {
   const [data, setData] = useState<TeamData | null>(null);
   const [importing, setImporting] = useState(false);
 
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, entryId: linkedEntryId, teamName: linkedTeamName } = useAuth();
+
+  // For the free-transfers control below — /team otherwise never loads
+  // drafts at all, only ever *creates* one via handleImport's saveDraft.
+  // Same resolution every other draft-aware page uses (see lib/drafts.ts),
+  // so "the squad My Team is showing an FT control for" agrees with what
+  // /deadline, /transfers, and the sticky ContextBar call the real squad.
+  const [drafts, setDrafts] = useState<TeamState[]>([]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDrafts(listDrafts());
+    return onDraftsChanged(() => setDrafts(listDrafts()));
+  }, []);
+  const importedDraft = useMemo(
+    () => resolveRequestedDraft(drafts, "", { entryId: linkedEntryId, teamName: linkedTeamName }),
+    [drafts, linkedEntryId, linkedTeamName],
+  );
 
   // Squad section: which of the two views, and which gameweek in the second.
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
@@ -1083,16 +1100,52 @@ export default function TeamPage() {
           <section className="mt-8">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Squad</h2>
-              {data && data.picks.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => void handleImport()}
-                  disabled={importing}
-                  className="rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+              <div className="flex items-center gap-3">
+                <label
+                  className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400"
+                  title={
+                    !importedDraft
+                      ? "Import your squad as a draft first — there's nothing to save this to yet."
+                      : undefined
+                  }
                 >
-                  {importing ? "Importing…" : "Import as draft →"}
-                </button>
-              )}
+                  Free transfers
+                  <select
+                    value={
+                      importedDraft
+                        ? (() => {
+                            const ft = freeTransfersDisplay(importedDraft);
+                            return ft.kind === "unlimited" ? MAX_FREE_TRANSFERS : ft.n;
+                          })()
+                        : 1
+                    }
+                    onChange={(e) => {
+                      if (!importedDraft) return;
+                      saveDraft({ ...importedDraft, freeTransfers: Number(e.target.value) });
+                      setDrafts(listDrafts());
+                    }}
+                    aria-disabled={!importedDraft}
+                    disabled={!importedDraft}
+                    className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                  >
+                    {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
+                      <option key={i} value={i}>
+                        {i}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {data && data.picks.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => void handleImport()}
+                    disabled={importing}
+                    className="rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                  >
+                    {importing ? "Importing…" : "Import as draft →"}
+                  </button>
+                )}
+              </div>
             </div>
             {data && data.picks.length > 0 && (
               <p className="mt-1.5 flex items-start gap-1 text-xs text-zinc-500">

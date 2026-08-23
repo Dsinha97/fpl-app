@@ -8,6 +8,7 @@ import { listDrafts, onDraftsChanged, resolveRequestedDraft } from "@/lib/drafts
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
 import { totalSpend } from "@/lib/squad-budget";
 import type { TeamState } from "@/lib/team-state";
+import { freeTransfersDisplay } from "@/lib/transfers";
 
 /**
  * The audit's one genuinely good finding: a deadline-driven tool with no
@@ -79,27 +80,39 @@ export function ContextBar() {
           </span>
         )}
 
-        {hasSquad && draft!.source === "fpl" ? (
-          <span className="flex items-center gap-1">
-            FT
-            <span className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
-              {draft!.freeTransfers}
-            </span>
-          </span>
-        ) : (
-          <span className="flex items-center gap-1">
-            FT
-            <span className="font-semibold tabular-nums text-zinc-500">—</span>
-            <InfoTooltip label="Why is free transfers unknown?">
-              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                FPL doesn&apos;t expose free transfers without a login the app
-                can&apos;t perform (see CLAUDE.md). Paste your `my-team` JSON on{" "}
-                <span className="font-medium">Settings</span> to see the real
-                count instead of a guessed default.
-              </p>
-            </InfoTooltip>
-          </span>
-        )}
+        {hasSquad &&
+          (() => {
+            const ft = freeTransfersDisplay(draft!);
+            return ft.kind === "unlimited" ? (
+              <span className="flex items-center gap-1">
+                FT
+                <span className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
+                  ∞
+                </span>
+                <InfoTooltip label="Why are free transfers unlimited?">
+                  <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                    A Wildcard or Free Hit is active — FPL charges no points hit for any number of
+                    changes while it&apos;s in play.
+                  </p>
+                </InfoTooltip>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                FT
+                <span className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
+                  {ft.n}
+                </span>
+                <InfoTooltip label="Where do I change free transfers?">
+                  <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                    Defaults to 1. Set the real count on{" "}
+                    <span className="font-medium">My Team</span> or{" "}
+                    <span className="font-medium">Deadline</span> — FPL doesn&apos;t expose it
+                    without a login the app can&apos;t perform (see CLAUDE.md).
+                  </p>
+                </InfoTooltip>
+              </span>
+            );
+          })()}
       </div>
     </div>
   );

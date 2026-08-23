@@ -141,6 +141,39 @@ above). A gameweek now also stays open while any of its fixtures has started and
 has finished, closing again once the gameweek ends or the next deadline passes. Verified live: GW1
 stayed expanded showing the real 2-0 scoreline while `is_next` already pointed at GW2.
 
+### The countdown left this page (2026-08-22): a sticky app-wide `ContextBar`
+
+`/deadline` was the only place the deadline countdown, bank, or free-transfer count ever appeared —
+everywhere else, a manager checking those numbers before a decision had to navigate here first. A
+new `components/context-bar.tsx` renders under the nav in every page's now-`sticky top-0` header,
+reusing `loadSeasonContext` for the countdown/gameweek name and whichever draft
+`resolveRequestedDraft` (see [frontend-conventions.md](frontend-conventions.md#shared-helpers-extracted-after-being-pasted-enough-times))
+already resolves for every other draft-aware page — no new query shape, no extra Supabase round
+trip beyond `loadSeasonContext` itself. `fmtCountdown` (this page's own countdown formatter) moved
+out to `lib/countdown.ts` so the bar and `/deadline` share one implementation.
+
+**Corrected 2026-08-22** — the bar originally rendered `TeamState.freeTransfers` raw whenever the
+resolved draft was FPL-sourced, and this is exactly what surfaced a real bug live: `freeTransfers`
+is sometimes a sentinel, not a count. `teamStateFromMyTeamJson` sets it to `rules.squadSize` for
+FPL's pre-deadline "unlimited" transfer state (so `simulateTransfers` never invents a hit FPL
+wouldn't charge), and the bar showed that sentinel as a literal "FT 15." The fix,
+`freeTransfersDisplay` (`lib/transfers.ts` — see
+[frontend-conventions.md](frontend-conventions.md#shared-helpers-extracted-after-being-pasted-enough-times)),
+is now the one shared reading everywhere: `FT ∞` when the squad's `activeChip` is a wildcard or free
+hit, otherwise a count clamped to `[0, 5]` with anything above that cap — the sentinel — read as the
+documented default of 1, never as a real 5-transfer cap nobody set. The owner's own rule settled
+what "1" should mean here: not a placeholder hidden behind an "unknown" state, but the real default,
+shown plainly and changeable on `/deadline` or `/team` — so `/deadline`'s and `/transfers`' FT
+`<select>`s now `saveDraft` on change instead of being page-local state that evaporated on
+navigation, and `/team` gained its own FT control. See
+[mobile-reachability.md](../sprints/mobile-reachability.md). Bank has no equivalent correctness
+problem — `budget − totalSpend(players)` is a real computed value for whichever draft is loaded, the
+same number `/transfers` and `/team` already show for it.
+
+`app/page.tsx` also now redirects a signed-in visitor from `/` straight to `/deadline`, so the
+marketing splash only shows once, before first sign-in. See
+[design-audit-response.md](../sprints/design-audit-response.md).
+
 See also: [data-pipeline.md](data-pipeline.md) (`sync-live-gameweek`'s cron and self-gating),
 [blocked-and-data-gaps.md](blocked-and-data-gaps.md), [fpl-authentication.md](fpl-authentication.md)
 (the import mechanism and its naming rule), [manager-profile.md](manager-profile.md) (`/team`'s

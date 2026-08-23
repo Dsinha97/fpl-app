@@ -87,3 +87,57 @@ One line per entry, most recent first.
   `log.md`'s actual practice is append-only (newest at the bottom), which contradicts this file's
   own "most recent first" header at the top; not reordered here per the "don't restructure without
   a plan" rule.
+- 2026-08-22 — Ingested `docs/sprints/design-audit-response.md` (an external "AI-coded website"
+  design audit and the response to it — most of its findings verified false before acting).
+  `design-system.md`: extended the "Disclosure" section with a new `## TapToReveal` subsection (the
+  nine hover-only sites migrated off native `title`/`cursor-help`), closed the "Follow-on work"
+  bullet under "Button and interaction states" that used to list the six pages missing focus rings,
+  and added a "Two more mobile-layout bugs, neither about stretch" subsection for the `/transfers`
+  order-first and `/compare` table-scroll fixes. `frontend-conventions.md`: added `fmtCountdown` to
+  "Shared helpers" and a new "`/players`' own data columns" section for the current-season xG/xA and
+  `xMins`/`Start %` additions. `deadline-and-matchday.md`: new subsection on the sticky app-wide
+  `ContextBar` that moves the deadline countdown out of this page alone, and the `/` → `/deadline`
+  signed-in redirect. `methodology.md`: new "Verify an external claim before implementing it"
+  section — the audit's "critical DNS failure" was the auditor's own sandbox having no network, not
+  a real outage. `deployment.md`: corrected `_headers`' stale "Cloudflare Pages" comment (this
+  project deploys via Workers static assets) and noted the now-explicit HTML `Cache-Control` rule.
+  `timeline.md` updated. Two entries in `.pending-ingest` (`docs/phase-4-model.md`, one of the two
+  `docs/roadmap.md` lines) were stale leftovers from the prior ingest pass (562978), already fully
+  reflected in `xp-model.md`/`design-system.md`/`timeline.md`/`log.md` per that commit's own message
+  — treated as already-ingested, not re-processed. `.pending-ingest` cleared.
+
+  **Tidy pass found, not fixed:** `design-system.md` cites `risk-scoring.md` twice (lines ~42, ~273)
+  for "the FDR colour system's CVD validation," but `risk-scoring.md` contains no mention of CVD,
+  FDR, or colour at all — a broken cross-link, not something this pass introduced. The CVD/ΔE
+  validation this claim refers to lives only in `lib/fdr.ts`'s own header comment, never written up
+  as wiki prose anywhere. The previously-flagged `frontend-conventions.md` panel-size stale claim
+  (states 320×460, code has been 320×340 with a collapsed-by-default toggle since Sprint 21) is
+  **still unfixed** — flagged twice now across two ingest passes.
+- 2026-08-22 — Fixed both items from the tidy note just above, per owner request. `design-system.md`
+  (two occurrences) and `methodology.md` no longer cite `risk-scoring.md` for the FDR colour system's
+  CVD validation — corrected to cite `lib/fdr.ts`'s own header comment directly (12.3 ΔE protan
+  adjacent-pair separation, 17.4 normal-vision floor), since `risk-scoring.md` never contained this
+  content. `frontend-conventions.md`'s player-detail-panel section no longer states 320×460 as
+  current — corrected to 320×340 (the real Sprint 21 value, verified directly against
+  `PANEL_WIDTH`/`PANEL_MAX_HEIGHT` in `components/player-detail.tsx`), with the 320×460 figure kept
+  as the intermediate step it actually was rather than deleted outright.
+- 2026-08-22 — Ingested `docs/sprints/mobile-reachability.md` (a follow-on to the design-audit
+  response, prompted by the owner's phone screenshot of the mobile nav trigger floating mid-header).
+  `design-system.md`: new "Bottom sheet" subsection under Disclosure — the nav drawer's dropdown
+  became a bottom-docked sheet (the app's first backdrop, first bottom-anchored popover), and
+  `TapToReveal` gained a tap-target floor (a `before` pseudo-element hit-area halo, 16px→36px
+  effective on the "?" trigger) plus a flip-up when short on room below. `frontend-conventions.md`:
+  new sections for the `NavLinks` → `DesktopNav`/`MobileNav` split (moving a breakpoint-gated
+  trigger independently of its sibling desktop row) and `freeTransfersDisplay` in "Shared helpers."
+  `timeline.md` updated. `roadmap.md`/`README.md` gained a row each.
+
+  Also fixed a real bug found live, not in a source file this ingest reads: the sticky `ContextBar`
+  built the same session as `design-audit-response.md` rendered `TeamState.freeTransfers` raw,
+  showing "FT 15" — 15 being `teamStateFromMyTeamJson`'s sentinel for FPL's pre-deadline "unlimited"
+  transfer state, not a real count. `freeTransfersDisplay` (`lib/transfers.ts`) is now the one
+  shared interpretation; `/deadline`/`/transfers`' FT selects persist via `saveDraft` instead of
+  evaporating on navigation, and `/team` gained its own FT control (that page previously never
+  loaded drafts at all, only created them). `deadline-and-matchday.md`'s ContextBar section — the
+  page the *previous* ingest wrote up — is corrected in place rather than left stale: its old "FT —"
+  honesty-gap description no longer matches what the bar actually does since the owner's own rule
+  (default 1, shown plainly, ∞ on a wildcard) replaced it.

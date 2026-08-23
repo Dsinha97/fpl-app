@@ -19,6 +19,7 @@ import {
 } from "@/lib/scoring";
 import { withGw1Context, GW1_SOURCE_NOTE } from "@/lib/gw1-lineups";
 import {
+  freeTransfersDisplay,
   MAX_FREE_TRANSFERS,
   simulateTransfers,
   TRANSFER_MODEL_NOTE,
@@ -398,8 +399,9 @@ export default function TransfersPage() {
 
   useEffect(() => {
     if (team) {
+      const ft = freeTransfersDisplay(team);
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setFreeTransfers(Math.min(MAX_FREE_TRANSFERS, Math.max(0, team.freeTransfers)));
+      setFreeTransfers(ft.kind === "unlimited" ? MAX_FREE_TRANSFERS : ft.n);
     }
   }, [team]);
 
@@ -793,7 +795,18 @@ export default function TransfersPage() {
           Free transfers
           <select
             value={freeTransfers}
-            onChange={(e) => setFreeTransfers(Number(e.target.value))}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              setFreeTransfers(n);
+              // Persisted for the same reason /deadline's identical select
+              // is: this used to be throwaway local state, so the sticky
+              // ContextBar (and /deadline, My Team) never saw what was
+              // picked here.
+              if (team) {
+                saveDraft({ ...team, freeTransfers: n });
+                setDrafts(listDrafts());
+              }
+            }}
             disabled={wildcardMode}
             title={
               wildcardMode

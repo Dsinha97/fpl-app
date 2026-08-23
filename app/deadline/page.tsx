@@ -64,7 +64,7 @@ import {
   type WildcardWindow,
   type XpByEvent,
 } from "@/lib/transfer-optimizer";
-import { MAX_FREE_TRANSFERS, TRANSFER_MODEL_NOTE } from "@/lib/transfers";
+import { freeTransfersDisplay, MAX_FREE_TRANSFERS, TRANSFER_MODEL_NOTE } from "@/lib/transfers";
 import { ago, describe, type FeedRow } from "@/lib/change-feed";
 import { confidentEntities, sourceBadge, type NewsRow } from "@/lib/news-feed";
 import { loadPastResults, type PastResult } from "@/lib/player-history";
@@ -212,8 +212,10 @@ export default function DeadlinePage() {
   const team = useMemo(() => drafts.find((d) => d.draftId === draftId) ?? null, [drafts, draftId]);
 
   useEffect(() => {
+    if (!team) return;
+    const ft = freeTransfersDisplay(team);
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (team) setFreeTransfers(Math.min(MAX_FREE_TRANSFERS, Math.max(0, team.freeTransfers)));
+    setFreeTransfers(ft.kind === "unlimited" ? MAX_FREE_TRANSFERS : ft.n);
   }, [team]);
 
   useEffect(() => {
@@ -1390,7 +1392,17 @@ export default function DeadlinePage() {
                   Free transfers
                   <select
                     value={freeTransfers}
-                    onChange={(e) => setFreeTransfers(Number(e.target.value))}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      setFreeTransfers(n);
+                      // Persisted so the sticky ContextBar (and My Team,
+                      // /transfers) reflect the same count everywhere,
+                      // rather than this page's own throwaway local state —
+                      // this select was the only place that ever set the
+                      // real value and it evaporated on navigation.
+                      saveDraft({ ...team, freeTransfers: n });
+                      setDrafts(listDrafts());
+                    }}
                     className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
                   >
                     {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (

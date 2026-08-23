@@ -113,6 +113,36 @@ export function accrueFreeTransfers(current: number, used: number): number {
   return Math.min(MAX_FREE_TRANSFERS, remaining + 1);
 }
 
+/** The one honest reading of `TeamState.freeTransfers`, shared by `/deadline`,
+ * `/transfers`, `/team`, and `components/context-bar.tsx` instead of each
+ * clamping it separately (CLAUDE.md: "one quantity, one implementation"). */
+export type FreeTransfersDisplay = { kind: "unlimited" } | { kind: "count"; n: number };
+
+/**
+ * `TeamState.freeTransfers` is not always a real count. `teamStateFromMyTeamJson`
+ * (`lib/fpl-squad.ts`) sets it to `rules.squadSize` — a sentinel, not a
+ * transfer count — whenever FPL itself reports "unlimited" (pre-deadline,
+ * before the season's first transfer window closes), so `simulateTransfers`
+ * never invents a hit FPL would not actually charge. A wildcard or free hit
+ * grants the same real "no hit, any number of changes" state while active.
+ * Rendering either sentinel as a literal number (once seen live as "FT 15")
+ * reads as a fact FPL never granted — CLAUDE.md's "say what the number
+ * means". Anything else out of range is treated the same way: a value above
+ * the real cap can only be a stale import artifact, not a real balance, so it
+ * falls back to the documented default of 1 rather than the cap of 5, which
+ * would itself read as a limit nobody actually set.
+ */
+export function freeTransfersDisplay(team: TeamState): FreeTransfersDisplay {
+  if (team.activeChip === "wildcard" || team.activeChip === "freehit") {
+    return { kind: "unlimited" };
+  }
+  const n = team.freeTransfers;
+  if (!Number.isFinite(n) || n > MAX_FREE_TRANSFERS) {
+    return { kind: "count", n: 1 };
+  }
+  return { kind: "count", n: Math.max(0, n) };
+}
+
 /**
  * What FPL pays when you sell.
  *
