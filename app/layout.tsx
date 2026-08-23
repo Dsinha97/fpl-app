@@ -21,6 +21,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://fpldecision.com"),
   title: "FPL Decision — Analytics Hub",
   description:
     "Fantasy Premier League analytics and decision support: transfers, captaincy, chips, and fixtures.",

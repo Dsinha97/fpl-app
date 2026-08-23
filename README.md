@@ -3,7 +3,7 @@
 Personal Fantasy Premier League analytics and decision-support application. A static Next.js front
 end on Cloudflare, with Supabase Postgres and Edge Functions behind it.
 
-Live at [fpl-app.deepayansinha.workers.dev](https://fpl-app.deepayansinha.workers.dev/).
+Live at [fpldecision.com](https://fpldecision.com/).
 
 ## Docs
 

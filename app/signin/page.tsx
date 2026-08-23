@@ -9,11 +9,11 @@ import { useAuth } from "@/components/auth-provider";
 /**
  * Google OAuth is the primary path — Supabase's built-in email sender has a
  * project-wide hourly cap ("over_email_send_rate_limit") that is only
- * changeable with a custom SMTP setup, which this app deliberately doesn't
- * have (sender verification wants a domain we don't own — see
- * docs/roadmap.md, "Sprint 14"). Magic link stays as a fallback that needs
- * no provider setup, with its two most common failure codes explained
- * instead of echoed as Supabase's raw error string.
+ * changeable with a custom SMTP setup. This app still doesn't have one — not
+ * a blocker any more since fpldecision.com was registered (Sprint 25), just
+ * not built yet — see docs/roadmap.md, "Sprint 14". Magic link stays as a
+ * fallback that needs no provider setup, with its two most common failure
+ * codes explained instead of echoed as Supabase's raw error string.
  */
 function friendlyAuthError(error: AuthError): string {
   switch (error.code) {

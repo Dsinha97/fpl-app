@@ -3,6 +3,11 @@
 **Status: built (2026-08-09), plus sub-sprints 14.1–14.4.** See [../roadmap.md](../roadmap.md) for
 the sprint index.
 
+**Reconciliation, 2026-08-23 (Sprint 25):** the custom-SMTP blocker recorded in 14.1 below — "a
+domain we don't own" — no longer holds; `fpldecision.com` was registered and cut over that sprint.
+Custom SMTP itself is not built as of this note; Google remains the primary sign-in path and
+magic link the deliberate fallback either way. See [deployment.md](../wiki/deployment.md).
+
 Supabase Auth (magic link / email OTP), owned cloud storage for drafts, real-FPL-squad
 import, and a session handoff standing in for the FPL login the roadmap originally
 specified — see "FPL login is blocked" below for why. This is the item Sprint 8 recorded as

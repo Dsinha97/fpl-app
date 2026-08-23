@@ -21,7 +21,7 @@ import { parseFeed, parsePubDate, stripTags, type FeedItem } from "../_shared/rs
 import { resolveEntities, type PlayerRow, type TeamRow } from "../_shared/entities.ts";
 
 const FUNCTION_NAME = "sync-news";
-const USER_AGENT = "fpl-app/0.1 (+https://fpl-app.deepayansinha.workers.dev)";
+const USER_AGENT = "fpl-app/0.1 (+https://fpldecision.com)";
 const EXCERPT_MAX = 300;
 const RETENTION_DAYS = 30;
 

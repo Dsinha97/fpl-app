@@ -19,7 +19,7 @@ import { jsonResponse, preflight, serviceClient } from "../_shared/sync.ts";
 import { verifyUser } from "../_shared/auth.ts";
 import { decryptSecret } from "../_shared/crypto.ts";
 
-const USER_AGENT = "fpl-app/0.1 (+https://fpl-app.deepayansinha.workers.dev)";
+const USER_AGENT = "fpl-app/0.1 (+https://fpldecision.com)";
 
 Deno.serve(async (req) => {
   const cors = preflight(req);

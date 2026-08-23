@@ -28,5 +28,16 @@
     // trailingSlash: true the export is a directory per route (out/team/index.html),
     // and the default resolves both /team and /team/ to it — so the URL shape the
     // old host served stays intact. Do not set this to "none" or every route 404s.
-  }
+  },
+
+  // Sprint 25: fpldecision.com is the canonical host, added here (not just in
+  // the dashboard) so a future change shows up in a diff. Apex is canonical;
+  // www exists only to be 301'd to it (Cloudflare Redirect Rule, not
+  // expressible here). The workers.dev URL keeps resolving regardless —
+  // Cloudflare has no clean way to disable it for a Git-integration Worker —
+  // so it stays a live fallback even though it is no longer advertised.
+  "routes": [
+    { "pattern": "fpldecision.com", "custom_domain": true },
+    { "pattern": "www.fpldecision.com", "custom_domain": true }
+  ]
 }

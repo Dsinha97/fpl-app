@@ -24,6 +24,19 @@ as a quality gate but no longer deploys.
   module scope, so a missing key throws `supabaseUrl is required` during prerender and fails the
   build outright — this is not a "works but degraded" failure mode, it's a hard build break.
 
+## Custom domain
+
+`fpldecision.com` is the canonical host (Sprint 25), registered through Cloudflare Registrar so
+the zone was already in the same account as the Worker. Apex is canonical; `www.fpldecision.com`
+is a Cloudflare Redirect Rule (301, preserving the path/query) to the apex, not a Worker route.
+Both hosts are declared as `custom_domain` routes in `wrangler.jsonc` rather than left as
+dashboard-only state, matching this project's convention of config-in-repo over UI clicks.
+
+The original `fpl-app.deepayansinha.workers.dev` URL keeps resolving — Cloudflare has no clean
+way to turn it off for a Git-integration Worker — so it stays a live fallback even though it's no
+longer linked from any doc, and stays in the Supabase Auth redirect allowlist alongside the new
+domain rather than being removed.
+
 ## What static export means for the codebase
 
 No server components fetching at request time, no route handlers, no `next/image` optimisation.
@@ -33,10 +46,11 @@ Function, never reachable from the client bundle).
 
 ## Privacy note
 
-The repository is private; **the deployed site is not** — the Workers URL is open to anyone holding
-it, and Postgres RLS (see [database-and-rls.md](database-and-rls.md)) is the only real access
-boundary. Gating with Cloudflare Access is a recorded, not-yet-built follow-up — if enabled, preview
-deployments need gating too, since they get their own public URLs.
+The repository is private; **the deployed site is not** — both `fpldecision.com` and the original
+Workers URL are open to anyone holding them, and Postgres RLS (see
+[database-and-rls.md](database-and-rls.md)) is the only real access boundary. Gating with
+Cloudflare Access is a recorded, not-yet-built follow-up — if enabled, preview deployments need
+gating too, since they get their own public URLs.
 
 ## CI/hosting housekeeping worth knowing about
 

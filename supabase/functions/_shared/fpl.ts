@@ -11,7 +11,7 @@ const FPL_BASE = "https://fantasy.premierleague.com/api";
 // Courtesy contact point sent to FPL on every request. Points at the live site
 // rather than the repository, which is private and would 404 for anyone who
 // followed it.
-const USER_AGENT = "fpl-app/0.1 (+https://fpl-app.deepayansinha.workers.dev)";
+const USER_AGENT = "fpl-app/0.1 (+https://fpldecision.com)";
 
 export class FplHttpError extends Error {
   constructor(readonly status: number, message: string) {
