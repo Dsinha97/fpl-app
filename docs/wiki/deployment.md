@@ -27,10 +27,13 @@ as a quality gate but no longer deploys.
 ## Custom domain
 
 `fpldecision.com` is the canonical host (Sprint 25), registered through Cloudflare Registrar so
-the zone was already in the same account as the Worker. Apex is canonical; `www.fpldecision.com`
-is a Cloudflare Redirect Rule (301, preserving the path/query) to the apex, not a Worker route.
-Both hosts are declared as `custom_domain` routes in `wrangler.jsonc` rather than left as
-dashboard-only state, matching this project's convention of config-in-repo over UI clicks.
+the zone was already in the same account as the Worker. Apex is canonical, declared as a
+`custom_domain` route in `wrangler.jsonc` rather than left as dashboard-only state.
+`www.fpldecision.com` is a Cloudflare Redirect Rule (301, preserving the path/query) to the
+apex — **not** a `custom_domain`/Worker route. Registering both hosts as `custom_domain` was
+tried first and reverted: it makes the Worker serve `www` directly (its own `200`) instead of
+redirecting it, which is the opposite of "canonical apex." The redirect rule can't be expressed
+in `wrangler.jsonc`; it's dashboard-only, same as the domain attachment itself.
 
 The original `fpl-app.deepayansinha.workers.dev` URL keeps resolving — Cloudflare has no clean
 way to turn it off for a Git-integration Worker — so it stays a live fallback even though it's no

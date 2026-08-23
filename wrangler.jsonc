@@ -31,13 +31,15 @@
   },
 
   // Sprint 25: fpldecision.com is the canonical host, added here (not just in
-  // the dashboard) so a future change shows up in a diff. Apex is canonical;
-  // www exists only to be 301'd to it (Cloudflare Redirect Rule, not
-  // expressible here). The workers.dev URL keeps resolving regardless —
-  // Cloudflare has no clean way to disable it for a Git-integration Worker —
-  // so it stays a live fallback even though it is no longer advertised.
-  "routes": [
-    { "pattern": "fpldecision.com", "custom_domain": true },
-    { "pattern": "www.fpldecision.com", "custom_domain": true }
-  ]
+  // the dashboard) so a future change shows up in a diff. Apex only —
+  // registering www.fpldecision.com as a custom_domain here too was tried
+  // and reverted: it makes the Worker serve www directly (a 200), which
+  // contradicts "www redirects to the apex" rather than implementing it.
+  // www is a Cloudflare Redirect Rule instead (dashboard-only, not
+  // expressible in this file): www.fpldecision.com/* -> 301 ->
+  // https://fpldecision.com/$1, preserving the query string. The
+  // workers.dev URL keeps resolving regardless — Cloudflare has no clean
+  // way to disable it for a Git-integration Worker — so it stays a live
+  // fallback even though it is no longer advertised.
+  "routes": [{ "pattern": "fpldecision.com", "custom_domain": true }]
 }
