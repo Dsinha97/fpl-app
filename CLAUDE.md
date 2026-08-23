@@ -30,8 +30,9 @@ cache — delete `.next` and restart.
 ## Current state
 
 Status, built features, and version are tracked in [docs/README.md](docs/README.md) — check
-there, not here. **Next:** Sprint 13 (Live Matchday Hub) once GW1 goes live; Sprint 15
-(Action Layer) after. Full plan: [docs/roadmap.md](docs/roadmap.md).
+there, not here. **Next:** see roadmap.md's own "Next up" section, not a sprint name pinned
+here — that's what went stale last time (this line named Sprint 13/15 long after both had
+either shipped or blocked). Full plan: [docs/roadmap.md](docs/roadmap.md).
 
 ## Ground rules
 

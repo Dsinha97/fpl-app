@@ -1016,155 +1016,250 @@ export default function DeadlinePage() {
             )}
           </div>
 
-          {/* ------------------------------------------------------ live hub */}
-          {/* Sprint 13. Only rendered once a GW1+ fixture has actually kicked
-              off — before that this section doesn't exist, so nothing about
-              the pre-deadline planning page above changes. */}
-          {liveStarted && liveEvent && (
-            <section className={`mt-5 ${card}`}>
+          {/* ---------------------------------------------- live hub ‖ watch */}
+          {/* Sprint 13 built the live card; Sprint 23 pairs it with Price &
+              news watch / Team news in a right rail instead of stacking all
+              three full-width — the live card's BPS race used to stretch
+              `sm:col-span-2` across the full page width and leave a wide gap
+              next to the fixture grid, which a narrower left column fixes.
+              The rail renders regardless of whether the live card has
+              started, so Price & news watch and Team news are never
+              orphaned before GW1's first kickoff. */}
+          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="min-w-0 space-y-4">
+              {liveStarted && liveEvent && (
+                <section className={card}>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      Live — GW{liveEvent.event}
+                      {gwState?.provisional && (
+                        <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          Provisional
+                        </span>
+                      )}
+                    </h2>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        href="/team/"
+                        className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                      >
+                        View in My Team →
+                      </Link>
+                      <InfoTooltip label="About live figures">{LIVE_MODEL_NOTE}</InfoTooltip>
+                    </div>
+                  </div>
+
+                  {gwStateLoading && <p className="text-sm text-zinc-500">Loading live scores…</p>}
+                  {gwStateError && (
+                    <p className="text-sm text-red-700 dark:text-red-300">{gwStateError}</p>
+                  )}
+                  {!gwStateLoading && !gwStateError && !gwState && (
+                    <p className="text-sm text-zinc-500">
+                      No picks recorded for this manager for GW{liveEvent.event} yet.
+                    </p>
+                  )}
+
+                  {gwState && (
+                    <div className="mb-3 space-y-3">
+                      <div>
+                        <p className="text-3xl font-bold tabular-nums text-purple-900 dark:text-primary">
+                          {gwState.liveTotal}
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          Live points, starters + captain{gwState.autoSubs.length > 0 ? " + projected subs" : ""}.
+                          Bench score ({gwState.squadPoints.benchRaw}) only counts under a live Bench
+                          Boost.
+                        </p>
+                        {gwState.captaincy.handedOver && (
+                          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                            Captain didn&apos;t feature — armband projected onto the vice-captain (
+                            {rowById.get(gwState.captaincy.effectiveElement)?.web_name ?? `#${gwState.captaincy.effectiveElement}`}
+                            ).
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <p className={supportingHeading}>Player status</p>
+                        <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
+                          {(() => {
+                            const counts = { not_started: 0, playing: 0, finished: 0 };
+                            for (const s of gwState.statusByElement.values()) counts[s] += 1;
+                            return `${counts.playing} playing · ${counts.not_started} yet to play · ${counts.finished} finished`;
+                          })()}
+                        </p>
+                      </div>
+
+                      {gwState.autoSubs.length > 0 && (
+                        <div>
+                          <p className={supportingHeading}>Projected auto-subs</p>
+                          <ul className="mt-1 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
+                            {gwState.autoSubs.map((sub) => (
+                              <li key={`${sub.outElement}-${sub.inElement}`}>
+                                {rowById.get(sub.inElement)?.web_name ?? `#${sub.inElement}`} on for{" "}
+                                {rowById.get(sub.outElement)?.web_name ?? `#${sub.outElement}`}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {gwState.bpsRace.length > 0 && (
+                        <div>
+                          <p className={supportingHeading}>BPS race (provisional bonus)</p>
+                          <ul className="mt-1 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
+                            {gwState.bpsRace
+                              .filter((r) => r.bps > 0)
+                              .slice(0, 5)
+                              .map((r) => (
+                                <li key={r.element} className="flex justify-between">
+                                  <span>{rowById.get(r.element)?.web_name ?? `#${r.element}`}</span>
+                                  <span className="tabular-nums">
+                                    {r.bps} bps{r.bonus > 0 ? ` · +${r.bonus} bonus so far` : ""}
+                                  </span>
+                                </li>
+                              ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {squadLiveFixtures.length > 0 && (
+                    <div className="flex flex-wrap gap-3">
+                      {squadLiveFixtures.map((f) => (
+                        <LiveFixtureCard
+                          key={f.id}
+                          fixture={f}
+                          teams={liveTeamsById}
+                          playersById={livePlayersById}
+                          squadElementIds={squadElementIds}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
+            </div>
+
+            <div className="min-w-0 space-y-4">
+              {/* ------------------------------------------------- price & news */}
+              <CollapsibleCard
+                title="Price & news watch"
+                tier="supporting"
+                summary={
+                  feedLoading
+                    ? "Loading…"
+                    : feedRows.length === 0
+                      ? "Nothing has changed for this squad recently."
+                      : `${feedRows.length} change${feedRows.length === 1 ? "" : "s"} flagged`
+                }
+              >
+                {!feedLoading && feedRows.length > 0 && (
+                  <ul className="divide-y divide-zinc-100 dark:divide-purple-900/30">
+                    {feedRows.slice(0, 20).map((row, i) => {
+                      const { icon, text } = describe(row);
+                      return (
+                        <li key={i} className="flex items-start gap-2 py-2 text-sm">
+                          <span aria-hidden="true">{icon}</span>
+                          <span className="min-w-0 flex-1">
+                            {row.web_name && <span className="font-medium">{row.web_name}</span>} {text}
+                          </span>
+                          <span className="shrink-0 text-xs text-zinc-400">{ago(row.observed_at)}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <p className="mt-2 text-xs text-zinc-500">
+                  <Link href="/news" className="underline-offset-2 hover:underline">
+                    See every change, not just this squad
+                  </Link>
+                  .
+                </p>
+              </CollapsibleCard>
+
+              {/* ---------------------------------------------------- team news */}
+              <CollapsibleCard
+                title="Team news"
+                tier="supporting"
+                summary={
+                  newsLoading
+                    ? "Loading…"
+                    : newsRows.length === 0
+                      ? "No recent headlines for this squad."
+                      : `${newsRows.length} headline${newsRows.length === 1 ? "" : "s"}`
+                }
+              >
+                <p className="text-[11px] text-zinc-500">
+                  Third-party reporting, not verified data — see{" "}
+                  <Link href="/news" className="underline-offset-2 hover:underline">
+                    every source
+                  </Link>
+                  .
+                </p>
+                {!newsLoading && newsRows.length > 0 && (
+                  <ul className="mt-2 divide-y divide-zinc-100 dark:divide-purple-900/30">
+                    {newsRows.slice(0, 15).map((row) => (
+                      <li key={row.id} className="py-2 text-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <a
+                            href={row.url}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="min-w-0 flex-1 font-medium underline-offset-2 hover:underline"
+                          >
+                            {row.title}
+                          </a>
+                          <span className="shrink-0 text-xs text-zinc-400">{ago(row.published_at)}</span>
+                        </div>
+                        <span className="mt-0.5 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {sourceBadge(row)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CollapsibleCard>
+            </div>
+          </div>
+
+          {/* ------------------ squad ‖ readiness ‖ availability ‖ captain & XI ‖ chip call */}
+          {/* Sprint 23: readiness/availability and captain/chip-call used to
+              be two independent paired grids stacked full width below the
+              squad. They're decisions about that same squad, so they now
+              share a rail beside its pitch view instead of consuming the
+              page's full width twice more. */}
+          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <section className="min-w-0">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                  Live — GW{liveEvent.event}
-                  {gwState?.provisional && (
-                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                      Provisional
-                    </span>
-                  )}
+                  Squad — {ctx.gameweekName}
                 </h2>
-                <div className="flex items-center gap-3">
-                  <Link
-                    href="/team/"
-                    className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
-                  >
-                    View in My Team →
-                  </Link>
-                  <InfoTooltip label="About live figures">{LIVE_MODEL_NOTE}</InfoTooltip>
-                </div>
+                <Link
+                  href={`/builder/?draft=${team.draftId}`}
+                  className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                >
+                  Edit in Builder →
+                </Link>
               </div>
-
-              {gwStateLoading && <p className="text-sm text-zinc-500">Loading live scores…</p>}
-              {gwStateError && (
-                <p className="text-sm text-red-700 dark:text-red-300">{gwStateError}</p>
-              )}
-              {!gwStateLoading && !gwStateError && !gwState && (
-                <p className="text-sm text-zinc-500">
-                  No picks recorded for this manager for GW{liveEvent.event} yet.
-                </p>
-              )}
-
-              {gwState && (
-                <div className="mb-3 grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <p className="text-3xl font-bold tabular-nums text-purple-900 dark:text-primary">
-                      {gwState.liveTotal}
-                    </p>
-                    <p className="text-xs text-zinc-500">
-                      Live points, starters + captain{gwState.autoSubs.length > 0 ? " + projected subs" : ""}.
-                      Bench score ({gwState.squadPoints.benchRaw}) only counts under a live Bench
-                      Boost.
-                    </p>
-                    {gwState.captaincy.handedOver && (
-                      <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-                        Captain didn&apos;t feature — armband projected onto the vice-captain (
-                        {rowById.get(gwState.captaincy.effectiveElement)?.web_name ?? `#${gwState.captaincy.effectiveElement}`}
-                        ).
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <p className={supportingHeading}>Player status</p>
-                    <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      {(() => {
-                        const counts = { not_started: 0, playing: 0, finished: 0 };
-                        for (const s of gwState.statusByElement.values()) counts[s] += 1;
-                        return `${counts.playing} playing · ${counts.not_started} yet to play · ${counts.finished} finished`;
-                      })()}
-                    </p>
-                  </div>
-
-                  {gwState.autoSubs.length > 0 && (
-                    <div className="sm:col-span-2">
-                      <p className={supportingHeading}>Projected auto-subs</p>
-                      <ul className="mt-1 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
-                        {gwState.autoSubs.map((sub) => (
-                          <li key={`${sub.outElement}-${sub.inElement}`}>
-                            {rowById.get(sub.inElement)?.web_name ?? `#${sub.inElement}`} on for{" "}
-                            {rowById.get(sub.outElement)?.web_name ?? `#${sub.outElement}`}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {gwState.bpsRace.length > 0 && (
-                    <div className="sm:col-span-2">
-                      <p className={supportingHeading}>BPS race (provisional bonus)</p>
-                      <ul className="mt-1 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
-                        {gwState.bpsRace
-                          .filter((r) => r.bps > 0)
-                          .slice(0, 5)
-                          .map((r) => (
-                            <li key={r.element} className="flex justify-between">
-                              <span>{rowById.get(r.element)?.web_name ?? `#${r.element}`}</span>
-                              <span className="tabular-nums">
-                                {r.bps} bps{r.bonus > 0 ? ` · +${r.bonus} bonus so far` : ""}
-                              </span>
-                            </li>
-                          ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {squadLiveFixtures.length > 0 && (
-                <div className="flex flex-wrap gap-3">
-                  {squadLiveFixtures.map((f) => (
-                    <LiveFixtureCard
-                      key={f.id}
-                      fixture={f}
-                      teams={liveTeamsById}
-                      playersById={livePlayersById}
-                      squadElementIds={squadElementIds}
-                    />
-                  ))}
-                </div>
-              )}
+              {/* Read-only: no armband or remove handlers, so the detail panel
+                  opens as information only. Editing stays in /builder. */}
+              <PitchView
+                squad={squadCards}
+                quota={ctx.rules.positionQuota}
+                layout={squadLayout}
+              />
+              <p className="mt-2 text-xs text-zinc-500">
+                {team.name}
+                {team.source === "fpl" ? " · imported from FPL" : ""}
+                {squadLayout && team.startingXI.length !== 11
+                  ? " · showing the model's XI — you haven't set one"
+                  : ""}
+              </p>
             </section>
-          )}
 
-          {/* ---------------------------------------------------------- squad */}
-          <section className="mt-5">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Squad — {ctx.gameweekName}
-              </h2>
-              <Link
-                href={`/builder/?draft=${team.draftId}`}
-                className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
-              >
-                Edit in Builder →
-              </Link>
-            </div>
-            {/* Read-only: no armband or remove handlers, so the detail panel
-                opens as information only. Editing stays in /builder. */}
-            <PitchView
-              squad={squadCards}
-              quota={ctx.rules.positionQuota}
-              layout={squadLayout}
-            />
-            <p className="mt-2 text-xs text-zinc-500">
-              {team.name}
-              {team.source === "fpl" ? " · imported from FPL" : ""}
-              {squadLayout && team.startingXI.length !== 11
-                ? " · showing the model's XI — you haven't set one"
-                : ""}
-            </p>
-          </section>
-
-          {/* ------------------------------------- readiness & availability */}
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div className="min-w-0 space-y-4">
           {validation && (
             <section className={cardSupporting}>
               <h2 className={supportingHeading}>Squad readiness</h2>
@@ -1236,24 +1331,7 @@ export default function DeadlinePage() {
               </ul>
             )}
           </section>
-          </div>
 
-          {/* --------------------------------------------------- chip plan */}
-          <ChipPlanEditor
-            plan={team.chipPlan}
-            chipDefinitions={chipDefinitions}
-            nextEvent={ctx.nextEvent}
-            lastEvent={ctx.windowEnd}
-            activeChip={team.activeChip}
-            onChange={(next: ChipPlan) => {
-              saveDraft({ ...team, chipPlan: next });
-              setDrafts(listDrafts());
-            }}
-            className="mt-5"
-          />
-
-          {/* --------------------------------- captain & XI ‖ chip call */}
-          <div className="mt-5 grid gap-5 lg:grid-cols-2">
           <section className={card}>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -1365,7 +1443,22 @@ export default function DeadlinePage() {
               .
             </p>
           </section>
+            </div>
           </div>
+
+          {/* --------------------------------------------------- chip plan */}
+          <ChipPlanEditor
+            plan={team.chipPlan}
+            chipDefinitions={chipDefinitions}
+            nextEvent={ctx.nextEvent}
+            lastEvent={ctx.windowEnd}
+            activeChip={team.activeChip}
+            onChange={(next: ChipPlan) => {
+              saveDraft({ ...team, chipPlan: next });
+              setDrafts(listDrafts());
+            }}
+            className="mt-5"
+          />
 
           {/* ---------------------------------------------------- transfers */}
           <section className={`mt-5 ${card}`}>
@@ -1468,86 +1561,6 @@ export default function DeadlinePage() {
             />
           )}
 
-          {/* ------------------------------------------------- price & news */}
-          <CollapsibleCard
-            title="Price & news watch"
-            tier="supporting"
-            className="mt-5"
-            summary={
-              feedLoading
-                ? "Loading…"
-                : feedRows.length === 0
-                  ? "Nothing has changed for this squad recently."
-                  : `${feedRows.length} change${feedRows.length === 1 ? "" : "s"} flagged`
-            }
-          >
-            {!feedLoading && feedRows.length > 0 && (
-              <ul className="divide-y divide-zinc-100 dark:divide-purple-900/30">
-                {feedRows.slice(0, 20).map((row, i) => {
-                  const { icon, text } = describe(row);
-                  return (
-                    <li key={i} className="flex items-start gap-2 py-2 text-sm">
-                      <span aria-hidden="true">{icon}</span>
-                      <span className="min-w-0 flex-1">
-                        {row.web_name && <span className="font-medium">{row.web_name}</span>} {text}
-                      </span>
-                      <span className="shrink-0 text-xs text-zinc-400">{ago(row.observed_at)}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            <p className="mt-2 text-xs text-zinc-500">
-              <Link href="/news" className="underline-offset-2 hover:underline">
-                See every change, not just this squad
-              </Link>
-              .
-            </p>
-          </CollapsibleCard>
-
-          {/* ---------------------------------------------------- team news */}
-          <CollapsibleCard
-            title="Team news"
-            tier="supporting"
-            className="mt-3"
-            summary={
-              newsLoading
-                ? "Loading…"
-                : newsRows.length === 0
-                  ? "No recent headlines for this squad."
-                  : `${newsRows.length} headline${newsRows.length === 1 ? "" : "s"}`
-            }
-          >
-            <p className="text-[11px] text-zinc-500">
-              Third-party reporting, not verified data — see{" "}
-              <Link href="/news" className="underline-offset-2 hover:underline">
-                every source
-              </Link>
-              .
-            </p>
-            {!newsLoading && newsRows.length > 0 && (
-              <ul className="mt-2 divide-y divide-zinc-100 dark:divide-purple-900/30">
-                {newsRows.slice(0, 15).map((row) => (
-                  <li key={row.id} className="py-2 text-sm">
-                    <div className="flex items-start justify-between gap-2">
-                      <a
-                        href={row.url}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="min-w-0 flex-1 font-medium underline-offset-2 hover:underline"
-                      >
-                        {row.title}
-                      </a>
-                      <span className="shrink-0 text-xs text-zinc-400">{ago(row.published_at)}</span>
-                    </div>
-                    <span className="mt-0.5 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                      {sourceBadge(row)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CollapsibleCard>
         </>
       )}
     </main>

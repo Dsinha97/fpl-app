@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { FdrLegendContent, InfoTooltip, TapToReveal } from "@/components/info-tooltip";
@@ -140,6 +140,15 @@ export default function TransfersPage() {
   /** The squad slot currently being filled, if any. */
   const [pickingFor, setPickingFor] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+  /** Sprint 23: on mobile the picker renders inline below the table rather
+   * than in the desktop aside (there's no room for a second column), so on
+   * open it's scrolled into view rather than left for the owner to hunt for
+   * below whichever row they tapped. */
+  const mobilePickerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (pickingFor === null) return;
+    mobilePickerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [pickingFor]);
   const [applied, setApplied] = useState<string | null>(null);
   const [pathResult, setPathResult] = useState<TransferPathResult | null>(null);
   const [pathLoading, setPathLoading] = useState(false);
@@ -732,6 +741,122 @@ export default function TransfersPage() {
     setDrafts(listDrafts());
   };
 
+  /**
+   * Sprint 23: the picker used to render once, inline below the whole
+   * table — "Replace" on any row opened a panel with no visual link to that
+   * row, and off-screen entirely on mobile. Built once here and rendered
+   * twice below (mobile inline, desktop in the aside) so both spots stay in
+   * sync rather than risking two hand-copies drifting apart.
+   */
+  const pickerBody = pickingFor === null ? null : (
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+          Replacing {scoredById.get(pickingFor)?.webName}
+        </h3>
+        <button
+          type="button"
+          onClick={() => setPickingFor(null)}
+          aria-label="Cancel"
+          className="rounded text-zinc-400 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-zinc-200"
+        >
+          ×
+        </button>
+      </div>
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search for a specific player…"
+        className="mt-2 w-full rounded-md border border-input bg-surface-3 px-2 py-1 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+      {candidates.length === 0 ? (
+        <p className="mt-2 text-xs text-zinc-500">
+          {search.trim().length >= 2
+            ? "No player of that position matches."
+            : "Nothing available improves on this pick."}
+        </p>
+      ) : (
+        <ul className="mt-2 space-y-1">
+          {candidates.map(({ player, teamFit, rationale, exitRoutes }) => (
+            <li key={player.id}>
+              {/*
+                A real <button> here used to wrap the "N exit routes"
+                TapToReveal trigger, itself a <button> — invalid HTML (a
+                button can't contain a button) and a real React hydration
+                error. This row is a div with its own role/keyboard handling
+                instead; the TapToReveal's own click is stopped from
+                bubbling (below) so opening the exit-routes tooltip doesn't
+                also fire addMove.
+              */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => addMove(pickingFor, player.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    addMove(pickingFor, player.id);
+                  }
+                }}
+                className="flex w-full cursor-pointer items-center justify-between gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset dark:hover:bg-purple-950/60"
+              >
+                <span className="block min-w-0">
+                  <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                    {player.webName}
+                  </span>
+                  <span className="ml-1.5 text-xs text-zinc-500">
+                    {player.teamShort} · {money(player.price)}
+                  </span>
+                  {rationale.length > 0 && (
+                    <span className="block text-[11px] text-zinc-500 break-words">
+                      {rationale.join(" · ")}
+                    </span>
+                  )}
+                  {exitRoutes !== undefined && (
+                    <span
+                      className="block"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <TapToReveal
+                        label="What is an exit route?"
+                        wrapperClassName="relative block"
+                        triggerClassName="text-[10px] text-zinc-400"
+                        trigger={`${exitRoutes} exit route${exitRoutes === 1 ? "" : "s"}`}
+                      >
+                        <p>
+                          Other legal candidates at this position after this swap — an exit
+                          route, not a ranking factor.
+                        </p>
+                      </TapToReveal>
+                    </span>
+                  )}
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block tabular-nums font-semibold text-purple-800 dark:text-[#00FF87]">
+                    {xpFor(player, horizon).toFixed(1)}
+                  </span>
+                  {teamFit !== null && (
+                    <span
+                      className={`block text-[10px] tabular-nums ${
+                        teamFit > 0
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-amber-700 dark:text-amber-400"
+                      }`}
+                    >
+                      fit {signed(teamFit)}
+                    </span>
+                  )}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -984,13 +1109,25 @@ export default function TransfersPage() {
                   return (
                     <tr
                       key={pick.playerId}
+                      // A picker open in the aside (desktop) or below the
+                      // table (mobile) is otherwise disconnected from the
+                      // row that opened it — this ring is what survives a
+                      // scroll and says "this one".
                       className={`border-b border-zinc-100 last:border-0 dark:border-purple-900/30 ${
-                        move ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
+                        pickingFor === pick.playerId
+                          ? "bg-purple-50 ring-1 ring-inset ring-purple-300 dark:bg-purple-950/40 dark:ring-primary/50"
+                          : move
+                            ? "bg-amber-50/60 dark:bg-amber-950/20"
+                            : ""
                       }`}
                     >
                       <td
                         className={`sticky left-0 z-10 px-2 py-1.5 ${
-                          move ? "bg-amber-50 dark:bg-[#2a1f0a]" : "bg-card-supporting"
+                          pickingFor === pick.playerId
+                            ? "bg-purple-50 dark:bg-purple-950/40"
+                            : move
+                              ? "bg-amber-50 dark:bg-[#2a1f0a]"
+                              : "bg-card-supporting"
                         }`}
                       >
                         <span className="flex max-w-[7.5rem] items-center gap-1.5 sm:max-w-none">
@@ -1031,13 +1168,17 @@ export default function TransfersPage() {
                       <td className="hidden px-2 py-1.5 text-xs tabular-nums text-zinc-500 sm:table-cell">
                         {money(pick.purchasePrice)}
                       </td>
-                      <td className="px-2 py-1.5 tabular-nums font-semibold text-purple-800 dark:text-primary">
+                      <td className="px-1.5 py-1.5 tabular-nums font-semibold text-purple-800 dark:text-primary">
                         {s ? xpFor(s, horizon).toFixed(1) : "—"}
                       </td>
-                      <td className="px-2 py-1.5 tabular-nums text-zinc-500">
+                      <td className="px-1.5 py-1.5 tabular-nums text-zinc-500">
                         {s ? riskScore(s, horizon, seasonWindow) : "—"}
                       </td>
-                      <td className="px-2 py-1.5 text-right">
+                      {/* Tighter left padding than the stat columns — this is
+                          the action, not another number, so it doesn't need
+                          the same breathing room, and the freed width is
+                          what used to read as a gap before the button. */}
+                      <td className="py-1.5 pl-1 pr-2 text-right">
                         {move ? (
                           <button
                             type="button"
@@ -1053,7 +1194,7 @@ export default function TransfersPage() {
                               setPickingFor(pick.playerId);
                               setSearch("");
                             }}
-                            className="min-h-9 rounded border border-input px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary dark:hover:text-primary"
+                            className="min-h-9 rounded border border-input px-2.5 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary dark:hover:text-primary"
                           >
                             Replace
                           </button>
@@ -1066,91 +1207,15 @@ export default function TransfersPage() {
             </table>
             </div>
 
-            {/* candidate picker */}
-            {pickingFor !== null && (
-              <div className="mt-4 rounded-lg border border-purple-300 p-3 dark:border-primary/40">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                    Replace {scoredById.get(pickingFor)?.webName}
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => setPickingFor(null)}
-                    aria-label="Cancel"
-                    className="rounded text-zinc-400 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-zinc-200"
-                  >
-                    ×
-                  </button>
-                </div>
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search for a specific player…"
-                  className="mt-2 w-full rounded-md border border-input bg-surface-3 px-2 py-1 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
-                {candidates.length === 0 ? (
-                  <p className="mt-2 text-xs text-zinc-500">
-                    {search.trim().length >= 2
-                      ? "No player of that position matches."
-                      : "Nothing available improves on this pick."}
-                  </p>
-                ) : (
-                  <ul className="mt-2 space-y-1">
-                    {candidates.map(({ player, teamFit, rationale, exitRoutes }) => (
-                      <li key={player.id}>
-                        <button
-                          type="button"
-                          onClick={() => addMove(pickingFor, player.id)}
-                          className="flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset dark:hover:bg-purple-950/60"
-                        >
-                          <span className="block min-w-0">
-                            <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                              {player.webName}
-                            </span>
-                            <span className="ml-1.5 text-xs text-zinc-500">
-                              {player.teamShort} · {money(player.price)}
-                            </span>
-                            {rationale.length > 0 && (
-                              <span className="block text-[11px] text-zinc-500 break-words">
-                                {rationale.join(" · ")}
-                              </span>
-                            )}
-                            {exitRoutes !== undefined && (
-                              <TapToReveal
-                                label="What is an exit route?"
-                                wrapperClassName="relative block"
-                                triggerClassName="text-[10px] text-zinc-400"
-                                trigger={`${exitRoutes} exit route${exitRoutes === 1 ? "" : "s"}`}
-                              >
-                                <p>
-                                  Other legal candidates at this position after this swap — an
-                                  exit route, not a ranking factor.
-                                </p>
-                              </TapToReveal>
-                            )}
-                          </span>
-                          <span className="shrink-0 text-right">
-                            <span className="block tabular-nums font-semibold text-purple-800 dark:text-[#00FF87]">
-                              {xpFor(player, horizon).toFixed(1)}
-                            </span>
-                            {teamFit !== null && (
-                              <span
-                                className={`block text-[10px] tabular-nums ${
-                                  teamFit > 0
-                                    ? "text-emerald-700 dark:text-emerald-400"
-                                    : "text-amber-700 dark:text-amber-400"
-                                }`}
-                              >
-                                fit {signed(teamFit)}
-                              </span>
-                            )}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+            {/* candidate picker — mobile only; the desktop copy renders in
+                the aside beside the table (see below), since there's room
+                there and no reason to hunt for it below the whole table. */}
+            {pickerBody && (
+              <div
+                ref={mobilePickerRef}
+                className="mt-4 rounded-lg border border-purple-300 p-3 lg:hidden dark:border-primary/40"
+              >
+                {pickerBody}
               </div>
             )}
           </section>
@@ -1160,6 +1225,15 @@ export default function TransfersPage() {
               collapses to one column; lg:order-none restores the right-rail
               position once there's room for both side by side. */}
           <aside className="order-first space-y-4 lg:order-none">
+            {/* candidate picker — desktop only; see the mobile copy in the
+                squad section above. Rendered first so it appears above the
+                simulation result while a swap is in progress. */}
+            {pickerBody && (
+              <div className="hidden rounded-xl border border-purple-300 bg-card-supporting p-3 lg:block dark:border-primary/40">
+                {pickerBody}
+              </div>
+            )}
+
             {simulation && moves.length === 0 && (
               <div className="rounded-xl border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border">
                 <p className="text-sm text-zinc-500">

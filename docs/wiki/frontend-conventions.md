@@ -143,14 +143,22 @@ vocabulary, the busy-state pattern, and the disclosure rule) is
 One component used to return a two-element fragment: the `hidden lg:flex` desktop row and the
 `lg:hidden` mobile trigger. That's fine as long as both siblings' relative position in the header
 never needs to differ — but moving just the mobile trigger to the header's left edge (see
-[design-system.md](design-system.md#bottom-sheet-added-2026-08-22-a-third-disclosure-shape-and-a-tap-target-floor))
-would have dragged the entire 10-item desktop row in front of the logo too, since fragment siblings
+[design-system.md](design-system.md#bottom-sheet-added-2026-08-22-superseded-2026-08-22-same-day-by-a-left-drawer--see-below))
+would have dragged the entire desktop row in front of the logo too, since fragment siblings
 share one DOM position regardless of which breakpoint currently shows which one. Split into two
 components so `app/layout.tsx` can place them independently — `<MobileNav />` first, then the logo,
 then `<DesktopNav />` — with no effect on the desktop layout, since `MobileNav`'s `lg:hidden`
 wrapper contributes zero width once it's hidden. The pattern generalises: a component that renders
 different content per breakpoint via CSS display, rather than one shared subtree, can't be safely
 reordered as a unit if the breakpoints ever need different relative positions.
+
+**Correction (same day, Sprint 22):** "10-item desktop row" above is stale within hours of being
+written — `NAV`'s flat 11-link array (10 visible plus `/status`) became `NAV_GROUPS`, three
+`@base-ui/react/menu` dropdowns (Live/Strategy/Statistics) rather than a flat row, and `/status`
+moved into `AccountMenu`. The split rationale in this section is unaffected — `DesktopNav`/
+`MobileNav` are still two independently-placeable components for the same reason — only the
+desktop row's own content changed shape. See
+[design-system.md's nav/drawer section](design-system.md#grouped-nav-a-left-drawer-and-one-shared-anchored-panel-hook-sprint-22-2026-08-22).
 
 ## `/players`' own data columns (2026-08-22)
 

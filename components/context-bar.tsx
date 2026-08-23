@@ -106,8 +106,8 @@ export function ContextBar() {
                   <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
                     Defaults to 1. Set the real count on{" "}
                     <span className="font-medium">My Team</span> or{" "}
-                    <span className="font-medium">Deadline</span> — FPL doesn&apos;t expose it
-                    without a login the app can&apos;t perform (see CLAUDE.md).
+                    <span className="font-medium">Deadline</span> — FPL doesn&apos;t publish it
+                    without a login this app can&apos;t perform.
                   </p>
                 </InfoTooltip>
               </span>

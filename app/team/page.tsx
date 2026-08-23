@@ -4,7 +4,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
-import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { CountryFlag, flagCode, SeasonsBadge, TeamCrest } from "@/components/identity";
 import { ManagerProfileCard, RivalTable } from "@/components/manager-profile-card";
 import { ManagerLeagues, type ManagerLeagueRow } from "@/components/manager-leagues";
@@ -153,15 +152,16 @@ function fmtCountdown(deadline: string): string {
   return `${days}d ${hours}h`;
 }
 
-const POSITION_LABELS: Record<number, string> = {
-  1: "Goalkeepers",
-  2: "Defenders",
-  3: "Midfielders",
-  4: "Forwards",
-};
-
 /** The API caps every response at 1000 rows however big `.limit()` asks — see CLAUDE.md. */
 const PAGE_ROWS = 1000;
+
+// Sprint 23 — same tokens `/deadline` and `/chips` already use, so this page
+// stops repeating `border-zinc-200 bg-white … dark:border-purple-900/40
+// dark:bg-[#1E0234]` inline on every card.
+const card = "rounded-lg border border-zinc-200 bg-card p-4 dark:border-purple-900/40";
+const cardSupporting =
+  "rounded-lg border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border";
+const supportingHeading = "text-xs font-medium uppercase tracking-wide text-zinc-500";
 
 // --------------------------------------------------------- gw summary
 
@@ -199,7 +199,7 @@ function GameweekSummary({
   const hit = history?.event_transfers_cost ?? 0;
 
   return (
-    <div className="mt-3 rounded-lg border border-zinc-200 bg-white p-4 text-sm dark:border-purple-900/40 dark:bg-[#1E0234]">
+    <div className="mt-3 rounded-lg border border-zinc-200 bg-card p-4 text-sm dark:border-purple-900/40">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 tabular-nums text-zinc-800 dark:text-zinc-200">
         <span className="font-medium">GW{event} as picked:</span>
         <span>{score.startersRaw} XI</span>
@@ -987,258 +987,185 @@ export default function TeamPage() {
             </div>
           </section>
 
-          {/* --------------------------------------------------- tiles */}
-          <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {[
-              {
-                label: "Team Value",
-                value: fmtMoney(m.last_deadline_value, seasonStarted ? "—" : "£100.0m"),
-              },
-              {
-                label: "In the Bank",
-                value: fmtMoney(m.last_deadline_bank, seasonStarted ? "—" : "£0.0m"),
-              },
-              { label: "Overall Points", value: fmtNum(m.summary_overall_points) },
-              { label: "Overall Rank", value: fmtNum(m.summary_overall_rank) },
-              { label: "GW Points", value: fmtNum(m.summary_event_points) },
-              {
-                label: data?.nextGw ? `${data.nextGw.name} Deadline` : "Next Deadline",
-                value: data?.nextGw ? fmtCountdown(data.nextGw.deadline_time) : "—",
-              },
-            ].map((tile) => (
-              <div
-                key={tile.label}
-                className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]"
-              >
-                <div className="text-xs text-zinc-500">{tile.label}</div>
-                <div className="mt-1 text-lg font-semibold text-purple-900 dark:text-[#00FF87]">
-                  {tile.value}
-                </div>
+          {/* -------------------------- squad view ‖ tiles, FT/import, leagues */}
+          {/* Sprint 23: the position-grouped squad list that used to sit
+              below the pitch view showed the same 15 players a second time
+              — deleted, not just visually deduped, since PitchView above is
+              the read of record. Free transfers + import (its only other
+              job) move into the rail alongside the points tiles and
+              Your Leagues, which used to be full-width sections of their
+              own further down the page. */}
+          <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="min-w-0">
+              {/*
+                This used to offer a "Current squad" mode too — TeamState.players
+                derived straight from the import/latest-picks, shown regardless
+                of whether startingXI/benchOrder still matched it. That split
+                could go stale after a transfer (see hasConsistentLineup in
+                lib/team-state.ts) and PitchView silently dropped whichever
+                players it couldn't place, rendering a short squad with no error.
+                The real picks a gameweek was actually played with — this
+                section's only remaining mode — don't carry that risk, since
+                FPL publishes them as an already-consistent XI/bench. See
+                docs/wiki/frontend-conventions.md.
+              */}
+              {data && (
+                <section>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+                      Squad view
+                    </h2>
+
+                    {/* Hidden entirely pre-GW1 rather than shown empty. */}
+                    {pickedEvents.length > 0 && (
+                      <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+                        Gameweek
+                        <select
+                          value={selectedEvent ?? ""}
+                          onChange={(e) => setSelectedEvent(Number(e.target.value))}
+                          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                        >
+                          {pickedEvents.map((event) => (
+                            <option key={event} value={event}>
+                              GW{event}
+                              {data.finishedEvents.has(event) ? "" : " (live)"}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                  </div>
+
+                  {pickedEvents.length === 0 && (
+                    <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-[#1E0234]">
+                      No squad to show yet — FPL publishes picks after the first deadline.{" "}
+                      <a
+                        href="/settings/?tab=import"
+                        className="text-purple-800 underline dark:text-[#00FF87]"
+                      >
+                        Import your squad from FPL
+                      </a>{" "}
+                      to see it here now.
+                    </p>
+                  )}
+
+                  {pointsError && (
+                    <p className="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+                      {pointsError}
+                    </p>
+                  )}
+                  {pointsLoading && <p className="mt-3 text-sm text-zinc-500">Loading points…</p>}
+                  {!pointsLoading && gwLayout && (
+                    <PitchView squad={gwCards} quota={data.rules.positionQuota} layout={gwLayout} />
+                  )}
+                  {!pointsLoading && gwScore && selectedEvent !== null && (
+                    <GameweekSummary
+                      event={selectedEvent}
+                      score={gwScore}
+                      history={data.gwHistory.find((g) => g.event === selectedEvent) ?? null}
+                      captainName={
+                        gwScore.captain
+                          ? (data.players.get(gwScore.captain.element)?.web_name ?? "Captain")
+                          : null
+                      }
+                      provisional={eventProvisional || !data.finishedEvents.has(selectedEvent)}
+                    />
+                  )}
+                </section>
+              )}
+            </div>
+
+            <div className="min-w-0 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  {
+                    label: "Team Value",
+                    value: fmtMoney(m.last_deadline_value, seasonStarted ? "—" : "£100.0m"),
+                  },
+                  {
+                    label: "In the Bank",
+                    value: fmtMoney(m.last_deadline_bank, seasonStarted ? "—" : "£0.0m"),
+                  },
+                  { label: "Overall Points", value: fmtNum(m.summary_overall_points) },
+                  { label: "Overall Rank", value: fmtNum(m.summary_overall_rank) },
+                  { label: "GW Points", value: fmtNum(m.summary_event_points) },
+                  {
+                    label: data?.nextGw ? `${data.nextGw.name} Deadline` : "Next Deadline",
+                    value: data?.nextGw ? fmtCountdown(data.nextGw.deadline_time) : "—",
+                  },
+                ].map((tile) => (
+                  <div key={tile.label} className={cardSupporting}>
+                    <div className="text-xs text-zinc-500">{tile.label}</div>
+                    <div className="mt-1 text-lg font-semibold text-purple-900 dark:text-[#00FF87]">
+                      {tile.value}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </section>
 
-          {/* ---------------------------------------------- squad view */}
-          {/*
-            This used to offer a "Current squad" mode too — TeamState.players
-            derived straight from the import/latest-picks, shown regardless
-            of whether startingXI/benchOrder still matched it. That split
-            could go stale after a transfer (see hasConsistentLineup in
-            lib/team-state.ts) and PitchView silently dropped whichever
-            players it couldn't place, rendering a short squad with no error.
-            The real picks a gameweek was actually played with — this
-            section's only remaining mode — don't carry that risk, since
-            FPL publishes them as an already-consistent XI/bench. See
-            docs/wiki/frontend-conventions.md.
-          */}
-          {data && (
-            <section className="mt-8">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-                  Squad view
-                </h2>
-
-                {/* Hidden entirely pre-GW1 rather than shown empty. */}
-                {pickedEvents.length > 0 && (
-                  <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-                    Gameweek
+              <section className={cardSupporting}>
+                <h2 className={supportingHeading}>Free transfers</h2>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <label
+                    className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400"
+                    title={
+                      !importedDraft
+                        ? "Import your squad as a draft first — there's nothing to save this to yet."
+                        : undefined
+                    }
+                  >
                     <select
-                      value={selectedEvent ?? ""}
-                      onChange={(e) => setSelectedEvent(Number(e.target.value))}
-                      className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                      value={
+                        importedDraft
+                          ? (() => {
+                              const ft = freeTransfersDisplay(importedDraft);
+                              return ft.kind === "unlimited" ? MAX_FREE_TRANSFERS : ft.n;
+                            })()
+                          : 1
+                      }
+                      onChange={(e) => {
+                        if (!importedDraft) return;
+                        saveDraft({ ...importedDraft, freeTransfers: Number(e.target.value) });
+                        setDrafts(listDrafts());
+                      }}
+                      aria-disabled={!importedDraft}
+                      disabled={!importedDraft}
+                      className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
                     >
-                      {pickedEvents.map((event) => (
-                        <option key={event} value={event}>
-                          GW{event}
-                          {data.finishedEvents.has(event) ? "" : " (live)"}
+                      {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
+                        <option key={i} value={i}>
+                          {i}
                         </option>
                       ))}
                     </select>
                   </label>
-                )}
-              </div>
-
-              {pickedEvents.length === 0 && (
-                <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-[#1E0234]">
-                  No squad to show yet — FPL publishes picks after the first deadline.{" "}
-                  <a
-                    href="/settings/?tab=import"
-                    className="text-purple-800 underline dark:text-[#00FF87]"
-                  >
-                    Import your squad from FPL
-                  </a>{" "}
-                  to see it here now.
-                </p>
-              )}
-
-              {pointsError && (
-                <p className="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-                  {pointsError}
-                </p>
-              )}
-              {pointsLoading && <p className="mt-3 text-sm text-zinc-500">Loading points…</p>}
-              {!pointsLoading && gwLayout && (
-                <PitchView squad={gwCards} quota={data.rules.positionQuota} layout={gwLayout} />
-              )}
-              {!pointsLoading && gwScore && selectedEvent !== null && (
-                <GameweekSummary
-                  event={selectedEvent}
-                  score={gwScore}
-                  history={data.gwHistory.find((g) => g.event === selectedEvent) ?? null}
-                  captainName={
-                    gwScore.captain
-                      ? (data.players.get(gwScore.captain.element)?.web_name ?? "Captain")
-                      : null
-                  }
-                  provisional={eventProvisional || !data.finishedEvents.has(selectedEvent)}
-                />
-              )}
-            </section>
-          )}
-
-          {/* --------------------------------------------------- squad */}
-          <section className="mt-8">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Squad</h2>
-              <div className="flex items-center gap-3">
-                <label
-                  className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400"
-                  title={
-                    !importedDraft
-                      ? "Import your squad as a draft first — there's nothing to save this to yet."
-                      : undefined
-                  }
-                >
-                  Free transfers
-                  <select
-                    value={
-                      importedDraft
-                        ? (() => {
-                            const ft = freeTransfersDisplay(importedDraft);
-                            return ft.kind === "unlimited" ? MAX_FREE_TRANSFERS : ft.n;
-                          })()
-                        : 1
-                    }
-                    onChange={(e) => {
-                      if (!importedDraft) return;
-                      saveDraft({ ...importedDraft, freeTransfers: Number(e.target.value) });
-                      setDrafts(listDrafts());
-                    }}
-                    aria-disabled={!importedDraft}
-                    disabled={!importedDraft}
-                    className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
-                  >
-                    {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
-                      <option key={i} value={i}>
-                        {i}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {data && data.picks.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => void handleImport()}
-                    disabled={importing}
-                    className="rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
-                  >
-                    {importing ? "Importing…" : "Import as draft →"}
-                  </button>
-                )}
-              </div>
-            </div>
-            {data && data.picks.length > 0 && (
-              <p className="mt-1.5 flex items-start gap-1 text-xs text-zinc-500">
-                <InfoTooltip label="About the imported squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>
-                Opens this squad in the Builder as a new, independent draft.
-              </p>
-            )}
-            {data && data.picks.length > 0 ? (
-              <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                {[1, 2, 3, 4].map((type) => {
-                  const rows = data.picks.filter(
-                    (p) => data.players.get(p.element)?.element_type === type,
-                  );
-                  if (rows.length === 0) return null;
-                  return (
-                    <div
-                      key={type}
-                      className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]"
+                  {data && data.picks.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => void handleImport()}
+                      disabled={importing}
+                      className="rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
                     >
-                      <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                        {POSITION_LABELS[type]}
-                      </h3>
-                      <ul className="mt-2 space-y-1.5">
-                        {rows.map((p) => {
-                          const player = data.players.get(p.element);
-                          const bench = p.position >= 12;
-                          return (
-                            <li
-                              key={p.position}
-                              className={`flex items-center justify-between text-sm ${
-                                bench ? "text-zinc-400" : "text-zinc-800 dark:text-zinc-200"
-                              }`}
-                            >
-                              <span className="flex items-center gap-1.5">
-                                {player?.web_name ?? `#${p.element}`}
-                                <AvailabilityBadge
-                                  status={player?.status}
-                                  chanceOfPlaying={player?.chance_of_playing_next_round}
-                                  news={player?.news}
-                                />
-                                <RoleBadges
-                                  penaltyOrder={player?.penalties_order}
-                                  freeKickOrder={player?.direct_freekicks_order}
-                                  cornerOrder={player?.corners_and_indirect_freekicks_order}
-                                />
-                                {p.is_captain && (
-                                  <span className="rounded bg-purple-950 px-1 text-xs font-bold text-white dark:bg-[#00FF87] dark:text-slate-950">
-                                    C
-                                  </span>
-                                )}
-                                {p.is_vice_captain && (
-                                  <span className="rounded border border-purple-700 px-1 text-xs font-bold text-purple-800 dark:border-[#00FF87]/60 dark:text-[#00FF87]">
-                                    V
-                                  </span>
-                                )}
-                                {bench && <span className="text-xs">(bench)</span>}
-                              </span>
-                              <span className="tabular-nums text-zinc-500">
-                                {fmtMoney(player?.now_cost)}
-                              </span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-[#1E0234]">
-                Squad picks are published by FPL after the first deadline
-                {data?.nextGw
-                  ? ` — ${data.nextGw.name} locks ${new Date(
-                      data.nextGw.deadline_time,
-                    ).toLocaleString(undefined, {
-                      weekday: "short",
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}`
-                  : ""}
-                . Your team will appear here automatically once the season starts. Until then,{" "}
-                <a
-                  href="/settings/?tab=import"
-                  className="text-purple-800 underline dark:text-[#00FF87]"
-                >
-                  import your squad from FPL directly
-                </a>{" "}
-                to get real purchase prices and start using the Builder now.
-              </p>
-            )}
-          </section>
+                      {importing ? "Importing…" : "Import as draft →"}
+                    </button>
+                  )}
+                </div>
+                {data && data.picks.length > 0 && (
+                  <p className="mt-1.5 flex items-start gap-1 text-xs text-zinc-500">
+                    <InfoTooltip label="About the imported squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>
+                    Import opens this squad in the Builder as a new, independent draft.
+                  </p>
+                )}
+              </section>
+
+              {leagues.length > 0 && (
+                <section className={cardSupporting}>
+                  <h2 className={supportingHeading}>Your Leagues</h2>
+                  <ManagerLeagues leagues={leagues} />
+                </section>
+              )}
+            </div>
+          </div>
 
           {/* ---------------------------------------- gameweek history */}
           {seasonStarted && data && (
@@ -1246,7 +1173,7 @@ export default function TeamPage() {
               <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
                 This Season
               </h2>
-              <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+              <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-card dark:border-purple-900/40">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
@@ -1286,7 +1213,7 @@ export default function TeamPage() {
               <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
                 Past Seasons
               </h2>
-              <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+              <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-card dark:border-purple-900/40">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
@@ -1334,15 +1261,6 @@ export default function TeamPage() {
             </section>
           )}
 
-          {/* -------------------------------------------------- leagues */}
-          {leagues.length > 0 && (
-            <section className="mt-8">
-              <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-                Your Leagues
-              </h2>
-              <ManagerLeagues leagues={leagues} />
-            </section>
-          )}
 
           {/* ------------------------------------- manager intelligence */}
           {/* Always shown once a manager is connected — previously gated on
@@ -1358,7 +1276,7 @@ export default function TeamPage() {
                 {data.profile ? (
                   <ManagerProfileCard profile={data.profile} />
                 ) : (
-                  <div className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-500 dark:border-purple-900/40 dark:bg-[#1E0234]">
+                  <div className="rounded-lg border border-zinc-200 bg-card p-4 text-sm text-zinc-500 dark:border-purple-900/40">
                     First season — no career record yet. A career percentile profile needs at
                     least one completed season.
                   </div>
@@ -1369,7 +1287,7 @@ export default function TeamPage() {
                   {/* The comparison set is whichever rivals you've chosen —
                       not every manager anyone has ever connected here. */}
                   {user ? (
-                    <div className="mt-3 rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]">
+                    <div className="mt-3 rounded-lg border border-zinc-200 bg-card p-3 dark:border-purple-900/40">
                       <div className="flex flex-wrap items-center gap-2">
                         <input
                           value={rivalInput}

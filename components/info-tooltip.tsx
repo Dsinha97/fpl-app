@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { useAnchoredPanel, useDismissablePopover } from "@/components/ui/use-anchored-panel";
 
 /**
  * The click-toggle disclosure primitive underneath `InfoTooltip` below,
@@ -12,6 +13,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
  * behaviour on a trigger that isn't a "?" button. This is the one popover
  * implementation both share, rather than a second hand-copy of the
  * open/close/outside-click/Escape logic per call site.
+ *
+ * Positioning (both axes, clamped to the viewport) comes from
+ * `useAnchoredPanel` — the same hook `FilterDisclosure` uses — rather than a
+ * second hand-rolled version. The earlier version here only flipped
+ * vertically and never clamped horizontally, which let a `w-72` panel
+ * anchored near the right edge of a narrow screen (e.g. the `FT ?` tooltip
+ * in the sticky context bar) run off the viewport.
  */
 export function TapToReveal({
   trigger,
@@ -32,52 +40,21 @@ export function TapToReveal({
   wrapperClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
-  // Prefer below the trigger, like every other popover in the app — flip
-  // above only when there truly isn't room, mirroring the same rule
-  // `pitch-view.tsx`'s panel positioning already follows. A trigger near the
-  // bottom of a long page (the /players table, the compare bar, a card deep
-  // in a list) used to always open downward regardless, rendering the panel
-  // below the fold.
-  const [openAbove, setOpenAbove] = useState(false);
-  const wrapper = useRef<HTMLSpanElement>(null);
-  /** Panel height budget for the flip check — `w-72` content wraps to
-   * roughly this tall in practice; not measured live since the panel isn't
-   * in the DOM yet at the moment the flip direction has to be decided. */
-  const ESTIMATED_PANEL_HEIGHT = 160;
+  const { triggerRef, panelRef, coords } = useAnchoredPanel<HTMLButtonElement, HTMLSpanElement>(
+    open,
+    { align },
+  );
 
-  useEffect(() => {
-    if (!open) return;
-
-    const onPointerDown = (e: MouseEvent) => {
-      if (!wrapper.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  useDismissablePopover(open, () => setOpen(false), [triggerRef, panelRef]);
 
   return (
-    <span ref={wrapper} className={wrapperClassName}>
+    <span className={wrapperClassName}>
       <button
+        ref={triggerRef}
         type="button"
         aria-label={label}
         aria-expanded={open}
-        onClick={() => {
-          if (!open) {
-            const room = wrapper.current
-              ? window.innerHeight - wrapper.current.getBoundingClientRect().bottom
-              : Infinity;
-            setOpenAbove(room < ESTIMATED_PANEL_HEIGHT);
-          }
-          setOpen((v) => !v);
-        }}
+        onClick={() => setOpen((v) => !v)}
         // `relative` + an absolutely-positioned, invisible `before` pseudo-
         // element extends the *hit* area without touching layout or the
         // visible size of `trigger` — every one of these triggers (the "?"
@@ -94,10 +71,10 @@ export function TapToReveal({
 
       {open && (
         <span
+          ref={panelRef}
           role="dialog"
-          className={`absolute z-30 w-72 rounded-lg border border-border bg-popover p-3 text-left text-xs font-normal leading-relaxed text-zinc-700 shadow-lg dark:text-zinc-300 ${
-            openAbove ? "bottom-full mb-1" : "top-full mt-1"
-          } ${align === "right" ? "right-0" : "left-0"}`}
+          style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
+          className="fixed z-30 w-72 max-w-[calc(100vw-1rem)] rounded-lg border border-border bg-popover p-3 text-left text-xs font-normal leading-relaxed text-zinc-700 shadow-lg dark:text-zinc-300"
         >
           {children}
         </span>

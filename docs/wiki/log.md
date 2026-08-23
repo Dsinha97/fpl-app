@@ -141,3 +141,45 @@ One line per entry, most recent first.
   page the *previous* ingest wrote up — is corrected in place rather than left stale: its old "FT —"
   honesty-gap description no longer matches what the bar actually does since the owner's own rule
   (default 1, shown plainly, ∞ on a wildcard) replaced it.
+- 2026-08-22 — Ingested `docs/sprints/sprint-22.md` (Navigation & shell): new `design-system.md`
+  subsection "Grouped nav, a left drawer, and one shared anchored-panel hook" — the new
+  `useAnchoredPanel`/`useDismissablePopover` hook consolidating `TapToReveal`'s vertical-only flip
+  and `FilterDisclosure`'s horizontal-only clamp into one viewport-clamped-on-both-axes
+  implementation, the 11-link nav grouped into three `@base-ui/react/menu` dropdowns
+  (Live/Strategy/Statistics), `/status` moved into `AccountMenu`, and the FT tooltip's `CLAUDE.md`
+  self-reference removed from user-facing copy. **Corrected two stale claims found while writing
+  this up**, both predating this sprint: the "Bottom sheet" subsection (added the same day, one
+  sprint earlier) is now superseded by the left drawer this section describes, and
+  `frontend-conventions.md`'s `NavLinks` split section referenced a "10-item desktop row" that no
+  longer exists. Both corrected in place, not deleted. `timeline.md` updated;
+  `.pending-ingest` cleared (its two stale entries, `docs/roadmap.md` and
+  `docs/sprints/mobile-reachability.md`, were already fully reflected by the prior ingest pass per
+  `log.md`'s own entry above — not re-processed).
+- 2026-08-22 — Ingested `docs/sprints/sprint-23.md` (Page density): new `design-system.md`
+  subsection "Packing, continued" documenting the `grid-cols-[minmax(0,1fr)_360px]` two-column
+  template (already used by `/builder`/`/transfers`) rolling out to `/deadline`, `/team`,
+  `/transfers`'s replace-picker anchoring, and `/chips`. **Corrected a genuinely stale claim
+  predating this session**: `deadline-and-matchday.md`'s "My Team's Squad view" section still
+  described a "Current squad / Gameweek result" mode switch that Sprint 21 (2026-08-21) removed
+  entirely — an ingest gap from that pass, since Sprint 21's own log entry only mentioned updating
+  `frontend-conventions.md`'s `TeamState` section. Corrected in place with a dated note, plus a new
+  subsection for this sprint's actual change (the redundant squad list deleted, not just the mode
+  switch). New `deadline-and-matchday.md` subsection for the Live hub's own two-column repack
+  (BPS-race card narrowed, Price & news watch / Team news moved into the freed rail). `timeline.md`
+  updated.
+- 2026-08-22 — Ingested `docs/sprints/sprint-24.md` (Expand/collapse polish): new `design-system.md`
+  subsection "A real `ExpandToggle`, and a grid-rows accordion" — the new 36px circular toggle
+  primitive (`interactive={false}` mode for when a different element already owns the click, to
+  avoid nesting a `<button>` inside a `<button>`), and the `grid-template-rows: 0fr → 1fr` animation
+  replacing mount/unmount on every card expander in the app. Documents the real hydration-error bug
+  this caught in `/transfers`' replace-candidate picker (a button nested inside a button, pre-dating
+  this sprint, relocated verbatim by Sprint 23) and how it was fixed. Also records that the
+  animation itself wasn't independently visually verified this session — the browser preview ran
+  backgrounded (`document.visibilityState === "hidden"`) throughout, which broke
+  `getBoundingClientRect()` measurements after any CSS class toggle; reproduced with multiple
+  unrelated techniques, pointing at the tooling rather than the CSS. `timeline.md` updated.
+- 2026-08-22 — Ingested `CLAUDE.md`'s "Next" line fix: it named Sprint 13/15 specifically, both
+  long stale (Sprint 13 shipped 2026-08-21, Sprint 15 is still blocked per `roadmap.md`) — reworded
+  to defer to `roadmap.md`'s own "Next up" section instead of pinning a sprint name that goes stale
+  every time the roadmap moves. No wiki page references this line directly, so no cross-link
+  update needed.

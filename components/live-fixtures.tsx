@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ExpandToggle } from "@/components/ui/expand-toggle";
 import { TeamCrest } from "./identity";
 import {
   DISPLAY_STAT_ORDER,
@@ -178,14 +179,7 @@ export function LiveFixtureCard({ fixture, teams, playersById, squadElementIds }
           {away?.name ?? "—"}
         </span>
       </div>
-      {expandable && (
-        <span
-          aria-hidden="true"
-          className={`shrink-0 text-zinc-400 transition-transform ${expanded ? "" : "rotate-180"}`}
-        >
-          ⌃
-        </span>
-      )}
+      {expandable && <ExpandToggle expanded={expanded} interactive={false} size="sm" />}
     </div>
   );
 
@@ -219,14 +213,26 @@ export function LiveFixtureCard({ fixture, teams, playersById, squadElementIds }
       ) : (
         scoreRow
       )}
-      {expandable && expanded && (
-        <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-purple-900/40">
-          <FixtureStatBreakdown
-            stats={stats}
-            playersById={playersById}
-            squadElementIds={squadElementIds}
-            provisional={provisionalBonus}
-          />
+      {/* CSS Grid 0fr→1fr rather than mount/unmount (Sprint 24) — see
+          CollapsibleCard's identical pattern for why. `FixtureStatBreakdown`
+          does no side-effecting work, so mounting it while collapsed costs
+          nothing. */}
+      {expandable && (
+        <div
+          className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
+            expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-purple-900/40">
+              <FixtureStatBreakdown
+                stats={stats}
+                playersById={playersById}
+                squadElementIds={squadElementIds}
+                provisional={provisionalBonus}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

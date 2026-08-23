@@ -63,10 +63,6 @@ export default function ChipsPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  /** The inline model-note banner below — collapsed by default so it doesn't
-   * eat the whole screen on mobile. Same text is always in the header
-   * tooltip too; see the comment at the banner itself. */
-  const [noteOpen, setNoteOpen] = useState(false);
   const [applied, setApplied] = useState<string | null>(null);
 
   useEffect(() => {
@@ -378,7 +374,16 @@ export default function ChipsPage() {
         (d) => d.name === chip && atEvent >= d.startEvent && atEvent <= resolveStopEvent(d, windowEnd),
       );
 
-    const out: { label: string; entries: { chip: ChipKind; event: number }[]; note: string }[] = [];
+    const out: {
+      label: string;
+      entries: { chip: ChipKind; event: number }[];
+      note: string;
+      /** The reasoning behind `note`, shown in a tooltip rather than inline —
+       * CLAUDE.md's "say what the number means" still applies (the cost/
+       * assumption stays a stated term, not compressed away), it just moves
+       * out of the card's default view. */
+      detail?: string;
+    }[] = [];
 
     // Front-loaded: BB this gameweek, FH the next, WC the one after — the
     // source's headline sequence. Only offered when it is actually still the
@@ -393,9 +398,9 @@ export default function ChipsPage() {
       out.push({
         label: "Front-loaded",
         entries: frontLoaded,
-        note:
-          `Bench Boost GW${windowStart}, Free Hit GW${windowStart + 1}, Wildcard GW${windowStart + 2} — ` +
-          "spends all three first-half one-off/rebuild chips inside the opening month. Weigh this against " +
+        note: `Bench Boost GW${windowStart}, Free Hit GW${windowStart + 1}, Wildcard GW${windowStart + 2}.`,
+        detail:
+          "Spends all three first-half one-off/rebuild chips inside the opening month. Weigh this against " +
           "the Effective Starting XI Budget above: a minimum-cost bench (the cheapest legal one) makes the " +
           "Bench Boost gain small, since there is barely anything to boost.",
       });
@@ -561,70 +566,83 @@ export default function ChipsPage() {
         </div>
       )}
 
-      {result && team && presets.length > 0 && (
-        <section className="mt-5 rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40">
-          <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Chip sequences</h2>
-          <p className="mt-1 text-xs text-zinc-500">
-            Starting points for a planned sequence, not a recommendation — pin one, then move any
-            gameweek. The schedules above value each chip independently against today&apos;s squad; a
-            sequence values each chip against what the one before it left behind. See it on{" "}
-            <Link
-              href={`/transfers/?draft=${team.draftId}`}
-              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
-            >
-              Transfer Path
-            </Link>{" "}
-            after pinning.
-          </p>
-          <div className="mt-3 space-y-2">
-            {presets.map((preset) => (
-              <div
-                key={preset.label}
-                className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-zinc-200 px-3 py-2 dark:border-purple-900/40"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{preset.label}</p>
-                  <p className="mt-0.5 text-xs text-zinc-500">{preset.note}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => pinPreset(preset)}
-                  className="min-h-9 shrink-0 rounded-md border border-purple-700 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary dark:text-primary dark:hover:bg-primary/10"
-                >
-                  Pin
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
       {result && team && (
         <>
-          {/* fixture-flatness disclosure, spelled out rather than only in the
-              tooltip — collapsed by default so the note doesn't push every
-              schedule below the fold on a phone. */}
-          <div className="mt-4 overflow-hidden rounded-md border border-amber-300 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/40">
-            <button
-              type="button"
-              onClick={() => setNoteOpen((v) => !v)}
-              aria-expanded={noteOpen}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs leading-relaxed text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset dark:text-amber-300"
-            >
-              <span
-                aria-hidden="true"
-                className={`shrink-0 text-amber-600 transition-transform dark:text-amber-400 ${noteOpen ? "" : "rotate-180"}`}
-              >
-                ⌃
-              </span>
-              <span className={`min-w-0 flex-1 ${noteOpen ? "" : "truncate"}`}>{result.note}</span>
-            </button>
-          </div>
+          {/* Sprint 23: sequences and schedules used to stack full width, one
+              above the other — the sequences card is a short list of 2-3
+              rows next to schedules that run much taller, so they now share
+              a row instead of each claiming the page's full width in turn. */}
+          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="min-w-0 space-y-4">
+              {presets.length > 0 && (
+                <section className="rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40">
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Chip sequences
+                    </h2>
+                    <InfoTooltip label="About chip sequences">
+                      <p className="text-xs leading-relaxed">
+                        Starting points for a planned sequence, not a recommendation — pin one, then
+                        move any gameweek. The schedules value each chip independently against
+                        today&apos;s squad; a sequence values each chip against what the one before
+                        it left behind. See it on{" "}
+                        <Link
+                          href={`/transfers/?draft=${team.draftId}`}
+                          className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
+                        >
+                          Transfer Path
+                        </Link>{" "}
+                        after pinning.
+                      </p>
+                    </InfoTooltip>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {presets.map((preset) => (
+                      <div
+                        key={preset.label}
+                        className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-zinc-200 px-3 py-2 dark:border-purple-900/40"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="flex items-center gap-1">
+                            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                              {preset.label}
+                            </p>
+                            {preset.detail && (
+                              <InfoTooltip label={`Why ${preset.label}?`}>
+                                <p className="text-xs leading-relaxed">{preset.detail}</p>
+                              </InfoTooltip>
+                            )}
+                          </span>
+                          <p className="mt-0.5 text-xs text-zinc-500">{preset.note}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => pinPreset(preset)}
+                          className="min-h-9 shrink-0 rounded-md border border-purple-700 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary dark:text-primary dark:hover:bg-primary/10"
+                        >
+                          Pin
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
-          {/* per-half schedules — FPL grants each chip once per half, so these
-              are two independent decisions, not one combined total. Side by
-              side rather than stacked: neither half outranks the other. */}
-          <div className="mt-5 grid gap-5 lg:grid-cols-2">
+              {/* fixture-flatness disclosure — collapsed by default so the
+                  note doesn't push the sequences card below the fold on a
+                  phone. */}
+              <CollapsibleCard title="Fixture flatness" tier="amber" summary={result.note}>
+                <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-300">
+                  {result.note}
+                </p>
+              </CollapsibleCard>
+            </div>
+
+            {/* per-half schedules — FPL grants each chip once per half, so
+                these are two independent decisions, not one combined total,
+                stacked rather than side by side now that they share this
+                rail with the sequences card. */}
+            <div className="min-w-0 space-y-4">
           {result.schedules.map((half) => (
             <section
               key={half.label}
@@ -720,6 +738,7 @@ export default function ChipsPage() {
               )}
             </section>
           ))}
+            </div>
           </div>
 
           {/* per-chip shortlists */}

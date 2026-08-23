@@ -42,6 +42,9 @@ file, not separate files.
 | [sprints/sprint-21.md](sprints/sprint-21.md) | live | Fixed `/team`'s stale-XI player-dropping bug at the root (`hasConsistentLineup`), removed the broken "Current squad" mode, added a leagues list (`manager_leagues`), FDR search/sort, and a Premier League Table tab on `/fixtures`. |
 | [sprints/design-audit-response.md](sprints/design-audit-response.md) | live | Response to an external design audit — sticky header `ContextBar`, current-season xG/xA + xMins on `/players`, nine hover-only tooltips made touch-accessible, focus rings and mobile-layout fixes on the pages Sprint 19 didn't reach. Most of the audit's own findings were checked and found false. |
 | [sprints/mobile-reachability.md](sprints/mobile-reachability.md) | live | Follow-on prompted by the owner's phone screenshot — moved the mobile nav trigger off a two-`ml-auto` float to the header's left edge, replaced the dropdown with a bottom sheet, fixed a real "FT 15" bug and made free transfers persist, extended tap-target hit areas and gave tooltips a flip-up. |
+| [sprints/sprint-22.md](sprints/sprint-22.md) | live | Navigation & shell — grouped nav (Live/Strategy/Statistics), `/status` moved to the account menu, mobile drawer replaces the bottom sheet, FT tooltip overflow fixed with a shared anchored-panel hook. |
+| [sprints/sprint-23.md](sprints/sprint-23.md) | live | Page density — `/deadline`, `/team`, `/transfers`, `/chips` repacked into the two-column template `/builder` already used; `/team`'s redundant squad list deleted; `/transfers`' replace picker anchored to its row. |
+| [sprints/sprint-24.md](sprints/sprint-24.md) | live | Expand/collapse polish — `ExpandToggle` primitive, grid-rows accordion replacing mount/unmount on every card expander in the app. |
 
 ## Source specs
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { ExpandToggle } from "@/components/ui/expand-toggle";
 import { TeamCrest } from "@/components/identity";
 import { buildupStyleLabel, TACTICAL_PROFILE_NOTE, type TacticalProfile } from "@/lib/tactical-profile";
 
@@ -65,7 +66,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
               <button
                 onClick={() => toggle(teamId)}
                 aria-expanded={open}
-                className="w-full p-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-purple-950/30"
+                className="group w-full p-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-purple-950/30"
               >
                 <div className="flex items-center gap-2">
                   <TeamCrest teamCode={teamCode} shortName={teamShort} className="h-6 w-5 shrink-0" />
@@ -75,12 +76,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                     </p>
                     <p className="truncate text-xs text-zinc-500">{profile.name}</p>
                   </div>
-                  <span
-                    aria-hidden="true"
-                    className={`shrink-0 text-zinc-400 transition-transform ${open ? "" : "rotate-180"}`}
-                  >
-                    ⌃
-                  </span>
+                  <ExpandToggle expanded={open} interactive={false} size="sm" />
                 </div>
 
                 <dl className="mt-2.5 space-y-1 text-xs">
@@ -109,7 +105,14 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                 </dl>
               </button>
 
-              {open && (
+              {/* CSS Grid 0fr→1fr rather than mount/unmount (Sprint 24) — see
+                  CollapsibleCard's identical pattern for why. */}
+              <div
+                className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
+                  open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                }`}
+              >
+              <div className="overflow-hidden">
                 <div className="px-3 pb-3">
                   {profile.pressingIntensity && (
                     <dl className="text-xs">
@@ -164,7 +167,8 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                     </p>
                   )}
                 </div>
-              )}
+              </div>
+              </div>
             </div>
           );
         })}

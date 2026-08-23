@@ -174,6 +174,42 @@ the still-collapsed Arsenal card beside it stayed at 80px. — CLAUDE.md's card-
 
 See [design-audit-response.md](../sprints/design-audit-response.md).
 
+### Packing, continued (Sprint 23, 2026-08-22)
+
+`/builder` and `/transfers` already used a `grid-cols-[minmax(0,1fr)_360px]` two-column
+template — squad/table on the left, decisions in a fixed-width right rail (see the mobile
+`order-first` fix above). Every other page still stacked full-width sections instead, forcing
+long scrolls to see information the same desktop screen had width to spare for. This pass rolled
+the same template out to the rest of the app:
+
+- **`/deadline`**: the Live card gained a right rail (Price & news watch, Team news — moved up
+  from the bottom of the page); the squad section gained one too (Squad readiness, Availability,
+  Captain & starting XI, Chip call — previously two separate paired grids stacked full width). See
+  [deadline-and-matchday.md](deadline-and-matchday.md#live-hub-repacked-into-a-two-column-rail-sprint-23-2026-08-22).
+- **`/team`**: the redundant position-grouped squad list was deleted outright (not deduped —
+  `PitchView` was always the read of record), freeing its only other job (free-transfers select,
+  import button) to move into a right rail alongside the points tiles and Your Leagues. See
+  [deadline-and-matchday.md](deadline-and-matchday.md#teams-redundant-squad-list-removed-page-repacked-into-two-columns-sprint-23-2026-08-22).
+- **`/transfers`**: the replace-candidate picker used to render once, appended below the *entire*
+  squad table — "Replace" on any row opened a panel with no visual link to that row, and
+  off-screen on mobile with no signal it had even opened. The picker body is now built once and
+  rendered twice via responsive Tailwind classes (`lg:hidden` / `hidden lg:block`): in the
+  existing right `<aside>` on desktop, above the simulation result; inline below the table on
+  mobile, scrolled into view on open (`scrollIntoView({ behavior: "smooth" })`). The originating
+  row gets a highlight ring while its picker is open, so the connection survives a scroll.
+- **`/chips`**: the "Chip sequences" card's explainer paragraph moved into an `InfoTooltip`
+  (see [Disclosure](#disclosure) below); the "Front-loaded" preset's two-sentence note split into
+  a one-line summary plus a `detail` shown in its own tooltip — the reasoning didn't disappear,
+  CLAUDE.md's "say what the number means" still applies, it's just not the default view anymore.
+  Sequences now sit in a left column with schedules (GW1-19, GW20-38) stacked in a right rail
+  beside them, replacing three full-width sections stacked in a row. The bespoke amber
+  fixture-flatness disclosure was replaced with `CollapsibleCard`, which gained a new `"amber"`
+  tier for it — the component's own doc comment already claimed this migration had happened; it
+  hadn't, until now.
+
+See [sprint-22.md](../sprints/sprint-22.md) (grouped nav, prompting this round of review) and
+[sprint-23.md](../sprints/sprint-23.md) (the density work itself).
+
 ## Component hierarchy and disclosure (Stage 4b)
 
 The same defect existed one level down. `components/player-detail.tsx`'s `stat()` grid rendered all
@@ -234,7 +270,7 @@ field) was migrated to `TapToReveal` directly rather than through `InfoTooltip`,
 underline label is itself the trigger. See
 [design-audit-response.md](../sprints/design-audit-response.md).
 
-### Bottom sheet (added 2026-08-22): a third disclosure shape, and a tap-target floor
+### Bottom sheet (added 2026-08-22, superseded 2026-08-22 same day by a left drawer — see below)
 
 `components/nav-links.tsx`'s mobile drawer was `absolute right-0 top-full … w-56` — a dropdown, the
 same shape `InfoTooltip`/`TapToReveal` and `AccountMenu` already use. Fine for a handful of items
@@ -248,6 +284,10 @@ own wrapper's DOM subtree — `fixed` positioning changes where something paints
 it — but the backdrop needed its own click handler: clicking it is a click "outside" the sheet's
 *content* while still being inside that same DOM subtree, so the existing containment check alone
 wouldn't close it. See [mobile-reachability.md](../sprints/mobile-reachability.md).
+
+**Superseded the same day** by the [left-side drawer described below](#grouped-nav-a-left-drawer-and-one-shared-anchored-panel-hook-sprint-22-2026-08-22)
+— kept here rather than deleted, per this wiki's own rule, since the backdrop/dismissal mechanics
+this section describes are still exactly what the drawer uses.
 
 The same pass added a **tap-target floor** to `TapToReveal` itself: `relative` plus an absolutely-
 positioned, empty `before` pseudo-element (`before:-inset-2.5`, i.e. 10px on every side) extends the
@@ -267,6 +307,77 @@ flip above when there is not enough room" rule `components/pitch-view.tsx`'s pan
 already followed, reimplemented as a plain viewport-height check rather than that component's full
 wrapper-relative pixel calculation, since `TapToReveal` has no equivalent bounded wrapper to
 position against at every one of its call sites.
+
+**Correction (2026-08-22, Sprint 22):** the vertical-only flip described in the paragraph above is
+superseded — see the shared `useAnchoredPanel` hook in the next section, which also fixed a real
+bug this positioning scheme had: no *horizontal* clamping, so a `w-72` panel anchored near the
+right edge of a narrow screen (the sticky `ContextBar`'s `FT ?` tooltip, mid-row after the
+gameweek/countdown/Bank) could run off the viewport.
+
+### Grouped nav, a left drawer, and one shared anchored-panel hook (Sprint 22, 2026-08-22)
+
+A round of real-device review (the owner's phone plus the desktop app) found the FT tooltip above
+overflowing the viewport (its copy also named `CLAUDE.md` directly — rewritten to describe the
+constraint without leaking an internal filename to the user), and — separately — the [bottom
+sheet](#bottom-sheet-added-2026-08-22-superseded-2026-08-22-same-day-by-a-left-drawer--see-below)
+disorienting: its trigger sat at the header's left edge, but the sheet itself docked to the
+*bottom* of the screen, so the tap and its result were at opposite ends of the viewport.
+
+- **`useAnchoredPanel`/`useDismissablePopover`** (new, `components/ui/use-anchored-panel.ts`) —
+  one shared implementation of "`fixed`-position floating panel, clamped to the viewport on both
+  axes, with outside-click/Escape dismissal," replacing two near-identical hand-copies:
+  `TapToReveal`'s vertical-only flip above, and `components/ui/filter-disclosure.tsx`'s
+  horizontal-only clamp (the "Filter +" panel on `/players`/builder — not otherwise documented in
+  this wiki), which had already solved the *other* half of the same problem. Both components, plus
+  the drawer below, now consume the one hook. `MobileNav`'s outside-click/Escape logic also
+  switched to `useDismissablePopover` rather than keeping its own copy.
+- **11 flat nav links grouped into three `@base-ui/react/menu` dropdowns** — Live (Deadline, My
+  Team, News), Strategy (Builder, Scenarios, Transfers, Chips), Statistics (Players, Compare,
+  Fixtures) — the same headless menu primitive `components/ui/action-menu.tsx`'s split button
+  already used, so keyboard nav and focus management came for free rather than a fourth hand-rolled
+  popover. `/status` left the nav entirely, moving into `AccountMenu` beside "Manage account" — a
+  data-freshness page belongs there, not competing for one of three group slots.
+- **The bottom sheet became a left-side drawer**, docking to the *same* edge as its trigger instead
+  of the opposite one. Groups inside expand independently (`MobileNavGroup`), each getting the same
+  grid-rows accordion animation as [the section below](#a-real-expandtoggle-and-a-grid-rows-accordion-sprint-24-2026-08-22).
+
+See [sprint-22.md](../sprints/sprint-22.md).
+
+### A real `ExpandToggle`, and a grid-rows accordion (Sprint 24, 2026-08-22)
+
+Every expander in the app — `CollapsibleCard`, `LiveFixtureCard`, `ClubTacticsGrid` — used plain
+conditional render (`{open && …}`) with a hand-drawn `⌃` glyph as the only visual feedback: content
+appeared and disappeared instantly, and expanding one card inside a `flex flex-wrap` row (see
+["Expandable-card stretch"](#expandable-card-stretch-2026-08-22) above) reflowed the whole row with
+no transition.
+
+- **`components/ui/expand-toggle.tsx`** (new) — a real 36px circular chevron (`size="md"`; a 28px
+  `size="sm"` for inline use beside a score line or card title), coloured from theme tokens rather
+  than literal hex. Supports an `interactive={false}` mode: a decorative `<span>` rather than a
+  `<button>`, for the common case where a *different* element already owns the click —
+  `CollapsibleCard`'s whole header row is one `<button>`, and nesting a second real `<button>`
+  inside it is invalid HTML that throws a React hydration error. That exact bug was found live in
+  `/transfers`' replace-candidate row (a `<button>` wrapping a `TapToReveal` "N exit routes"
+  trigger, itself a `<button>`) — fixed by converting the row to a `<div role="button" tabIndex={0}>`
+  with its own `onClick`/`onKeyDown`, and stopping the nested `TapToReveal`'s click from bubbling so
+  opening its tooltip doesn't also fire the row's `addMove`. Filed as its own fix rather than
+  folded into `ExpandToggle`'s design note, since the picker itself predates this sprint (see
+  [transfer-engine.md](transfer-engine.md) for `findReplacements`/reversibility, the engine behind
+  it) — the JSX was simply relocated verbatim during [Sprint 23's density
+  pass](#packing-continued-sprint-23-2026-08-22), not introduced by it.
+- **CSS Grid `0fr` → `1fr`** (`grid-template-rows`, `transition-[grid-template-rows]`, an
+  `overflow-hidden` inner wrapper) replaces mount/unmount everywhere an expander's body renders.
+  Content now mounts unconditionally (height-zero, clipped) rather than being skipped while
+  collapsed — checked each site for work that used to be skipped while `{open && …}` was false;
+  none of the four components touched do side-effecting work in their bodies.
+- **Not independently visually verified this pass** — the session's browser preview ran with
+  `document.visibilityState === "hidden"` throughout (Chromium freezes layout recalculation for a
+  backgrounded tab), which made `getBoundingClientRect()` return stale zero-heights immediately
+  after any class toggle, reproduced with several unrelated CSS techniques pointing at the tooling,
+  not the CSS. Structure, ARIA state (`aria-expanded`), and correct class-toggling were confirmed
+  directly instead.
+
+See [sprint-24.md](../sprints/sprint-24.md).
 
 ## Typography (Stage 5)
 

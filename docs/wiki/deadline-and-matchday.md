@@ -44,12 +44,21 @@ as the squad that matters most, and `/deadline` had no squad *visual* at all. Tw
 
 ## My Team's Squad view (`/team`, added 2026-08-15)
 
-`/team` previously rendered `manager_picks` as four plain position lists, with no default to the
-FPL import either. Gained a **Current squad / Gameweek result** switch:
+**Correction (2026-08-22):** this section originally described a **Current squad / Gameweek
+result** radio switch. Sprint 21 removed the "Current squad" mode entirely — `TeamState.players`
+derived straight from the import/latest-picks could go stale after a transfer
+(`hasConsistentLineup`, see [frontend-conventions.md](frontend-conventions.md#teamstate-is-the-one-squad-shape)),
+and `PitchView` silently dropped whichever players it couldn't place rather than erroring, so a
+stale mode rendered a short squad with no signal anything was wrong. **Gameweek result — the real
+picks a gameweek was actually played with — is the only mode left**, since FPL publishes those
+already consistent. This wiki page was never updated when the mode was cut; the original two-mode
+description below is corrected in place rather than deleted, per this wiki's own rule. See
+[sprint-21.md](../sprints/sprint-21.md#1-teams-current-squad-pitch-was-silently-dropping-players).
 
-- **Current squad** renders the resolved import (above) on the same read-only `PitchView`, or —
-  without ever silently saving a draft — a throwaway `TeamState` built from the latest
-  `manager_picks` event via the existing `teamStateFromPicks` when no import exists yet.
+`/team` previously rendered `manager_picks` as four plain position lists, with no default to the
+FPL import either. Gained a section (originally a **Current squad / Gameweek result** switch, now
+just "Squad view" — see the correction above):
+
 - **Gameweek result** adds a `<select>` over every gameweek the manager has entered, showing that
   gameweek's real per-player points via a new `lib/manager-picks.ts`:
   - The starting XI is read from `position` (1–11 vs. 12–15), **never** `multiplier > 0` — under
@@ -72,6 +81,24 @@ selector, the per-player points, the two-total summary, and the provisional labe
 `gameweeks.finished`. No real double gameweek or Bench Boost payload exists yet to check the live
 path against; the harness covers that math, the live path doesn't yet. —
 [sprints/additional-info.md](../sprints/additional-info.md#squad-view-on-deadline-hub-and-my-team--built-2026-08-15)
+
+### `/team`'s redundant squad list removed, page repacked into two columns (Sprint 23, 2026-08-22)
+
+Below the Squad view's `PitchView`, `/team` also rendered the same 15 players a second time as a
+position-grouped list (`Goalkeepers`/`Defenders`/`Midfielders`/`Forwards`) — a leftover from before
+the 2026-08-15 pitch view existed, kept only because it was the sole host of the free-transfers
+`<select>` and the "Import as draft" button. Deleted outright rather than deduped, since
+`PitchView` was always the read of record; the free-transfers control and import button moved into
+a small "Free transfers" card instead. Part of a wider density pass (see [design-system.md's
+"Packing, continued"](design-system.md#packing-continued-sprint-23-2026-08-22)) that repacked
+`/team` into the same `grid-cols-[minmax(0,1fr)_360px]` two-column template `/builder`/`/transfers`
+already used: `PitchView` + the gameweek selector on the left, the points tiles (now 2-up instead
+of a 6-across full-width strip), the free-transfers card, and **Your Leagues** (moved up from
+further down the page) in the right rail. This page also had its own set of hardcoded
+`border-zinc-200 bg-white … dark:bg-[#1E0234]` card classes, never migrated onto the `bg-card`/
+`bg-card-supporting` tokens [design-system.md's token layer](design-system.md#the-token-layer-appglobalscss)
+introduced back in Sprint 19 — normalised as part of this pass. See
+[sprint-23.md](../sprints/sprint-23.md).
 
 ## Live Matchday Hub (Sprint 13, built and verified live 2026-08-21)
 
@@ -112,6 +139,20 @@ themes before trusting it. — [sprint-13.md](../sprints/sprint-13.md)
 — the flag `sync-live-gameweek`'s own gate trusts — lagged a genuine kickoff by up to ~55 minutes.
 Not a code-review catch; the first real live fixture found it. See
 [data-pipeline.md](data-pipeline.md#sync-fixtures-self-gated-cadence-fixed-2026-08-21) for the fix.
+
+### Live hub repacked into a two-column rail (Sprint 23, 2026-08-22)
+
+The live card's BPS-race list was `sm:col-span-2` inside its own `sm:grid-cols-2` grid — a
+five-row list stretching across the card's full width and leaving a gap next to the fixture-card
+grid beside it. The live card is now the left column of a two-column row
+(`grid-cols-[minmax(0,1fr)_360px]`, the same template as the density pass below), with **Price &
+news watch** and **Team news** — previously full-width `CollapsibleCard`s at the very bottom of
+the page — moved up into a right rail beside it. The rail renders unconditionally (before
+kickoff, live card absent), so neither `CollapsibleCard` is orphaned before GW1's first fixture
+starts. Squad/readiness/availability/captain/chip-call below the live card got the same
+two-column treatment — see [design-system.md's "Packing, continued"
+section](design-system.md#packing-continued-sprint-23-2026-08-22) for the shared template and
+[sprint-23.md](../sprints/sprint-23.md) for the full change.
 
 ### Live fixture event detail, and the `/fixtures` collapse fix — built 2026-08-21, same evening
 
