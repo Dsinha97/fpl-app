@@ -46,6 +46,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 22 | Navigation & shell | **Built** 2026-08-22 — grouped the 11-link nav into Live/Strategy/Statistics (`@base-ui/react/menu` dropdowns desktop, an expanding-groups left-side drawer mobile, replacing the bottom sheet); moved `/status` into `AccountMenu`; fixed the FT tooltip overflowing off-screen on mobile with a new shared `useAnchoredPanel` hook; removed an internal filename from user-facing tooltip copy | [sprints/sprint-22.md](sprints/sprint-22.md) |
 | 23 | Page density | **Built** 2026-08-22 — repacked `/deadline`, `/team`, `/transfers`, `/chips` into the `grid-cols-[minmax(0,1fr)_360px]` two-column template `/builder`/`/transfers` already used; deleted `/team`'s redundant squad list; anchored `/transfers`' replace picker to its row instead of the bottom of the table | [sprints/sprint-23.md](sprints/sprint-23.md) |
 | 24 | Expand/collapse polish | **Built** 2026-08-22 — new `ExpandToggle` primitive (36px circular chevron, theme-token colours), grid-rows `0fr`→`1fr` accordion replacing mount/unmount on `CollapsibleCard`, `LiveFixtureCard`, `ClubTacticsGrid`, and the mobile nav drawer | [sprints/sprint-24.md](sprints/sprint-24.md) |
+| 25 | Domain cutover + UI defect sweep | **Built** 2026-08-23 — `fpldecision.com` is the canonical host (Cloudflare Registrar, apex canonical, `www` redirected, `wrangler.jsonc` routes); eleven UI fixes across `/deadline`, `/team`, `/fixtures`, `/chips`, `/players` and the nav shell — short team codes replacing truncated names, `/team` squad cards no longer overlapping the pitch, `/fixtures`' schedule brought onto the Sprint 24 expand pattern, `/chips`' dead space and duplicated fixture-flatness note fixed, `/players`' xG/xA moved to per-90, desktop nav hover-open + click-to-solidify, mobile drawer wordmark | [sprints/sprint-25.md](sprints/sprint-25.md), [docs/wiki/deployment.md](wiki/deployment.md) |
 
 Non-sprint work items, also in `sprints/`: [cold-start-patch.md](sprints/cold-start-patch.md)
 (empirical-Bayes rate priors — phase 1 built, phase 2 deferred/gated) and
@@ -55,6 +56,12 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
+- **Custom SMTP for Supabase Auth — unblocked 2026-08-23, not started.** Sprint 14.1 recorded
+  the built-in email sender's project-wide hourly cap as unfixable without custom SMTP, which
+  needed "a domain we own" for sender verification — `fpldecision.com` (Sprint 25) removes that
+  blocker. Not built yet; Google OAuth stays the primary sign-in path either way, so this is a
+  quality-of-life item for the magic-link fallback, not urgent. See
+  [sprints/sprint-14.md](sprints/sprint-14.md)'s reconciliation note.
 - **Blend current-season form into the xP model — not started, checked and written up
   2026-08-22.** Confirmed by reading every code path that could carry it: `generate-predictions`
   reads `player_season_history` only, never `player_gameweek_stats` or `player_live_stats`, and

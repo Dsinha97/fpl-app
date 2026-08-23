@@ -9,6 +9,7 @@ import { ConfidenceBadge, RateBand } from "@/components/confidence-badge";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { GemBadge } from "@/components/gem-badge";
 import { fullName } from "@/lib/player-search";
+import { shortSeason } from "@/lib/utils";
 import {
   availabilityFromStatus,
   MAX_COMPARE,
@@ -202,7 +203,6 @@ export default function PlayersPage() {
   const [xp, setXp] = useState<Map<number, XpRow>>(new Map());
   const [rateProfile, setRateProfile] = useState<Map<number, RateProfileRow>>(new Map());
   const [predictions, setPredictions] = useState<Map<number, PredictionRow>>(new Map());
-  const [gwPlayed, setGwPlayed] = useState(0);
   const [historySeason, setHistorySeason] = useState<string>("");
   const [seasonWindow, setSeasonWindow] = useState(FALLBACK_SEASON_WINDOW);
   const [loading, setLoading] = useState(true);
@@ -332,10 +332,6 @@ export default function PlayersPage() {
         setHistory(new Map(historyRows.map((h) => [h.player_code, h])));
         setRateProfile(new Map(rateProfileList.map((r) => [r.player_code, r])));
         setPredictions(new Map(predictionList.map((r) => [r.player_id, r])));
-        // gw.id is the *next* (unplayed) gameweek, so games played so far is
-        // one less — floored at 0 for GW1, when current-season xG/xA is
-        // still all zero and the column should read "xG (0 GW)", not "-1".
-        setGwPlayed(Math.max(0, gw.id - 1));
 
         // first_event/last_event are constant across every row for one
         // season/model_version — any row gives the real prediction window.
@@ -406,6 +402,21 @@ export default function PlayersPage() {
     return valuePerMillion(toScoredPlayer(p, x), horizon);
   };
 
+  /**
+   * xG/xA columns used to show the season-to-date total under a "(N GW)"
+   * label — accurate but not what the header claimed ("xG"/"xA" reads as
+   * per-game everywhere else in football). Per-90 rather than per-gameweek:
+   * unaffected by rotation/subs, the standard football rate. `null` below
+   * 45 minutes — a 12-minute cameo with 1 xG reads 7.5 xG/90, which isn't a
+   * real rate, it's noise.
+   */
+  const MIN_MINUTES_FOR_RATE = 45;
+  const MIN_MINUTES_FOR_CONFIDENT_RATE = 180;
+  const perNinety = (total: number | null, minutes: number | null): number | null => {
+    if (total === null || minutes === null || minutes < MIN_MINUTES_FOR_RATE) return null;
+    return (total / minutes) * 90;
+  };
+
   const gemCandidates = useMemo<GemCandidate[]>(
     () =>
       players.map((p) => {
@@ -455,9 +466,9 @@ export default function PlayersPage() {
         case "xa":
           return h?.expected_assists ?? -1;
         case "xgCur":
-          return p.expected_goals ?? -1;
+          return perNinety(p.expected_goals, p.minutes) ?? -1;
         case "xaCur":
-          return p.expected_assists ?? -1;
+          return perNinety(p.expected_assists, p.minutes) ?? -1;
         case "xmins":
           return predictions.get(p.id)?.expected_minutes ?? -1;
         case "run":
@@ -518,8 +529,9 @@ export default function PlayersPage() {
             Player Explorer
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            xP = model-projected points (next gameweek, and over the horizon below){" "}
-            {historySeason ? `· stats from ${historySeason}` : ""} · green ring = home · top 100 shown
+            xP = model-projected points (next gameweek, and over the horizon below) · xG/xA are
+            per 90 minutes{" "}
+            {historySeason ? `· stats from ${shortSeason(historySeason)}` : ""} · green ring = home · top 100 shown
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
@@ -584,8 +596,8 @@ export default function PlayersPage() {
                 {header("G", "goals")}
                 {header("A", "assists")}
                 {header("Mins", "minutes")}
-                {header(`xG (${gwPlayed} GW)`, "xgCur")}
-                {header(`xA (${gwPlayed} GW)`, "xaCur")}
+                {header(`xG/90`, "xgCur")}
+                {header(`xA/90`, "xaCur")}
                 {header("xMins", "xmins")}
                 <th className="px-2 py-2">
                   <span className="flex items-center gap-1.5">
@@ -613,9 +625,9 @@ export default function PlayersPage() {
                 </th>
                 {header("xP/£m", "value")}
                 {header("Own %", "ownership")}
-                {header(`Pts ${historySeason || "LY"}`, "points")}
-                {header(`xG ${historySeason || "LY"}`, "xg")}
-                {header(`xA ${historySeason || "LY"}`, "xa")}
+                {header(`Pts ${historySeason ? shortSeason(historySeason) : "LY"}`, "points")}
+                {header(`xG ${historySeason ? shortSeason(historySeason) : "LY"}`, "xg")}
+                {header(`xA ${historySeason ? shortSeason(historySeason) : "LY"}`, "xa")}
                 <th className="px-2 py-2">
                   <span className="flex items-center gap-1.5">
                     <button
@@ -690,7 +702,7 @@ export default function PlayersPage() {
                     <td className="px-2 py-1.5 tabular-nums">
                       <span className="flex items-center gap-1">
                         {xpForHorizon(x, horizon)?.toFixed(1) ?? "—"}
-                        <ConfidenceBadge reliability={x?.reliability} priorWeight={x?.prior_weight} />
+                        <ConfidenceBadge reliability={x?.reliability} priorWeight={x?.prior_weight} compact />
                       </span>
                       <RateBand lower={bandLower ?? undefined} upper={bandUpper ?? undefined} />
                     </td>
@@ -702,8 +714,37 @@ export default function PlayersPage() {
                     <td className="px-2 py-1.5 font-semibold tabular-nums">{p.goals_scored ?? "—"}</td>
                     <td className="px-2 py-1.5 font-semibold tabular-nums">{p.assists ?? "—"}</td>
                     <td className="px-2 py-1.5 font-semibold tabular-nums">{p.minutes ?? "—"}</td>
-                    <td className="px-2 py-1.5 tabular-nums">{p.expected_goals?.toFixed(2) ?? "—"}</td>
-                    <td className="px-2 py-1.5 tabular-nums">{p.expected_assists?.toFixed(2) ?? "—"}</td>
+                    {(() => {
+                      const xgRate = perNinety(p.expected_goals, p.minutes);
+                      const xaRate = perNinety(p.expected_assists, p.minutes);
+                      // Dim + disclose the raw total under MIN_MINUTES_FOR_CONFIDENT_RATE — a
+                      // rate from a handful of minutes is real but not yet a stable read.
+                      const thin = (p.minutes ?? 0) < MIN_MINUTES_FOR_CONFIDENT_RATE;
+                      return (
+                        <>
+                          <td
+                            className={`px-2 py-1.5 tabular-nums ${thin ? "text-zinc-400" : ""}`}
+                            title={
+                              thin && p.expected_goals !== null
+                                ? `${p.expected_goals.toFixed(2)} xG in ${p.minutes ?? 0} min`
+                                : undefined
+                            }
+                          >
+                            {xgRate?.toFixed(2) ?? "—"}
+                          </td>
+                          <td
+                            className={`px-2 py-1.5 tabular-nums ${thin ? "text-zinc-400" : ""}`}
+                            title={
+                              thin && p.expected_assists !== null
+                                ? `${p.expected_assists.toFixed(2)} xA in ${p.minutes ?? 0} min`
+                                : undefined
+                            }
+                          >
+                            {xaRate?.toFixed(2) ?? "—"}
+                          </td>
+                        </>
+                      );
+                    })()}
                     <td className="px-2 py-1.5 tabular-nums">
                       {predictions.get(p.id)?.expected_minutes?.toFixed(0) ?? "—"}
                     </td>

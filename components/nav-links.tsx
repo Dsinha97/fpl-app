@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { ChevronDown } from "lucide-react";
 import { useDismissablePopover } from "@/components/ui/use-anchored-panel";
+import { Monogram, Wordmark } from "@/components/brand";
 
 /**
  * Sprint 22 — eleven flat top-level links overwhelmed a new user, so they're
@@ -64,51 +65,99 @@ const inactiveLinkClass =
  * nav, focus management and outside-dismiss come for free instead of a
  * fourth hand-rolled popover.
  */
+/**
+ * One group's menu — its own component so each group tracks whether *it*
+ * was opened by hover or by a click, independent of its siblings.
+ *
+ * Sprint 25: hover-opens the group (translucent popup, a quick preview),
+ * and a click "solidifies" it (opaque, as if pinned open) — a controlled
+ * `Menu.Root` with `openOnHover` on the trigger, matching-hover on the
+ * popup itself (via a shared `onOpenChange`) so drift onto the menu items
+ * doesn't close it. `modal={false}` matters here — the default `true`
+ * would lock page scroll on mere hover, which a click-only menu never
+ * triggered. `openOnHover`/`delay`/`closeDelay` live on `Menu.Trigger`;
+ * verified against the installed @base-ui/react types before relying on
+ * them. Note `components/ui/action-menu.tsx`'s comment that a *controlled*
+ * menu's plain click was unreliable under Base UI's press-then-drag model —
+ * that menu opts out of hover entirely to dodge it; this one wants hover,
+ * so the solidify-on-click path is worth a manual check, not just a read.
+ */
+function DesktopNavGroup({
+  group,
+  pathname,
+}: {
+  group: (typeof NAV_GROUPS)[number];
+  pathname: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [solid, setSolid] = useState(false);
+  const active = group.items.some((item) => pathname === item.href);
+
+  return (
+    <Menu.Root
+      open={open}
+      modal={false}
+      onOpenChange={(nextOpen, details) => {
+        setOpen(nextOpen);
+        if (nextOpen && details.reason === "trigger-press") setSolid(true);
+        if (!nextOpen) setSolid(false);
+      }}
+    >
+      <Menu.Trigger
+        openOnHover
+        delay={120}
+        closeDelay={150}
+        className={`flex items-center gap-1 whitespace-nowrap rounded-md border-b-2 px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          active
+            ? "border-current font-medium text-purple-800 dark:text-[#00FF87]"
+            : "border-transparent text-zinc-600 hover:text-purple-800 dark:text-zinc-400 dark:hover:text-[#00FF87]"
+        }`}
+      >
+        {group.label}
+        <ChevronDown
+          aria-hidden="true"
+          className={`h-3.5 w-3.5 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+        />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner side="bottom" align="start" sideOffset={4} className="z-50">
+          <Menu.Popup
+            className={`min-w-40 origin-[var(--transform-origin)] rounded-md border border-border py-1 text-popover-foreground shadow-xl outline-none transition-[opacity,scale,background-color] duration-150 ease-out motion-reduce:transition-none data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 ${
+              solid ? "bg-popover" : "bg-popover/80 backdrop-blur-md"
+            }`}
+          >
+            {group.items.map((item) => {
+              const itemActive = pathname === item.href;
+              return (
+                <Menu.Item key={item.href} render={<Link href={item.href} />}>
+                  <span
+                    aria-current={itemActive ? "page" : undefined}
+                    className={`block px-3 py-1.5 text-sm ${
+                      itemActive
+                        ? "font-medium text-purple-800 dark:text-[#00FF87]"
+                        : "text-popover-foreground"
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                </Menu.Item>
+              );
+            })}
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  );
+}
+
 export function DesktopNav() {
   const pathname = normalize(usePathname() ?? "/");
 
   return (
     <div className="hidden gap-1 text-sm lg:flex">
-      {NAV_GROUPS.map((group) => {
-        const active = group.items.some((item) => pathname === item.href);
-        return (
-          <Menu.Root key={group.label}>
-            <Menu.Trigger
-              className={`flex items-center gap-1 whitespace-nowrap rounded-md border-b-2 px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                active
-                  ? "border-current font-medium text-purple-800 dark:text-[#00FF87]"
-                  : "border-transparent text-zinc-600 hover:text-purple-800 dark:text-zinc-400 dark:hover:text-[#00FF87]"
-              }`}
-            >
-              {group.label}
-              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />
-            </Menu.Trigger>
-            <Menu.Portal>
-              <Menu.Positioner side="bottom" align="start" sideOffset={4} className="z-50">
-                <Menu.Popup className="min-w-40 origin-[var(--transform-origin)] rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-xl outline-none transition-[opacity,scale] duration-100 ease-out motion-reduce:transition-none data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
-                  {group.items.map((item) => {
-                    const itemActive = pathname === item.href;
-                    return (
-                      <Menu.Item key={item.href} render={<Link href={item.href} />}>
-                        <span
-                          aria-current={itemActive ? "page" : undefined}
-                          className={`block px-3 py-1.5 text-sm ${
-                            itemActive
-                              ? "font-medium text-purple-800 dark:text-[#00FF87]"
-                              : "text-popover-foreground"
-                          }`}
-                        >
-                          {item.label}
-                        </span>
-                      </Menu.Item>
-                    );
-                  })}
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
-        );
-      })}
+      {NAV_GROUPS.map((group) => (
+        <DesktopNavGroup key={group.label} group={group} pathname={pathname} />
+      ))}
     </div>
   );
 }
@@ -250,20 +299,20 @@ export function MobileNav() {
             aria-label="Navigation"
             className="fixed inset-y-0 left-0 z-50 w-[min(20rem,85vw)] overflow-y-auto border-r border-zinc-200 bg-white p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-2xl dark:border-purple-800/50 dark:bg-[#2A0A45]"
           >
-            <div className="flex items-center justify-between px-2 py-2">
-              <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-                Navigation
-              </span>
-              <button
-                type="button"
-                aria-label="Close navigation menu"
-                onClick={() => setOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-md text-lg leading-none text-zinc-500 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-zinc-400 dark:hover:bg-purple-950/60"
-              >
-                <span aria-hidden="true">×</span>
-              </button>
-            </div>
-            <div className="space-y-0.5">
+            {/* Sprint 25: the app's own wordmark, Gmail-sidebar style,
+                rather than a plain "Navigation" label — and no dedicated
+                close button, since a backdrop tap, Escape, or the hamburger
+                itself (which is already an "×" while open) all close this
+                drawer; a fourth affordance was redundant. */}
+            <Link
+              href="/"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 border-b border-zinc-200 px-2 py-3 dark:border-purple-800/50"
+            >
+              <Monogram size={24} />
+              <Wordmark />
+            </Link>
+            <div className="space-y-0.5 pt-1">
               {NAV_GROUPS.map((group) => (
                 <MobileNavGroup
                   key={group.label}

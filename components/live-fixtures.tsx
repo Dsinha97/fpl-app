@@ -164,19 +164,30 @@ export function LiveFixtureCard({ fixture, teams, playersById, squadElementIds }
 
   const scoreRow = (
     <div className="mt-2 flex items-center justify-center gap-3">
-      <div className="flex flex-1 items-center justify-end gap-2">
-        <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-          {home?.name ?? "—"}
+      {/* Short codes (ARS, COV), not full club names — a full name in a
+          `sm:w-[calc(50%-0.375rem)]` card truncated unpredictably and shifted
+          the crest/score layout depending on name length. The short_name is
+          already on LiveFixtureTeam; the full name lives on `title` for a
+          hover/long-press hint. */}
+      <div className="flex items-center justify-end gap-2">
+        <span
+          title={home?.name}
+          className="text-sm font-medium text-zinc-900 dark:text-zinc-100"
+        >
+          {home?.short_name ?? "—"}
         </span>
         <TeamCrest teamCode={home?.code} shortName={home?.short_name} className="h-7 w-6" />
       </div>
       <span className="shrink-0 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
         {hasScore ? `${fixture.team_h_score} – ${fixture.team_a_score}` : "vs"}
       </span>
-      <div className="flex flex-1 items-center gap-2">
+      <div className="flex items-center gap-2">
         <TeamCrest teamCode={away?.code} shortName={away?.short_name} className="h-7 w-6" />
-        <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-          {away?.name ?? "—"}
+        <span
+          title={away?.name}
+          className="text-sm font-medium text-zinc-900 dark:text-zinc-100"
+        >
+          {away?.short_name ?? "—"}
         </span>
       </div>
       {expandable && <ExpandToggle expanded={expanded} interactive={false} size="sm" />}

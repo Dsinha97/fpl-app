@@ -4,6 +4,7 @@ import { useState } from "react";
 import { TeamCrest } from "./identity";
 import { FixtureStatBreakdown, matchStatus, type LiveFixturePlayer } from "./live-fixtures";
 import { hasFixtureStats, parseFixtureStats } from "@/lib/fixture-stats";
+import { ExpandToggle } from "@/components/ui/expand-toggle";
 
 export interface ScheduleFixture {
   id: number;
@@ -168,15 +169,10 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
                 })
               }
               aria-expanded={open}
-              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-purple-950/40"
+              className="group flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-purple-950/40"
             >
               <span className="flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className={`text-zinc-400 transition-transform ${open ? "" : "rotate-180"}`}
-                >
-                  ⌃
-                </span>
+                <ExpandToggle expanded={open} interactive={false} size="sm" />
                 <span className="text-sm font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
                   {meta?.name ?? `Gameweek ${event}`}
                 </span>
@@ -196,6 +192,11 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
               </span>
             </button>
 
+            {/* Deliberately still mount/unmount, not the grid accordion the
+                rows below use — up to 38 gameweeks render at once here, and
+                animating every section would mount every FixtureRow (each
+                running parseFixtureStats) up front instead of only the ones
+                a viewer has actually opened. Sections snap, rows glide. */}
             {open && (
               <div className="border-t border-zinc-100 dark:border-purple-900/40">
                 {list.map((f, i) => {
@@ -257,16 +258,19 @@ function FixtureRow({
 
   const row = (
     <div className="flex items-center gap-2 px-3 py-2 text-sm">
-      {/* home */}
+      {/* home — short code (ARS), not the full club name, so this row
+          matches the live hub card and stays a fixed width regardless of
+          club name length; full name still on `title`. */}
       <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
         <span
-          className={`truncate ${
+          title={home?.name}
+          className={
             homeWon
               ? "font-semibold text-zinc-900 dark:text-zinc-50"
               : "text-zinc-700 dark:text-zinc-300"
-          }`}
+          }
         >
-          {home?.name ?? "—"}
+          {home?.short_name ?? "—"}
         </span>
         <TeamCrest teamCode={home?.code} shortName={home?.short_name} className="h-6 w-5" />
       </div>
@@ -311,24 +315,21 @@ function FixtureRow({
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <TeamCrest teamCode={away?.code} shortName={away?.short_name} className="h-6 w-5" />
         <span
-          className={`truncate ${
+          title={away?.name}
+          className={
             awayWon
               ? "font-semibold text-zinc-900 dark:text-zinc-50"
               : "text-zinc-700 dark:text-zinc-300"
-          }`}
+          }
         >
-          {away?.name ?? "—"}
+          {away?.short_name ?? "—"}
         </span>
       </div>
 
       <span className="hidden w-10 shrink-0 text-right text-[10px] uppercase text-zinc-400 sm:block">
         GW{f.event}
       </span>
-      {expandable && (
-        <span aria-hidden="true" className={`shrink-0 text-zinc-400 transition-transform ${expanded ? "" : "rotate-180"}`}>
-          ⌃
-        </span>
-      )}
+      {expandable && <ExpandToggle expanded={expanded} interactive={false} size="sm" />}
     </div>
   );
 
@@ -346,15 +347,24 @@ function FixtureRow({
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
-        className="w-full text-left transition-colors hover:bg-zinc-50 dark:hover:bg-purple-950/30"
+        className="group w-full text-left transition-colors hover:bg-zinc-50 dark:hover:bg-purple-950/30"
       >
         {row}
       </button>
-      {expanded && (
-        <div className="bg-zinc-50 px-4 py-3 dark:bg-[#160126]">
-          <FixtureStatBreakdown stats={stats!} playersById={playersById!} provisional={!complete} />
+      {/* CSS Grid 0fr→1fr rather than mount/unmount (Sprint 24 pattern,
+          Sprint 25 applied it here) — FixtureStatBreakdown does no
+          side-effecting work, so mounting it while collapsed costs nothing. */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
+          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="bg-zinc-50 px-4 py-3 dark:bg-[#160126]">
+            <FixtureStatBreakdown stats={stats!} playersById={playersById!} provisional={!complete} />
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

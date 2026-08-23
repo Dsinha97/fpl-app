@@ -568,10 +568,14 @@ export default function ChipsPage() {
 
       {result && team && (
         <>
-          {/* Sprint 23: sequences and schedules used to stack full width, one
-              above the other — the sequences card is a short list of 2-3
-              rows next to schedules that run much taller, so they now share
-              a row instead of each claiming the page's full width in turn. */}
+          {/* Sprint 23 put sequences and schedules side by side so the short
+              sequences list didn't stack above the much-taller schedules,
+              full width, in turn. Sprint 25: that left the short-list side
+              bottoming out well above the schedules' height — dead space.
+              The main column now runs everything long top to bottom
+              (sequences → schedules → fixture flatness) and the narrow rail
+              holds the four per-chip shortlists instead, which are short
+              enough at 360px to actually fill it. */}
           <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="min-w-0 space-y-4">
               {presets.length > 0 && (
@@ -628,186 +632,201 @@ export default function ChipsPage() {
                 </section>
               )}
 
-              {/* fixture-flatness disclosure — collapsed by default so the
-                  note doesn't push the sequences card below the fold on a
-                  phone. */}
-              <CollapsibleCard title="Fixture flatness" tier="amber" summary={result.note}>
+              {/* per-half schedules — FPL grants each chip once per half, so
+                  these are two independent decisions, not one combined
+                  total. Moved into the main column in Sprint 25 (was the
+                  narrow rail) since they're what actually needed the
+                  height. */}
+              {result.schedules.map((half) => (
+                <section
+                  key={half.label}
+                  className="rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Chip schedule · {half.label}
+                    </h2>
+                    {(half.oneOff || half.wildcard) && (
+                      <button
+                        type="button"
+                        onClick={() => pinSchedule(half)}
+                        disabled={!!half.oneOff && half.oneOff.margin < 1}
+                        title={
+                          half.oneOff && half.oneOff.margin < 1
+                            ? "This schedule is not a strong recommendation — the next-best combination is nearly as good."
+                            : `Pin every chip in this schedule to "${team.name}"'s plan.`
+                        }
+                        className="min-h-9 rounded-md border border-purple-700 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
+                      >
+                        Pin whole schedule
+                      </button>
+                    )}
+                  </div>
+
+                  {half.oneOff && (
+                    <>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {half.oneOff.entries
+                          .slice()
+                          .sort((a, b) => a.event - b.event)
+                          .map((e) => (
+                            <div
+                              key={e.chip}
+                              className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-2.5 py-1.5 text-sm dark:border-purple-900/40"
+                            >
+                              <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                                {CHIP_LABELS[e.chip]}
+                              </span>
+                              <span className="text-zinc-500">GW{e.event}</span>
+                              <span className="tabular-nums text-purple-800 dark:text-primary">
+                                {signed(e.gain)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => pinChip(e.chip, e.event)}
+                                title={`Pin ${CHIP_LABELS[e.chip]} to GW${e.event}`}
+                                className="ml-1 rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
+                              >
+                                📌
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                      <p className="mt-2 text-xs text-zinc-500">
+                        Bench Boost + Triple Captain + Free Hit total {signed(half.oneOff.total)} xP.{" "}
+                        {half.oneOff.margin < 1
+                          ? `The next-best combination of gameweeks is within ${half.oneOff.margin.toFixed(1)} points — treat this as illustrative, not a recommendation.`
+                          : `${half.oneOff.margin.toFixed(1)} points clear of the next-best combination of gameweeks.`}
+                      </p>
+                    </>
+                  )}
+
+                  {/* Wildcard shown on its own — a cumulative gain over the
+                      rest of the half, not a single gameweek, so it is
+                      never summed with the one-off total above. */}
+                  {half.wildcard && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3 dark:border-purple-900/40">
+                      <div className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-2.5 py-1.5 text-sm dark:border-purple-900/40">
+                        <span className="font-medium text-zinc-800 dark:text-zinc-200">Wildcard</span>
+                        <span className="text-zinc-500">GW{half.wildcard.event}</span>
+                        <span className="tabular-nums text-purple-800 dark:text-primary">
+                          {signed(half.wildcard.gain)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => pinChip("wildcard", half.wildcard!.event)}
+                          title={`Pin Wildcard to GW${half.wildcard.event}`}
+                          className="ml-1 rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
+                        >
+                          📌
+                        </button>
+                      </div>
+                      <span className="text-xs text-zinc-500">
+                        cumulative through GW{half.stopEvent} — not added to the total above
+                      </span>
+                    </div>
+                  )}
+
+                  {!half.oneOff && !half.wildcard && (
+                    <p className="mt-2 text-xs text-zinc-500">Nothing evaluable in this half yet.</p>
+                  )}
+                </section>
+              ))}
+
+              {/* fixture-flatness disclosure, last in the column — collapsed
+                  by default. The summary line is a distinct one-sentence
+                  string (`noteSummary`, lib/chips.ts) rather than the same
+                  paragraph as the body: CollapsibleCard renders its summary
+                  and its children both, always, so passing `note` to both
+                  used to show the same ~10-sentence paragraph twice once
+                  expanded. */}
+              <CollapsibleCard title="Fixture flatness" tier="amber" summary={result.noteSummary}>
                 <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-300">
                   {result.note}
                 </p>
               </CollapsibleCard>
             </div>
 
-            {/* per-half schedules — FPL grants each chip once per half, so
-                these are two independent decisions, not one combined total,
-                stacked rather than side by side now that they share this
-                rail with the sequences card. */}
+            {/* per-chip shortlists — narrow rail. Sprint 25 moved these here
+                from a full-width sm:grid-cols-2 section below everything,
+                trimmed to fit 360px: top 3 (was 5), blocked windows behind
+                their own disclosure rather than always shown. */}
             <div className="min-w-0 space-y-4">
-          {result.schedules.map((half) => (
-            <section
-              key={half.label}
-              className="rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                  Chip schedule · {half.label}
-                </h2>
-                {(half.oneOff || half.wildcard) && (
-                  <button
-                    type="button"
-                    onClick={() => pinSchedule(half)}
-                    disabled={!!half.oneOff && half.oneOff.margin < 1}
-                    title={
-                      half.oneOff && half.oneOff.margin < 1
-                        ? "This schedule is not a strong recommendation — the next-best combination is nearly as good."
-                        : `Pin every chip in this schedule to "${team.name}"'s plan.`
-                    }
-                    className="min-h-9 rounded-md border border-purple-700 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
+              {CHIP_ORDER.map((chip) => {
+                const top = topOf(chip, 3);
+                const window = result.windows.find((w) => w.chip === chip && w.blocked === null);
+                const blockedWindows = result.windows.filter((w) => w.chip === chip && w.blocked !== null);
+                return (
+                  <section
+                    key={chip}
+                    className="rounded-xl border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border"
                   >
-                    Pin whole schedule
-                  </button>
-                )}
-              </div>
-
-              {half.oneOff && (
-                <>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {half.oneOff.entries
-                      .slice()
-                      .sort((a, b) => a.event - b.event)
-                      .map((e) => (
-                        <div
-                          key={e.chip}
-                          className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-2.5 py-1.5 text-sm dark:border-purple-900/40"
-                        >
-                          <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                            {CHIP_LABELS[e.chip]}
-                          </span>
-                          <span className="text-zinc-500">GW{e.event}</span>
-                          <span className="tabular-nums text-purple-800 dark:text-primary">
-                            {signed(e.gain)}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => pinChip(e.chip, e.event)}
-                            title={`Pin ${CHIP_LABELS[e.chip]} to GW${e.event}`}
-                            className="ml-1 rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
-                          >
-                            📌
-                          </button>
-                        </div>
-                      ))}
-                  </div>
-                  <p className="mt-2 text-xs text-zinc-500">
-                    Bench Boost + Triple Captain + Free Hit total {signed(half.oneOff.total)} xP.{" "}
-                    {half.oneOff.margin < 1
-                      ? `The next-best combination of gameweeks is within ${half.oneOff.margin.toFixed(1)} points — treat this as illustrative, not a recommendation.`
-                      : `${half.oneOff.margin.toFixed(1)} points clear of the next-best combination of gameweeks.`}
-                  </p>
-                </>
-              )}
-
-              {/* Wildcard shown on its own — a cumulative gain over the rest of
-                  the half, not a single gameweek, so it is never summed with
-                  the one-off total above. */}
-              {half.wildcard && (
-                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3 dark:border-purple-900/40">
-                  <div className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-2.5 py-1.5 text-sm dark:border-purple-900/40">
-                    <span className="font-medium text-zinc-800 dark:text-zinc-200">Wildcard</span>
-                    <span className="text-zinc-500">GW{half.wildcard.event}</span>
-                    <span className="tabular-nums text-purple-800 dark:text-primary">
-                      {signed(half.wildcard.gain)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => pinChip("wildcard", half.wildcard!.event)}
-                      title={`Pin Wildcard to GW${half.wildcard.event}`}
-                      className="ml-1 rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
-                    >
-                      📌
-                    </button>
-                  </div>
-                  <span className="text-xs text-zinc-500">
-                    cumulative through GW{half.stopEvent} — not added to the total above
-                  </span>
-                </div>
-              )}
-
-              {!half.oneOff && !half.wildcard && (
-                <p className="mt-2 text-xs text-zinc-500">Nothing evaluable in this half yet.</p>
-              )}
-            </section>
-          ))}
-            </div>
-          </div>
-
-          {/* per-chip shortlists */}
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            {CHIP_ORDER.map((chip) => {
-              const top = topOf(chip);
-              const window = result.windows.find((w) => w.chip === chip && w.blocked === null);
-              const blockedWindows = result.windows.filter((w) => w.chip === chip && w.blocked !== null);
-              return (
-                <section
-                  key={chip}
-                  className="rounded-xl border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border"
-                >
-                  <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                    {CHIP_LABELS[chip]}
-                  </h3>
-                  {top.length === 0 ? (
-                    <p className="mt-2 text-xs text-zinc-500">
-                      {window ? "Nothing evaluable in this window yet." : "No open window this season."}
-                    </p>
-                  ) : (
-                    <ul className="mt-2 space-y-1.5 text-sm">
-                      {top.map((v, i) => (
-                        <li key={v.event} className="flex items-baseline justify-between gap-2">
-                          <span className="text-zinc-700 dark:text-zinc-300">
-                            {i === 0 && (
-                              <span className="mr-1.5 rounded bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
-                                Best
-                              </span>
-                            )}
-                            GW{v.event}
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <span className="tabular-nums font-semibold text-purple-800 dark:text-primary">
-                              {signed(v.gain)}
+                    <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      {CHIP_LABELS[chip]}
+                    </h3>
+                    {top.length === 0 ? (
+                      <p className="mt-2 text-xs text-zinc-500">
+                        {window ? "Nothing evaluable in this window yet." : "No open window this season."}
+                      </p>
+                    ) : (
+                      <ul className="mt-2 space-y-1.5 text-sm">
+                        {top.map((v, i) => (
+                          <li key={v.event} className="flex items-baseline justify-between gap-2">
+                            <span className="text-zinc-700 dark:text-zinc-300">
+                              {i === 0 && (
+                                <span className="mr-1.5 rounded bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
+                                  Best
+                                </span>
+                              )}
+                              GW{v.event}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => pinChip(chip, v.event)}
-                              title={`Pin ${CHIP_LABELS[chip]} to GW${v.event}`}
-                              className="rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
-                            >
-                              📌
-                            </button>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {top.length >= 2 && Math.abs(top[0].gain - top[1].gain) < 0.5 && (
-                    <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">
-                      Top {Math.min(top.length, 3)} gameweeks are within{" "}
-                      {(top[0].gain - top[Math.min(top.length, 3) - 1].gain).toFixed(1)} points of each
-                      other — this is not a strong recommendation.
-                    </p>
-                  )}
-                  {top[0]?.explanation.map((line, i) => (
-                    <p key={i} className="mt-2 text-[11px] text-zinc-500">
-                      {line}
-                    </p>
-                  ))}
-                  {blockedWindows.map((w) => (
-                    <p key={`${w.startEvent}-${w.stopEvent}`} className="mt-2 text-[11px] text-zinc-400">
-                      GW{w.startEvent}–{w.stopEvent}: {w.blocked}
-                    </p>
-                  ))}
-                </section>
-              );
-            })}
+                            <span className="flex items-center gap-1.5">
+                              <span className="tabular-nums font-semibold text-purple-800 dark:text-primary">
+                                {signed(v.gain)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => pinChip(chip, v.event)}
+                                title={`Pin ${CHIP_LABELS[chip]} to GW${v.event}`}
+                                className="rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
+                              >
+                                📌
+                              </button>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {top.length >= 2 && Math.abs(top[0].gain - top[1].gain) < 0.5 && (
+                      <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">
+                        Top {top.length} gameweeks are within{" "}
+                        {(top[0].gain - top[top.length - 1].gain).toFixed(1)} points of each other —
+                        this is not a strong recommendation.
+                      </p>
+                    )}
+                    {top[0]?.explanation.map((line, i) => (
+                      <p key={i} className="mt-2 text-[11px] text-zinc-500">
+                        {line}
+                      </p>
+                    ))}
+                    {blockedWindows.length > 0 && (
+                      <CollapsibleCard
+                        title="Blocked windows"
+                        tier="supporting"
+                        summary={`${blockedWindows.length}`}
+                        className="mt-2"
+                      >
+                        {blockedWindows.map((w) => (
+                          <p key={`${w.startEvent}-${w.stopEvent}`} className="text-[11px] text-zinc-400">
+                            GW{w.startEvent}–{w.stopEvent}: {w.blocked}
+                          </p>
+                        ))}
+                      </CollapsibleCard>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
           </div>
 
           {/* full calendar */}

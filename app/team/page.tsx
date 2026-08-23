@@ -109,6 +109,14 @@ interface NextGw {
   deadline_time: string;
 }
 
+/** Mirrors app/deadline/page.tsx's NextFixture shape exactly — both feed the
+ *  same PlayerData["next_fixture"] prop on player-card.tsx. */
+interface NextFixture {
+  opponent_short_name: string;
+  is_home: boolean;
+  fdr: number;
+}
+
 interface TeamData {
   manager: ManagerRow;
   seasons: SeasonRow[];
@@ -128,6 +136,10 @@ interface TeamData {
   xp1: Map<number, number>;
   teamNames: Map<number, string>;
   teamMeta: Map<number, { code: number | null; short: string }>;
+  /** Each picked gameweek's own opponent per team — keyed by event, not
+   *  "next", so a historical squad view shows the fixture that gameweek
+   *  actually played rather than today's next one. */
+  fixturesByEvent: Map<number, Map<number, NextFixture>>;
   nextGw: NextGw | null;
   rules: SquadRules;
   profile: ManagerProfile | null;
@@ -466,6 +478,7 @@ export default function TeamPage() {
       const players = new Map<number, PlayerRow>();
       const teamNames = new Map<number, string>();
       const teamMeta = new Map<number, { code: number | null; short: string }>();
+      const fixturesByEvent = new Map<number, Map<number, NextFixture>>();
       const xp1 = new Map<number, number>();
       const finishedEvents = new Set<number>();
       let rules = DEFAULT_RULES;
@@ -502,10 +515,15 @@ export default function TeamPage() {
           if ((xpRows?.length ?? 0) < PAGE_ROWS) break;
         }
 
-        const [teamsRes, gwsRes, ctxRes] = await Promise.all([
+        const [teamsRes, gwsRes, ctxRes, fixturesRes] = await Promise.all([
           supabase.from("teams").select("id, name, code, short_name").eq("season", nextGw.season),
           supabase.from("gameweeks").select("id, finished").eq("season", nextGw.season),
           loadSeasonContext().catch(() => null),
+          supabase
+            .from("fixtures")
+            .select("event, team_h, team_a, team_h_difficulty, team_a_difficulty")
+            .eq("season", nextGw.season)
+            .in("event", [...picksByEvent.keys()]),
         ]);
 
         for (const t of teamsRes.data ?? []) {
@@ -516,6 +534,39 @@ export default function TeamPage() {
           if (g.finished) finishedEvents.add(g.id as number);
         }
         if (ctxRes) rules = ctxRes.rules;
+
+        // Mirrors app/deadline/page.tsx's nextFixtureByTeam build exactly,
+        // just once per picked gameweek instead of once for "next" — a
+        // double gameweek keeps the earlier kickoff (fixtures come back
+        // ordered by id, not guaranteed by kickoff, but first-seen-per-team
+        // is the same convention deadline uses).
+        for (const f of fixturesRes.data ?? []) {
+          const event = f.event as number | null;
+          if (event === null) continue;
+          let byTeam = fixturesByEvent.get(event);
+          if (!byTeam) {
+            byTeam = new Map<number, NextFixture>();
+            fixturesByEvent.set(event, byTeam);
+          }
+          const home = f.team_h as number;
+          const away = f.team_a as number;
+          const homeFdr = (f.team_h_difficulty as number | null) ?? 3;
+          const awayFdr = (f.team_a_difficulty as number | null) ?? 3;
+          if (!byTeam.has(home)) {
+            byTeam.set(home, {
+              opponent_short_name: teamMeta.get(away)?.short ?? "—",
+              is_home: true,
+              fdr: homeFdr,
+            });
+          }
+          if (!byTeam.has(away)) {
+            byTeam.set(away, {
+              opponent_short_name: teamMeta.get(home)?.short ?? "—",
+              is_home: false,
+              fdr: awayFdr,
+            });
+          }
+        }
       }
 
       setData({
@@ -529,6 +580,7 @@ export default function TeamPage() {
         xp1,
         teamNames,
         teamMeta,
+        fixturesByEvent,
         nextGw,
         rules,
         profile,
@@ -766,6 +818,14 @@ export default function TeamPage() {
         isVice: p.isViceCaptain,
       });
       if (!card) return [];
+      // The opponent chip that makes /deadline and /builder cards compact
+      // (player-card.tsx's short value row) — keyed off this pick's own
+      // event, not "next", so a historical gameweek shows the fixture it
+      // actually played. Without this /team's cards fell into player-card's
+      // tall, centered fallback branch and visually overlapped the pitch.
+      const teamId = data?.players.get(p.element)?.team_id;
+      const nextFixture =
+        teamId !== undefined ? (data?.fixturesByEvent.get(p.event)?.get(teamId) ?? null) : null;
       // FPL's own live breakdown, and this gameweek's raw goals/assists/mins —
       // never multiplied by the armband, unlike the points value above — only
       // meaningful for the gameweek result being looked at, so both are
@@ -774,6 +834,7 @@ export default function TeamPage() {
       return [
         {
           ...card,
+          next_fixture: nextFixture,
           live_breakdown: explainByElement.get(p.element) ?? null,
           gw_goals: scored?.goals ?? null,
           gw_assists: scored?.assists ?? null,
@@ -781,7 +842,7 @@ export default function TeamPage() {
         },
       ];
     });
-  }, [gwPicks, eventPoints, explainByElement, toCard]);
+  }, [gwPicks, eventPoints, explainByElement, toCard, data]);
 
   const gwLayout: SquadLayout | null = useMemo(() => {
     if (!gwPicks || !data || !gwScore) return null;

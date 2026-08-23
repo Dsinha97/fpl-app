@@ -27,10 +27,17 @@ export function ConfidenceBadge({
   reliability,
   priorWeight,
   className = "",
+  compact = false,
 }: {
   reliability: Reliability | null | undefined;
   priorWeight?: number | null;
   className?: string;
+  /** Pin to the two-letter form (OR/PP/PR) at every width, not just below
+   * `sm` — for a cell that's already tight at desktop widths too (the
+   * `xP {horizon}` column on /players). `title`/`aria-label` still carry
+   * the full sentence either way, and `player-detail.tsx`'s wide panel
+   * leaves this false to keep the words. */
+  compact?: boolean;
 }) {
   if (!reliability) return null;
 
@@ -44,8 +51,14 @@ export function ConfidenceBadge({
       aria-label={`Projection confidence: ${reliability}${share ? `, ${share}` : ""}`}
       className={`inline-flex shrink-0 items-center whitespace-nowrap rounded border px-1 py-px text-[9px] font-medium uppercase tracking-wide ${STYLE[reliability]} ${className}`}
     >
-      <span className="sm:hidden">{SHORTEST[reliability]}</span>
-      <span className="hidden sm:inline">{SHORT[reliability]}</span>
+      {compact ? (
+        <span>{SHORTEST[reliability]}</span>
+      ) : (
+        <>
+          <span className="sm:hidden">{SHORTEST[reliability]}</span>
+          <span className="hidden sm:inline">{SHORT[reliability]}</span>
+        </>
+      )}
     </span>
   );
 }

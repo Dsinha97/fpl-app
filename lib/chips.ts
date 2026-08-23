@@ -150,6 +150,10 @@ export interface ChipEngineResult {
   /** One entry per chip half (normally two: GW1-19 and GW20-38). */
   schedules: ChipHalfSchedule[];
   note: string;
+  /** One-sentence version of `note`, for a collapsed-card summary line —
+   *  see `chipModelNoteSummary`. Not a truncation of `note`; a separate
+   *  sentence, so a UI showing both isn't showing the same text twice. */
+  noteSummary: string;
 }
 
 // ------------------------------------------------------------- disclosure
@@ -172,6 +176,24 @@ export function countBlanksAndDoubles(
     if (c.fixtureSlots > c.distinctClubs) doubleEvents++;
   }
   return { blankEvents, doubleEvents };
+}
+
+/**
+ * A single-sentence summary of `chipModelNote`, for a collapsed card's
+ * summary line. `CollapsibleCard` renders its `summary` prop and its
+ * children both, always (grid accordion, not mount/unmount) — passing the
+ * full multi-sentence note as both meant the same paragraph appeared twice
+ * once expanded. This is the same measured blank/double count, phrased as
+ * one line rather than truncated.
+ */
+export function chipModelNoteSummary(
+  blankEvents: number,
+  doubleEvents: number,
+  windowEnd: number,
+): string {
+  return blankEvents === 0 && doubleEvents === 0
+    ? `Every gameweek through GW${windowEnd} currently plays once — values read comparatively flat.`
+    : `${blankEvents} blank${blankEvents === 1 ? "" : "s"} and ${doubleEvents} double${doubleEvents === 1 ? "" : "s"} through GW${windowEnd} — see below for how that's handled.`;
 }
 
 export function chipModelNote(blankEvents: number, doubleEvents: number, windowEnd: number): string {
@@ -659,5 +681,6 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
     valuationsByChip,
     schedules,
     note: chipModelNote(blankEvents, doubleEvents, windowEnd),
+    noteSummary: chipModelNoteSummary(blankEvents, doubleEvents, windowEnd),
   };
 }

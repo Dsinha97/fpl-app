@@ -1188,7 +1188,9 @@ export default function DeadlinePage() {
                     ? "Loading…"
                     : newsRows.length === 0
                       ? "No recent headlines for this squad."
-                      : `${newsRows.length} headline${newsRows.length === 1 ? "" : "s"}`
+                      : newsRows.length > 5
+                        ? `Latest 5 of ${newsRows.length}`
+                        : `${newsRows.length} headline${newsRows.length === 1 ? "" : "s"}`
                 }
               >
                 <p className="text-[11px] text-zinc-500">
@@ -1199,26 +1201,36 @@ export default function DeadlinePage() {
                   .
                 </p>
                 {!newsLoading && newsRows.length > 0 && (
-                  <ul className="mt-2 divide-y divide-zinc-100 dark:divide-purple-900/30">
-                    {newsRows.slice(0, 15).map((row) => (
-                      <li key={row.id} className="py-2 text-sm">
-                        <div className="flex items-start justify-between gap-2">
-                          <a
-                            href={row.url}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="min-w-0 flex-1 font-medium underline-offset-2 hover:underline"
-                          >
-                            {row.title}
-                          </a>
-                          <span className="shrink-0 text-xs text-zinc-400">{ago(row.published_at)}</span>
-                        </div>
-                        <span className="mt-0.5 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                          {sourceBadge(row)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <ul className="mt-2 divide-y divide-zinc-100 dark:divide-purple-900/30">
+                      {newsRows.slice(0, 5).map((row) => (
+                        <li key={row.id} className="py-2 text-sm">
+                          <div className="flex items-start justify-between gap-2">
+                            <a
+                              href={row.url}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="min-w-0 flex-1 font-medium underline-offset-2 hover:underline"
+                            >
+                              {row.title}
+                            </a>
+                            <span className="shrink-0 text-xs text-zinc-400">{ago(row.published_at)}</span>
+                          </div>
+                          <span className="mt-0.5 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            {sourceBadge(row)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {newsRows.length > 5 && (
+                      <Link
+                        href="/news"
+                        className="mt-2 block text-center text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
+                      >
+                        All {newsRows.length} headlines →
+                      </Link>
+                    )}
+                  </>
                 )}
               </CollapsibleCard>
             </div>

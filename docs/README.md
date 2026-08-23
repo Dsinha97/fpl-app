@@ -45,6 +45,7 @@ file, not separate files.
 | [sprints/sprint-22.md](sprints/sprint-22.md) | live | Navigation & shell — grouped nav (Live/Strategy/Statistics), `/status` moved to the account menu, mobile drawer replaces the bottom sheet, FT tooltip overflow fixed with a shared anchored-panel hook. |
 | [sprints/sprint-23.md](sprints/sprint-23.md) | live | Page density — `/deadline`, `/team`, `/transfers`, `/chips` repacked into the two-column template `/builder` already used; `/team`'s redundant squad list deleted; `/transfers`' replace picker anchored to its row. |
 | [sprints/sprint-24.md](sprints/sprint-24.md) | live | Expand/collapse polish — `ExpandToggle` primitive, grid-rows accordion replacing mount/unmount on every card expander in the app. |
+| [sprints/sprint-25.md](sprints/sprint-25.md) | live | Domain cutover to `fpldecision.com` + an eleven-item UI defect sweep across `/deadline`, `/team`, `/fixtures`, `/chips`, `/players` and the nav shell. |
 
 ## Source specs
 
