@@ -379,6 +379,63 @@ no transition.
 
 See [sprint-24.md](../sprints/sprint-24.md).
 
+### UI defect sweep (Sprint 25, 2026-08-23)
+
+Eleven small fixes across `/deadline`, `/team`, `/fixtures`, `/chips`, `/players` and the nav
+shell — mostly truncation, dead space, and duplicated text the density/expansion passes above
+didn't reach on every surface. Landed alongside the `fpldecision.com` domain cutover (see
+[deployment.md](deployment.md#custom-domain)), an unrelated piece of work in the same sprint.
+
+- **Short team codes, not full names, on live/fixture cards.** `components/live-fixtures.tsx`'s
+  `LiveFixtureTeam` already carried `short_name` but only fed it to `TeamCrest`; the card's own
+  label used the full name, which truncated unpredictably in a `sm:w-[calc(50%-0.375rem)]` card
+  and shifted the crest/score layout. Now renders the short code (`ARS`, `COV`) with the full
+  name moved to `title`. `components/fixture-schedule.tsx`'s `FixtureRow` had the identical bug
+  and got the identical fix.
+- **`/fixtures`' `FixtureRow` was the last raw `⌃` glyph in the app** — Sprint 24 converted
+  `CollapsibleCard`, `LiveFixtureCard`, and `ClubTacticsGrid` to `ExpandToggle` + the grid-rows
+  accordion but missed this file. Per-match rows now match; the gameweek section header got the
+  `ExpandToggle` chevron too but **deliberately kept** mount/unmount for its body — animating up
+  to 38 sections would mount every gameweek's `FixtureRow`s (each running `parseFixtureStats`) at
+  once instead of only the ones actually opened. Sections snap, rows glide.
+- **`/chips`' Fixture flatness card was showing the same ~10-sentence note twice** — `result.note`
+  fed both `CollapsibleCard`'s always-visible collapsed summary and its accordion body (a grid
+  accordion, not mount/unmount, so both render). `lib/chips.ts` gained `chipModelNoteSummary`, a
+  genuinely separate one-sentence summary, alongside the unchanged `chipModelNote`;
+  `ChipEngineResult` now carries both as `note`/`noteSummary`. The same page's dead-space bug —
+  a short 2–3 row "Chip sequences" list next to a right rail running two tall schedule
+  sections — was fixed by swapping the columns: sequences → schedules → fixture flatness now run
+  down the main column, and the four per-chip shortlists (trimmed top-5→top-3, blocked windows
+  behind their own disclosure) moved into the narrow rail, which they actually fit. See
+  [chip-strategy.md](chip-strategy.md).
+- **`/players`' xG/xA columns now read per-90, not season-to-date totals.** `xG (${gwPlayed}
+  GW)` was accurate but implied a rate the way "xG"/"xA" do everywhere else in football; now
+  `xG/90`/`xA/90`, `—` below 45 minutes, dimmed with the raw total in `title` below 180 (a
+  12-minute cameo reading 7.5 xG/90 isn't a real rate). `historySeason` ("2025/26") now runs
+  through a new `shortSeason()` helper (`lib/utils.ts`) at all four render sites → "25/26".
+  `ConfidenceBadge` gained a `compact` prop pinning it to the two-letter `OR`/`PP`/`PR` form at
+  every width (previously only below `sm`), passed only from the `xP {horizon}` cell —
+  `player-detail.tsx`'s wide panel keeps the full words.
+- **`/team` squad cards were overlapping the pitch.** Root cause wasn't the pitch layout —
+  `player-card.tsx` renders a taller, centered value block when `next_fixture` is absent, and
+  `/team`'s `toCard` never set it (unlike `/deadline` and `/builder`, which do). `/team` now
+  fetches each picked gameweek's fixtures and attaches the opponent/H-A/FDR chip keyed by
+  `selectedEvent`, not "next" — a historical gameweek shows the fixture it actually played.
+  `/deadline`'s Team news card was also rendering 15 headlines while its own summary line counted
+  the unsliced total (could read "37 headlines" above a 15-row list); now shows 5 with an
+  "All N headlines →" link to `/news` when there are more.
+- **Nav, extending [Sprint 22's grouped nav](#grouped-nav-a-left-drawer-and-one-shared-anchored-panel-hook-sprint-22-2026-08-22).**
+  The mobile drawer header is now the app's own Monogram + Wordmark (Gmail-sidebar style)
+  instead of a plain "Navigation" label, with the dedicated `×` close button removed — backdrop
+  tap, Escape, and the hamburger itself (already an `×` while open) were three existing ways out;
+  a fourth was redundant. Desktop nav groups now open on hover (translucent
+  `bg-popover/80 backdrop-blur-md`) and "solidify" to opaque `bg-popover` on click — a controlled
+  `Menu.Root` with `openOnHover`/`delay`/`closeDelay` on `Menu.Trigger` and `modal={false}` (the
+  default `true` would lock page scroll on mere hover, which the prior click-only menu never
+  triggered).
+
+See [sprint-25.md](../sprints/sprint-25.md).
+
 ## Typography (Stage 5)
 
 All 13 page-title `<h1>`s share one identical class string

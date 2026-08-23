@@ -988,9 +988,31 @@ export default function TeamPage() {
         <>
           {/* ------------------------------------------------- profile */}
           <section className="mt-8">
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
-              {m.team_name ?? `Entry ${m.entry_id}`}
-            </h1>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+                {m.team_name ?? `Entry ${m.entry_id}`}
+              </h1>
+              {/* The highest-value action on this page, moved out of the
+                  "Free transfers" card it used to be buried in (a casual
+                  tester never found it there) and next to the header
+                  instead, where "import my squad" is actually decided. */}
+              {data && data.picks.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void handleImport()}
+                  disabled={importing}
+                  className="shrink-0 rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                >
+                  {importing ? "Importing…" : "Import as draft →"}
+                </button>
+              )}
+            </div>
+            {data && data.picks.length > 0 && (
+              <p className="mt-1.5 flex items-start gap-1 text-xs text-zinc-500">
+                <InfoTooltip label="About the imported squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>
+                Import opens this squad in the Builder as a new, independent draft.
+              </p>
+            )}
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
               <span className="font-semibold text-zinc-900 dark:text-white">
                 {[m.first_name, m.last_name].filter(Boolean).join(" ")}
@@ -1200,23 +1222,7 @@ export default function TeamPage() {
                       ))}
                     </select>
                   </label>
-                  {data && data.picks.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => void handleImport()}
-                      disabled={importing}
-                      className="rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
-                    >
-                      {importing ? "Importing…" : "Import as draft →"}
-                    </button>
-                  )}
                 </div>
-                {data && data.picks.length > 0 && (
-                  <p className="mt-1.5 flex items-start gap-1 text-xs text-zinc-500">
-                    <InfoTooltip label="About the imported squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>
-                    Import opens this squad in the Builder as a new, independent draft.
-                  </p>
-                )}
               </section>
 
               {leagues.length > 0 && (

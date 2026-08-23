@@ -7,6 +7,7 @@ import { InfoTooltip } from "@/components/info-tooltip";
 import { Spinner } from "@/components/ui/spinner";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
+import { loadPredictionSeries } from "@/lib/player-pool";
 import { resolveStopEvent, setChipPlanEntry } from "@/lib/chip-plan";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import {
@@ -39,8 +40,6 @@ interface PlayerRow {
   penalties_order: number | null;
 }
 
-/** The API caps every response at 1000 rows however big `.limit()` asks — see CLAUDE.md. */
-const PAGE_ROWS = 1000;
 const FALLBACK_SEASON_WINDOW = 8;
 const CHIP_ORDER: ChipKind[] = ["wildcard", "freehit", "bboost", "3xc"];
 
@@ -140,33 +139,23 @@ export default function ChipsPage() {
           new Map((gwRes.data ?? []).map((r) => [r.id as number, r.deadline_time as string])),
         );
 
-        // Paged deliberately — see PAGE_ROWS. Carries the columns /transfers
-        // doesn't need: expected_minutes, start_probability and availability,
-        // which the lineup/captain maths inside lib/chips.ts requires per event.
+        // `loadPredictionSeries` pages past the API's thousand-row cap
+        // (concurrently, and memoised — shared with /transfers, see
+        // lib/player-pool.ts). Carries the columns /transfers doesn't need:
+        // expected_minutes, start_probability and availability, which the
+        // lineup/captain maths inside lib/chips.ts requires per event.
+        const seriesRows = await loadPredictionSeries(gw.season, gw.id);
         const preds = new Map<number, Map<number, EventPrediction>>();
-        for (let from = 0; ; from += PAGE_ROWS) {
-          const { data: page, error: pageError } = await supabase
-            .from("player_predictions")
-            .select("player_id, event, expected_minutes, start_probability, availability, fdr, xp")
-            .eq("season", gw.season)
-            .gte("event", gw.id)
-            .order("player_id")
-            .order("event")
-            .range(from, from + PAGE_ROWS - 1);
-          if (pageError) throw new Error(pageError.message);
-          for (const r of page ?? []) {
-            const id = r.player_id as number;
-            let byEvent = preds.get(id);
-            if (!byEvent) preds.set(id, (byEvent = new Map()));
-            byEvent.set(r.event as number, {
-              expectedMinutes: r.expected_minutes as number | null,
-              startProbability: r.start_probability as number | null,
-              availability: (r.availability as number | null) ?? 0,
-              fdr: r.fdr as number | null,
-              xp: r.xp as number | null,
-            });
-          }
-          if ((page?.length ?? 0) < PAGE_ROWS) break;
+        for (const r of seriesRows) {
+          let byEvent = preds.get(r.playerId);
+          if (!byEvent) preds.set(r.playerId, (byEvent = new Map()));
+          byEvent.set(r.event, {
+            expectedMinutes: r.expectedMinutes,
+            startProbability: r.startProbability,
+            availability: r.availability,
+            fdr: r.fdr,
+            xp: r.xp,
+          });
         }
         setPredsByPlayer(preds);
 
@@ -316,6 +305,34 @@ export default function ChipsPage() {
       .slice()
       .sort((a, b) => b.gain - a.gain)
       .slice(0, n);
+
+  /**
+   * One plain-English lead sentence above the sequences/schedules — every
+   * other number on this page is already computed by `runChipEngine`, this
+   * just states the headline instead of leaving the reader to find it in a
+   * grid. Reuses the same "not a strong recommendation" margin check the
+   * per-chip shortlist already applies (line ~789 below), so this sentence
+   * never claims confidence the numbers don't support.
+   */
+  const bestOverall = useMemo(() => {
+    if (!result) return null;
+    let best: { chip: ChipKind; event: number; gain: number; runnerUpGain: number | null } | null =
+      null;
+    for (const chip of CHIP_ORDER) {
+      const top = topOf(chip, 2);
+      if (top.length === 0) continue;
+      if (!best || top[0].gain > best.gain) {
+        best = {
+          chip,
+          event: top[0].event,
+          gain: top[0].gain,
+          runnerUpGain: top[1]?.gain ?? null,
+        };
+      }
+    }
+    return best;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
 
   /**
    * Writes straight to the draft's `chipPlan` — /chips is otherwise
@@ -568,6 +585,27 @@ export default function ChipsPage() {
 
       {result && team && (
         <>
+          {bestOverall && (
+            <p className="mt-5 text-sm text-zinc-700 dark:text-zinc-300">
+              <strong className="font-semibold text-zinc-900 dark:text-zinc-50">
+                Best single play:
+              </strong>{" "}
+              {CHIP_LABELS[bestOverall.chip]} in GW{bestOverall.event} —{" "}
+              <span className="font-semibold tabular-nums text-purple-800 dark:text-primary">
+                {signed(bestOverall.gain)}
+              </span>{" "}
+              vs. holding it.
+              {bestOverall.runnerUpGain !== null &&
+                Math.abs(bestOverall.gain - bestOverall.runnerUpGain) < 0.5 && (
+                  <span className="text-amber-700 dark:text-amber-400">
+                    {" "}
+                    The next-best gameweek is nearly as good — this is not a strong
+                    recommendation.
+                  </span>
+                )}
+            </p>
+          )}
+
           {/* Sprint 23 put sequences and schedules side by side so the short
               sequences list didn't stack above the much-taller schedules,
               full width, in turn. Sprint 25: that left the short-list side

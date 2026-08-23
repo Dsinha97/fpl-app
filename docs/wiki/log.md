@@ -2,6 +2,23 @@
 
 One line per entry, most recent first.
 
+- 2026-08-23 — Ingested `docs/sprints/sprint-25.md`'s UI defect sweep half (the domain-cutover
+  half was already ingested into `deployment.md`'s "Custom domain" section in a prior pass — only
+  `.pending-ingest`'s clear hadn't caught up). New "UI defect sweep (Sprint 25, 2026-08-23)"
+  subsection in `design-system.md`: short team codes on `live-fixtures.tsx`/`fixture-schedule.tsx`,
+  `FixtureRow`'s last raw `⌃` glyph converted to `ExpandToggle`, `/chips`' dead-space swap and new
+  `chipModelNoteSummary` (cross-linked into `chip-strategy.md`), `/players`' xG/xA relabelled to
+  per-90, and the mobile drawer wordmark + desktop hover-open nav. New "Two small defects fixed"
+  subsection in `deadline-and-matchday.md` (Team news headline cap, `/team`'s fixture-chip fix).
+  Added a `timeline.md` row. **Tidy-pass correction**: `frontend-conventions.md`'s "`/players`' own
+  data columns" section still described the pre-Sprint-25 `xG (N GW)`/`xA (N GW)` labelling as
+  current — corrected in place with a dated note rather than silently rewritten, per this wiki's
+  own rule against dropping history.
+- 2026-08-23 — `.pending-ingest` cleared. Its remaining entries (`CLAUDE.md`, `docs/roadmap.md`,
+  `docs/sprints/sprint-14.md`, and duplicate `docs/sprints/sprint-22.md`/`sprint-23.md`/
+  `sprint-24.md` lines) were stale leftovers already covered by prior ingest passes — confirmed by
+  `git log`'s ingest entries below and by `grep` finding no un-ingested claims in the current text
+  of any of them.
 - 2026-08-20 — Ingested `docs/sprints/rivals-and-card-density.md`: updated `manager-profile.md`
   (rivals sync-before-write, a no-career-record rival no longer dropped, the new This season /
   Career tab) and `design-system.md` (new "Packing, not just ranking" section under Card hierarchy,

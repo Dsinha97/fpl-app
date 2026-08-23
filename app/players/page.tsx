@@ -8,6 +8,7 @@ import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { ConfidenceBadge, RateBand } from "@/components/confidence-badge";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { GemBadge } from "@/components/gem-badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fullName } from "@/lib/player-search";
 import { shortSeason } from "@/lib/utils";
 import {
@@ -572,7 +573,13 @@ export default function PlayersPage() {
           {error}
         </p>
       )}
-      {loading && <p className="mt-6 text-sm text-zinc-500">Loading players…</p>}
+      {loading && (
+        <div className="mt-6 space-y-1.5" role="status" aria-label="Loading players">
+          {Array.from({ length: 8 }, (_, i) => (
+            <Skeleton key={i} className="h-9 w-full" />
+          ))}
+        </div>
+      )}
 
       {!loading && !error && (
         <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">

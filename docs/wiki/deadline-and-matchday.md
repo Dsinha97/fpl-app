@@ -154,6 +154,18 @@ two-column treatment — see [design-system.md's "Packing, continued"
 section](design-system.md#packing-continued-sprint-23-2026-08-22) for the shared template and
 [sprint-23.md](../sprints/sprint-23.md) for the full change.
 
+### Two small defects fixed (Sprint 25, 2026-08-23)
+
+`/deadline`'s Team news card was rendering all 15 fetched headlines while its own summary line
+counted the unsliced total from `player_news` — could read "37 headlines" above a 15-row list.
+Now slices to 5 with an "All N headlines →" link to `/news` when there are more. Separately,
+`/team`'s squad cards were overlapping the pitch: not a pitch-layout bug but `player-card.tsx`
+rendering a taller, centered value block whenever `next_fixture` is absent, which `/team`'s
+`toCard` never set (unlike `/deadline`/`/builder`). `/team` now fetches each picked gameweek's
+fixtures and attaches the opponent/H-A/FDR chip keyed by the selected gameweek, not "next" — a
+historical gameweek now shows the fixture it actually played, not the upcoming one. See
+[design-system.md](design-system.md#ui-defect-sweep-sprint-25-2026-08-23).
+
 ### Live fixture event detail, and the `/fixtures` collapse fix — built 2026-08-21, same evening
 
 Watching the live hub through the real opener surfaced two more gaps, fixed the same evening as the

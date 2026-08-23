@@ -30,7 +30,12 @@ horizon doesn't fit any fixed `Horizon` value.
 - **Today's fixture list has no blanks or doubles anywhere** (measured directly from `fixtures`) —
   Bench Boost/Triple Captain draw most of their real value from doubles, Free Hit from blanks, so
   every value today reads comparatively flat. `countBlanksAndDoubles`/`chipModelNote` compute this
-  live so the disclosure updates itself the moment a real blank/double appears.
+  live so the disclosure updates itself the moment a real blank/double appears. `chipModelNote` is
+  ~10 sentences; `ChipEngineResult` also carries a genuinely separate one-sentence
+  `chipModelNoteSummary` (Sprint 25, 2026-08-23) for `CollapsibleCard`'s always-visible collapsed
+  summary — the two used to be the same string doing both jobs, so expanding the Fixture flatness
+  card on `/chips` showed the same paragraph twice. See
+  [design-system.md](design-system.md#ui-defect-sweep-sprint-25-2026-08-23).
 - **Only the first chip window is evaluable** — predictions reach GW19, so the GW20–38 half of every
   chip is reported *blocked with a reason*, following the "a blocked option that vanishes reads as a
   bug" pattern used throughout this app.

@@ -13,6 +13,7 @@ import type { PlayerData } from "@/components/player-card";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { ChipPlanEditor } from "@/components/chip-plan-editor";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TransferPath } from "@/components/transfer-path";
 import { planTransferPath, type TransferPathResult } from "@/lib/transfer-path";
 import { chipContextFor, validateChipPlan, type ChipDefinitionRow } from "@/lib/chip-plan";
@@ -964,7 +965,12 @@ export default function DeadlinePage() {
           {error}
         </p>
       )}
-      {loading && <p className="mt-6 text-sm text-zinc-500">Loading…</p>}
+      {loading && (
+        <div className="mt-6 space-y-3" role="status" aria-label="Loading deadline data">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      )}
 
       {!loading && drafts.length === 0 && (
         <div className={`mt-6 ${card} text-center`}>

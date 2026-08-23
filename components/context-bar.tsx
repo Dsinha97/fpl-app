@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { InfoTooltip } from "@/components/info-tooltip";
@@ -70,6 +71,15 @@ export function ContextBar() {
             {countdown?.text}
           </span>
         </span>
+
+        {!hasSquad && (
+          <Link
+            href="/team"
+            className="rounded font-semibold text-purple-800 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-primary"
+          >
+            Import your FPL team →
+          </Link>
+        )}
 
         {hasSquad && (
           <span className="flex items-center gap-1">

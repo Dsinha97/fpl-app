@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { FdrMatrix } from "@/components/fdr-matrix";
 import { LeagueTable, type StandingsTeam } from "@/components/league-table";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   FixtureSchedule,
   localZone,
@@ -169,7 +170,13 @@ export default function FixturesPage() {
           {error}
         </p>
       )}
-      {loading && <p className="mt-6 text-sm text-zinc-500">Loading fixtures…</p>}
+      {loading && (
+        <div className="mt-6 space-y-1.5" role="status" aria-label="Loading fixtures">
+          {Array.from({ length: 6 }, (_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
+        </div>
+      )}
 
       {!loading && !error && tab === "schedule" && (
         <>

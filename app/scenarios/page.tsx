@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { FdrLegendContent, InfoTooltip, TapToReveal } from "@/components/info-tooltip";
+import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { DraftTimeline } from "@/components/draft-timeline";
 import {
@@ -45,6 +47,8 @@ import {
   type TeamState,
   DEFAULT_RULES,
 } from "@/lib/team-state";
+
+const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
 interface PlayerRow {
   id: number;
@@ -284,43 +288,6 @@ export default function ScenariosPage() {
     [rowById],
   );
 
-  /**
-   * Best-lineup bench contribution per draft.
-   *
-   * Each draft is measured against its own optimal XI rather than whatever
-   * lineup happens to be stored, so the comparison is like for like — one draft
-   * having been through the lineup optimiser and another not is a property of
-   * the user's clicking, not of the squad.
-   */
-  const benchByDraft = useMemo(() => {
-    const m = new Map<string, number | null>();
-    if (scoredById.size === 0) return m;
-    for (const d of drafts) {
-      const candidates: LineupCandidate[] = d.players.flatMap((pick) => {
-        const s = scoredById.get(pick.playerId);
-        const row = rowById.get(pick.playerId);
-        if (!s || !row) return [];
-        return [
-          {
-            playerId: s.id,
-            elementType: s.elementType,
-            webName: s.webName,
-            xp: s.xp[1],
-            expectedMinutes: s.expectedMinutes,
-            startProbability: s.startProbability,
-            availability: s.availability,
-            fdr: s.fdrRun[0] ?? null,
-            opponent: null,
-            isPenaltyTaker: row.penalties_order === 1,
-          },
-        ];
-      });
-      const lineup = candidates.length > 0 ? optimiseLineup(candidates) : null;
-      m.set(d.draftId, lineup ? lineup.benchExpectedContribution : null);
-    }
-    return m;
-  }, [drafts, scoredById, rowById]);
-
   const isPenaltyTaker = useCallback(
     (id: number): boolean => rowById.get(id)?.penalties_order === 1,
     [rowById],
@@ -348,40 +315,132 @@ export default function ScenariosPage() {
     [nextEvent, scoredById],
   );
 
-  /** Bench Boost / Triple Captain for the next gameweek, per draft. */
-  const chipsByDraft = useMemo(() => {
-    const m = new Map<string, { bboost: ChipValuation; threeXC: ChipValuation }>();
-    if (scoredById.size === 0 || nextEvent === null) return m;
-    for (const d of drafts) {
-      if (d.players.length !== rules.squadSize) continue;
-      m.set(d.draftId, {
-        bboost: benchBoostAt(d.players, nextEvent, nextEventPredAt, lookup, isPenaltyTaker),
-        threeXC: tripleCaptainAt(d, nextEvent, nextEventPredAt, availabilityOf, lookup, isPenaltyTaker),
-      });
-    }
-    return m;
-  }, [drafts, scoredById, nextEvent, nextEventPredAt, lookup, isPenaltyTaker, availabilityOf, rules.squadSize]);
+  /**
+   * Bench contribution, chip valuations, and SquadScore, per draft.
+   *
+   * These three used to be three separate bare `useMemo`s — each looping
+   * every saved draft through `optimiseLineup`, `benchBoostAt`/
+   * `tripleCaptainAt`, and `squadScore` synchronously on the main thread,
+   * re-running in full on every horizon click. `/transfers` and `/chips` hit
+   * the identical freeze with `optimizeTransfers`/`runChipEngine` (Sprint
+   * 19) and fixed it with a `setTimeout(0)` + input-signature pattern; this
+   * page never got that pass. Combined into one gated computation rather
+   * than three, since all three loop the same draft list and a horizon
+   * change invalidates all three together.
+   */
+  const [computed, setComputed] = useState<{
+    bench: Map<string, number | null>;
+    chips: Map<string, { bboost: ChipValuation; threeXC: ChipValuation }>;
+    scores: Map<string, SquadScoreBreakdown>;
+  } | null>(null);
+  const [computing, setComputing] = useState(false);
+  const [computedSignature, setComputedSignature] = useState<string | null>(null);
 
-  /** SquadScore per draft, keyed by draftId. */
-  const scores = useMemo(() => {
-    const m = new Map<string, SquadScoreBreakdown>();
-    if (scoredById.size === 0) return m;
-    for (const d of drafts) {
-      m.set(
-        d.draftId,
-        squadScore({
-          team: d,
-          scoredById,
-          xpOf,
-          availabilityOf,
-          horizon,
-          benchContribution: benchByDraft.get(d.draftId) ?? null,
-          seasonWindow,
-        }),
-      );
-    }
-    return m;
-  }, [drafts, scoredById, xpOf, availabilityOf, horizon, benchByDraft, seasonWindow]);
+  const computeSignatureInputs = useMemo(
+    () =>
+      JSON.stringify({
+        draftIds: drafts.map((d) => `${d.draftId}:${d.updatedAt}`).join(","),
+        scoredCount: scoredById.size,
+        horizon,
+        nextEvent,
+      }),
+    [drafts, scoredById, horizon, nextEvent],
+  );
+  const computeStale =
+    computed !== null && computedSignature !== null && computedSignature !== computeSignatureInputs;
+  const computeReady = scoredById.size > 0;
+
+  const runCompute = useCallback(() => {
+    if (scoredById.size === 0) return;
+    setComputing(true);
+    setTimeout(() => {
+      const bench = new Map<string, number | null>();
+      for (const d of drafts) {
+        const candidates: LineupCandidate[] = d.players.flatMap((pick) => {
+          const s = scoredById.get(pick.playerId);
+          const row = rowById.get(pick.playerId);
+          if (!s || !row) return [];
+          return [
+            {
+              playerId: s.id,
+              elementType: s.elementType,
+              webName: s.webName,
+              xp: s.xp[1],
+              expectedMinutes: s.expectedMinutes,
+              startProbability: s.startProbability,
+              availability: s.availability,
+              fdr: s.fdrRun[0] ?? null,
+              opponent: null,
+              isPenaltyTaker: row.penalties_order === 1,
+            },
+          ];
+        });
+        const lineup = candidates.length > 0 ? optimiseLineup(candidates) : null;
+        bench.set(d.draftId, lineup ? lineup.benchExpectedContribution : null);
+      }
+
+      const chips = new Map<string, { bboost: ChipValuation; threeXC: ChipValuation }>();
+      if (nextEvent !== null) {
+        for (const d of drafts) {
+          if (d.players.length !== rules.squadSize) continue;
+          chips.set(d.draftId, {
+            bboost: benchBoostAt(d.players, nextEvent, nextEventPredAt, lookup, isPenaltyTaker),
+            threeXC: tripleCaptainAt(d, nextEvent, nextEventPredAt, availabilityOf, lookup, isPenaltyTaker),
+          });
+        }
+      }
+
+      const scores = new Map<string, SquadScoreBreakdown>();
+      for (const d of drafts) {
+        scores.set(
+          d.draftId,
+          squadScore({
+            team: d,
+            scoredById,
+            xpOf,
+            availabilityOf,
+            horizon,
+            benchContribution: bench.get(d.draftId) ?? null,
+            seasonWindow,
+          }),
+        );
+      }
+
+      setComputed({ bench, chips, scores });
+      setComputedSignature(computeSignatureInputs);
+      setComputing(false);
+    }, 0);
+  }, [
+    drafts,
+    scoredById,
+    rowById,
+    nextEvent,
+    nextEventPredAt,
+    lookup,
+    isPenaltyTaker,
+    availabilityOf,
+    rules.squadSize,
+    xpOf,
+    horizon,
+    seasonWindow,
+    computeSignatureInputs,
+  ]);
+
+  useEffect(() => {
+    if (!computeReady || computed !== null || computing) return;
+    const t = setTimeout(runCompute, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [computeReady]);
+
+  const chipsByDraft = useMemo(
+    () => computed?.chips ?? new Map<string, { bboost: ChipValuation; threeXC: ChipValuation }>(),
+    [computed],
+  );
+  const scores = useMemo(
+    () => computed?.scores ?? new Map<string, SquadScoreBreakdown>(),
+    [computed],
+  );
 
   const refresh = () => setDrafts(listDrafts());
 
@@ -467,6 +526,7 @@ export default function ScenariosPage() {
   );
 
   const bestTotal = ranked[0]?.score?.total;
+  const runnerUpTotal = ranked[1]?.score?.total;
 
   // Ticking a 2nd draft used to leave the comparison a full page-scroll
   // below the card grid with no way to jump to it — this ref plus the
@@ -561,7 +621,36 @@ export default function ScenariosPage() {
           {error}
         </p>
       )}
-      {loading && <p className="mt-6 text-sm text-zinc-500">Loading player data…</p>}
+      {loading && (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" role="status" aria-label="Loading player data">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-32 w-full" />
+          ))}
+        </div>
+      )}
+
+      {!loading && drafts.length > 0 && (computing || computeStale) && (
+        <div
+          role="status"
+          className="mt-5 flex items-center justify-between gap-2 rounded-md border border-warning-border bg-warning-surface px-3 py-2 text-sm text-warning-foreground"
+        >
+          <span className="flex items-center gap-1.5">
+            {computing && <Spinner />}
+            {computing
+              ? "Recalculating scores…"
+              : "Drafts or horizon changed since these scores were computed."}
+          </span>
+          {!computing && (
+            <button
+              type="button"
+              onClick={runCompute}
+              className="shrink-0 rounded-md border border-warning-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-warning-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Re-run
+            </button>
+          )}
+        </div>
+      )}
 
       {drafts.length === 0 && !loading && (
         <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 text-center dark:border-purple-900/40 dark:bg-[#1E0234]">
@@ -576,6 +665,31 @@ export default function ScenariosPage() {
             and save it — every save lands here.
           </p>
         </div>
+      )}
+
+      {/* One plain-English lead sentence, matching /transfers' "What should
+          I do…" card — every other number on this page (SquadScore, per-
+          draft breakdowns) was already computed, this just states the
+          headline instead of leaving the reader to find the top card in a
+          grid of bare totals. */}
+      {drafts.length > 1 && computed !== null && ranked[0]?.score !== undefined && (
+        <p className="mt-5 text-sm text-zinc-700 dark:text-zinc-300">
+          <strong className="font-semibold text-zinc-900 dark:text-zinc-50">
+            {ranked[0].draft.name}
+          </strong>{" "}
+          ranks first with a SquadScore of{" "}
+          <span className="font-semibold tabular-nums text-purple-800 dark:text-primary">
+            {ranked[0].score.total.toFixed(1)}
+          </span>
+          {runnerUpTotal !== undefined && (
+            <>
+              {" "}
+              — {signed(ranked[0].score.total - runnerUpTotal)} over the next best draft
+            </>
+          )}
+          . SquadScore combines projected points, fixtures, and squad risk into one number; see the
+          breakdown below.
+        </p>
       )}
 
       {/* draft cards */}

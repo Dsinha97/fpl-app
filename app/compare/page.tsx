@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FixtureCell } from "@/components/fdr-badge";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase/client";
 import {
   availabilityFromStatus,
@@ -464,7 +465,12 @@ export default function ComparePage() {
           {error}
         </p>
       )}
-      {loading && <p className="mt-6 text-sm text-zinc-500">Loading player pool…</p>}
+      {loading && (
+        <div className="mt-6 space-y-2" role="status" aria-label="Loading player pool">
+          <Skeleton className="h-9 w-full max-w-md" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      )}
 
       {!loading && !error && chosen.length === 0 && (
         <p className="mt-16 text-center text-sm text-zinc-500">

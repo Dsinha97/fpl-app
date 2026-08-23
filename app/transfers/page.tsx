@@ -9,6 +9,7 @@ import { AvailabilityBadge } from "@/components/player-status-icons";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { fullName, matchesPlayerQuery } from "@/lib/player-search";
+import { loadPredictionSeries } from "@/lib/player-pool";
 import {
   availabilityFromStatus,
   findReplacements,
@@ -86,16 +87,6 @@ const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FW
 /** Fallback when `player_xp_horizons` has no rows yet — matches `generate-predictions`' own floor. */
 const FALLBACK_SEASON_WINDOW = 8;
 const CANDIDATES = 8;
-
-/**
- * Rows per request when reading the per-gameweek predictions.
- *
- * The API caps every response at a thousand rows whatever `.limit()` asks for,
- * and the per-gameweek series is ~380 players x 8 gameweeks. Passing a bigger
- * limit does not raise the cap — it just truncates silently, which would shrink
- * every gain the transfer plan reports. So it is paged explicitly.
- */
-const PAGE_ROWS = 1000;
 
 const money = (tenths: number) => `£${(tenths / 10).toFixed(1)}m`;
 const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
@@ -187,7 +178,6 @@ export default function TransfersPage() {
           typesRes,
           settingsRes,
           xpRes,
-          predsRes,
           fixturesRes,
           chipsRes,
         ] = await Promise.all([
@@ -209,12 +199,6 @@ export default function TransfersPage() {
               .from("player_xp_horizons")
               .select("player_id, xp_1, xp_3, xp_5, xp_8, xp_19, xp_total, first_event, last_event")
               .eq("season", gw.season)
-              .limit(1000),
-            supabase
-              .from("player_predictions")
-              .select("player_id, expected_minutes, start_probability")
-              .eq("season", gw.season)
-              .eq("event", gw.id)
               .limit(1000),
             // No upper bound: a season has at most 380 fixtures total, and the
             // real "season" window (seasonWindow, below) is however many the
@@ -263,42 +247,29 @@ export default function TransfersPage() {
               : "No wildcard window covers this gameweek",
         });
 
-        // Paged deliberately — see PAGE_ROWS. No upper `event` bound either:
-        // rows only exist through whatever window generate-predictions last
-        // ran (see "Prediction window extended" in
-        // docs/sprints/additional-info.md), so this naturally tracks that
-        // window rather than needing to be told it. Carries the columns
-        // /chips and /deadline already fetch — expected_minutes,
-        // start_probability, availability, fdr — so a chip plan's Bench
-        // Boost / Triple Captain bonus can be valued per event here too.
+        // `loadPredictionSeries` pages past the API's thousand-row cap
+        // (concurrently, and memoised — see lib/player-pool.ts) and tracks
+        // whatever window generate-predictions last ran without being told
+        // it, same as the loop it replaces. Carries the columns /chips and
+        // /deadline already fetch — expected_minutes, start_probability,
+        // availability, fdr — so a chip plan's Bench Boost / Triple Captain
+        // bonus can be valued per event here too.
+        const seriesRows = await loadPredictionSeries(gw.season, gw.id);
         const series = new Map<number, XpByEvent>();
         const preds = new Map<number, Map<number, EventPrediction>>();
-        for (let from = 0; ; from += PAGE_ROWS) {
-          const { data: page, error: pageError } = await supabase
-            .from("player_predictions")
-            .select("player_id, event, expected_minutes, start_probability, availability, fdr, xp")
-            .eq("season", gw.season)
-            .gte("event", gw.id)
-            .order("player_id")
-            .order("event")
-            .range(from, from + PAGE_ROWS - 1);
-          if (pageError) throw new Error(pageError.message);
-          for (const r of page ?? []) {
-            const id = r.player_id as number;
-            let byEvent = series.get(id);
-            if (!byEvent) series.set(id, (byEvent = new Map()));
-            byEvent.set(r.event as number, Number(r.xp ?? 0));
-            let predByEvent = preds.get(id);
-            if (!predByEvent) preds.set(id, (predByEvent = new Map()));
-            predByEvent.set(r.event as number, {
-              expectedMinutes: r.expected_minutes as number | null,
-              startProbability: r.start_probability as number | null,
-              availability: (r.availability as number | null) ?? 0,
-              fdr: r.fdr as number | null,
-              xp: r.xp as number | null,
-            });
-          }
-          if ((page?.length ?? 0) < PAGE_ROWS) break;
+        for (const r of seriesRows) {
+          let byEvent = series.get(r.playerId);
+          if (!byEvent) series.set(r.playerId, (byEvent = new Map()));
+          byEvent.set(r.event, Number(r.xp ?? 0));
+          let predByEvent = preds.get(r.playerId);
+          if (!predByEvent) preds.set(r.playerId, (predByEvent = new Map()));
+          predByEvent.set(r.event, {
+            expectedMinutes: r.expectedMinutes,
+            startProbability: r.startProbability,
+            availability: r.availability,
+            fdr: r.fdr,
+            xp: r.xp,
+          });
         }
         setSeriesById(series);
         setPredsByPlayer(preds);
@@ -343,18 +314,14 @@ export default function TransfersPage() {
             ? horizonsFirstRow.last_event - horizonsFirstRow.first_event + 1
             : FALLBACK_SEASON_WINDOW,
         );
-        const predById = new Map(
-          (predsRes.data ?? []).map((r) => [
-            r.player_id as number,
-            r as { expected_minutes: number | null; start_probability: number | null },
-          ]),
-        );
-
         const rows = (playersRes.data ?? []) as PlayerRow[];
         const scored = new Map<number, ScoredPlayer>();
         for (const p of rows) {
           const x = xpById.get(p.id);
-          const pred = predById.get(p.id);
+          // Next event's row from the series already fetched above — used
+          // to be a second, near-duplicate query for exactly this one event;
+          // `preds` already carries it (`.gte("event", gw.id)` includes it).
+          const pred = preds.get(p.id)?.get(gw.id);
           const availability = availabilityFromStatus(p.status, p.chance_of_playing_next_round);
           scored.set(p.id, {
             id: p.id,
@@ -373,8 +340,8 @@ export default function TransfersPage() {
               19: x?.xp_19 ?? null,
               season: x?.xp_total ?? null,
             },
-            expectedMinutes: pred?.expected_minutes ?? null,
-            startProbability: pred?.start_probability ?? null,
+            expectedMinutes: pred?.expectedMinutes ?? null,
+            startProbability: pred?.startProbability ?? null,
             availability,
             fdrRun: fdrRuns.get(p.team_id) ?? [],
           });

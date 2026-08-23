@@ -52,7 +52,7 @@ export default function Home() {
             href="/team"
             className="rounded-md bg-purple-950 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
           >
-            Connect your team →
+            Import your FPL squad →
           </Link>
           <Link
             href="/players"
@@ -61,6 +61,10 @@ export default function Home() {
             Explore players
           </Link>
         </div>
+        <p className="max-w-md text-xs text-zinc-400">
+          You&apos;ll just need the numeric Manager ID from your team&apos;s URL on
+          fantasy.premierleague.com.
+        </p>
         <p
           className={`mt-4 text-xs ${
             status === "connected"

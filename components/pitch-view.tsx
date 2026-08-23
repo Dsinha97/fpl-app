@@ -55,6 +55,12 @@ interface PitchViewProps {
   onSetVice?: (playerId: number) => void;
   onRemove?: (playerId: number) => void;
   onFindReplacement?: (playerId: number) => void;
+  /**
+   * Turns an empty slot into an "add a player" button, for the same reason
+   * the actions above are optional: only `/builder` edits a squad, so this
+   * is the only caller that passes it. Absent, `EmptySlot` stays inert.
+   */
+  onAddToSlot?: (elementType: number) => void;
   /** Rendered inside the pitch card, above the field. */
   header?: React.ReactNode;
 }
@@ -73,6 +79,7 @@ export function PitchView({
   onSetVice,
   onRemove,
   onFindReplacement,
+  onAddToSlot,
   header,
 }: PitchViewProps) {
   const [menu, setMenu] = useState<MenuState | null>(null);
@@ -171,7 +178,11 @@ export function PitchView({
                 >
                   {filled.map((p) => card(p))}
                   {Array.from({ length: empties }).map((_, i) => (
-                    <EmptySlot key={`e-${type}-${i}`} label={POSITION_ABBR[type]} />
+                    <EmptySlot
+                      key={`e-${type}-${i}`}
+                      label={POSITION_ABBR[type]}
+                      onAdd={onAddToSlot ? () => onAddToSlot(type) : undefined}
+                    />
                   ))}
                 </div>
               ))

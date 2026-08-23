@@ -100,6 +100,18 @@ export function AccountMenu() {
             </Link>
           )}
 
+          {/* The highest-value action in the app had no entry point in the
+              nav or this menu — only two easy-to-miss in-page links (on
+              /team and /deadline) pointed at it. */}
+          <Link
+            href="/settings/?tab=import"
+            onClick={() => setOpen(false)}
+            role="menuitem"
+            className="block rounded-md px-2 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-purple-950/40"
+          >
+            Import squad →
+          </Link>
+
           {/* Moved out of the main nav (Sprint 22) — a data-freshness page
               belongs beside account settings, not competing with the 10
               primary destinations for a nav slot. */}

@@ -164,8 +164,7 @@ desktop row's own content changed shape. See
 
 `/players` renders its own 16+-column sortable table rather than the shared `player-detail.tsx`
 panel (see above) — gained two more columns, both already-ingested data simply not yet selected:
-current-season `expected_goals`/`expected_assists` from `players` (labelled `xG (N GW)`/`xA (N GW)`
-so a one-gameweek sample is never read as a full-season rate), and an `expected_minutes`/
+current-season `expected_goals`/`expected_assists` from `players`, and an `expected_minutes`/
 `start_probability` fetch from `player_predictions` powering an `xMins` column and a `Start %` sort
 key. The same fetch also replaced `toScoredPlayer`'s hardcoded `expectedMinutes: null`/
 `startProbability: null` — previously hardcoded because this page never fetched the data — with the
@@ -173,6 +172,12 @@ real values, so every `startProbability ?? availability` fallback already writte
 [hidden-gems.md](hidden-gems.md) and `lib/scoring.ts` now has real per-fixture minutes evidence on
 this page instead of the status-only fallback. See
 [design-audit-response.md](../sprints/design-audit-response.md).
+
+**Correction (Sprint 25, 2026-08-23):** the columns were originally labelled `xG (N GW)`/
+`xA (N GW)` (a season-to-date total, accurate but implying a rate the way "xG"/"xA" do elsewhere
+in football) — replaced with `xG/90`/`xA/90` instead (`—` below 45 minutes, dimmed with the raw
+total in `title` below 180 minutes, since a 12-minute cameo reading 7.5 xG/90 is not a real rate).
+See [design-system.md](design-system.md#ui-defect-sweep-sprint-25-2026-08-23).
 
 ## Static-export-specific traps
 

@@ -1187,6 +1187,7 @@ export default function BuilderPage() {
       setFilters((f) => (f ? { ...f, position: restore } : f));
     }
   };
+
   /** Replacement finder filters — each defaults to today's hardcoded value. */
   const [replaceLimit, setReplaceLimit] = useState<(typeof REPLACEMENT_LIMITS)[number]>(5);
   const [minStartOverride, setMinStartOverride] = useState(MINUTES_FLOOR);
@@ -1262,6 +1263,42 @@ export default function BuilderPage() {
   } | null>(null);
   const pickerCard = useRef<HTMLDivElement>(null);
   const closingPicker = useRef<number | null>(null);
+
+  /**
+   * Adding into an empty pitch slot (`PitchView`'s `onAddToSlot`) — the same
+   * shape as `startReplacing`/`stopReplacing` above, minus the
+   * replacement-finder panel: there is no outgoing player, so this only
+   * locks the picker's position filter and scrolls the plain picker table
+   * (`pickerCard`) into view. A separate ref from `preReplacePosition`
+   * because the two modes are mutually exclusive but each needs its own
+   * "what to restore".
+   */
+  const [addingPosition, setAddingPosition] = useState<number | null>(null);
+  const preAddPosition = useRef<number | null>(null);
+
+  const startAdding = (elementType: number) => {
+    setAddingPosition(elementType);
+    if (resolvedFilters) {
+      preAddPosition.current = resolvedFilters.position;
+      setFilters({ ...resolvedFilters, position: elementType });
+    }
+    setPage(0);
+  };
+
+  const stopAdding = () => {
+    setAddingPosition(null);
+    if (preAddPosition.current !== null) {
+      const restore = preAddPosition.current;
+      preAddPosition.current = null;
+      setFilters((f) => (f ? { ...f, position: restore } : f));
+    }
+  };
+
+  useEffect(() => {
+    if (addingPosition !== null) {
+      pickerCard.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [addingPosition]);
 
   const closePickerDetail = useCallback(() => {
     closingPicker.current = pickerDetail?.id ?? null;
@@ -1523,6 +1560,27 @@ export default function BuilderPage() {
             Build or optimise a squad and project it with the xP model. Drafts are saved in this
             browser.
           </p>
+          {team.players.length === 0 && (
+            <p className="mt-2 text-sm text-purple-800 dark:text-primary">
+              Starting from scratch?{" "}
+              <Link
+                href="/team"
+                className="font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Import your FPL squad
+              </Link>{" "}
+              or{" "}
+              <button
+                type="button"
+                onClick={() => runOptimizer(true)}
+                disabled={optimizerRunning}
+                className="font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              >
+                build one for me
+              </button>
+              .
+            </p>
+          )}
         </div>
 
         {/* drafts bar */}
@@ -1778,6 +1836,7 @@ export default function BuilderPage() {
             onSetVice={(id) => persist(setViceCaptain(team, id))}
             onRemove={(id) => persist(removePlayer(team, id))}
             onFindReplacement={startReplacing}
+            onAddToSlot={startAdding}
           />
         </section>
 
@@ -2235,6 +2294,21 @@ export default function BuilderPage() {
                 </button>
               </div>
             )}
+            {addingPosition !== null && (
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md bg-purple-50 px-2.5 py-1.5 text-xs text-purple-900 dark:bg-purple-950/50 dark:text-purple-200">
+                <span>
+                  Adding a <strong>{POSITIONS[addingPosition]}</strong> — filtered to that
+                  position
+                </span>
+                <button
+                  type="button"
+                  onClick={() => stopAdding()}
+                  className="shrink-0 rounded font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
             <div className="flex flex-wrap items-start gap-2 text-xs">
               {resolvedFilters && priceBounds && (
                 <PlayerFilters
@@ -2243,7 +2317,11 @@ export default function BuilderPage() {
                   teamOptions={[...teamShort.entries()].sort((a, b) => a[1].localeCompare(b[1]))}
                   priceBounds={priceBounds}
                   positionOptions={POSITIONS}
-                  lockedPosition={replaceFor !== null ? resolvedFilters.position : undefined}
+                  lockedPosition={
+                    replaceFor !== null || addingPosition !== null
+                      ? resolvedFilters.position
+                      : undefined
+                  }
                 />
               )}
               <select
@@ -2356,7 +2434,10 @@ export default function BuilderPage() {
                             title={reason ?? (replaceFor !== null ? `Swap in ${p.web_name}` : `Add ${p.web_name}`)}
                             onClick={() => {
                               if (replaceFor !== null) doSwap(replaceFor, meta);
-                              else persist(addPlayer(team, meta));
+                              else {
+                                persist(addPlayer(team, meta));
+                                if (addingPosition !== null) stopAdding();
+                              }
                             }}
                             // Horizontal-only hit-area expansion: this button
                             // repeats in every row of a densely-packed pool
@@ -2430,7 +2511,10 @@ export default function BuilderPage() {
                   const m = metaById.get(id);
                   if (!m) return;
                   if (replaceFor !== null) doSwap(replaceFor, m);
-                  else persist(addPlayer(team, m));
+                  else {
+                    persist(addPlayer(team, m));
+                    if (addingPosition !== null) stopAdding();
+                  }
                   closePickerDetail();
                 }}
                 onFindReplacement={(id) => {

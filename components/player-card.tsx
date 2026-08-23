@@ -279,16 +279,48 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
   );
 }
 
-/** Dashed outline for an unfilled squad slot. */
-export function EmptySlot({ label }: { label: string }) {
-  return (
-    <span className="flex w-16 flex-col items-center justify-center sm:w-20">
+/**
+ * Dashed outline for an unfilled squad slot. Read-only pitches (`/team`,
+ * `/deadline` — see `PitchView`'s prop comment) pass no `onAdd`, so this
+ * stays the inert span it always was; only `/builder` wires the handler,
+ * turning the slot itself into the "add a player" affordance instead of the
+ * far-away picker table being the only way in.
+ */
+export function EmptySlot({ label, onAdd }: { label: string; onAdd?: () => void }) {
+  const inner = (
+    <>
       <span className="flex h-12 w-11 items-center justify-center rounded-md border-2 border-dashed border-purple-200/50 sm:h-14 sm:w-13 dark:border-purple-400/30">
-        <span className="text-[10px] font-semibold text-purple-100/70 dark:text-purple-300/60">
-          {label}
-        </span>
+        {onAdd ? (
+          <span
+            aria-hidden="true"
+            className="text-base font-bold leading-none text-purple-100/70 dark:text-purple-300/60"
+          >
+            +
+          </span>
+        ) : (
+          <span className="text-[10px] font-semibold text-purple-100/70 dark:text-purple-300/60">
+            {label}
+          </span>
+        )}
       </span>
       <span className="mt-1 h-[1.1rem] w-full rounded border border-dashed border-purple-200/40 dark:border-purple-400/25" />
-    </span>
+    </>
+  );
+
+  if (onAdd) {
+    return (
+      <button
+        type="button"
+        onClick={onAdd}
+        aria-label={`Add a ${label}`}
+        className="flex w-16 flex-col items-center justify-center rounded-md sm:w-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return (
+    <span className="flex w-16 flex-col items-center justify-center sm:w-20">{inner}</span>
   );
 }
