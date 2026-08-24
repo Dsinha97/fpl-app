@@ -7,7 +7,8 @@ import { InfoTooltip } from "@/components/info-tooltip";
 import { fmtCountdown } from "@/lib/countdown";
 import { listDrafts, onDraftsChanged, resolveRequestedDraft } from "@/lib/drafts";
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
-import { totalSpend } from "@/lib/squad-budget";
+import { squadSellValue, totalSpend } from "@/lib/squad-budget";
+import { supabase } from "@/lib/supabase/client";
 import type { TeamState } from "@/lib/team-state";
 import { freeTransfersDisplay } from "@/lib/transfers";
 
@@ -27,6 +28,7 @@ export function ContextBar() {
   const [ctx, setCtx] = useState<SeasonContext | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [drafts, setDrafts] = useState<TeamState[]>([]);
+  const [nowCostById, setNowCostById] = useState<Map<number, number>>(new Map());
 
   useEffect(() => {
     loadSeasonContext()
@@ -50,9 +52,41 @@ export function ContextBar() {
     [drafts, entryId, teamName],
   );
 
-  const countdown = ctx ? fmtCountdown(ctx.deadlineTime, now) : null;
   const hasSquad = !!draft && draft.players.length > 0;
+
+  // Squad value ("what you'd get selling up") is a distinct number from
+  // bank — see squadSellValue (lib/squad-budget.ts). Only the 15 held
+  // players' live prices are needed, a 15-row lookup rather than the
+  // 700-row players fetch other pages do.
+  useEffect(() => {
+    if (!ctx || !draft || draft.players.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setNowCostById(new Map());
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("players")
+      .select("id, now_cost")
+      .eq("season", ctx.season)
+      .in(
+        "id",
+        draft.players.map((p) => p.playerId),
+      )
+      .then(({ data }) => {
+        if (cancelled) return;
+        setNowCostById(
+          new Map((data ?? []).map((r) => [r.id as number, (r.now_cost as number | null) ?? 0])),
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ctx, draft]);
+
+  const countdown = ctx ? fmtCountdown(ctx.deadlineTime, now) : null;
   const bank = hasSquad ? draft!.budget - totalSpend(draft!.players) : null;
+  const squadValue = hasSquad ? squadSellValue(draft!.players, (id) => nowCostById.get(id)) : null;
 
   if (!ctx) return null;
 
@@ -79,6 +113,21 @@ export function ContextBar() {
           >
             Import your FPL team →
           </Link>
+        )}
+
+        {hasSquad && squadValue !== null && (
+          <span className="flex items-center gap-1">
+            Value
+            <span className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
+              £{(squadValue / 10).toFixed(1)}m
+            </span>
+            <InfoTooltip label="How is squad value calculated?">
+              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                What you&apos;d get selling every player today — purchase price plus half of
+                any rise, so it can differ from the players&apos; own listed prices.
+              </p>
+            </InfoTooltip>
+          </span>
         )}
 
         {hasSquad && (

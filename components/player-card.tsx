@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { FDRBadge } from "./fdr-badge";
 import { StatusBadge } from "./player-status-icons";
+import { Skeleton } from "./ui/skeleton";
 import { asRating } from "@/lib/fdr";
 
 export interface UpcomingFixture {
@@ -30,6 +31,13 @@ export interface PlayerData {
   value_note?: string | null;
   /** Decimals for the headline number. Real points are whole; xP is not. */
   value_decimals?: number;
+  /**
+   * True while `expected_points` is still being calculated rather than
+   * genuinely absent — distinguishes "not modelled" from "not here yet" so a
+   * freshly-loaded page doesn't show the same dash for both (CLAUDE.md's
+   * "say what the number means"). Renders a shimmer instead of the em-dash.
+   */
+  value_loading?: boolean;
   status?: string | null;
   chance_of_playing_next_round?: number | null;
   is_captain?: boolean;
@@ -241,7 +249,16 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
           player.next_fixture ? "justify-between py-0.5 text-[9px]" : "justify-center py-1"
         }`}
       >
-        {hasXp ? (
+        {player.value_loading ? (
+          <span
+            role="status"
+            aria-busy="true"
+            title="Expected points still being calculated"
+            className="inline-flex"
+          >
+            <Skeleton className={player.next_fixture ? "h-2.5 w-4" : "h-4 w-6"} />
+          </span>
+        ) : hasXp ? (
           <span
             className={`font-bold text-emerald-400 ${player.next_fixture ? "text-[10px]" : "text-base"}`}
             title={player.value_note ?? "Expected points (xP) over the selected horizon"}
@@ -251,7 +268,7 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
         ) : (
           <span
             className={`font-bold text-purple-400 ${player.next_fixture ? "text-[10px]" : "text-base"}`}
-            title="No xP projection — not enough prior-season minutes to model"
+            title={player.value_note ?? "No xP projection — not enough prior-season minutes to model"}
           >
             —
           </span>

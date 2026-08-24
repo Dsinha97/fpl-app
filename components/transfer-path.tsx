@@ -10,6 +10,8 @@ interface TransferPathProps {
   onRun: () => void;
   /** Whether the current chip plan has anything for the path to shape itself around. */
   hasChipPlan: boolean;
+  /** True while the per-event xP series this search reads isn't fully loaded yet. */
+  disabled?: boolean;
 }
 
 const signed = (v: number, digits = 1) => {
@@ -24,7 +26,7 @@ const signed = (v: number, digits = 1) => {
  * pages it appears on: it is a bounded but still real search, and never
  * belongs in an eager memo alongside the per-deadline optimiser.
  */
-export function TransferPath({ result, loading, onRun, hasChipPlan }: TransferPathProps) {
+export function TransferPath({ result, loading, onRun, hasChipPlan, disabled }: TransferPathProps) {
   return (
     <section className="mt-5 rounded-xl border border-zinc-200 bg-card p-4 dark:border-purple-900/40">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -39,7 +41,8 @@ export function TransferPath({ result, loading, onRun, hasChipPlan }: TransferPa
         <button
           type="button"
           onClick={onRun}
-          disabled={loading}
+          disabled={loading || disabled}
+          title={disabled ? "Still loading this horizon's expected points" : undefined}
           className="flex min-h-9 items-center gap-1.5 rounded-md border border-purple-700 px-3 py-1.5 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
         >
           {loading && <Spinner />}

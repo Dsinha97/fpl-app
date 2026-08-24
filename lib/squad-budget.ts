@@ -16,6 +16,7 @@
 
 import { hasConsistentLineup, type PlayerMeta, type SquadRules, type TeamState } from "./team-state";
 import type { LineupResult } from "./lineup";
+import { sellPrice } from "./transfers";
 
 /** The one implementation of "money spent on a set of picks" — see
  *  docs/wiki/methodology.md's "one quantity, one implementation" rule. This
@@ -149,4 +150,26 @@ export function squadBudget(
     benchSurplus: benchSpend - benchFloor,
     splitKnown: true,
   };
+}
+
+/**
+ * FPL's own "Squad Value": what the 15 picks would fetch if sold today. Not
+ * Σ now_cost — a rise is only half yours (see `sellPrice`, lib/transfers.ts,
+ * the one implementation of that rule).
+ *
+ * Returns null the moment a single pick's live price is unknown, rather than
+ * pricing it at its purchase price and reporting a total that is quietly
+ * wrong — same "drop it and disclose" instinct as `SquadBudget.splitKnown`.
+ */
+export function squadSellValue(
+  picks: readonly { playerId: number; purchasePrice: number }[],
+  nowCostOf: (playerId: number) => number | undefined,
+): number | null {
+  let total = 0;
+  for (const p of picks) {
+    const nowCost = nowCostOf(p.playerId);
+    if (nowCost === undefined) return null;
+    total += sellPrice(p.purchasePrice, nowCost);
+  }
+  return total;
 }

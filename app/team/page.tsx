@@ -31,7 +31,13 @@ import {
   type SquadPoints,
 } from "@/lib/manager-picks";
 import { loadSeasonContext } from "@/lib/season-context";
-import { loadLiveDetail, type LiveStatLine } from "@/lib/gameweek-state";
+import {
+  loadFixtureRows,
+  loadLiveDetail,
+  matchStatusForTeam,
+  type LiveStatLine,
+  type PlayerMatchStatus,
+} from "@/lib/gameweek-state";
 import { DEFAULT_RULES, type SquadRules, type TeamState } from "@/lib/team-state";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { useAuth } from "@/components/auth-provider";
@@ -295,6 +301,13 @@ export default function TeamPage() {
   // "undefined/null hides the section" convention player-detail.tsx follows.
   const [explainByElement, setExplainByElement] = useState<Map<number, LiveStatLine[] | null>>(new Map());
   const [eventProvisional, setEventProvisional] = useState(false);
+  // Whether each squad player's fixture for `selectedEvent` has kicked off
+  // yet — distinguishes "hasn't played" from a genuine 0-minute blank so the
+  // card can show "–" instead of a misleading 0 (see matchStatusForTeam,
+  // lib/gameweek-state.ts, the same check /deadline's live card already uses).
+  const [matchStatusByElement, setMatchStatusByElement] = useState<Map<number, PlayerMatchStatus>>(
+    new Map(),
+  );
   const [pointsLoading, setPointsLoading] = useState(false);
   const [pointsError, setPointsError] = useState<string | null>(null);
 
@@ -727,14 +740,23 @@ export default function TeamPage() {
       setPointsError(null);
       try {
         const elements = picks.map((p) => p.element);
-        const [result, liveDetail] = await Promise.all([
+        const [result, liveDetail, fixtures] = await Promise.all([
           loadEventPoints(data.nextGw!.season, selectedEvent, elements),
           loadLiveDetail(data.nextGw!.season, selectedEvent, elements),
+          loadFixtureRows(data.nextGw!.season, selectedEvent),
         ]);
         if (cancelled) return;
         setEventPoints(result.byPlayer);
         setEventProvisional(result.provisional);
         setExplainByElement(new Map([...liveDetail.byPlayer].map(([id, d]) => [id, d.explain])));
+        setMatchStatusByElement(
+          new Map(
+            elements.map((id) => {
+              const teamId = data!.players.get(id)?.team_id;
+              return [id, teamId !== undefined ? matchStatusForTeam(teamId, fixtures) : "not_started"];
+            }),
+          ),
+        );
       } catch (err) {
         if (!cancelled) setPointsError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -805,10 +827,16 @@ export default function TeamPage() {
       // The captain's card shows the multiplied figure, which is what that
       // pick actually contributed — the ×2 marker beside it says why.
       const multiplier = Math.max(1, p.multiplier);
+      // A pre-kickoff placeholder row reads identically to a real 0-minute
+      // blank (loadEventPoints, lib/manager-picks.ts) — matchStatusByElement
+      // disambiguates "hasn't played yet" so the card can say so honestly
+      // instead of printing a 0 that hasn't happened.
+      const notStarted = matchStatusByElement.get(p.element) === "not_started";
       const card = toCard(p.element, {
-        value: scored ? scored.points * (p.position <= 11 ? multiplier : 1) : null,
-        valueNote:
-          scored === undefined
+        value: notStarted ? null : scored ? scored.points * (p.position <= 11 ? multiplier : 1) : null,
+        valueNote: notStarted
+          ? `Hasn't kicked off yet — GW${p.event} fixture not started`
+          : scored === undefined
             ? "No stats recorded for this player in this gameweek"
             : `GW${p.event} points${multiplier > 1 ? ` (×${multiplier} armband)` : ""}${
                 scored.fixtures > 1 ? ` · ${scored.fixtures} fixtures` : ""
@@ -835,14 +863,14 @@ export default function TeamPage() {
         {
           ...card,
           next_fixture: nextFixture,
-          live_breakdown: explainByElement.get(p.element) ?? null,
-          gw_goals: scored?.goals ?? null,
-          gw_assists: scored?.assists ?? null,
-          gw_minutes: scored?.minutes ?? null,
+          live_breakdown: notStarted ? null : (explainByElement.get(p.element) ?? null),
+          gw_goals: notStarted ? null : (scored?.goals ?? null),
+          gw_assists: notStarted ? null : (scored?.assists ?? null),
+          gw_minutes: notStarted ? null : (scored?.minutes ?? null),
         },
       ];
     });
-  }, [gwPicks, eventPoints, explainByElement, toCard, data]);
+  }, [gwPicks, eventPoints, explainByElement, toCard, data, matchStatusByElement]);
 
   const gwLayout: SquadLayout | null = useMemo(() => {
     if (!gwPicks || !data || !gwScore) return null;

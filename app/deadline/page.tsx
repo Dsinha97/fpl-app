@@ -14,6 +14,7 @@ import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { ChipPlanEditor } from "@/components/chip-plan-editor";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { TransferPath } from "@/components/transfer-path";
 import { planTransferPath, type TransferPathResult } from "@/lib/transfer-path";
 import { chipContextFor, validateChipPlan, type ChipDefinitionRow } from "@/lib/chip-plan";
@@ -144,7 +145,10 @@ export default function DeadlinePage() {
   const [chipDefinitions, setChipDefinitions] = useState<ChipDefinitionRow[]>([]);
   const [rowById, setRowById] = useState<Map<number, PlayerRow>>(new Map());
   const [xpById, setXpById] = useState<Map<number, XpRow>>(new Map());
-  const [scoredById, setScoredById] = useState<Map<number, ScoredPlayer>>(new Map());
+  // Each team's run of upcoming FDRs — published alongside rowById/xpById
+  // (Stage 2) rather than folded silently into scoredById, so scoredById can
+  // be derived rather than needing its own setter blocked on predictions.
+  const [fdrRunsByTeam, setFdrRunsByTeam] = useState<Map<number, number[]>>(new Map());
   const [predsByPlayer, setPredsByPlayer] = useState<Map<number, Map<number, EventPrediction>>>(
     new Map(),
   );
@@ -155,6 +159,15 @@ export default function DeadlinePage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // `loading` now covers only the shell + squad-view fetch (Stage 1 & 2
+  // below) so the pitch and readiness sections paint immediately; the
+  // predictions fetch is staged separately so it never blocks that first
+  // paint. `predsLoading` clears once the deadline gameweek's own
+  // predictions are in (unlocks the pitch's xP, captain/XI, chip call);
+  // `predsFullLoading` clears once every remaining event has arrived
+  // (needed before the transfer optimiser/path can trust the series).
+  const [predsLoading, setPredsLoading] = useState(true);
+  const [predsFullLoading, setPredsFullLoading] = useState(true);
 
   const [horizon, setHorizon] = useState<Horizon>(5);
   const [freeTransfers, setFreeTransfers] = useState(1);
@@ -232,6 +245,17 @@ export default function DeadlinePage() {
   }, []);
 
   // --------------------------------------------------------------------- data
+  //
+  // Staged in three parts so the page paints as soon as it can rather than
+  // waiting on the slowest query. Stage 1 (season context) and Stage 2
+  // (players/xp/chips/fixtures/teams) are everything the squad pitch,
+  // readiness and availability sections need — `loading` clears the moment
+  // Stage 2 lands. Stage 3 is `player_predictions`, split into 3a (just the
+  // deadline gameweek — unlocks the pitch's xP, captain/XI, chip call) and
+  // 3b (the rest of the horizon, paged exactly as before — needed only by
+  // the transfer optimiser/path). Previously all three ran serially behind
+  // one `loading` flag, so the whole page sat behind 3b's ~20 sequential
+  // 1000-row pages before anything painted.
   useEffect(() => {
     (async () => {
       try {
@@ -350,73 +374,82 @@ export default function DeadlinePage() {
           }
         }
         setNextFixtureByTeam(nextFixtures);
+        setFdrRunsByTeam(fdrRuns);
 
-        // Paged deliberately — see PAGE_ROWS. One fetch serves both the
-        // per-gameweek candidate maths (candidatesAt / optimiseLineup / chip
-        // valuations) and the transfer optimizer's per-event xP series, so
-        // there is only one place this is read from.
+        const rows = (playersRes.data ?? []) as PlayerRow[];
+        setRowById(new Map(rows.map((p) => [p.id, p])));
+        setXpById(new Map((xpRes.data ?? []).map((r) => [r.player_id as number, r as XpRow])));
+
+        // Stage 2 is everything the squad pitch, readiness and availability
+        // sections need — paint now rather than waiting on predictions.
+        setLoading(false);
+
+        // Stage 3a: just the deadline gameweek, one request — unlocks the
+        // pitch's xP, captain/XI and chip call without the full-horizon page.
+        const rowToEvent = (r: {
+          player_id: unknown;
+          event: unknown;
+          expected_minutes: unknown;
+          start_probability: unknown;
+          availability: unknown;
+          fdr: unknown;
+          xp: unknown;
+        }) => ({
+          id: r.player_id as number,
+          event: r.event as number,
+          pred: {
+            expectedMinutes: r.expected_minutes as number | null,
+            startProbability: r.start_probability as number | null,
+            availability: (r.availability as number | null) ?? 0,
+            fdr: r.fdr as number | null,
+            xp: r.xp as number | null,
+          } satisfies EventPrediction,
+        });
+
+        const { data: firstEventRows, error: firstEventError } = await supabase
+          .from("player_predictions")
+          .select("player_id, event, expected_minutes, start_probability, availability, fdr, xp")
+          .eq("season", seasonCtx.season)
+          .eq("event", seasonCtx.nextEvent);
+        if (firstEventError) throw new Error(firstEventError.message);
+
         const preds = new Map<number, Map<number, EventPrediction>>();
+        for (const r of firstEventRows ?? []) {
+          const { id, event, pred } = rowToEvent(r);
+          let byEvent = preds.get(id);
+          if (!byEvent) preds.set(id, (byEvent = new Map()));
+          byEvent.set(event, pred);
+        }
+        setPredsByPlayer(new Map(preds));
+        setPredsLoading(false);
+
+        // Stage 3b: the rest of the horizon, paged exactly as before (see
+        // PAGE_ROWS) — only the transfer optimiser/path needs this, and both
+        // stay disabled until predsFullLoading clears.
         for (let from = 0; ; from += PAGE_ROWS) {
           const { data: page, error: pageError } = await supabase
             .from("player_predictions")
             .select("player_id, event, expected_minutes, start_probability, availability, fdr, xp")
             .eq("season", seasonCtx.season)
-            .gte("event", seasonCtx.nextEvent)
+            .gt("event", seasonCtx.nextEvent)
             .order("player_id")
             .order("event")
             .range(from, from + PAGE_ROWS - 1);
           if (pageError) throw new Error(pageError.message);
           for (const r of page ?? []) {
-            const id = r.player_id as number;
+            const { id, event, pred } = rowToEvent(r);
             let byEvent = preds.get(id);
             if (!byEvent) preds.set(id, (byEvent = new Map()));
-            byEvent.set(r.event as number, {
-              expectedMinutes: r.expected_minutes as number | null,
-              startProbability: r.start_probability as number | null,
-              availability: (r.availability as number | null) ?? 0,
-              fdr: r.fdr as number | null,
-              xp: r.xp as number | null,
-            });
+            byEvent.set(event, pred);
           }
           if ((page?.length ?? 0) < PAGE_ROWS) break;
         }
-        setPredsByPlayer(preds);
-
-        const rows = (playersRes.data ?? []) as PlayerRow[];
-        setRowById(new Map(rows.map((p) => [p.id, p])));
-        const xpMap = new Map((xpRes.data ?? []).map((r) => [r.player_id as number, r as XpRow]));
-        setXpById(xpMap);
-
-        const scored = new Map<number, ScoredPlayer>();
-        for (const p of rows) {
-          const x = xpMap.get(p.id);
-          const pred = preds.get(p.id)?.get(seasonCtx.nextEvent);
-          scored.set(p.id, {
-            id: p.id,
-            webName: p.web_name,
-            elementType: p.element_type,
-            teamId: p.team_id,
-            teamShort: null,
-            price: p.now_cost ?? 0,
-            ownership: p.selected_by_percent,
-            pointsPerGame: p.points_per_game,
-            xp: {
-              1: x?.xp_1 ?? null,
-              3: x?.xp_3 ?? null,
-              5: x?.xp_5 ?? null,
-              8: x?.xp_8 ?? null,
-              19: x?.xp_19 ?? null,
-              season: x?.xp_total ?? null,
-            },
-            expectedMinutes: pred?.expectedMinutes ?? null,
-            startProbability: pred?.startProbability ?? null,
-            availability: availabilityFromStatus(p.status, p.chance_of_playing_next_round),
-            fdrRun: fdrRuns.get(p.team_id) ?? [],
-          });
-        }
-        setScoredById(scored);
+        setPredsByPlayer(new Map(preds));
+        setPredsFullLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
+        setPredsLoading(false);
+        setPredsFullLoading(false);
       } finally {
         setLoading(false);
       }
@@ -617,6 +650,42 @@ export default function DeadlinePage() {
     [rowById],
   );
 
+  // Derived rather than set from inside the loading effect, so it exists as
+  // soon as Stage 2 (rowById/xpById/fdrRunsByTeam) lands — expectedMinutes/
+  // startProbability read null until Stage 3a's predictions arrive and this
+  // recomputes, same "undefined/null hides it" convention as the rest of the
+  // page rather than blocking the whole map on predictions.
+  const scoredById = useMemo(() => {
+    const scored = new Map<number, ScoredPlayer>();
+    for (const p of rowById.values()) {
+      const x = xpById.get(p.id);
+      const pred = ctx ? predsByPlayer.get(p.id)?.get(ctx.nextEvent) : undefined;
+      scored.set(p.id, {
+        id: p.id,
+        webName: p.web_name,
+        elementType: p.element_type,
+        teamId: p.team_id,
+        teamShort: null,
+        price: p.now_cost ?? 0,
+        ownership: p.selected_by_percent,
+        pointsPerGame: p.points_per_game,
+        xp: {
+          1: x?.xp_1 ?? null,
+          3: x?.xp_3 ?? null,
+          5: x?.xp_5 ?? null,
+          8: x?.xp_8 ?? null,
+          19: x?.xp_19 ?? null,
+          season: x?.xp_total ?? null,
+        },
+        expectedMinutes: pred?.expectedMinutes ?? null,
+        startProbability: pred?.startProbability ?? null,
+        availability: availabilityFromStatus(p.status, p.chance_of_playing_next_round),
+        fdrRun: fdrRunsByTeam.get(p.team_id) ?? [],
+      });
+    }
+    return scored;
+  }, [rowById, xpById, fdrRunsByTeam, predsByPlayer, ctx]);
+
   /** `scoredById` with the GW1 layer folded in — no-op unless the toggle is on and this is GW1. */
   const gw1ScoredById = useMemo(
     () => withGw1Context(scoredById, { enabled: gw1Enabled, nextEvent: ctx?.nextEvent ?? 0 }),
@@ -702,6 +771,7 @@ export default function DeadlinePage() {
           // is about — not a multi-week horizon figure.
           expected_points: pred?.xp ?? null,
           value_note: `Expected points in ${ctx.gameweekName}`,
+          value_loading: predsLoading,
           status: row.status,
           chance_of_playing_next_round: row.chance_of_playing_next_round,
           is_captain: team.captain === row.id,
@@ -728,7 +798,18 @@ export default function DeadlinePage() {
         },
       ];
     });
-  }, [team, ctx, rowById, predAt, teamMeta, nextFixtureByTeam, xpById, gw1Enabled, pastResultsByPlayer]);
+  }, [
+    team,
+    ctx,
+    rowById,
+    predAt,
+    teamMeta,
+    nextFixtureByTeam,
+    xpById,
+    gw1Enabled,
+    pastResultsByPlayer,
+    predsLoading,
+  ]);
 
   /**
    * The pitch shows the XI **you entered**, not the optimiser's. The Captain &
@@ -739,25 +820,34 @@ export default function DeadlinePage() {
    */
   const squadLayout: SquadLayout | null = useMemo(() => {
     if (!team || !ctx) return null;
+
+    // Your own XI/bench split needs no optimiser output at all — render it
+    // as soon as the squad view (Stage 2) is in, rather than waiting on
+    // predictions the way the fallback branch below has to.
+    if (hasConsistentLineup(team)) {
+      const typeOf = (id: number) => rowById.get(id)?.element_type;
+      const count = (type: number) =>
+        team.startingXI.filter((id) => typeOf(id) === type).length;
+      const xiXp = team.startingXI.reduce((sum, id) => sum + (predAt(id, ctx.nextEvent)?.xp ?? 0), 0);
+
+      return {
+        starters: team.startingXI,
+        bench: team.benchOrder,
+        formation: `${count(2)}-${count(3)}-${count(4)}`,
+        // Auto-sub probabilities belong to the model's own bench order; this is
+        // yours, so the strip carries the xP of the XI on screen instead.
+        subProbability: new Map(),
+        // Predictions still loading: xiXp sums to 0, which would print a
+        // false "0.0 xP" — say "your XI" alone rather than a number that
+        // hasn't been computed yet (CLAUDE.md's "don't ship a quietly
+        // shrunken number").
+        benchSummary: predsLoading ? "your XI" : `your XI ${xiXp.toFixed(1)} xP`,
+      };
+    }
+
     if (!lineup) return null;
-
-    if (!hasConsistentLineup(team)) return layoutFromLineup(lineup);
-
-    const typeOf = (id: number) => rowById.get(id)?.element_type;
-    const count = (type: number) =>
-      team.startingXI.filter((id) => typeOf(id) === type).length;
-    const xiXp = team.startingXI.reduce((sum, id) => sum + (predAt(id, ctx.nextEvent)?.xp ?? 0), 0);
-
-    return {
-      starters: team.startingXI,
-      bench: team.benchOrder,
-      formation: `${count(2)}-${count(3)}-${count(4)}`,
-      // Auto-sub probabilities belong to the model's own bench order; this is
-      // yours, so the strip carries the xP of the XI on screen instead.
-      subProbability: new Map(),
-      benchSummary: `your XI ${xiXp.toFixed(1)} xP`,
-    };
-  }, [team, ctx, lineup, rowById, predAt]);
+    return layoutFromLineup(lineup);
+  }, [team, ctx, lineup, rowById, predAt, predsLoading]);
 
   const captainDiff = useMemo(() => {
     if (!team || !lineup?.captain || !ctx) return null;
@@ -1055,7 +1145,16 @@ export default function DeadlinePage() {
                     </div>
                   </div>
 
-                  {gwStateLoading && <p className="text-sm text-zinc-500">Loading live scores…</p>}
+                  {gwStateLoading && (
+                    <div className="mb-3 space-y-3" role="status" aria-label="Loading live scores">
+                      <Skeleton className="h-9 w-24" />
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-3/4" />
+                      </div>
+                    </div>
+                  )}
                   {gwStateError && (
                     <p className="text-sm text-red-700 dark:text-red-300">{gwStateError}</p>
                   )}
@@ -1261,6 +1360,11 @@ export default function DeadlinePage() {
                   Edit in Builder →
                 </Link>
               </div>
+              {predsLoading && (
+                <p role="status" className="mb-2 flex items-center gap-2 text-xs text-zinc-500">
+                  <Spinner /> Calculating expected points…
+                </p>
+              )}
               {/* Read-only: no armband or remove handlers, so the detail panel
                   opens as information only. Editing stays in /builder. */}
               <PitchView
@@ -1357,7 +1461,12 @@ export default function DeadlinePage() {
               </h2>
               <InfoTooltip label="About the captain model">{CAPTAIN_MODEL_NOTE}</InfoTooltip>
             </div>
-            {!lineup ? (
+            {predsLoading ? (
+              <div className="mt-2 space-y-2" role="status" aria-label="Loading captain recommendation">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ) : !lineup ? (
               <p className="mt-2 text-sm text-zinc-500">Not enough data to recommend a lineup yet.</p>
             ) : (
               <>
@@ -1423,7 +1532,13 @@ export default function DeadlinePage() {
               Chip call — GW{ctx.nextEvent}
             </h2>
             <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-              {[benchBoost, tripleCaptain].map((v) =>
+              {predsLoading && (
+                <div role="status" aria-label="Loading chip call" className="space-y-2 sm:col-span-2">
+                  <Skeleton className="h-14 w-full" />
+                  <Skeleton className="h-14 w-full" />
+                </div>
+              )}
+              {!predsLoading && [benchBoost, tripleCaptain].map((v) =>
                 v ? (
                   <div key={v.chip} className="rounded-md border border-zinc-200 px-3 py-2 dark:border-purple-900/40">
                     <div className="flex items-baseline justify-between">
@@ -1540,7 +1655,14 @@ export default function DeadlinePage() {
                 <InfoTooltip label="About the transfer model">{TRANSFER_MODEL_NOTE}</InfoTooltip>
                 <button
                   onClick={runTransferOptimizer}
-                  disabled={transferLoading || team.players.length !== ctx.rules.squadSize}
+                  disabled={
+                    transferLoading || predsFullLoading || team.players.length !== ctx.rules.squadSize
+                  }
+                  title={
+                    predsFullLoading
+                      ? "Still loading this horizon's expected points"
+                      : undefined
+                  }
                   className="rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e078]"
                 >
                   {transferLoading ? "Searching…" : "Run optimiser"}
@@ -1550,11 +1672,19 @@ export default function DeadlinePage() {
             {team.players.length !== ctx.rules.squadSize && (
               <p className="mt-2 text-sm text-zinc-500">Complete the squad first to evaluate transfers.</p>
             )}
-            {!transferResult && team.players.length === ctx.rules.squadSize && !transferLoading && (
-              <p className="mt-2 text-sm text-zinc-500">
-                Runs roughly 1,875 simulations — click &ldquo;Run optimiser&rdquo; when ready.
+            {predsFullLoading && team.players.length === ctx.rules.squadSize && (
+              <p className="mt-2 flex items-center gap-2 text-sm text-zinc-500">
+                <Spinner /> Still loading expected points across the horizon…
               </p>
             )}
+            {!predsFullLoading &&
+              !transferResult &&
+              team.players.length === ctx.rules.squadSize &&
+              !transferLoading && (
+                <p className="mt-2 text-sm text-zinc-500">
+                  Runs roughly 1,875 simulations — click &ldquo;Run optimiser&rdquo; when ready.
+                </p>
+              )}
           </section>
 
           {transferResult && (
@@ -1576,6 +1706,7 @@ export default function DeadlinePage() {
               loading={pathLoading}
               onRun={runTransferPath}
               hasChipPlan={chipPlanUsable.length > 0}
+              disabled={predsFullLoading}
             />
           )}
 
