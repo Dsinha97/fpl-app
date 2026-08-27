@@ -21,6 +21,7 @@ import { chipContextFor, validateChipPlan, type ChipDefinitionRow } from "@/lib/
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
 import { fmtCountdown } from "@/lib/countdown";
 import { loadManagerPicks, type ManagerPick } from "@/lib/manager-picks";
+import { loadPredictionSeries } from "@/lib/player-pool";
 import { loadGameweekState, LIVE_MODEL_NOTE, type GameweekState } from "@/lib/gameweek-state";
 import {
   LiveFixtureCard,
@@ -100,9 +101,6 @@ interface XpRow {
   xp_19: number | null;
   xp_total: number | null;
 }
-
-/** The API caps every response at 1000 rows however big `.limit()` asks — see CLAUDE.md. */
-const PAGE_ROWS = 1000;
 
 const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
@@ -419,26 +417,27 @@ export default function DeadlinePage() {
         setPredsByPlayer(new Map(preds));
         setPredsLoading(false);
 
-        // Stage 3b: the rest of the horizon, paged exactly as before (see
-        // PAGE_ROWS) — only the transfer optimiser/path needs this, and both
-        // stay disabled until predsFullLoading clears.
-        for (let from = 0; ; from += PAGE_ROWS) {
-          const { data: page, error: pageError } = await supabase
-            .from("player_predictions")
-            .select("player_id, event, expected_minutes, start_probability, availability, fdr, xp")
-            .eq("season", seasonCtx.season)
-            .gt("event", seasonCtx.nextEvent)
-            .order("player_id")
-            .order("event")
-            .range(from, from + PAGE_ROWS - 1);
-          if (pageError) throw new Error(pageError.message);
-          for (const r of page ?? []) {
-            const { id, event, pred } = rowToEvent(r);
-            let byEvent = preds.get(id);
-            if (!byEvent) preds.set(id, (byEvent = new Map()));
-            byEvent.set(event, pred);
-          }
-          if ((page?.length ?? 0) < PAGE_ROWS) break;
+        // Stage 3b: the rest of the horizon — via the shared, concurrently-
+        // paged, memoised loader lib/player-pool.ts already built for
+        // /transfers and /chips, rather than this page's own serial
+        // .range() loop (CLAUDE.md's "one quantity, one implementation").
+        // Deliberately fetches from `nextEvent`, not `nextEvent + 1`: that's
+        // the exact cache key /transfers and /chips already use, so
+        // navigating between any of these pages is a cache hit rather than
+        // a refetch. It re-covers the event Stage 3a already fetched, but
+        // that overlap is free (same concurrent batch) and safe (the
+        // `.set()` below overwrites with an identical value).
+        const fullSeries = await loadPredictionSeries(seasonCtx.season, seasonCtx.nextEvent);
+        for (const row of fullSeries) {
+          let byEvent = preds.get(row.playerId);
+          if (!byEvent) preds.set(row.playerId, (byEvent = new Map()));
+          byEvent.set(row.event, {
+            expectedMinutes: row.expectedMinutes,
+            startProbability: row.startProbability,
+            availability: row.availability,
+            fdr: row.fdr,
+            xp: row.xp,
+          });
         }
         setPredsByPlayer(new Map(preds));
         setPredsFullLoading(false);

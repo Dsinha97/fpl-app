@@ -58,6 +58,26 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
+- **Latency roadmap — `/deadline`, `/builder`, and `/team` fixed 2026-08-27.** Pulled the owner's
+  NotebookLM research on web performance into
+  [sources/website-optimization.md](sources/website-optimization.md), measured the live site
+  instead of applying its advice generically (most of it targets a server-backed OLAP dashboard
+  this app isn't), then signed in as the real owner account to close the signed-out blind spot.
+  Built: `/deadline` and `/builder` both serially paged `player_predictions` instead of using
+  `lib/player-pool.ts`'s already-concurrent `loadPredictionSeries` — routed both through it
+  (6.8 s → 3.8 s settle on `/deadline`; ~5.3 s → ~1.9 s on `/builder`'s replace panel), and fixed
+  a real latent bug found along the way: the shared loader's concurrent `.range()` pages had no
+  `.order()`, so two offset queries had no guarantee of seeing the same row order — verified
+  correct with a live-data harness before and after. Separately, `/team` called the `sync-manager`
+  Edge Function (a live FPL API re-fetch) on *every* page load while signed in, blocking 3.7 s —
+  the owner set the staleness policy directly (sync once a day off-matchday, every 2-minute cron
+  tick on one, mirroring `sync-live-gameweek`'s own gating), so a new `sync-claimed-managers` cron
+  now keeps claimed managers fresh in the background; `/team` reads pre-synced data instead
+  (8.3 s → 5.5 s settle, the `sync-manager` call gone from ordinary loads; the manual Refresh
+  button still forces one). Still open: zero `next/dynamic` usage anywhere (every route ships
+  ~1.1 MB of raw JS regardless of what it uses), and a serial-waterfall pattern — now confirmed on
+  `/team` too, not just `/players`/`/transfers` — among pages' own non-prediction reads. Full
+  ranked plan, measured before/after, rejected alternatives: [sprints/latency.md](sprints/latency.md).
 - **Custom SMTP for Supabase Auth — unblocked 2026-08-23, not started.** Sprint 14.1 recorded
   the built-in email sender's project-wide hourly cap as unfixable without custom SMTP, which
   needed "a domain we own" for sender verification — `fpldecision.com` (Sprint 25) removes that

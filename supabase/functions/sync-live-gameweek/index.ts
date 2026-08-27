@@ -7,7 +7,14 @@
 // costs one cheap database query on the ~95% of days with no live football.
 
 import { getLive } from "../_shared/fpl.ts";
-import { currentSeason, jsonResponse, preflight, serviceClient, SyncRun } from "../_shared/sync.ts";
+import {
+  currentSeason,
+  hasLiveFixture,
+  jsonResponse,
+  preflight,
+  serviceClient,
+  SyncRun,
+} from "../_shared/sync.ts";
 import { bool, chunk, int, num } from "../_shared/coerce.ts";
 
 const FUNCTION_NAME = "sync-live-gameweek";
@@ -40,16 +47,9 @@ Deno.serve(async (req) => {
 
     // Gate on live football unless explicitly forced.
     if (!force) {
-      const { count, error: liveError } = await db
-        .from("fixtures")
-        .select("id", { count: "exact", head: true })
-        .eq("season", season)
-        .eq("event", gw.id)
-        .eq("started", true)
-        .eq("finished", false);
-      if (liveError) throw new Error(`fixtures: ${liveError.message}`);
+      const live = await hasLiveFixture(db, season, gw.id);
 
-      if (!count) {
+      if (!live) {
         await run.finish("skipped", {
           season,
           details: { reason: "no live fixtures", event: gw.id },

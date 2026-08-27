@@ -33,6 +33,28 @@ export async function currentSeason(db: SupabaseClient): Promise<string> {
 }
 
 /**
+ * Whether a fixture in the given gameweek is currently in progress (started,
+ * not finished) — the "is a match live right now" check sync-live-gameweek
+ * and sync-claimed-managers both gate on, so there is one implementation of
+ * "matchday" rather than each function deciding it separately.
+ */
+export async function hasLiveFixture(
+  db: SupabaseClient,
+  season: string,
+  event: number,
+): Promise<boolean> {
+  const { count, error } = await db
+    .from("fixtures")
+    .select("id", { count: "exact", head: true })
+    .eq("season", season)
+    .eq("event", event)
+    .eq("started", true)
+    .eq("finished", false);
+  if (error) throw new Error(`fixtures: ${error.message}`);
+  return (count ?? 0) > 0;
+}
+
+/**
  * Records one execution of an ingestion function in `sync_runs`, so a broken
  * sync is distinguishable from a genuinely quiet news day.
  */

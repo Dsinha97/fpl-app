@@ -65,6 +65,16 @@ async function fetchAll(season: string, fromEvent: number): Promise<PredictionSe
         .select("player_id, event, expected_minutes, start_probability, availability, fdr, xp")
         .eq("season", season)
         .gte("event", fromEvent)
+        // Without an explicit order, Postgres gives no guarantee that two
+        // separate OFFSET queries see the same row order — these pages are
+        // fired concurrently, so an unordered result could overlap or skip
+        // rows between them. (player_id, event) alone isn't unique (a
+        // double gameweek is two rows sharing both), so `fixture` — part of
+        // this table's real primary key alongside season/model_version — is
+        // the third key needed for a total order within one season.
+        .order("player_id")
+        .order("event")
+        .order("fixture")
         .range(from, from + PAGE_ROWS - 1);
       if (error) throw new Error(error.message);
       return data ?? [];

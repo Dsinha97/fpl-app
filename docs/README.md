@@ -46,6 +46,7 @@ file, not separate files.
 | [sprints/sprint-23.md](sprints/sprint-23.md) | live | Page density — `/deadline`, `/team`, `/transfers`, `/chips` repacked into the two-column template `/builder` already used; `/team`'s redundant squad list deleted; `/transfers`' replace picker anchored to its row. |
 | [sprints/sprint-24.md](sprints/sprint-24.md) | live | Expand/collapse polish — `ExpandToggle` primitive, grid-rows accordion replacing mount/unmount on every card expander in the app. |
 | [sprints/sprint-25.md](sprints/sprint-25.md) | live | Domain cutover to `fpldecision.com` + an eleven-item UI defect sweep across `/deadline`, `/team`, `/fixtures`, `/chips`, `/players` and the nav shell. |
+| [sprints/latency.md](sprints/latency.md) | live | Latency baseline + ranked roadmap, measured 2026-08-27. Fixed: `/deadline` and `/builder` both serially paged `player_predictions` (now routed through `lib/player-pool.ts`, plus an ordering bug fixed in that shared loader), and `/team` re-synced from the live FPL API on every load (3.7s blocking — now a `sync-claimed-managers` cron keeps claimed managers fresh in the background, mirroring `sync-live-gameweek`'s gating). Still open: zero route-level code splitting anywhere; a serial-waterfall pattern among non-prediction reads on `/players`, `/transfers`, and now `/team` too. |
 
 ## Source specs
 
@@ -63,6 +64,7 @@ buildable slice.
 | [sources/PL_Team_Manager_Intelligence_Patch_Plan.md](sources/PL_Team_Manager_Intelligence_Patch_Plan.md) | source-spec | PL club tactical-profile plan. Sprint 12.5 is the buildable slice; phases 3–6 blocked on validation — see the banner. |
 | [sources/phase-1-plan.md](sources/phase-1-plan.md) | historical | Completed data-ingestion build plan, marked complete 2026-08-02. §1 (observed API state) and §7 (decisions taken) are durable reference. |
 | [sources/fpl_app_phase_wise_build_plan.md](sources/fpl_app_phase_wise_build_plan.md) | source-spec | The original architecture document Phases 0–4 were built from. Superseded by `roadmap.md`; kept for provenance, linked into by `phase-1-plan.md` and `phase-4-model.md`. |
+| [sources/website-optimization.md](sources/website-optimization.md) | source-spec | Full-text export of the owner's NotebookLM "Website Optimization" notebook (66 sources + one authored synthesis, no notes). Written for a generic server-backed dashboard, not this app — [sprints/latency.md](sprints/latency.md) is what's actually applicable, checked against a measured baseline. |
 
 ## Data assets
 

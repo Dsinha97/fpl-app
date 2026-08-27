@@ -311,13 +311,21 @@ export default function TeamPage() {
   const [pointsLoading, setPointsLoading] = useState(false);
   const [pointsError, setPointsError] = useState<string | null>(null);
 
-  const connect = useCallback(async (entryId: number) => {
+  const connect = useCallback(async (entryId: number, opts: { sync?: boolean } = {}) => {
+    const { sync = true } = opts;
     setInputId(String(entryId));
     setLoading(true);
     setError(null);
 
-    try {
-      // 1. Ask the Edge Function to pull fresh data from FPL into Supabase.
+    // A background cron (supabase/functions/sync-claimed-managers) now keeps
+    // every claimed manager fresh — once a day, or every 2 minutes while a
+    // match is live, mirroring sync-live-gameweek's own gating. `sync: false`
+    // (the auto-mount effect below) skips this and just reads what the cron
+    // already wrote, instead of blocking every page load on a live FPL
+    // re-fetch (measured at 3.7s — docs/sprints/latency.md item 5). The
+    // Connect/Refresh button and rival mutations below keep forcing a real
+    // sync (sync: true, the default) exactly as before.
+    const syncFromFpl = async () => {
       const { error: fnError } = await supabase.functions.invoke("sync-manager", {
         body: { entry_id: entryId },
       });
@@ -329,9 +337,10 @@ export default function TeamPage() {
         }
         throw fnError;
       }
+    };
 
-      // 2. Read everything back from Supabase.
-      const [managerRes, seasonsRes, gwRes, nextGwRes] = await Promise.all([
+    const readBack = () =>
+      Promise.all([
         supabase.from("managers").select("*").eq("entry_id", entryId).single(),
         supabase
           .from("manager_season_history")
@@ -350,6 +359,23 @@ export default function TeamPage() {
           .limit(1)
           .maybeSingle(),
       ]);
+
+    try {
+      // 1. Ask the Edge Function to pull fresh data from FPL into Supabase.
+      if (sync) await syncFromFpl();
+
+      // 2. Read everything back from Supabase.
+      let [managerRes, seasonsRes, gwRes, nextGwRes] = await readBack();
+
+      // A claim the background cron hasn't reached yet (no `managers` row
+      // at all — e.g. claimed seconds ago on another device) falls back to
+      // a real sync rather than surfacing an error. Same "no row yet"
+      // signal sync-claimed-managers' own due-list check uses server-side,
+      // checked here instead of guessed at with a timer.
+      if (!sync && managerRes.error?.code === "PGRST116") {
+        await syncFromFpl();
+        [managerRes, seasonsRes, gwRes, nextGwRes] = await readBack();
+      }
 
       if (managerRes.error) throw new Error(managerRes.error.message);
       const manager = managerRes.data as ManagerRow;
@@ -897,12 +923,12 @@ export default function TeamPage() {
           .eq("user_id", user.id)
           .maybeSingle();
         if (profileRow?.entry_id) {
-          void connect(profileRow.entry_id);
+          void connect(profileRow.entry_id, { sync: false });
           return;
         }
       }
       const stored = localStorage.getItem("fpl_manager_id");
-      if (stored) void connect(Number(stored));
+      if (stored) void connect(Number(stored), { sync: false });
     })();
   }, [connect, user, authLoading]);
 

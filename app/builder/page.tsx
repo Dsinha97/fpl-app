@@ -22,6 +22,7 @@ import {
   setPinnedDraft,
 } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
+import { loadPredictionSeries } from "@/lib/player-pool";
 import { loadSquadHeadlines, type NewsHeadline } from "@/lib/news-feed";
 import {
   addPlayer,
@@ -158,8 +159,6 @@ const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FW
 const PAGE_SIZE = 10;
 /** Replacement finder result-count choices. 10 is the default — the spec's number. */
 const REPLACEMENT_LIMITS = [5, 10, 20] as const;
-/** The API caps every response at 1000 rows regardless of `.limit()` — see /transfers' PAGE_ROWS. */
-const PAGE_ROWS = 1000;
 
 /**
  * Hard cap on the player detail panel's fixture ticker, whatever the horizon.
@@ -1200,9 +1199,9 @@ export default function BuilderPage() {
    * Per-gameweek xP, keyed by player id then event — SquadBalance needs the
    * whole squad's week-by-week shape, not just the horizon total each
    * player already carries. Loaded lazily, only when the replacement panel
-   * is first opened: at a 19-gameweek window this is ~11 paged requests
-   * (the same PAGE_ROWS pattern /transfers already uses), which is too much
-   * to pay on every builder load for a feature most visits never open.
+   * is first opened, via the shared `lib/player-pool.ts` loader — too much
+   * to pay on every builder load for a feature most visits never open, but
+   * a cache hit if /transfers, /chips or /deadline already primed it.
    */
   const [seriesById, setSeriesById] = useState<Map<number, Map<number, number>> | null>(null);
   const [seriesLoading, setSeriesLoading] = useState(false);
@@ -1223,27 +1222,28 @@ export default function BuilderPage() {
     (async () => {
       setSeriesLoading(true);
       const series = new Map<number, Map<number, number>>();
-      for (let from = 0; ; from += PAGE_ROWS) {
-        const { data: page, error } = await supabase
-          .from("player_predictions")
-          .select("player_id, event, xp")
-          .eq("season", season)
-          .gte("event", nextEvent)
-          .order("player_id")
-          .order("event")
-          .range(from, from + PAGE_ROWS - 1);
-        if (error || cancelled) break;
-        for (const r of page ?? []) {
-          const id = r.player_id as number;
-          const event = r.event as number;
-          let byEvent = series.get(id);
-          if (!byEvent) series.set(id, (byEvent = new Map()));
+      try {
+        // Shared, concurrently-paged, memoised loader (lib/player-pool.ts)
+        // instead of this panel's own serial .range() loop — the same
+        // `${season}:${nextEvent}` cache key /transfers, /chips and
+        // /deadline already use, so opening this panel after visiting any
+        // of those pages is a cache hit rather than ~23 serial round trips.
+        const rows = await loadPredictionSeries(season, nextEvent);
+        if (cancelled) return;
+        for (const r of rows) {
+          let byEvent = series.get(r.playerId);
+          if (!byEvent) series.set(r.playerId, (byEvent = new Map()));
           // Accumulate, don't overwrite: a double gameweek is two rows with
           // the same event, and it is genuinely worth both — this is the
           // same bug a squad's per-event series must not carry, below.
-          byEvent.set(event, (byEvent.get(event) ?? 0) + Number(r.xp ?? 0));
+          // loadPredictionSeries returns rows flat, duplicates intact, so
+          // this still works exactly as it did against the raw table.
+          byEvent.set(r.event, (byEvent.get(r.event) ?? 0) + (r.xp ?? 0));
         }
-        if ((page?.length ?? 0) < PAGE_ROWS) break;
+      } catch {
+        // Matches the loop this replaces: swallow and leave `series` at
+        // whatever it has (empty, since this is now a single fetch) rather
+        // than surfacing an error state nothing here reads.
       }
       if (!cancelled) {
         setSeriesById(series);
