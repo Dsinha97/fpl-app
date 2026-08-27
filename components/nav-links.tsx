@@ -22,6 +22,7 @@ export const NAV_GROUPS = [
     items: [
       { href: "/deadline", label: "Deadline" },
       { href: "/team", label: "My Team" },
+      { href: "/review", label: "Review" },
       { href: "/news", label: "News" },
     ],
   },
