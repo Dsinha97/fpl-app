@@ -39,6 +39,7 @@ import {
   type SeasonRow,
   type ScoringRules,
 } from "../supabase/functions/_shared/xp-model.ts";
+import { accuracyStats, mean } from "../lib/stats.ts";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -87,21 +88,12 @@ function tierOf(minutes: number, points: number): "Zeros" | "Blanks" | "Tickers"
   return "Haulers";
 }
 
-function mean(xs: number[]) { return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN; }
-function stats(residuals: { pred: number; actual: number }[]) {
-  const n = residuals.length;
-  if (n === 0) return { n: 0, bias: NaN, mae: NaN, rmse: NaN, r: NaN };
-  const bias = mean(residuals.map((r) => r.actual - r.pred));
-  const mae = mean(residuals.map((r) => Math.abs(r.actual - r.pred)));
-  const rmse = Math.sqrt(mean(residuals.map((r) => (r.actual - r.pred) ** 2)));
-  const mp = mean(residuals.map((r) => r.pred));
-  const ma = mean(residuals.map((r) => r.actual));
-  const cov = mean(residuals.map((r) => (r.pred - mp) * (r.actual - ma)));
-  const sp = Math.sqrt(mean(residuals.map((r) => (r.pred - mp) ** 2)));
-  const sa = Math.sqrt(mean(residuals.map((r) => (r.actual - ma) ** 2)));
-  const r = sp > 0 && sa > 0 ? cov / (sp * sa) : NaN;
-  return { n, bias, mae, rmse, r };
-}
+// bias/MAE/RMSE/Pearson-r now live in lib/stats.ts as `accuracyStats`, shared
+// with the live prediction-accuracy scoreboard — this used to be a locally
+// declared `stats` here, which would have been a second implementation of
+// the same accuracy metric. `mean` is imported alongside it for the same
+// reason.
+const stats = accuracyStats;
 
 async function main() {
   console.error("Loading reference tables...");

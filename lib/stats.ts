@@ -95,3 +95,40 @@ export function linearSlope(ys: number[]): number {
   }
   return den === 0 ? 0 : num / den;
 }
+
+/** One residual: a predicted value and the actual value it is scored against. */
+export interface Residual {
+  pred: number;
+  actual: number;
+}
+
+/**
+ * Bias, MAE, RMSE and Pearson r over a set of prediction residuals. Lifted
+ * out of `scripts/backtest-walkforward.ts` (was a locally-declared `stats`
+ * there) so the walk-forward backtest and the live prediction-accuracy
+ * scoreboard (`lib/prediction-accuracy.ts`) score residuals the same way —
+ * "one quantity, one implementation" applies to the accuracy metric itself,
+ * not just the model. `n === 0` reports `NaN` for every derived figure
+ * rather than 0, so an empty gameweek reads as "no data" and not as "zero
+ * error" — a caller must check `n` before trusting the rest.
+ */
+export function accuracyStats(residuals: Residual[]): {
+  n: number;
+  bias: number;
+  mae: number;
+  rmse: number;
+  r: number;
+} {
+  const n = residuals.length;
+  if (n === 0) return { n: 0, bias: NaN, mae: NaN, rmse: NaN, r: NaN };
+  const bias = mean(residuals.map((x) => x.actual - x.pred));
+  const mae = mean(residuals.map((x) => Math.abs(x.actual - x.pred)));
+  const rmse = Math.sqrt(mean(residuals.map((x) => (x.actual - x.pred) ** 2)));
+  const mp = mean(residuals.map((x) => x.pred));
+  const ma = mean(residuals.map((x) => x.actual));
+  const cov = mean(residuals.map((x) => (x.pred - mp) * (x.actual - ma)));
+  const sp = Math.sqrt(mean(residuals.map((x) => (x.pred - mp) ** 2)));
+  const sa = Math.sqrt(mean(residuals.map((x) => (x.actual - ma) ** 2)));
+  const r = sp > 0 && sa > 0 ? cov / (sp * sa) : NaN;
+  return { n, bias, mae, rmse, r };
+}

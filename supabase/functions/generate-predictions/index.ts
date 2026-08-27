@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
     // no remaining reason for "Season" to stop short of the actual season.
     const [nextGwRes, lastGwRes] = await Promise.all([
       db.from("gameweeks")
-        .select("id")
+        .select("id, deadline_time")
         .eq("season", season)
         .eq("finished", false)
         .order("id")
@@ -128,6 +128,8 @@ Deno.serve(async (req) => {
     if (lastGwRes.error) throw new Error(`gameweeks: ${lastGwRes.error.message}`);
 
     const firstEvent = nextGwRes.data.id as number;
+    // Used only to gate the pre-deadline archive below — see that block.
+    const firstEventDeadline = nextGwRes.data.deadline_time as string;
     // Floored at MIN_HORIZON so a malformed or missing `gameweeks` row can
     // never publish less than today's window; otherwise the season's real
     // last gameweek, whatever that currently is (38 today).
@@ -510,6 +512,38 @@ Deno.serve(async (req) => {
       if (error) throw new Error(`player_predictions: ${error.message}`);
     }
 
+    // Archive the next gameweek's snapshot before it is overwritten by a
+    // future run. player_predictions holds no history — it is deleted and
+    // replaced wholesale every run (see the delete above) — so this is the
+    // only surviving record of what the model said before a gameweek's
+    // deadline, which is what an accuracy scoreboard needs to score against
+    // once the gameweek is played. See the migration
+    // (20260827154000_prediction_archive.sql) for why this is a separate
+    // table with a different key shape rather than reusing player_predictions.
+    //
+    // Gated on the deadline, not on a "haven't archived yet" flag: this
+    // function runs every 30 minutes, so re-archiving pre-deadline is
+    // intentional (it keeps the snapshot fresh right up to the deadline),
+    // while any run after the deadline must leave the frozen snapshot alone.
+    // That is the whole idempotency story — no separate "already archived"
+    // state to track.
+    let archivedRows = 0;
+    const archiveSkippedReason = Date.now() >= Date.parse(firstEventDeadline)
+      ? `gameweek ${firstEvent}'s deadline has passed; snapshot is frozen`
+      : null;
+    if (!archiveSkippedReason) {
+      const archiveRows = rows
+        .filter((r) => r.event === firstEvent)
+        .map((r) => ({ ...r, deadline_time: firstEventDeadline }));
+      for (const batch of chunk(archiveRows, 500)) {
+        const { error } = await db
+          .from("player_prediction_archive")
+          .upsert(batch, { onConflict: "season,event,player_id,fixture" });
+        if (error) throw new Error(`player_prediction_archive: ${error.message}`);
+      }
+      archivedRows = archiveRows.length;
+    }
+
     await run.finish("success", {
       season,
       rowsWritten: rows.length,
@@ -524,6 +558,8 @@ Deno.serve(async (req) => {
         clubs_reconciled: reconciliationByClub.size,
         squad_status: Object.fromEntries(squadStatusCounts),
         squad_consistency_violations: squadConsistencyViolations,
+        archived_rows: archivedRows,
+        archive_skipped_reason: archiveSkippedReason,
       },
     });
 
@@ -537,6 +573,8 @@ Deno.serve(async (req) => {
       skipped_no_prior: skippedNoRates,
       prior_cells: priors.cells.length,
       by_prior_source: Object.fromEntries(bySource),
+      archived_rows: archivedRows,
+      archive_skipped_reason: archiveSkippedReason,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

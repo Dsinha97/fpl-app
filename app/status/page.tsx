@@ -33,6 +33,14 @@ interface Counts {
    * place to watch the write path actually run for the first time.
    */
   liveStats: number;
+  /**
+   * player_prediction_archive — the pre-deadline snapshot generate-predictions
+   * now keeps of each gameweek's model output, since player_predictions
+   * itself is deleted and replaced wholesale on every run. This grid is the
+   * cheapest way to watch it actually fill: one new archived gameweek every
+   * time a deadline passes, never shrinking.
+   */
+  predictionArchive: number;
 }
 
 const FUNCTIONS = [
@@ -41,6 +49,7 @@ const FUNCTIONS = [
   "sync-player-history",
   "sync-live-gameweek",
   "sync-manager",
+  "generate-predictions",
 ] as const;
 
 const STATUS_STYLES: Record<string, string> = {
@@ -93,12 +102,14 @@ export default function StatusPage() {
     const [
       players, teams, fixtures, gameweeks, priceHistory, statusHistory,
       news, ownership, seasonHistory, gameweekStats, fixtureChanges, liveStats,
+      predictionArchive,
     ] = await Promise.all([
       countOf("players"), countOf("teams"), countOf("fixtures"), countOf("gameweeks"),
       countOf("player_price_history"), countOf("player_status_history"),
       countOf("player_news"), countOf("player_ownership_history"),
       countOf("player_season_history"), countOf("player_gameweek_stats"),
       countOf("fixture_changes"), countOf("player_live_stats"),
+      countOf("player_prediction_archive"),
     ]);
 
     setCounts({
@@ -114,6 +125,7 @@ export default function StatusPage() {
       gameweekStats: gameweekStats.count ?? 0,
       fixtureChanges: fixtureChanges.count ?? 0,
       liveStats: liveStats.count ?? 0,
+      predictionArchive: predictionArchive.count ?? 0,
     });
 
     setRuns(latest.filter((r): r is RunRow => r !== null));
@@ -213,6 +225,7 @@ export default function StatusPage() {
               { label: "Gameweek stats", value: counts.gameweekStats },
               { label: "Fixture changes", value: counts.fixtureChanges },
               { label: "Live-gameweek rows", value: counts.liveStats },
+              { label: "Archived predictions", value: counts.predictionArchive },
             ].map((c) => (
               <div
                 key={c.label}
