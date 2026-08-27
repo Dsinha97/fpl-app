@@ -90,7 +90,8 @@ URLs with curl — several documented patterns 404.
 
 ```
 app/            routes: / · /team · /players · /fixtures · /builder · /scenarios · /transfers ·
-                /chips · /compare · /changes · /status · /signin · /settings
+                /chips · /compare · /changes · /news · /deadline · /review · /status · /signin ·
+                /settings
 lib/            stats.ts (shared mean/median/variance/quantile — import, don't redeclare),
                 team-state.ts, optimizer.ts, lineup.ts, scoring.ts, squad-score.ts, transfers.ts,
                 transfer-optimizer.ts, chips.ts, tactical-profile.ts (types + loader only,

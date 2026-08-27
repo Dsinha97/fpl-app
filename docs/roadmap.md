@@ -47,6 +47,8 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 23 | Page density | **Built** 2026-08-22 — repacked `/deadline`, `/team`, `/transfers`, `/chips` into the `grid-cols-[minmax(0,1fr)_360px]` two-column template `/builder`/`/transfers` already used; deleted `/team`'s redundant squad list; anchored `/transfers`' replace picker to its row instead of the bottom of the table | [sprints/sprint-23.md](sprints/sprint-23.md) |
 | 24 | Expand/collapse polish | **Built** 2026-08-22 — new `ExpandToggle` primitive (36px circular chevron, theme-token colours), grid-rows `0fr`→`1fr` accordion replacing mount/unmount on `CollapsibleCard`, `LiveFixtureCard`, `ClubTacticsGrid`, and the mobile nav drawer | [sprints/sprint-24.md](sprints/sprint-24.md) |
 | 25 | Domain cutover + UI defect sweep | **Built** 2026-08-23 — `fpldecision.com` is the canonical host (Cloudflare Registrar, apex canonical, `www` redirected, `wrangler.jsonc` routes); eleven UI fixes across `/deadline`, `/team`, `/fixtures`, `/chips`, `/players` and the nav shell — short team codes replacing truncated names, `/team` squad cards no longer overlapping the pitch, `/fixtures`' schedule brought onto the Sprint 24 expand pattern, `/chips`' dead space and duplicated fixture-flatness note fixed, `/players`' xG/xA moved to per-90, desktop nav hover-open + click-to-solidify, mobile drawer wordmark | [sprints/sprint-25.md](sprints/sprint-25.md), [docs/wiki/deployment.md](wiki/deployment.md) |
+| 26 | Casual-user on-ramps + load staging | **Built** 2026-08-23/24 — builder "+" affordance, import-CTA discovery, shared parallelized `lib/player-pool.ts` loader (5s serial → ~1.7s), `/scenarios` freeze fix, staged `/deadline` load, squad Value in the context bar, not-played `–`-instead-of-`0` fix. Two commits with no sprint file at the time, backfilled during the Sprint 27 docs reconciliation | [sprints/sprint-26.md](sprints/sprint-26.md) |
+| 27 | Post-GW1 reckoning | **Built** 2026-08-27 — pre-deadline prediction archive (`player_prediction_archive`, urgent: GW2's snapshot was ~26 hours from being lost the same way GW1's was), the GW1 predicted-lineup layer deleted per its own stated expiry, `/review` (what a gameweek's decision actually cost), and the current-season xP blend built and measured against a real walk-forward sweep — does not clear the gate (2024-25's bias worsens), not shipped. Docs reconciliation: two stale `Blocked` rows corrected, Sprint 26 backfilled | [sprints/sprint-27.md](sprints/sprint-27.md) |
 
 Non-sprint work items, also in `sprints/`: [cold-start-patch.md](sprints/cold-start-patch.md)
 (empirical-Bayes rate priors — phase 1 built, phase 2 deferred/gated) and
@@ -62,30 +64,46 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   blocker. Not built yet; Google OAuth stays the primary sign-in path either way, so this is a
   quality-of-life item for the magic-link fallback, not urgent. See
   [sprints/sprint-14.md](sprints/sprint-14.md)'s reconciliation note.
-- **Blend current-season form into the xP model — not started, checked and written up
-  2026-08-22.** Confirmed by reading every code path that could carry it: `generate-predictions`
-  reads `player_season_history` only, never `player_gameweek_stats` or `player_live_stats`, and
-  `player_season_history` cannot gain a current-season row until the season ends (it's filled from
-  FPL's `history_past`, completed seasons only). So no gameweek's actual results can move next
-  gameweek's xP, all season — the model's per-gameweek accuracy is frozen at whatever
-  [sprint-17a.md](sprints/sprint-17a.md)'s walk-forward measured (worse than a naive last-5-gameweeks
-  average on both MAE and r, in every season tested). Proposed fix and, critically, the **backtest
-  gate it has to clear before shipping** — improve MAE and r in all three walk-forward seasons
-  without worsening bias, or the finding is that it doesn't help — are written up in
-  [phase-4-model.md](phase-4-model.md)'s "Honest limitations" section. No model code exists yet;
-  this is scope, not a built feature. Wiki: [xp-model.md](wiki/xp-model.md#known-disclosed-gaps).
-- **GW1 predicted-lineup layer — built 2026-08-20, remove after GW1 is scored.** A one-off,
-  single-source read (`lib/gw1-lineups.ts`) fills the one gap the cold-start xP model can't:
-  which of several similarly-rated squad players actually starts GW1. Feeds `riskScore` at
-  horizon 1 only — never `xp` — gated by a page toggle (off by default) and `nextEvent === 1`,
-  wired into `/deadline` and `/transfers`. 262 names from a predicted-lineups video were
-  resolved against the live `players` table; 23 turned out stale (wrong club, or not in FPL's
-  2026-27 list at all — Salah and Bernardo Silva among them) and were owner-corrected. **Delete
-  in one commit once GW1 is scored**: `lib/gw1-lineups.ts`, `components/gw1-badge.tsx`, the
-  `ScoredPlayer.gw1` field and its two-line read in `riskScore` (`lib/scoring.ts`), the toggle
-  and `gw1_*` fields on `/deadline` and `/transfers`, and the `PlayerData.gw1_*` fields /
-  detail-panel block. `PlayerData.is_rotation_risk` and `RotationIcon` predate this and stay —
-  they're for the real Risk Engine once it exists.
+- **Blend current-season form into the xP model — built and measured 2026-08-27; does not clear
+  the gate, not shipped.** The scope-and-write-up entry that used to sit here is superseded: the
+  blend was actually built (`SeasonRow.games`, `deriveRatesWithPrior`'s `currentSeasonRow`/
+  `currentSeasonWeight` in `xp-model.ts`, both additive and inert for every existing caller) and
+  swept against the real walk-forward backtest (`scripts/backtest-walkforward.ts`, now with a
+  genuine within-season accumulation, not just the season-boundary walk-forward it had before).
+  MAE and Pearson r both improve in every one of the three backtest seasons at every weight
+  tested, but 2024-25's bias magnitude worsens (0.329 → 0.375-0.390) at every weight, and the
+  gate needs all three seasons to clear. Full measured table, both real bugs the naive version of
+  this would have shipped (a `games`-denominator bug that would have cut a nailed starter's `mpg`
+  by ~58% off two gameweeks of data, and a displacement bug that halves the *prior* evidence
+  weight the moment any current-season data exists), and the reasoning for not chasing a
+  passing weight on 2024-25 alone: [phase-4-model.md](phase-4-model.md#honest-limitations).
+- **Archive pre-deadline predictions — built 2026-08-27.** `generate-predictions` deletes and
+  replaces `player_predictions` wholesale every run, so there was never a record of what the
+  model said *before* a gameweek was played — GW1's predictions were gone within the first cron
+  tick after GW1 finished, and GW2's were about 26 hours from the same fate when this was found.
+  `player_prediction_archive` (public-read/service-write, keyed without `model_version` since
+  it's a historical fact) now holds a deadline-gated snapshot per gameweek, written by a hook
+  inside `generate-predictions` itself. `lib/prediction-accuracy.ts` joins it to
+  `player_gameweek_stats` once a gameweek scores — the scoreboard panel on `/status` is
+  deliberately not built yet (see Blocked below: needs ≥2 archived gameweeks to say anything
+  honest). RLS verified both roles; `accuracyStats` lifted out of the backtest script into
+  `lib/stats.ts` so the walk-forward harness and this scoreboard score residuals identically.
+- **`/review` — built 2026-08-27.** New route: what a gameweek's decision actually cost, in terms
+  named separately rather than netted — points/rank movement, the captain call vs. the
+  best-in-hindsight starter, bench points recovered by a projected auto-sub vs. still stranded
+  (shown alongside FPL's own `points_on_bench`, not reconciled away), and transfers (an explicit
+  empty state today — `manager_transfers` has 0 rows). Built entirely on existing primitives
+  (`lib/manager-picks.ts`, `lib/gameweek-state.ts` — `loadGameweekState` is event-agnostic, so a
+  finished gameweek runs the identical captaincy/auto-sub logic a live one does) — no new table,
+  no model risk. `lib/gameweek-review.ts`.
+- **GW1 predicted-lineup layer — deleted 2026-08-27, now GW1 is scored.** Built 2026-08-20 as a
+  one-off, single-source read (`lib/gw1-lineups.ts`) to fill the one gap the cold-start xP model
+  couldn't: which of several similarly-rated squad players actually starts GW1. Fed `riskScore`
+  at horizon 1 only — never `xp`. Deleted in one commit per its own stated expiry:
+  `lib/gw1-lineups.ts`, `components/gw1-badge.tsx`, `ScoredPlayer.gw1` and its read in
+  `riskScore`, the toggle and `gw1_*` fields on `/deadline` and `/transfers`, and
+  `PlayerData.gw1_*`/the detail-panel block. `PlayerData.is_rotation_risk` and `RotationIcon`
+  predate this and stay — they're for the real Risk Engine once it exists.
 - **Deadline Hub — built 2026-08-14.** With Sprint 13 unverifiable, Sprint 15 blocked, and Sprint 17
   unfittable (all three below), a real gap remained: nothing gathered pre-deadline decisions into one
   place. `/deadline` does — live countdown, `validateSquad` legality, per-player availability alerts,
@@ -157,8 +175,9 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 | Blocked | Reason | Detail |
 |---|---|---|
 | Team strength (0 for all 20 clubs) | Pre-season; blocks custom FDR and `TeamAttackStrength` | — |
-| League 314 rank-ordering (top-1k sample) | Standings populated at the GW1 deadline (2026-08-21), but every entry ties on 0 points until GW1 is scored; blocks only Sprint 10's top-1k sample — the exact mini-league slice is unblocked | [sprints/sprint-10.md](sprints/sprint-10.md) |
-| `sync-live-gameweek` write path | Never executed — no live fixture yet | [sprints/sprint-13.md](sprints/sprint-13.md) |
+| Accuracy scoreboard panel (`/status`) | `player_prediction_archive` exists and is being written to, but held ≤1 archived gameweek at last check — a panel built on that would only ever be able to say "n=1", which invites reading a single gameweek's residual as a verdict on the model. Build the UI once ≥2 gameweeks are archived; the data-layer (`lib/prediction-accuracy.ts`) is already done | — |
+| League 314 rank-ordering (top-1k sample) | The "GW1 not scored yet" reason recorded here no longer applies — GW1 is scored, `teams.played`/`points` are real. But `league_entries` for `league_id=314` has **0 rows as of 2026-08-27** — nothing has synced it yet, likely deliberately: it's the millions-strong "Overall" system league, not one of the owner's leagues `sync-league-picks` targets. Blocks only Sprint 10's top-1k sample — the exact mini-league slice (`manager_leagues`) is unblocked and live | [sprints/sprint-10.md](sprints/sprint-10.md) |
+| ~~`sync-live-gameweek` write path~~ **Resolved 2026-08-21.** | Executed for real during GW1: 2,434 successful runs, up to 610 rows/run, first success 2026-08-03 (pre-season dry runs against no live fixtures), real writes from GW1 kickoff. Self-gates back to `skipped` between gameweeks, as designed — the 15,154 `skipped` rows are that gate working, not a stuck function | [sprints/sprint-13.md](sprints/sprint-13.md) |
 | Automated FPL credential login | PingOne offers no password grant; the one reachable flow opens with bot detection | [sprints/sprint-14.md](sprints/sprint-14.md#fpl-login-is-blocked--automated-credential-login-not-the-session-handoff) |
 | `positionCalibration` | Fitted in-sample; needs a refit against real 2026/27 results. Walk-forward evidence for why now exists: out-of-sample the model underperforms a naive last-5-gameweeks baseline in every season tested | [sprints/sprint-17a.md](sprints/sprint-17a.md) |
 | Cold-Start phase 2, remaining 66 players + `dc90` | Sprint 15.6 covered 33 of 99 (COV/HUL/IPS, xg90/xa90/yellow90 only) via a one-shot PDF drop; the other 66 (overseas/academy) and `dc90` for all 33 have no fittable source | [sprints/championship-priors.md](sprints/championship-priors.md) |

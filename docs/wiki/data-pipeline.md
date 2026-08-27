@@ -25,7 +25,7 @@ running with the service role — nothing in the front end can mutate league dat
 | `sync-live-gameweek` | `*/2 * * * *`, self-gated | `player_live_stats` — took its no-op branch every day until GW1's first kickoff (2026-08-21), then wrote 600 real rows; see [deadline-and-matchday.md](deadline-and-matchday.md) |
 | `sync-manager` | manual only | `managers`, `manager_*` — `invoke_sync` POSTs an empty body so it has no `entry_id` to schedule with; only runs when `/team` calls it directly |
 | `sync-league-picks` | manual only, on-demand | `league_entries`, `league_entry_picks` — same reason as `sync-manager`: no `entry_id`/`league_id` to schedule with. See [ownership-and-leagues.md](ownership-and-leagues.md) |
-| `generate-predictions` | `5,35 * * * *` | `player_predictions` — see [xp-model.md](xp-model.md) |
+| `generate-predictions` | `5,35 * * * *` | `player_predictions`, plus a pre-deadline snapshot into `player_prediction_archive` — see [xp-model.md](xp-model.md) and "`player_prediction_archive`" below |
 | `fpl-session` / `fpl-my-team` | manual | see [fpl-authentication.md](fpl-authentication.md) — the two functions that verify a Supabase JWT before touching anything |
 | `ingest-fpl-archive` | manual, one-off backfill | `player_gameweek_stats` for past seasons (2022-23 through 2025-26) — see below |
 
@@ -91,6 +91,19 @@ truncating rather than erroring — anything reading the full series has to page
 a short page comes back (`PAGE_ROWS` in `app/transfers/page.tsx`). A double gameweek is two rows
 sharing one `event` and must be **accumulated, not overwritten**, when folding into a per-event map
 — an earlier version of `/builder`'s SquadBalance series shipped the overwrite bug.
+
+**`player_prediction_archive` (added 2026-08-27)** exists because `player_predictions` has no
+history — `generate-predictions` deletes and replaces every row for the season on each run (see
+above), so there was never a record of what the model said *before* a gameweek was played. GW1's
+predictions were already gone by the time this was found; a deadline-gated hook inside
+`generate-predictions` now snapshots the *next* gameweek's rows into the archive on every
+pre-deadline run (re-archiving is fine — it just keeps the snapshot fresh up to the deadline) and
+stops once that gameweek's deadline passes, freezing the last pre-deadline number. Public-read/
+service-write like `player_predictions`, but keyed **without** `model_version` — it's one archived
+historical fact per gameweek, not a live replaceable projection, so a mid-season `MODEL_VERSION`
+bump only ever overwrites the still-open gameweek's row. `lib/prediction-accuracy.ts` joins it to
+`player_gameweek_stats` once a gameweek scores; see [blocked-and-data-gaps.md](blocked-and-data-gaps.md)
+for why the `/status` accuracy panel itself isn't built yet.
 
 See also: [fpl-api-constraints.md](fpl-api-constraints.md) (the FPL-side API quirks this pipeline
 absorbs), [database-and-rls.md](database-and-rls.md) (the schema and access rules on the other end).

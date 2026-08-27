@@ -1,7 +1,26 @@
-# Deadline Hub & Live Matchday Hub
+# Deadline Hub, Live Matchday Hub & Review
 
-Related surfaces for pre-deadline and in-play decisions, all built — Deadline Hub, My Team's Squad
-view, and Live Matchday Hub, which now share `/deadline` as one route in two phases.
+Related surfaces spanning a gameweek's whole lifecycle, all built — Deadline Hub and Live Matchday
+Hub share `/deadline` as one route in two phases (pre-deadline, then in-play); `/review` is the
+third phase, after the gameweek is over.
+
+## Review (`/review`, built 2026-08-27)
+
+What a finished gameweek's decisions actually cost, in terms named separately rather than netted
+into one number: points and rank movement (from `manager_gameweek_history`), the captain call vs.
+the best-in-hindsight starter (the gap labelled as not an achievable in-the-moment choice), bench
+points recovered by a projected auto-sub vs. still stranded — shown alongside FPL's own
+`points_on_bench` rather than reconciled against it, since the two can legitimately disagree — and
+transfers (an explicit empty state today: `manager_transfers` has 0 rows).
+
+Deliberately built on the existing live-hub primitives rather than a parallel implementation:
+`loadGameweekState` (below) is event-agnostic, so pointing it at a *finished* gameweek runs the
+identical captaincy-handover/auto-sub/points-split logic a live one does — every fixture in that
+gameweek just happens to already be `finished`. New: `lib/gameweek-review.ts` (the counterfactual
+assembly — best-in-hindsight captain, bench recovered/stranded split) and the `/review` route
+itself. No new table, no model risk. Verified against entry 274486's real GW1 data: 49 pts /
+overall rank 4,673,927 matches `manager_gameweek_history` exactly; bench-stranded (11) matches
+FPL's own `points_on_bench` (11).
 
 ## Deadline Hub (`/deadline`, built 2026-08-14)
 

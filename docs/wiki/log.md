@@ -2,6 +2,18 @@
 
 One line per entry, most recent first.
 
+- 2026-08-27 — Ingested Sprints 26 and 27 (post-GW1 reckoning). `xp-model.md`'s "known, disclosed
+  gaps" current-season-form entry rewritten from "proposed, not built" to the measured result: MAE
+  and Pearson r improve in every backtest season, but 2024-25's bias worsens, so it wasn't shipped.
+  `blocked-and-data-gaps.md`'s League 314 row corrected (the "ties on 0" reason expired with GW1
+  being scored; the real current reason is the league has never been synced at all) and a new row
+  added for the accuracy-scoreboard panel (data layer done, UI held for ≥2 archived gameweeks).
+  `data-pipeline.md` gained a `player_prediction_archive` subsection. `deadline-and-matchday.md`
+  gained a "Review" section for the new `/review` route. `timeline.md` and `index.md` updated.
+  Also corrected a stale claim this pass found in `roadmap.md` itself (not this wiki, but flagged
+  here since it's the same kind of drift): its Blocked table said `sync-live-gameweek`'s write
+  path had "never executed", though this wiki's own `data-pipeline.md` already correctly recorded
+  it writing 600 real rows at GW1 kickoff — `roadmap.md` just hadn't been updated to match.
 - 2026-08-23 — Ingested `docs/sprints/sprint-25.md`'s UI defect sweep half (the domain-cutover
   half was already ingested into `deployment.md`'s "Custom domain" section in a prior pass — only
   `.pending-ingest`'s clear hadn't caught up). New "UI defect sweep (Sprint 25, 2026-08-23)"

@@ -90,19 +90,20 @@ r to 0.830. Full detail: [phase-4-model.md §3](../phase-4-model.md#3-squad-reco
 - **`dc90` applies one aggregate defensive-contribution count to two different FPL scoring rules**
   (defenders score on CBIT, mid/forwards on CBIRT). The component stats exist in the database but no
   code path reads them yet — `XDC_MODEL_NOTE` in `lib/scoring.ts` discloses this in the UI.
-- **No current-season form — and structurally, no path exists for it to reach the model at all
-  (checked 2026-08-22).** Not "rates haven't accrued yet": `generate-predictions/index.ts` reads
-  `player_season_history` as its *only* per-player evidence, and that table can't gain a
-  current-season row mid-season — `sync-player-history` fills it from FPL's `history_past`, which
-  lists completed seasons only. Neither `player_gameweek_stats` nor `player_live_stats` is read by
-  the model anywhere. So between any two gameweeks a player's xP moves only on availability, price
-  band, fixtures/FDR, and squad reconciliation — never on what they actually did. Very likely the
-  largest single contributor to the walk-forward result above: the naive last-5-gameweeks baseline
-  it loses to is, definitionally, current-season form. A backtest-gated fix (blend
-  `player_gameweek_stats` into `weightedOwnRates` as a synthetic newest season, weighted by
-  accumulated minutes so a thin partial season self-balances) is proposed but not built — see
-  [roadmap.md](../roadmap.md#next-up) and [phase-4-model.md §4](../phase-4-model.md#4-honest-limitations)
-  for the full evidence and the exact MAE/r/bias gate it has to clear before shipping.
+- **No current-season form reaches the model — a fix was built and measured (2026-08-27), and did
+  not clear the shipping gate.** `generate-predictions/index.ts` still reads `player_season_history`
+  as its only per-player evidence; between any two gameweeks a player's xP still moves only on
+  availability, price band, fixtures/FDR, and squad reconciliation, never on what they actually did.
+  This was checked, not just asserted: `xp-model.ts` gained an additive, currently-unused
+  `SeasonRow.games` field and a `deriveRatesWithPrior` `currentSeasonRow`/`currentSeasonWeight`
+  parameter (appends the current season as a fourth term rather than displacing a prior one — see
+  [phase-4-model.md §4](../phase-4-model.md#4-honest-limitations) for why displacing and a naive
+  `games`-denominator both silently broke a nailed starter's `mpg`), then swept against a real
+  within-season walk-forward extension of `scripts/backtest-walkforward.ts`. MAE and Pearson r
+  improved in **every** backtest season at every weight tested — but 2024-25's bias magnitude
+  worsened at every weight, and the gate needs all three seasons. **Not wired into
+  `generate-predictions`**; `MODEL_VERSION` stays `v1.5.0`. No caller passes either new field today,
+  so this is dormant, reviewed infrastructure for a future attempt, not a live code path.
 - **Out-of-sample accuracy is currently worse than a naive baseline** — see the walk-forward
   validation section above. (The current-season-form gap just above is the leading suspect why.)
 - **Fixture difficulty is the official FDR**, not a custom model — team attack/defence strength is
