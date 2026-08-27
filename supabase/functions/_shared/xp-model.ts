@@ -256,6 +256,23 @@ export interface SeasonRow {
   saves: number | null;
   defensive_contribution: number | null;
   yellow_cards: number | null;
+  /**
+   * Games played this "season", for the `mpg`/`start_share` denominator.
+   * Defaults to `GAMES_PER_SEASON` (38) when omitted — every existing caller
+   * passes a full completed season, so this is a no-op for them. Exists for
+   * a season still in progress: a full-season club fixture count in the
+   * denominator against a partial-season minutes numerator would silently
+   * halve every established starter's `mpg` after a single gameweek (a
+   * 3000-minute starter with `games` still 38 reads mpg ~= 79; with the true
+   * in-progress game count of ~1-2 it reads correctly close to 79 still,
+   * since both numerator and denominator scale together — the bug this
+   * guards against is passing a *current-season* row through the *same*
+   * `weights[i] * GAMES_PER_SEASON` arithmetic prior seasons use, where the
+   * numerator (minutes so far) has barely grown but the denominator jumps by
+   * a full season's worth of games). See docs/phase-4-model.md's "current
+   * season blend" section for the worked example.
+   */
+  games?: number;
 }
 
 export interface Rates {
@@ -324,7 +341,7 @@ export function deriveRates(rows: SeasonRow[], dcEligibleSeasons?: Set<string>):
     const w = MODEL_PARAMS.seasonWeights[i];
     wMinutes += w * (r.minutes ?? 0);
     wStarts += w * (r.starts ?? 0);
-    wGames += w * GAMES_PER_SEASON;
+    wGames += w * (r.games ?? GAMES_PER_SEASON);
     xg += w * (r.expected_goals ?? 0);
     xa += w * (r.expected_assists ?? 0);
     bonus += w * (r.bonus ?? 0);
@@ -653,7 +670,7 @@ function weightedOwnRates(rows: SeasonRow[], weights: number[], dcEligibleSeason
     const w = weights[i] ?? 0;
     wMinutes += w * (r.minutes ?? 0);
     wStarts += w * (r.starts ?? 0);
-    wGames += w * GAMES_PER_SEASON;
+    wGames += w * (r.games ?? GAMES_PER_SEASON);
     totals.xg += w * (r.expected_goals ?? 0);
     totals.xa += w * (r.expected_assists ?? 0);
     totals.bonus += w * (r.bonus ?? 0);
@@ -704,6 +721,25 @@ export interface ShrinkInput {
    * this entirely, by design — see the v1.5.0 header note.
    */
   externalRates?: Partial<Record<PriorMetric, number>>;
+  /**
+   * The season in progress, blended in as a fourth term *alongside* the
+   * normal three-season window — never displacing one of them. Optional and
+   * additive by construction: omitting it (every caller before this) leaves
+   * `used`/`weights` exactly as `recent`/`P.seasonWeights` computed them.
+   *
+   * This is the "append" policy from the current-season-blend sweep in
+   * scripts/backtest-walkforward.ts, chosen over "displace the oldest
+   * season" or "widen the window" because it is the only one of the three
+   * that cannot silently halve the *prior* evidence weight the moment a
+   * current-season row exists — see docs/phase-4-model.md's "current
+   * season blend" section for the full comparison and the backtest that
+   * picked it. `currentSeasonRow.games` should be the player's own club's
+   * completed fixtures so far this season (not `GAMES_PER_SEASON`) — see
+   * `SeasonRow.games`'s doc comment for why.
+   */
+  currentSeasonRow?: SeasonRow;
+  /** Weight for `currentSeasonRow` in the blend — swept in the backtest, not tuned by feel. */
+  currentSeasonWeight?: number;
 }
 
 /**
@@ -714,7 +750,16 @@ export interface ShrinkInput {
  * honest statement of how much of it is the prior talking.
  */
 export function deriveRatesWithPrior(input: ShrinkInput): ShrunkRates | null {
-  const { rows, positionId, priceBand, priors, dcEligibleSeasons, externalRates } = input;
+  const {
+    rows,
+    positionId,
+    priceBand,
+    priors,
+    dcEligibleSeasons,
+    externalRates,
+    currentSeasonRow,
+    currentSeasonWeight,
+  } = input;
   const P = MODEL_PARAMS;
 
   const played = [...rows]
@@ -742,6 +787,20 @@ export function deriveRatesWithPrior(input: ShrinkInput): ShrunkRates | null {
     );
     ({ wMinutes, own } = weightedOwnRates(used, weights, dcEligibleSeasons));
     priorSource = "pl_extended";
+  }
+
+  // Append the current season as a fourth term, never displacing one of the
+  // three already selected above — see ShrinkInput.currentSeasonRow's doc
+  // comment for why "append" was picked over "displace"/"widen". `weights`
+  // can be longer than `used` here (a player with fewer than three prior
+  // seasons still gets a full-length P.seasonWeights array whose unused tail
+  // weightedOwnRates simply never reads) — truncated to `used.length` before
+  // appending so the current-season weight lands at the right index rather
+  // than relying on the two arrays happening to be the same length.
+  if (currentSeasonRow) {
+    used = [...used, currentSeasonRow];
+    weights = [...weights.slice(0, used.length - 1), currentSeasonWeight ?? 0];
+    ({ wMinutes, own } = weightedOwnRates(used, weights, dcEligibleSeasons));
   }
 
   const hasEvidence = wMinutes > 0;

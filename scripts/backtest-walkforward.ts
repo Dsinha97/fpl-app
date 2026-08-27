@@ -33,8 +33,12 @@
 import {
   deriveDcEligibleSeasons,
   deriveRates,
+  deriveRatesWithPrior,
+  fitRatePriors,
   MODEL_VERSION,
   predict,
+  priceBandOf,
+  type FitRow,
   type PlayerInput,
   type SeasonRow,
   type ScoringRules,
@@ -73,6 +77,17 @@ interface GwTruthRow {
   season: string; player_code: number; event: number | null; fixture: number;
   opponent_team: number | null; was_home: boolean | null; minutes: number | null;
   total_points: number | null;
+  // Everything needed to build a synthetic "current season so far" SeasonRow
+  // for the blend sweep below — absent from the original truth-only fetch.
+  starts: number | null;
+  expected_goals: number | null;
+  expected_assists: number | null;
+  expected_goals_conceded: number | null;
+  clean_sheets: number | null;
+  bonus: number | null;
+  saves: number | null;
+  defensive_contribution: number | null;
+  yellow_cards: number | null;
 }
 
 function buildScoring(rows: ScoringRow[]): ScoringRules {
@@ -101,9 +116,9 @@ async function main() {
     fetchAll<PlayerRow>("players", "id,code,element_type"),
     fetchAll<ElementType>("element_types", "id,singular_name_short"),
     fetchAll<ScoringRow>("scoring_rules", "stat,position,value", "&season=eq.2026-27"),
-    fetchAll<SeasonRow & { player_code: number }>(
+    fetchAll<SeasonRow & { player_code: number; start_cost: number | null }>(
       "player_season_history",
-      "player_code,season_name,minutes,starts,expected_goals,expected_assists,expected_goals_conceded,clean_sheets,bonus,saves,defensive_contribution,yellow_cards",
+      "player_code,season_name,minutes,starts,expected_goals,expected_assists,expected_goals_conceded,clean_sheets,bonus,saves,defensive_contribution,yellow_cards,start_cost",
     ),
   ]);
 
@@ -134,7 +149,9 @@ async function main() {
 
     const truth = await fetchAll<GwTruthRow>(
       "player_gameweek_stats",
-      "season,player_code,event,fixture,opponent_team,was_home,minutes,total_points",
+      "season,player_code,event,fixture,opponent_team,was_home,minutes,total_points," +
+        "starts,expected_goals,expected_assists,expected_goals_conceded,clean_sheets,bonus,saves," +
+        "defensive_contribution,yellow_cards",
       `&season=eq.${archiveSeason}`,
     );
     console.error(`  truth rows: ${truth.length}`);
@@ -225,6 +242,170 @@ async function main() {
     for (const t of byTier) console.error(`    ${t.tier}: n=${t.n} mae=${isNaN(t.mae) ? "n/a" : t.mae.toFixed(3)} r=${isNaN(t.r) ? "n/a" : t.r.toFixed(3)}`);
 
     results.push({ season: archiveSeason, modelVersion: MODEL_VERSION, overall, modelMatchedToBaseline: matchedStats, last5Baseline: last5Stats, byPosition, byTier });
+
+    // ---------------------------------------------------------------------
+    // Current-season blend sweep (docs/phase-4-model.md's "current season
+    // blend" section). A genuine within-season walk-forward: at event E, the
+    // synthetic "season so far" row is built only from this *target*
+    // season's events strictly before E, so nothing here ever sees the
+    // future. Uses deriveRatesWithPrior (the real production path,
+    // including squad-independent shrinkage) for BOTH arms — "prior-only"
+    // and "blended" differ *only* in whether currentSeasonRow is passed, so
+    // the comparison isolates the blend's effect rather than conflating it
+    // with switching off deriveRates's simpler gate.
+    //
+    // priceBand is the player's price from their most recent PRIOR season's
+    // start_cost (a proxy for "price at the start of the target season" —
+    // the exact in-season price series isn't available for a season this
+    // far back). This is the one place this sweep's cohort selection differs
+    // from the baseline arm above: deriveRatesWithPrior never returns null
+    // (it falls back to a fitted prior), so the >=1200-weighted-minutes
+    // cohort filter above still applies to keep the two arms comparable, but
+    // "cohort" here means "had that much PRIOR evidence", not zero passing.
+    {
+      const fitRows: FitRow[] = [];
+      for (const [code, rows] of historyByCode) {
+        const positionId = positionByCode.get(code);
+        if (positionId === undefined) continue;
+        for (const row of rows) {
+          if (row.season_name >= slashSeason) continue; // strictly prior only
+          fitRows.push({
+            ...row,
+            player_code: code,
+            positionId,
+            priceBand: priceBandOf(row.start_cost ?? 0),
+          });
+        }
+      }
+      const priors = fitRatePriors(fitRows, dcEligibleSeasons);
+
+      // This season's own DC coverage — if any truth row this season has a
+      // non-null dc, the synthetic row's season name is DC-eligible too.
+      const seasonDcEligible = truth.some((r) => r.defensive_contribution !== null);
+      const blendDcEligibleSeasons = new Set(dcEligibleSeasons);
+      const BLEND_SEASON_NAME = `${slashSeason}-so-far`;
+      if (seasonDcEligible) blendDcEligibleSeasons.add(BLEND_SEASON_NAME);
+
+      // Most recent PRIOR-season price per player, for priceBand — see the
+      // comment above.
+      const priceBandByCode = new Map<number, string>();
+      for (const [code, rows] of historyByCode) {
+        const prior = rows.filter((r) => r.season_name < slashSeason).sort((a, b) => b.season_name.localeCompare(a.season_name));
+        if (prior.length > 0) priceBandByCode.set(code, priceBandOf(prior[0].start_cost ?? 0));
+      }
+
+      const CURRENT_SEASON_WEIGHTS = [0.3, 0.6, 1.0];
+      type BlendResidual = { pred: number; actual: number; positionCode: string };
+      const priorOnlyResiduals: BlendResidual[] = [];
+      const blendedResidualsByWeight = new Map<number, BlendResidual[]>(
+        CURRENT_SEASON_WEIGHTS.map((w) => [w, []]),
+      );
+
+      // mpg sanity check (the 79->33 collapse this fix guards against) — the
+      // five highest-prior-minutes players in this season's cohort, at the
+      // event where they first have >=3 games of current-season evidence.
+      const mpgCheck: { code: number; event: number; mpgBefore: number; mpgAfterByWeight: Record<number, number> }[] = [];
+      const topByPriorMinutes = [...cohortCodes]
+        .map((code) => ({ code, minutes: ratesByCode.get(code)?.weightedMinutes ?? 0 }))
+        .sort((a, b) => b.minutes - a.minutes)
+        .slice(0, 5)
+        .map((x) => x.code);
+
+      for (const code of cohortCodes) {
+        const positionId = positionByCode.get(code);
+        const priceBand = priceBandByCode.get(code);
+        if (positionId === undefined || priceBand === undefined) continue;
+
+        const priorRows = (historyByCode.get(code) ?? []).filter((r) => r.season_name < slashSeason);
+        const posCode = positionCode.get(positionId) ?? "MID";
+        const playerInput: PlayerInput = { positionId, positionCode: posCode, status: "a", chanceNextRound: null };
+
+        const rows = (truthByCode.get(code) ?? [])
+          .filter((r) => r.event !== null)
+          .sort((a, b) => a.event! - b.event!);
+
+        // Running totals of *strictly prior* events in this season, rebuilt
+        // fresh before each event so nothing leaks the event being predicted.
+        let games = 0, minutes = 0, starts = 0, xg = 0, xa = 0, xgc = 0, cs = 0, bonus = 0, saves = 0, dc = 0, yellow = 0;
+
+        for (const row of rows) {
+          // Predict this event using ONLY events strictly before it —
+          // accumulate into the running current-season row AFTER predicting.
+          const priorOnly = deriveRatesWithPrior({
+            rows: priorRows, positionId, priceBand, priors, dcEligibleSeasons,
+          });
+          if (priorOnly) {
+            const pred = predict(playerInput, priorOnly.rates, { fdr: 3, isHome: row.was_home ?? true }, scoring);
+            priorOnlyResiduals.push({ pred: pred.xp, actual: row.total_points ?? 0, positionCode: posCode });
+          }
+
+          if (games > 0) {
+            const currentSeasonRow: SeasonRow = {
+              season_name: BLEND_SEASON_NAME,
+              minutes, starts, expected_goals: xg, expected_assists: xa,
+              expected_goals_conceded: xgc, clean_sheets: cs, bonus, saves,
+              defensive_contribution: dc, yellow_cards: yellow, games,
+            };
+            for (const w of CURRENT_SEASON_WEIGHTS) {
+              const blended = deriveRatesWithPrior({
+                rows: priorRows, positionId, priceBand, priors,
+                dcEligibleSeasons: blendDcEligibleSeasons,
+                currentSeasonRow, currentSeasonWeight: w,
+              });
+              if (!blended) continue;
+              const pred = predict(playerInput, blended.rates, { fdr: 3, isHome: row.was_home ?? true }, scoring);
+              blendedResidualsByWeight.get(w)!.push({ pred: pred.xp, actual: row.total_points ?? 0, positionCode: posCode });
+
+              if (w === 0.6 && games === 3 && topByPriorMinutes.includes(code)) {
+                mpgCheck.push({
+                  code, event: row.event!,
+                  mpgBefore: priorOnly?.rates.minutesPerGame ?? -1,
+                  mpgAfterByWeight: { [w]: blended.rates.minutesPerGame },
+                });
+              }
+            }
+          }
+
+          // Now fold this event into the running totals, for the *next* iteration.
+          games += 1;
+          minutes += row.minutes ?? 0;
+          starts += row.starts ?? 0;
+          xg += row.expected_goals ?? 0;
+          xa += row.expected_assists ?? 0;
+          xgc += row.expected_goals_conceded ?? 0;
+          cs += row.clean_sheets ?? 0;
+          bonus += row.bonus ?? 0;
+          saves += row.saves ?? 0;
+          dc += row.defensive_contribution ?? 0;
+          yellow += row.yellow_cards ?? 0;
+        }
+      }
+
+      const priorOnlyStats = stats(priorOnlyResiduals);
+      console.error(`\n  -- current-season blend sweep (deriveRatesWithPrior, both arms) --`);
+      console.error(`  prior-only (no blend)  n=${priorOnlyStats.n} bias=${priorOnlyStats.bias.toFixed(3)} mae=${priorOnlyStats.mae.toFixed(3)} r=${priorOnlyStats.r.toFixed(3)}`);
+      const blendResults: Record<string, unknown>[] = [];
+      for (const w of CURRENT_SEASON_WEIGHTS) {
+        const s = stats(blendedResidualsByWeight.get(w)!);
+        // "Without worsening bias" means |bias| shouldn't grow, in either
+        // direction — comparing raw signed bias would call a more-negative
+        // bias a "pass" whenever the prior-only bias was already negative,
+        // which is backwards (a bias moving from -0.33 to -0.39 is worse,
+        // not "not increasing").
+        const clears = s.n > 0 && s.mae < priorOnlyStats.mae && s.r > priorOnlyStats.r &&
+          Math.abs(s.bias) <= Math.abs(priorOnlyStats.bias) + 0.01;
+        console.error(`  blended wCur=${w}          n=${s.n} bias=${s.bias.toFixed(3)} mae=${s.mae.toFixed(3)} r=${s.r.toFixed(3)}  ${clears ? "CLEARS gate" : "does not clear"}`);
+        blendResults.push({ currentSeasonWeight: w, ...s, clearsGate: clears });
+      }
+      for (const check of mpgCheck) {
+        console.error(`    mpg check code=${check.code} event=${check.event}: before=${check.mpgBefore.toFixed(1)} after(w=0.6)=${check.mpgAfterByWeight[0.6]?.toFixed(1)}`);
+      }
+
+      results.push({
+        season: archiveSeason,
+        blendSweep: { priorOnly: priorOnlyStats, byWeight: blendResults, mpgCheck },
+      });
+    }
   }
 
   console.log(JSON.stringify(results, null, 2));

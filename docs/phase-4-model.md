@@ -259,30 +259,63 @@ starters less — is a different algorithm, not a parameter, and is recorded as 
   | 2024-25 | 2.360 | **2.043** | 0.203 | **0.345** |
   | 2025-26 | 2.546 | **2.061** | 0.153 | **0.341** |
 
-  **Proposed fix, not yet built:** aggregate the current season's `player_gameweek_stats` into a
-  synthetic newest-season row, in the same `SeasonRow` shape `weightedOwnRates` already consumes,
-  slotted at season rank 1 (currently weight 0.6). No new coefficient is needed to make this safe
-  for a thin partial season: `weightedOwnRates` computes `rate = Σ(w·stat) / Σ(w·minutes)` and
-  drives shrinkage off `n_eff = Σ(w·minutes)/90`, so the blend is **minutes-proportional, not
-  season-proportional** — 90 minutes at GW2 contributes 90×0.6 = 54 weighted minutes against a
-  full prior season's ~3000×0.3 = 900, and the existing empirical-Bayes shrinkage (§3) handles that
-  thin sample exactly as it already does for cold-start players, growing the current season's
-  influence on its own as minutes accumulate. The one open parameter is whether
-  `seasonWeights[0] = 0.6` is still right once rank 1 can be a partial season — that should be
-  swept with `scripts/backtest-walkforward.ts` (already importing the production model unmodified,
-  already has 4 seasons of archived `player_gameweek_stats` to replay against).
+  **Built and measured (2026-08-27) — does not clear the gate; not shipped.** The original
+  proposal above (slot the current season in at rank 1, weight 0.6, displacing the oldest prior
+  season) turned out to have a real bug: `weightedOwnRates`'s per-90 *rates* are genuinely
+  minutes-proportional as described, but `mpg`/`start_share` are not — they divide by
+  `wGames = Σ(w·GAMES_PER_SEASON)`, a **fixed 38-game denominator per season slot** regardless of
+  how much of that season has actually been played. A synthetic current-season row at GW2 would
+  contribute `0.6×38 = 22.8` games against `0.6×54 = 32.4` weighted minutes, while a genuine full
+  season contributes `0.3×38 = 11.4` games for `0.3×3000 = 900` weighted minutes — the games
+  denominator barely moves relative to minutes for a full season, but swamps it for a two-game
+  partial one. Worked example: a 3000-minute/season starter with three full prior seasons reads
+  `mpg ≈ 79` today; slotting one blended gameweek in at rank 1 would drop that to `mpg ≈ 33` — a
+  58% cut to a nailed starter's expected minutes from one gameweek of data, silently, since the
+  per-90 rates the proposal actually checked all still look fine. Fixed by giving `SeasonRow` an
+  optional `games` field (`xp-model.ts`, defaults to `GAMES_PER_SEASON` so every existing caller
+  is unaffected) and passing the player's own actual game count instead of a fixed 38.
 
-  **Gate, per CLAUDE.md's "an acceptance threshold you invented is not evidence":** ship only if
-  the change improves both MAE *and* Pearson r against the table above in all three backtest
-  seasons, and does not worsen bias. A sweep that can't clear that is itself the finding — report
-  it, don't ship a coefficient tuned until the number looks reasonable. Shipping would also need a
-  `MODEL_VERSION` bump and a rewrite of `COLD_START_MODEL_NOTE` (`xp-model.ts`) and
-  `COLD_START_NOTE` (`lib/scoring.ts`), both of which currently state rates come entirely from
-  prior seasons.
+  Also changed from the original proposal: the current season is **appended** as a fourth term
+  (`ShrinkInput.currentSeasonRow`/`currentSeasonWeight` in `deriveRatesWithPrior`) rather than
+  displacing the oldest of the three prior seasons. Displacing was found to have a second problem
+  independent of the games bug: it silently halves the *prior* evidence weight (0.6→0.3 on last
+  season) the moment any current-season data exists at all, regardless of how thin that data is —
+  a second way for one gameweek to dominate. Appending adds no such effect: a two-gameweek current
+  season contributes at most a few hundred weighted minutes against a full season's few thousand,
+  so `n_eff`/`prior_weight`/`mpg` all move by low single-digit percentages early on and only
+  genuinely bite once several gameweeks have accumulated — structural degradation, not a clamp or
+  an invented minimum-gameweek threshold.
 
-  **Adjacent finding:** `COMPARISON_WEIGHTS` (`lib/scoring.ts`) drops FPL's own `form` and
-  renormalises over 0.90 because FPL zeroes it between seasons — a premise that expires once
-  matches are actually being played. Worth revisiting on the same pass.
+  **Swept with `scripts/backtest-walkforward.ts`** (`wCur ∈ {0.3, 0.6, 1.0}`, real within-season
+  walk-forward: at event *E* the synthetic row is built only from that target season's events
+  strictly before *E*, both arms run through the real `deriveRatesWithPrior`) against the gate
+  above — MAE and Pearson r vs. prior-only, in all three seasons, without the *magnitude* of bias
+  growing (a signed-only comparison would wrongly pass a bias moving from −0.33 to −0.39):
+
+  | Season | Prior-only MAE / r / bias | Blended (w=0.6) MAE / r / bias | Clears? |
+  |---|---|---|---|
+  | 2023-24 | 2.193 / 0.238 / +0.079 | **2.156** / **0.311** / **+0.015** | Yes |
+  | 2024-25 | 2.300 / 0.204 / −0.329 | **2.255** / **0.281** / −0.375 | **No — bias worsens** |
+  | 2025-26 | 2.491 / 0.152 / −0.536 | **2.395** / **0.246** / **−0.511** | Yes |
+
+  MAE and r improve in **every** season at every tested weight — 2024-25 is no exception on either
+  of those two metrics. It fails purely on the bias criterion: `|bias|` grows from 0.329 to 0.375
+  (w=0.6) or 0.390 (w=1.0), the model becoming more consistently over-generous in exactly the
+  season blending was meant to help. The other two seasons clear cleanly at every weight tested.
+  Since the gate requires all three seasons and 2024-25 fails at every weight, **the blend is not
+  wired into `generate-predictions`, `MODEL_VERSION` is not bumped, and `COLD_START_MODEL_NOTE`/
+  `COLD_START_NOTE` are unchanged** — per CLAUDE.md, this null result is itself the finding, not a
+  reason to keep tuning `wCur` until one season's number looks acceptable. The `SeasonRow.games`
+  fix and `deriveRatesWithPrior`'s `currentSeasonRow` parameter are additive and inert for every
+  existing caller (no caller passes them), so they stay in `xp-model.ts` as reviewed, dormant
+  infrastructure — a future attempt (a different `wCur`, a variance-informed weight, or
+  investigating *why* 2024-25's bias specifically worsens) can reuse both without re-deriving
+  them, and doesn't need to re-litigate whether append-vs-displace or the games fix are correct.
+
+  **Adjacent finding, not yet acted on:** `COMPARISON_WEIGHTS` (`lib/scoring.ts`) drops FPL's own
+  `form` and renormalises over 0.90 because FPL zeroes it between seasons — a premise that expired
+  the moment `players.form` went non-zero for real players post-GW1. Worth its own small,
+  separately-gated commit; not part of this pass.
 - **`dc90` (defensive contribution) applies one aggregate count to two different FPL rules.** FPL
   scores defenders on clearances + blocks + interceptions + tackles, and midfielders/forwards on the
   same four plus recoveries — but the API exposes only the combined `defensive_contribution` total,
