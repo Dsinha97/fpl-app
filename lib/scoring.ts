@@ -38,14 +38,6 @@ export interface ScoredPlayer {
   availability: number;
   /** Official FDR for each of the next fixtures, in gameweek order. */
   fdrRun: number[];
-  /**
-   * GW1-only predicted-lineup override from `lib/gw1-lineups.ts`. Read by
-   * `riskScore` at horizon 1 only — see the gate there. Never affects `xp`.
-   * Deliberately not folded into `startProbability`/`expectedMinutes` above:
-   * those are read by other horizons and by the detail panel's "Start %" /
-   * "Exp. mins" figures, which must stay the model's own numbers.
-   */
-  gw1?: { startProbability: number; expectedMinutes: number; tier: "locked" | "medium" | "high"; note?: string };
 }
 
 /**
@@ -164,26 +156,24 @@ export const RISK_WEIGHTS = {
 } as const;
 
 export const RISK_MODEL_NOTE =
-  "Effective ownership is omitted — it needs the top-1k template snapshot, which cannot be built " +
-  "until a gameweek has been scored. The remaining weights are renormalised, so risk here measures " +
-  "how likely a player is to disappoint, not how much of the field owns him.";
+  "Effective ownership is omitted — the field-wide top-1k sample this term needs is still blocked " +
+  "(league 314's standings tie until it is rank-ordered by real results). League-scoped EO is now " +
+  "computable from real picks (see lib/ownership.ts) but is deliberately not used here: a small " +
+  "league answers a different question than 'how much of the field owns him', and mixing the two " +
+  "into one risk figure would mean the number two ways at once. The remaining weights are " +
+  "renormalised, so risk here measures how likely a player is to disappoint, not how much of the " +
+  "field owns him.";
 
 /** Widest plausible spread of FDR values, used to normalise the variance term. */
 const MAX_FDR_SD = 1.6;
 
 export function riskScore(p: ScoredPlayer, horizon: Horizon, seasonWindow?: number): number {
-  // GW1 predicted-lineup override (lib/gw1-lineups.ts) — a one-off,
-  // horizon-1-only read. `injury` and `fixtureVariance` are untouched: FPL's
-  // own status/news is better evidence than a video, and the override says
-  // nothing about fixtures.
-  const gw1 = horizon === 1 ? p.gw1 : undefined;
-
-  const rotation = 1 - (gw1?.startProbability ?? p.startProbability ?? p.availability);
+  const rotation = 1 - (p.startProbability ?? p.availability);
   const injury = 1 - p.availability;
 
   // Minutes uncertainty peaks in the middle: a player nailed on for 90 and one
   // certain not to feature are both predictable; a 45-minute player is not.
-  const effectiveMinutes = gw1?.expectedMinutes ?? p.expectedMinutes;
+  const effectiveMinutes = p.expectedMinutes;
   const share = effectiveMinutes === null ? 0.5 : clamp(effectiveMinutes / 90, 0, 1);
   const minutes = 1 - Math.abs(share - 0.5) * 2;
 

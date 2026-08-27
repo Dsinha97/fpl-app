@@ -71,14 +71,6 @@ export interface PlayerData {
   rate_lower?: number | null;
   rate_upper?: number | null;
   /**
-   * GW1 predicted-lineup layer (lib/gw1-lineups.ts) — undefined hides the
-   * badge/detail block, same convention as `reliability` above. Gone once
-   * GW1 is scored.
-   */
-  gw1_tier?: "locked" | "medium" | "high" | null;
-  gw1_in_predicted_xi?: boolean | null;
-  gw1_note?: string | null;
-  /**
    * Confident RSS headlines about this player (Sprint 20's news_feed view,
    * lib/news-feed.ts's headlineFrom). Same convention as `reliability` —
    * undefined hides the "In the news" section rather than the panel fetching

@@ -43,7 +43,6 @@ import {
   type ValidationResult,
 } from "@/lib/team-state";
 import { availabilityFromStatus, type ScoredPlayer } from "@/lib/scoring";
-import { withGw1Context, GW1_SOURCE_NOTE, GW1_BY_ID } from "@/lib/gw1-lineups";
 import { IMPORTED_SQUAD_NOTE } from "@/lib/fpl-squad";
 import {
   CAPTAIN_MODEL_NOTE,
@@ -153,9 +152,6 @@ export default function DeadlinePage() {
     new Map(),
   );
   const [wildcard, setWildcard] = useState<WildcardWindow>({ available: false, reason: null });
-  // GW1-only predicted-lineup layer (lib/gw1-lineups.ts) — off by default, and
-  // the toggle itself disappears once nextEvent !== 1. See GW1_SOURCE_NOTE.
-  const [gw1Enabled, setGw1Enabled] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -686,12 +682,6 @@ export default function DeadlinePage() {
     return scored;
   }, [rowById, xpById, fdrRunsByTeam, predsByPlayer, ctx]);
 
-  /** `scoredById` with the GW1 layer folded in — no-op unless the toggle is on and this is GW1. */
-  const gw1ScoredById = useMemo(
-    () => withGw1Context(scoredById, { enabled: gw1Enabled, nextEvent: ctx?.nextEvent ?? 0 }),
-    [scoredById, gw1Enabled, ctx?.nextEvent],
-  );
-
   const availabilityOf = useCallback(
     (id: number) => scoredById.get(id)?.availability ?? 0,
     [scoredById],
@@ -786,10 +776,6 @@ export default function DeadlinePage() {
           xp5: xpById.get(row.id)?.xp_5 ?? null,
           expected_minutes: pred?.expectedMinutes ?? null,
           start_probability: pred?.startProbability ?? null,
-          gw1_tier: gw1Enabled && ctx.nextEvent === 1 ? GW1_BY_ID.get(row.id)?.tier ?? null : null,
-          gw1_in_predicted_xi:
-            gw1Enabled && ctx.nextEvent === 1 ? GW1_BY_ID.get(row.id)?.inPredictedXi ?? null : null,
-          gw1_note: gw1Enabled && ctx.nextEvent === 1 ? GW1_BY_ID.get(row.id)?.note ?? null : null,
           season_total_points: row.total_points,
           season_bonus: row.bonus,
           dc_actions: row.defensive_contribution,
@@ -806,7 +792,6 @@ export default function DeadlinePage() {
     teamMeta,
     nextFixtureByTeam,
     xpById,
-    gw1Enabled,
     pastResultsByPlayer,
     predsLoading,
   ]);
@@ -943,14 +928,14 @@ export default function DeadlinePage() {
   // ~1,875 simulateTransfers calls (BEAM_WIDTH 8 + FUNDER_WIDTH 4, MAX_BASKET 3,
   // CANDIDATES_PER_SLOT 5) — never on load, only behind this button.
   const runTransferOptimizer = useCallback(() => {
-    if (!team || !ctx || gw1ScoredById.size === 0) return;
+    if (!team || !ctx || scoredById.size === 0) return;
     setTransferLoading(true);
     setTimeout(() => {
-      const pool = [...gw1ScoredById.values()];
+      const pool = [...scoredById.values()];
       const result = optimizeTransfers({
         team,
         pool,
-        scoredById: gw1ScoredById,
+        scoredById: scoredById,
         lookup,
         xpOf,
         availabilityOf,
@@ -971,7 +956,7 @@ export default function DeadlinePage() {
   }, [
     team,
     ctx,
-    gw1ScoredById,
+    scoredById,
     lookup,
     xpOf,
     availabilityOf,
@@ -987,14 +972,14 @@ export default function DeadlinePage() {
 
   /** Forward multi-gameweek path — same "never eager" gating as the deadline optimiser above. */
   const runTransferPath = useCallback(() => {
-    if (!team || !ctx || gw1ScoredById.size === 0) return;
+    if (!team || !ctx || scoredById.size === 0) return;
     setPathLoading(true);
     setTimeout(() => {
-      const pool = [...gw1ScoredById.values()];
+      const pool = [...scoredById.values()];
       const result = planTransferPath({
         team,
         pool,
-        scoredById: gw1ScoredById,
+        scoredById: scoredById,
         lookup,
         xpOf,
         availabilityOf,
@@ -1011,7 +996,7 @@ export default function DeadlinePage() {
       setPathResult(result);
       setPathLoading(false);
     }, 0);
-  }, [team, ctx, gw1ScoredById, lookup, xpOf, availabilityOf, isPenaltyTaker, seriesOf, predAt, freeTransfers, chipPlanUsable, wildcard]);
+  }, [team, ctx, scoredById, lookup, xpOf, availabilityOf, isPenaltyTaker, seriesOf, predAt, freeTransfers, chipPlanUsable, wildcard]);
 
   const countdown = ctx ? fmtCountdown(ctx.deadlineTime, now) : null;
 
@@ -1638,20 +1623,6 @@ export default function DeadlinePage() {
                     ))}
                   </select>
                 </label>
-                {ctx.nextEvent === 1 && (
-                  <label
-                    className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400"
-                    title={GW1_SOURCE_NOTE}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={gw1Enabled}
-                      onChange={(e) => setGw1Enabled(e.target.checked)}
-                      className="rounded border-zinc-300 dark:border-purple-800/50"
-                    />
-                    GW1 predicted lineups
-                  </label>
-                )}
                 <InfoTooltip label="About the transfer model">{TRANSFER_MODEL_NOTE}</InfoTooltip>
                 <button
                   onClick={runTransferOptimizer}
