@@ -34,7 +34,12 @@ import {
   type TransferMove,
   type TransferSimulation,
 } from "./transfers";
-import { optimizeTransfers, pairRebuild, type WildcardWindow } from "./transfer-optimizer";
+import {
+  optimizeTransfers,
+  pairRebuild,
+  DEFAULT_DECISION_MARGIN,
+  type WildcardWindow,
+} from "./transfer-optimizer";
 import { freeHitRebuildAt, wildcardRebuildAt, type RebuildContext } from "./chips";
 import { chipBonusAt, chipContextFor, type PredAt } from "./chip-plan";
 import { totalSpend } from "./squad-budget";
@@ -42,6 +47,7 @@ import {
   projectAtEvent,
   type ChipKind,
   type ChipPlanEntry,
+  type Horizon,
   type HorizonXp,
   type PlayerMeta,
   type SquadPick,
@@ -76,14 +82,22 @@ export interface TransferPathStep {
   chipBonus: number;
   pointsCost: number;
   riskPointsDelta: number;
+  /**
+   * The assumed value of NOT acting, on a step that makes no move — the same
+   * `decisionMargin` the deadline optimiser's roll branch carries
+   * (lib/transfer-optimizer.ts). Zero on every step that does something.
+   * Kept as its own term rather than folded into `eventXp`: it is an
+   * assumption the owner sets, not a prediction.
+   */
+  decisionMargin: number;
   explanation: string[];
 }
 
 export interface TransferPath {
   steps: TransferPathStep[];
-  /** Σ eventXp + Σ chipBonus − Σ pointsCost − Σ riskPointsDelta. */
+  /** Σ eventXp + Σ chipBonus + Σ decisionMargin − Σ pointsCost − Σ riskPointsDelta. */
   total: number;
-  terms: { eventXp: number; chipBonus: number; pointsCost: number; riskPoints: number };
+  terms: { eventXp: number; chipBonus: number; pointsCost: number; riskPoints: number; decisionMargin: number };
   /** The action at the upcoming deadline — what this whole search is for. */
   openingMove: TransferPathStep;
 }
@@ -110,6 +124,17 @@ export interface TransferPathInput {
   seriesOf: (playerId: number) => XpByEvent | undefined;
   predAt: PredAt;
   rules: SquadRules;
+  /**
+   * The page-level horizon, passed straight through to the deadline
+   * gameweek's own `optimizeTransfers` call. Was hardcoded to 5 until Sprint
+   * 28, which is why the horizon toggle moved the transfer plan's answer and
+   * left the path's opening move untouched — two answers to one question.
+   * Gameweeks *after* the deadline still score at horizon 1, by design:
+   * each one contributes its own event's prediction, nothing wider.
+   */
+  horizon: Horizon;
+  /** The owner's assumed value of holding a transfer back — see `TransferPathStep.decisionMargin`. Defaults to the optimiser's own `DEFAULT_DECISION_MARGIN`. */
+  decisionMargin?: number;
   freeTransfers: number;
   /** The upcoming deadline gameweek. */
   event: number;
@@ -123,13 +148,16 @@ export interface TransferPathInput {
 export const TRANSFER_PATH_NOTE =
   "This is a bounded search, not the best possible sequence. Chip timing is yours — nothing here " +
   "moves a chip to a better gameweek. The upcoming deadline gets the full basket search from the " +
-  "transfer optimiser; every gameweek after it considers only the top 3 replacements per slot, at " +
-  "most 2 moves, carrying the best 4 squads forward. Candidates beyond the deadline are ranked by " +
-  "next-gameweek form (the model has no other per-gameweek signal to rank a future slot by), but " +
-  "each step's value is still the real prediction for its own gameweek. Prices are frozen, so a rise " +
-  "that funds a later move is not modelled, and neither are injuries or news that have not happened " +
-  "— a real manager replans every week with information this projection cannot have, so treat the " +
-  "far end of the path as the shape of a plan, not an instruction.";
+  "transfer optimiser at the horizon selected above; every gameweek after it is valued on its own " +
+  "gameweek alone and considers only the top 3 replacements per slot, at most 2 moves, carrying the " +
+  "best 4 squads forward. A gameweek that buys nothing carries the squad through unchanged and is " +
+  "credited the decision margin — the assumed worth of holding a transfer back for news — which is " +
+  "an input you set, not a prediction. Candidates beyond the deadline are ranked by next-gameweek " +
+  "form (the model has no other per-gameweek signal to rank a future slot by), but each step's value " +
+  "is still the real prediction for its own gameweek. Prices are frozen, so a rise that funds a later " +
+  "move is not modelled, and neither are injuries or news that have not happened — a real manager " +
+  "replans every week with information this projection cannot have, so treat the far end of the path " +
+  "as the shape of a plan, not an instruction.";
 
 interface PathState {
   team: TeamState;
@@ -139,9 +167,11 @@ interface PathState {
   chipBonus: number;
   pointsCost: number;
   riskPoints: number;
+  decisionMargin: number;
 }
 
-const scoreOf = (s: PathState) => s.eventXp + s.chipBonus - s.pointsCost - s.riskPoints;
+const scoreOf = (s: PathState) =>
+  s.eventXp + s.chipBonus + s.decisionMargin - s.pointsCost - s.riskPoints;
 
 /** The plan entry pinned to `event`, if any. */
 function planAt(plan: ChipPlanEntry[], event: number): ChipPlanEntry | undefined {
@@ -150,6 +180,7 @@ function planAt(plan: ChipPlanEntry[], event: number): ChipPlanEntry | undefined
 
 export function planTransferPath(input: TransferPathInput): TransferPathResult {
   const { team, pool, scoredById, lookup, xpOf, availabilityOf, isPenaltyTaker, seriesOf, predAt, rules } = input;
+  const decisionMargin = input.decisionMargin ?? DEFAULT_DECISION_MARGIN;
 
   const lastPlannedEvent = input.plan.length > 0 ? Math.max(...input.plan.map((e) => e.event)) : input.event + 2;
   const pathEnd = Math.min(
@@ -205,6 +236,7 @@ export function planTransferPath(input: TransferPathInput): TransferPathResult {
         chipBonus: step.chipBonus,
         pointsCost: step.pointsCost,
         riskPoints: step.riskPointsDelta,
+        decisionMargin: step.decisionMargin,
       },
     ];
   } else {
@@ -219,7 +251,8 @@ export function planTransferPath(input: TransferPathInput): TransferPathResult {
       isPenaltyTaker,
       seriesOf,
       rules,
-      horizon: 5,
+      horizon: input.horizon,
+      decisionMargin,
       freeTransfers: input.freeTransfers,
       event: input.event,
       wildcard: input.wildcard,
@@ -232,37 +265,53 @@ export function planTransferPath(input: TransferPathInput): TransferPathResult {
 
     openingStates = ranked.map((branch) => {
       const sim = branch.simulation!;
+      // A roll branch's `simulation` is NEXT gameweek's basket, kept by
+      // `rollBranch` purely to price what waiting buys (lib/transfer-optimizer.ts).
+      // Reading `sim.resultingTeam` here would field, score and carry forward a
+      // squad with next week's transfers already applied, at zero cost, while
+      // labelling the step "roll" — the squad the owner actually holds at this
+      // deadline is the unchanged one. The path searches GW n+1 for itself in
+      // the loop below, which is where that basket's value belongs.
+      const isRoll = branch.kind === "roll";
+      const carried = isRoll ? team : sim.resultingTeam;
       const usedForAccrual = branch.kind === "wildcard" ? 0 : branch.moves.length;
       const freeTransfersAfter = accrueFreeTransfers(input.freeTransfers, usedForAccrual);
       const evXp = baselineEventXp(
-        sim.resultingTeam.players,
-        sim.resultingTeam.captain,
-        sim.resultingTeam.viceCaptain,
+        carried.players,
+        carried.captain,
+        carried.viceCaptain,
         input.event,
       );
-      const bonus = chipBonusOf(sim.resultingTeam, input.event, openingBonusChip);
+      const bonus = chipBonusOf(carried, input.event, openingBonusChip);
       const step: TransferPathStep = {
         event: input.event,
         moves: branch.moves,
-        simulation: sim,
+        simulation: isRoll ? null : sim,
         chip: opening === null ? (branch.kind === "wildcard" ? "wildcard" : null) : openingBonusChip ?? null,
-        fieldedPicks: sim.resultingTeam.players,
+        fieldedPicks: carried.players,
         freeTransfersBefore: input.freeTransfers,
         freeTransfersAfter,
         eventXp: evXp,
         chipBonus: bonus,
-        pointsCost: sim.cost.pointsCost,
-        riskPointsDelta: sim.riskPointsDelta,
-        explanation: branch.explanation,
+        pointsCost: isRoll ? 0 : sim.cost.pointsCost,
+        riskPointsDelta: isRoll ? 0 : sim.riskPointsDelta,
+        decisionMargin: isRoll ? decisionMargin : 0,
+        explanation: isRoll
+          ? [
+              "Roll — nothing bought this gameweek.",
+              `Carries ${freeTransfersAfter} free transfer${freeTransfersAfter === 1 ? "" : "s"} into GW${input.event + 1}; what to spend them on is the next step, searched on its own.`,
+            ]
+          : branch.explanation,
       };
       return {
-        team: sim.resultingTeam,
+        team: carried,
         freeTransfers: freeTransfersAfter,
         steps: [step],
         eventXp: evXp,
         chipBonus: bonus,
-        pointsCost: sim.cost.pointsCost,
-        riskPoints: sim.riskPointsDelta,
+        pointsCost: step.pointsCost,
+        riskPoints: step.riskPointsDelta,
+        decisionMargin: step.decisionMargin,
       };
     });
   }
@@ -290,6 +339,7 @@ export function planTransferPath(input: TransferPathInput): TransferPathResult {
           chipBonus: state.chipBonus + step.chipBonus,
           pointsCost: state.pointsCost + step.pointsCost,
           riskPoints: state.riskPoints + step.riskPointsDelta,
+          decisionMargin: state.decisionMargin + step.decisionMargin,
         });
         continue;
       }
@@ -331,6 +381,12 @@ export function planTransferPath(input: TransferPathInput): TransferPathResult {
           chipBonus: bonus,
           pointsCost: c.sim.cost.pointsCost,
           riskPointsDelta: c.sim.riskPointsDelta,
+          // Same assumption as the deadline's own roll branch: a gameweek
+          // that buys nothing is worth `decisionMargin` in kept optionality.
+          // Applied here too, or "hold" would win far more readily on the
+          // /deadline plan than on the path and the two would disagree for a
+          // reason that is an input, not a prediction.
+          decisionMargin: c.moves.length === 0 && !bonusChip ? decisionMargin : 0,
           explanation,
         };
         next.push({
@@ -341,6 +397,7 @@ export function planTransferPath(input: TransferPathInput): TransferPathResult {
           chipBonus: state.chipBonus + bonus,
           pointsCost: state.pointsCost + c.sim.cost.pointsCost,
           riskPoints: state.riskPoints + c.sim.riskPointsDelta,
+          decisionMargin: state.decisionMargin + step.decisionMargin,
         });
       }
     }
@@ -376,7 +433,13 @@ export function planTransferPath(input: TransferPathInput): TransferPathResult {
     .map((s) => ({
       steps: s.steps,
       total: scoreOf(s),
-      terms: { eventXp: s.eventXp, chipBonus: s.chipBonus, pointsCost: s.pointsCost, riskPoints: s.riskPoints },
+      terms: {
+        eventXp: s.eventXp,
+        chipBonus: s.chipBonus,
+        pointsCost: s.pointsCost,
+        riskPoints: s.riskPoints,
+        decisionMargin: s.decisionMargin,
+      },
       openingMove: s.steps[0],
     }))
     .sort((a, b) => b.total - a.total);
@@ -520,6 +583,7 @@ function forcedChipStep(
       chipBonus: 0,
       pointsCost: 0,
       riskPointsDelta: 0,
+      decisionMargin: 0,
       explanation: [rebuild.valuation.blocked],
     };
   }
@@ -544,6 +608,7 @@ function forcedChipStep(
       chipBonus: 0,
       pointsCost: 0,
       riskPointsDelta: 0,
+      decisionMargin: 0,
       explanation: [...rebuild.valuation.explanation],
     };
   }
@@ -577,6 +642,7 @@ function forcedChipStep(
       chipBonus: 0,
       pointsCost: 0,
       riskPointsDelta: 0,
+      decisionMargin: 0,
       explanation: [sim.problems[0] ?? "The rebuilt squad is not legal."],
     };
   }
@@ -596,6 +662,7 @@ function forcedChipStep(
     chipBonus: 0,
     pointsCost: 0,
     riskPointsDelta: sim.riskPointsDelta,
+    decisionMargin: 0,
     explanation: [...rebuild.valuation.explanation, "Free transfers keep accruing across a Wildcard — it does not spend the bank."],
   };
 }

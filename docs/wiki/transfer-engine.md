@@ -105,6 +105,56 @@ planned there adds a new `freehit` branch.
   forward path covers the case a chip plan actually needs — sequencing transfers *around* pinned
   chips — with its own disclosed approximations, not this one's full search.
 
+## One answer per deadline (Sprint 28, 2026-08-29)
+
+`/transfers` and `/deadline` each used to render `TransferPlan`
+(`optimizeTransfers().recommended`) **and** `TransferPath`
+(`planTransferPath().recommended.openingMove`) — two headlines answering "what should I do at this
+deadline", side by side, disagreeing, with nothing reconciling them. The path is now the only
+recommendation on both pages.
+
+Strictly neither was a second *scorer*: both bottom out in `simulateTransfers`, and
+`projectAtEvent`/`riskPoints` each have one implementation. The "one quantity, one implementation"
+rule bit a level up — the *decision* had two — and the disagreement turned out to be three real
+defects in `planTransferPath` rather than a difference of framing. All three were fixed **before**
+the path became the sole answer, so nothing knowingly wrong was left as the single headline:
+
+1. **The horizon toggle was ignored.** The opening `optimizeTransfers` call hardcoded `horizon: 5`,
+   so changing the page horizon moved the plan and left the path's opening move untouched. Now
+   `TransferPathInput.horizon`. Gameweeks *after* the deadline still score at horizon 1 — correct
+   and already disclosed, since each contributes its own event's prediction and nothing wider.
+2. **`decisionMargin` was applied on one side only.** `rollBranch` adds it to the net; the path
+   scored rolls on raw event xP, so "hold" won far more readily on the plan than on the path — a
+   disagreement caused by *an input the owner sets*, not a prediction. `TransferPathStep` now
+   carries `decisionMargin` as its own term, credited to any step that buys nothing and plays no
+   chip, and summed into `TransferPath.terms` so the headline stays a term sum.
+3. **The roll branch leaked next gameweek's squad — a genuine correctness bug.** `rollBranch`
+   returns `moves: []` but `simulation: basket.sim`, the simulation of *next* week's basket, kept
+   only to price what waiting buys. The path's opening mapper read `sim.resultingTeam`
+   unconditionally, so a roll **fielded, scored and carried forward a squad with next week's
+   transfers already applied, at zero cost, while labelling the step "roll"**. A roll now carries
+   the unchanged squad, attaches no simulation, and costs nothing; the deferred basket's value
+   appears where it belongs, as the next step's own `eventXp`.
+
+`optimizeTransfers` and `components/transfer-plan.tsx` are **not** deleted — `planTransferPath`
+calls the former for its opening gameweek (the path *is* built on the plan). The optimiser stopped
+being a competing headline; it did not stop being the engine.
+
+Two consequences worth knowing:
+
+- **`TransferPath` gained a `Load` button on its opening step.** `TransferPlan`'s per-branch Load
+  was the only wiring from a recommendation into `/transfers`' manual basket and the
+  Apply-as-new-draft flow; removing the plan without this would have orphaned that flow. Only the
+  opening step is loadable — every later step depends on a squad that does not exist yet.
+- **`/transfers` auto-runs the path on load**, with the signature/staleness pattern `runPlan` used,
+  so the page still answers on arrival rather than only after a click. `/deadline` keeps the path
+  button-gated, as it always did.
+
+Verified against live data in a throwaway `npx tsx` harness before the UI was touched: distinct
+openings across horizons; Σ`decisionMargin` equal to `rolls × margin` at margins 0/1/6/20; an
+opening roll at margin 20 with zero leaked squads. Full detail:
+[sprint-28.md](../sprints/sprint-28.md).
+
 See also: [squad-optimizer.md](squad-optimizer.md) (the wildcard branch's underlying engine),
 [deadline-and-matchday.md](deadline-and-matchday.md) (where the optimizer surfaces pre-deadline),
 [chip-plan.md](chip-plan.md) (chip-aware scoring and the forward transfer path).

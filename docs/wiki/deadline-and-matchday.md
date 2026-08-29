@@ -173,6 +173,49 @@ two-column treatment — see [design-system.md's "Packing, continued"
 section](design-system.md#packing-continued-sprint-23-2026-08-22) for the shared template and
 [sprint-23.md](../sprints/sprint-23.md) for the full change.
 
+### Split into Live GW and Upcoming GW sections (Sprint 28, 2026-08-29)
+
+The Sprint 23 rail described above is superseded. `/deadline` holds two gameweeks at once — the
+one being played (`is_current`) and the one being planned (`is_next`) — and which one matters
+flips at kickoff and again at the final whistle. The page now separates them.
+
+**A top strip that never collapses**: the countdown, plus **Price & news watch** and **Team news**
+in the 360px rail. Sprint 23's reason for lifting those cards out of the live card still holds (no
+orphaning before the first kickoff) and gains a second — they must not disappear behind a collapsed
+upcoming section during a live gameweek either. The countdown stays here for the same reason: "how
+long have I got" is exactly the question a live gameweek raises.
+
+**Two collapsible sections below it**, ordered and expanded by `livePhase`:
+
+| Phase | Order and expansion |
+|---|---|
+| `none` (pre-kickoff, or the deadline passed with nothing started) | Upcoming only, expanded. No live section. |
+| `live` | Live first and expanded; Upcoming second and collapsed. |
+| `over` | Reversed. |
+
+Collapsed, the live section shows only its points total (plus a provisional marker); the upcoming
+section shows only squad legality and the flag count.
+
+**`liveStarted` could not detect "over".** It counts fixtures with `started = true`, and those rows
+stay true forever. The probe now also reads `gameweeks.finished` and counts fixtures with
+`finished_provisional = false` — the latter flips at the final whistle, a sync cycle or two ahead
+of FPL's own gameweek flag. **`data_checked` is deliberately not the trigger**: it lags the whistle
+by hours to a day, and gating on it would bury the upcoming section through most of the planning
+window. `liveStarted` itself is unchanged and still gates the fixture/`gwState` fetches, so final
+points keep loading after the whistle.
+
+Open state is *derived* from the phase with a sticky per-gameweek user override, not held in a
+`defaultOpen` — the probe resolves after first paint and the phase flips again mid-session, so a
+mount-time default would always be wrong. See
+[design-system.md](design-system.md#collapsiblecard-gains-a-controlled-mode-and-a-section-tier-sprint-28-2026-08-29)
+for the primitive changes this needed, and [sprint-28.md](../sprints/sprint-28.md) for the full
+change including why the sections are reordered with flex `order` rather than by reordering
+elements.
+
+The transfer surface changed in the same pass: `/deadline` no longer renders `TransferPlan`, so
+the forward transfer path is the page's single recommendation. See
+[transfer-engine.md](transfer-engine.md#one-answer-per-deadline-sprint-28-2026-08-29).
+
 ### Two small defects fixed (Sprint 25, 2026-08-23)
 
 `/deadline`'s Team news card was rendering all 15 fetched headlines while its own summary line

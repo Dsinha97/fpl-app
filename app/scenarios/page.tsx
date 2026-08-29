@@ -3,6 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import {
+  loadScenarioActuals,
+  scenarioActuals,
+  SCENARIO_ACTUALS_NOTE,
+  type ActualsSource,
+  type ScenarioActuals,
+} from "@/lib/scenario-actuals";
 import { FdrLegendContent, InfoTooltip, TapToReveal } from "@/components/info-tooltip";
 import { Spinner } from "@/components/ui/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -97,6 +104,14 @@ export default function ScenariosPage() {
   const [error, setError] = useState<string | null>(null);
   /** The real "season" prediction window — from `player_xp_horizons`, not hardcoded. */
   const [seasonWindow, setSeasonWindow] = useState(FALLBACK_SEASON_WINDOW);
+  const [season, setSeason] = useState<string | null>(null);
+  /**
+   * "xp" — the projection this page has always shown.
+   * "actual" — what these players really scored, in two windows. Both are
+   * counterfactual for a hypothetical squad; see SCENARIO_ACTUALS_NOTE.
+   */
+  const [view, setView] = useState<"xp" | "actual">("xp");
+  const [actualsSource, setActualsSource] = useState<ActualsSource | null>(null);
   const [nextEvent, setNextEvent] = useState<number | null>(null);
 
   const [horizon, setHorizon] = useState<Horizon>(5);
@@ -128,6 +143,7 @@ export default function ScenariosPage() {
         if (gwError) throw new Error(gwError.message);
         if (!gw) throw new Error("No upcoming gameweek found.");
         setNextEvent(gw.id);
+        setSeason(gw.season as string);
 
         const [playersRes, teamsRes, typesRes, settingsRes, xpRes, predsRes, fixturesRes] =
           await Promise.all([
@@ -426,6 +442,32 @@ export default function ScenariosPage() {
     computeSignatureInputs,
   ]);
 
+  // Actual points for every player appearing in any draft, across every
+  // finished gameweek. Fetched once per (season, draft roster) rather than per
+  // draft — one paged query beats one round trip per gameweek per scenario.
+  const actualPlayerIds = useMemo(
+    () => [...new Set(drafts.flatMap((d) => d.players.map((p) => p.playerId)))].sort((a, b) => a - b),
+    [drafts],
+  );
+  const actualPlayerKey = actualPlayerIds.join(",");
+  useEffect(() => {
+    if (!season || actualPlayerIds.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const src = await loadScenarioActuals(season, actualPlayerIds);
+        if (!cancelled) setActualsSource(src);
+      } catch {
+        // Non-critical — the toggle just reports no finished gameweeks rather
+        // than erroring a page whose primary figure is still the projection.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [season, actualPlayerKey]);
+
   useEffect(() => {
     if (!computeReady || computed !== null || computing) return;
     const t = setTimeout(runCompute, 0);
@@ -441,6 +483,20 @@ export default function ScenariosPage() {
     () => computed?.scores ?? new Map<string, SquadScoreBreakdown>(),
     [computed],
   );
+  /**
+   * Actual points per scenario. Deliberately OUTSIDE the gated `runCompute`
+   * batch: it is a handful of map lookups per draft per gameweek, not the
+   * `optimiseLineup`/`squadScore` loops that batch exists to keep off the
+   * main thread — and folding it in would make the actuals query's own async
+   * arrival show up as "inputs changed, re-run", which is a lie. The user
+   * changed nothing.
+   */
+  const actualsByDraft = useMemo(() => {
+    const out = new Map<string, ScenarioActuals>();
+    if (!actualsSource) return out;
+    for (const d of drafts) out.set(d.draftId, scenarioActuals(d, actualsSource));
+    return out;
+  }, [drafts, actualsSource]);
 
   const refresh = () => setDrafts(listDrafts());
 
@@ -549,7 +605,36 @@ export default function ScenariosPage() {
             side by side.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+          {/* Projection vs what actually happened. Same inline button-group
+              recipe as /transfers' and /news' pills — there is no shared
+              segmented control in this codebase and one toggle does not
+              justify introducing one. */}
+          <div className="flex items-center gap-2">
+            <span className="text-zinc-500">Show</span>
+            {(["xp", "actual"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                aria-pressed={view === v}
+                disabled={v === "actual" && (actualsSource?.events.length ?? 0) === 0}
+                title={
+                  v === "actual" && (actualsSource?.events.length ?? 0) === 0
+                    ? "No gameweek has finished yet this season."
+                    : undefined
+                }
+                className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
+                  view === v
+                    ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
+                    : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
+                }`}
+              >
+                {v === "xp" ? "xP" : "Points scored"}
+              </button>
+            ))}
+            <InfoTooltip label="About points scored">{SCENARIO_ACTUALS_NOTE}</InfoTooltip>
+          </div>
+          <div className="flex items-center gap-2">
           <span className="text-zinc-500">Horizon</span>
           {HORIZONS.map((h) => (
             <button
@@ -565,8 +650,22 @@ export default function ScenariosPage() {
               {horizonLabel(h)}
             </button>
           ))}
+          </div>
         </div>
       </div>
+
+      {view === "actual" && (
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+          Counterfactual: today&rsquo;s XI and captain applied to{" "}
+          {actualsSource?.events.length
+            ? actualsSource.events.length === 1
+              ? `GW${actualsSource.events[0]}`
+              : `GW${actualsSource.events[0]}–GW${actualsSource.events[actualsSource.events.length - 1]}`
+            : "no finished gameweek"}
+          , which they were not picked for. No auto-subs, no chips, no bench.
+          {actualsSource?.provisional ? " The latest gameweek is provisional until bonus is confirmed." : ""}
+        </p>
+      )}
 
       {horizon === "season" && (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{seasonHorizonNote(seasonWindow)}</p>
@@ -697,6 +796,7 @@ export default function ScenariosPage() {
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {ranked.map(({ draft, score }, rank) => {
             const validation = validateSquad(draft, rules, lookup);
+            const actuals = actualsByDraft.get(draft.draftId);
             const isBest = score !== undefined && score.total === bestTotal && drafts.length > 1;
             const picked = selected.includes(draft.draftId);
 
@@ -811,7 +911,13 @@ export default function ScenariosPage() {
                     </span>
                   )}
                   <div className="mb-1 text-[11px] text-zinc-500">
-                    {score ? `${score.expectedPoints.toFixed(1)} xP` : ""}
+                    {view === "actual"
+                      ? actuals && actuals.lastEvent !== null
+                        ? `${actuals.lastEvent} pts GW${actualsSource?.latestEvent} · ${actuals.seasonToDate} season`
+                        : "no finished gameweek"
+                      : score
+                        ? `${score.expectedPoints.toFixed(1)} xP`
+                        : ""}
                   </div>
                 </div>
 
@@ -940,6 +1046,8 @@ export default function ScenariosPage() {
                   rules={rules}
                   lookup={lookup}
                   chipsByDraft={chipsByDraft}
+                  actuals={actualsByDraft}
+                  latestEvent={actualsSource?.latestEvent ?? null}
                 />
               </tbody>
             </table>
@@ -1005,6 +1113,8 @@ function ComparisonRows({
   rules,
   lookup,
   chipsByDraft,
+  actuals,
+  latestEvent,
 }: {
   drafts: TeamState[];
   scores: Map<string, SquadScoreBreakdown>;
@@ -1014,6 +1124,9 @@ function ComparisonRows({
   rules: SquadRules;
   lookup: (id: number) => PlayerMeta | undefined;
   chipsByDraft: Map<string, { bboost: ChipValuation; threeXC: ChipValuation }>;
+  actuals: Map<string, ScenarioActuals>;
+  /** The most recently finished gameweek, or null when none has. */
+  latestEvent: number | null;
 }) {
   const mean = (xs: number[]) => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length);
 
@@ -1043,6 +1156,23 @@ function ComparisonRows({
       dir: "high",
       format: (v) => v.toFixed(1),
       values: drafts.map((d) => scores.get(d.draftId)?.expectedPoints ?? 0),
+    },
+    // Counterfactual, and labelled as such in the row note as well as the
+    // banner above — a reader landing on this table alone must not read
+    // either figure as something this squad achieved.
+    {
+      label: latestEvent === null ? "Points scored · last gameweek" : `Points scored · GW${latestEvent}`,
+      dir: "high",
+      format: (v) => v.toFixed(0),
+      values: drafts.map((d) => actuals.get(d.draftId)?.lastEvent ?? 0),
+      note: "What this XI + captain really scored in that gameweek — applied to a week they were not picked for. No auto-subs, no bench, no chips.",
+    },
+    {
+      label: "Points scored · season to date",
+      dir: "high",
+      format: (v) => v.toFixed(0),
+      values: drafts.map((d) => actuals.get(d.draftId)?.seasonToDate ?? 0),
+      note: "The same XI + captain applied to every finished gameweek and summed — including weeks before a player was bought. Not a track record.",
     },
     {
       label: "Fixture quality",

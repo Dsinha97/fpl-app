@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { AvailabilityBadge } from "@/components/player-status-icons";
-import { TransferPlan } from "@/components/transfer-plan";
 import { useAuth } from "@/components/auth-provider";
 import { layoutFromLineup, PitchView, type SquadLayout } from "@/components/pitch-view";
 import type { PlayerData } from "@/components/player-card";
@@ -61,8 +60,6 @@ import {
 } from "@/lib/chips";
 import {
   DEFAULT_DECISION_MARGIN,
-  optimizeTransfers,
-  type OptimizerResult,
   type WildcardWindow,
   type XpByEvent,
 } from "@/lib/transfer-optimizer";
@@ -166,8 +163,6 @@ export default function DeadlinePage() {
   const [horizon, setHorizon] = useState<Horizon>(5);
   const [freeTransfers, setFreeTransfers] = useState(1);
   const [decisionMargin, setDecisionMargin] = useState(DEFAULT_DECISION_MARGIN);
-  const [transferResult, setTransferResult] = useState<OptimizerResult | null>(null);
-  const [transferLoading, setTransferLoading] = useState(false);
   const [pathResult, setPathResult] = useState<TransferPathResult | null>(null);
   const [pathLoading, setPathLoading] = useState(false);
 
@@ -186,6 +181,11 @@ export default function DeadlinePage() {
   // "is_current" gameweek rather than piggy-backing on ctx.
   const [liveEvent, setLiveEvent] = useState<{ season: string; event: number } | null>(null);
   const [liveStarted, setLiveStarted] = useState(false);
+  // Sprint 28. `liveStarted` alone cannot tell "in play" from "over" — a
+  // `started = true` fixture row stays true after the final whistle, forever.
+  // These two carry the extra evidence the phase needs; see `livePhase` below.
+  const [liveProbed, setLiveProbed] = useState(false);
+  const [liveOver, setLiveOver] = useState(false);
   const [gwState, setGwState] = useState<GameweekState | null>(null);
   const [gwStateLoading, setGwStateLoading] = useState(false);
   const [gwStateError, setGwStateError] = useState<string | null>(null);
@@ -229,7 +229,7 @@ export default function DeadlinePage() {
   useEffect(() => {
     // A different squad invalidates the last transfer search.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTransferResult(null);
+    setPathResult(null);
   }, [draftId]);
 
   // ------------------------------------------------------------------ countdown
@@ -469,22 +469,44 @@ export default function DeadlinePage() {
     (async () => {
       const { data: gw } = await supabase
         .from("gameweeks")
-        .select("season, id")
+        .select("season, id, finished")
         .eq("is_current", true)
         .limit(1)
         .maybeSingle();
-      if (cancelled || !gw) return;
+      if (cancelled) return;
+      if (!gw) {
+        setLiveProbed(true);
+        return;
+      }
       const season = gw.season as string;
       const event = gw.id as number;
       setLiveEvent({ season, event });
 
-      const { count } = await supabase
-        .from("fixtures")
-        .select("id", { count: "exact", head: true })
-        .eq("season", season)
-        .eq("event", event)
-        .eq("started", true);
-      if (!cancelled) setLiveStarted((count ?? 0) > 0);
+      const [started, unfinished] = await Promise.all([
+        supabase
+          .from("fixtures")
+          .select("id", { count: "exact", head: true })
+          .eq("season", season)
+          .eq("event", event)
+          .eq("started", true),
+        // `finished_provisional` flips at the final whistle, ahead of both
+        // `fixtures.finished` and the `gameweeks` row — so this clause moves
+        // the page on a sync cycle or two earlier than waiting for FPL's own
+        // gameweek flag. Deliberately NOT `data_checked`: that lags the last
+        // whistle by hours, and gating on it would bury the upcoming-gameweek
+        // section through most of the planning window.
+        supabase
+          .from("fixtures")
+          .select("id", { count: "exact", head: true })
+          .eq("season", season)
+          .eq("event", event)
+          .eq("finished_provisional", false),
+      ]);
+      if (cancelled) return;
+      const startedCount = started.count ?? 0;
+      setLiveStarted(startedCount > 0);
+      setLiveOver(startedCount > 0 && (gw.finished === true || (unfinished.count ?? 0) === 0));
+      setLiveProbed(true);
     })();
     return () => {
       cancelled = true;
@@ -922,54 +944,12 @@ export default function DeadlinePage() {
     };
   }, [ctx, squadElementIds, teamMeta]);
 
-  // ------------------------------------------------------- transfer optimiser
+  // ------------------------------------------------------------ transfer path
   //
-  // ~1,875 simulateTransfers calls (BEAM_WIDTH 8 + FUNDER_WIDTH 4, MAX_BASKET 3,
-  // CANDIDATES_PER_SLOT 5) — never on load, only behind this button.
-  const runTransferOptimizer = useCallback(() => {
-    if (!team || !ctx || scoredById.size === 0) return;
-    setTransferLoading(true);
-    setTimeout(() => {
-      const pool = [...scoredById.values()];
-      const result = optimizeTransfers({
-        team,
-        pool,
-        scoredById: scoredById,
-        lookup,
-        xpOf,
-        availabilityOf,
-        isPenaltyTaker,
-        seriesOf,
-        rules: ctx.rules,
-        horizon,
-        freeTransfers,
-        event: ctx.nextEvent,
-        wildcard,
-        decisionMargin,
-        chip: chipContext ?? undefined,
-        predAt,
-      });
-      setTransferResult(result);
-      setTransferLoading(false);
-    }, 0);
-  }, [
-    team,
-    ctx,
-    scoredById,
-    lookup,
-    xpOf,
-    availabilityOf,
-    isPenaltyTaker,
-    seriesOf,
-    horizon,
-    freeTransfers,
-    wildcard,
-    decisionMargin,
-    chipContext,
-    predAt,
-  ]);
-
-  /** Forward multi-gameweek path — same "never eager" gating as the deadline optimiser above. */
+  // The only recommendation this page makes. It runs `optimizeTransfers` for
+  // the deadline gameweek internally (~1,875 simulateTransfers calls: BEAM_WIDTH
+  // 8 + FUNDER_WIDTH 4, MAX_BASKET 3, CANDIDATES_PER_SLOT 5) and then extends
+  // that decision forward — never on load, only behind the path's own button.
   const runTransferPath = useCallback(() => {
     if (!team || !ctx || scoredById.size === 0) return;
     setPathLoading(true);
@@ -986,6 +966,8 @@ export default function DeadlinePage() {
         seriesOf,
         predAt,
         rules: ctx.rules,
+        horizon,
+        decisionMargin,
         freeTransfers,
         event: ctx.nextEvent,
         windowEnd: ctx.windowEnd,
@@ -995,9 +977,61 @@ export default function DeadlinePage() {
       setPathResult(result);
       setPathLoading(false);
     }, 0);
-  }, [team, ctx, scoredById, lookup, xpOf, availabilityOf, isPenaltyTaker, seriesOf, predAt, freeTransfers, chipPlanUsable, wildcard]);
+  }, [team, ctx, scoredById, lookup, xpOf, availabilityOf, isPenaltyTaker, seriesOf, predAt, horizon, decisionMargin, freeTransfers, chipPlanUsable, wildcard]);
 
   const countdown = ctx ? fmtCountdown(ctx.deadlineTime, now) : null;
+
+  // ---------------------------------------------------------- live vs upcoming
+  //
+  // Sprint 28. The page holds two gameweeks at once — the one being played and
+  // the one being planned — and which of them you care about flips at kickoff
+  // and again at the final whistle. Rather than showing both in full all the
+  // time, each is a collapsible section and the *phase* decides which is open
+  // and which comes first.
+  //
+  //   none  — nothing has kicked off (pre-season, or the deadline has passed
+  //           but no fixture has started). One section only; no chrome.
+  //   live  — in play. Live first and open, upcoming second and closed.
+  //   over  — all fixtures whistled. Order and expansion reverse.
+  const livePhase: "unknown" | "none" | "live" | "over" = !liveProbed
+    ? "unknown"
+    : !liveEvent || !liveStarted
+      ? "none"
+      : liveOver
+        ? "over"
+        : "live";
+
+  // Derived from the phase until the user touches a header, then theirs sticks.
+  // Keyed on the live event so a new gameweek starts from the derived answer
+  // again rather than inheriting last week's click.
+  const [openOverride, setOpenOverride] = useState<{
+    event: number | null;
+    live?: boolean;
+    upcoming?: boolean;
+  }>({ event: null });
+  const overrideFor: { live?: boolean; upcoming?: boolean } =
+    openOverride.event === (liveEvent?.event ?? null) ? openOverride : {};
+  const liveOpen = overrideFor.live ?? livePhase === "live";
+  const upcomingOpen = overrideFor.upcoming ?? livePhase !== "live";
+  const setSectionOpen = (key: "live" | "upcoming", open: boolean) =>
+    setOpenOverride((prev) => ({
+      ...(prev.event === (liveEvent?.event ?? null) ? prev : {}),
+      event: liveEvent?.event ?? null,
+      [key]: open,
+    }));
+
+  const liveSummary = gwStateLoading
+    ? "Loading…"
+    : gwState
+      ? `${gwState.liveTotal} pts${gwState.provisional ? " · provisional" : ""}`
+      : "No picks recorded";
+
+  const upcomingSummary = [
+    validation ? (validation.isLegal ? "Squad ready" : "Squad incomplete") : null,
+    alerts.length === 0 ? "no flags" : `${alerts.length} flag${alerts.length === 1 ? "" : "s"}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
@@ -1064,171 +1098,49 @@ export default function DeadlinePage() {
 
       {!loading && team && ctx && (
         <>
-          {/* ------------------------------------------------------ countdown */}
-          {/* No card — a border around one line of text is chrome, not
-              structure (Sprint 19, Stage 4a). The 3xl number is still the
-              biggest thing on the page; it just isn't boxed any more. */}
-          <div className="mt-6">
-            <h2 className={supportingHeading}>{ctx.gameweekName} deadline</h2>
-            <p
-              className={`mt-1 text-3xl font-bold tabular-nums ${
-                countdown?.passed
-                  ? "text-red-700 dark:text-red-400"
-                  : "text-purple-900 dark:text-primary"
-              }`}
-            >
-              {countdown?.text}
-            </p>
-            <p className="mt-1 text-xs text-zinc-500">
-              {new Date(ctx.deadlineTime).toLocaleString(undefined, {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
-            {team.source === "fpl" && (
-              <p className="mt-2 text-xs text-zinc-500">
-                <InfoTooltip label="About this imported squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>{" "}
-                Imported from your real FPL team.
+          {/* ------------------------------- countdown ‖ price & news watch */}
+          {/* Sprint 28. The countdown and the two watch cards sit ABOVE both
+              collapsible sections, never inside one. The countdown answers
+              "how long have I got" — hiding it behind a collapsed upcoming
+              section during a live gameweek is exactly backwards. And the
+              watch cards keep Sprint 23's reason for living outside the live
+              card (never orphaned before GW1's first kickoff) while gaining a
+              second one: they must not vanish behind a collapsed upcoming
+              section either. Both already self-collapse, so they cost two
+              rows when closed. */}
+          <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="min-w-0">
+            {/* ------------------------------------------------------ countdown */}
+            {/* No card — a border around one line of text is chrome, not
+                structure (Sprint 19, Stage 4a). The 3xl number is still the
+                biggest thing on the page; it just isn't boxed any more. */}
+            <div className="mt-6">
+              <h2 className={supportingHeading}>{ctx.gameweekName} deadline</h2>
+              <p
+                className={`mt-1 text-3xl font-bold tabular-nums ${
+                  countdown?.passed
+                    ? "text-red-700 dark:text-red-400"
+                    : "text-purple-900 dark:text-primary"
+                }`}
+              >
+                {countdown?.text}
               </p>
-            )}
-          </div>
-
-          {/* ---------------------------------------------- live hub ‖ watch */}
-          {/* Sprint 13 built the live card; Sprint 23 pairs it with Price &
-              news watch / Team news in a right rail instead of stacking all
-              three full-width — the live card's BPS race used to stretch
-              `sm:col-span-2` across the full page width and leave a wide gap
-              next to the fixture grid, which a narrower left column fixes.
-              The rail renders regardless of whether the live card has
-              started, so Price & news watch and Team news are never
-              orphaned before GW1's first kickoff. */}
-          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="min-w-0 space-y-4">
-              {liveStarted && liveEvent && (
-                <section className={card}>
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      Live — GW{liveEvent.event}
-                      {gwState?.provisional && (
-                        <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                          Provisional
-                        </span>
-                      )}
-                    </h2>
-                    <div className="flex items-center gap-3">
-                      <Link
-                        href="/team/"
-                        className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
-                      >
-                        View in My Team →
-                      </Link>
-                      <InfoTooltip label="About live figures">{LIVE_MODEL_NOTE}</InfoTooltip>
-                    </div>
-                  </div>
-
-                  {gwStateLoading && (
-                    <div className="mb-3 space-y-3" role="status" aria-label="Loading live scores">
-                      <Skeleton className="h-9 w-24" />
-                      <div className="space-y-1.5">
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-3/4" />
-                      </div>
-                    </div>
-                  )}
-                  {gwStateError && (
-                    <p className="text-sm text-red-700 dark:text-red-300">{gwStateError}</p>
-                  )}
-                  {!gwStateLoading && !gwStateError && !gwState && (
-                    <p className="text-sm text-zinc-500">
-                      No picks recorded for this manager for GW{liveEvent.event} yet.
-                    </p>
-                  )}
-
-                  {gwState && (
-                    <div className="mb-3 space-y-3">
-                      <div>
-                        <p className="text-3xl font-bold tabular-nums text-purple-900 dark:text-primary">
-                          {gwState.liveTotal}
-                        </p>
-                        <p className="text-xs text-zinc-500">
-                          Live points, starters + captain{gwState.autoSubs.length > 0 ? " + projected subs" : ""}.
-                          Bench score ({gwState.squadPoints.benchRaw}) only counts under a live Bench
-                          Boost.
-                        </p>
-                        {gwState.captaincy.handedOver && (
-                          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-                            Captain didn&apos;t feature — armband projected onto the vice-captain (
-                            {rowById.get(gwState.captaincy.effectiveElement)?.web_name ?? `#${gwState.captaincy.effectiveElement}`}
-                            ).
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <p className={supportingHeading}>Player status</p>
-                        <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
-                          {(() => {
-                            const counts = { not_started: 0, playing: 0, finished: 0 };
-                            for (const s of gwState.statusByElement.values()) counts[s] += 1;
-                            return `${counts.playing} playing · ${counts.not_started} yet to play · ${counts.finished} finished`;
-                          })()}
-                        </p>
-                      </div>
-
-                      {gwState.autoSubs.length > 0 && (
-                        <div>
-                          <p className={supportingHeading}>Projected auto-subs</p>
-                          <ul className="mt-1 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
-                            {gwState.autoSubs.map((sub) => (
-                              <li key={`${sub.outElement}-${sub.inElement}`}>
-                                {rowById.get(sub.inElement)?.web_name ?? `#${sub.inElement}`} on for{" "}
-                                {rowById.get(sub.outElement)?.web_name ?? `#${sub.outElement}`}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {gwState.bpsRace.length > 0 && (
-                        <div>
-                          <p className={supportingHeading}>BPS race (provisional bonus)</p>
-                          <ul className="mt-1 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
-                            {gwState.bpsRace
-                              .filter((r) => r.bps > 0)
-                              .slice(0, 5)
-                              .map((r) => (
-                                <li key={r.element} className="flex justify-between">
-                                  <span>{rowById.get(r.element)?.web_name ?? `#${r.element}`}</span>
-                                  <span className="tabular-nums">
-                                    {r.bps} bps{r.bonus > 0 ? ` · +${r.bonus} bonus so far` : ""}
-                                  </span>
-                                </li>
-                              ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {squadLiveFixtures.length > 0 && (
-                    <div className="flex flex-wrap gap-3">
-                      {squadLiveFixtures.map((f) => (
-                        <LiveFixtureCard
-                          key={f.id}
-                          fixture={f}
-                          teams={liveTeamsById}
-                          playersById={livePlayersById}
-                          squadElementIds={squadElementIds}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </section>
+              <p className="mt-1 text-xs text-zinc-500">
+                {new Date(ctx.deadlineTime).toLocaleString(undefined, {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+              {team.source === "fpl" && (
+                <p className="mt-2 text-xs text-zinc-500">
+                  <InfoTooltip label="About this imported squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>{" "}
+                  Imported from your real FPL team.
+                </p>
               )}
+            </div>
             </div>
 
             <div className="min-w-0 space-y-4">
@@ -1325,360 +1237,505 @@ export default function DeadlinePage() {
             </div>
           </div>
 
-          {/* ------------------ squad ‖ readiness ‖ availability ‖ captain & XI ‖ chip call */}
-          {/* Sprint 23: readiness/availability and captain/chip-call used to
-              be two independent paired grids stacked full width below the
-              squad. They're decisions about that same squad, so they now
-              share a rail beside its pitch view instead of consuming the
-              page's full width twice more. */}
-          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <section className="min-w-0">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                  Squad — {ctx.gameweekName}
-                </h2>
-                <Link
-                  href={`/builder/?draft=${team.draftId}`}
-                  className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+          {/* ------------------------------------ live GW ‖ upcoming GW */}
+          {/* Sprint 28. Two gameweeks live on this page at once — the one
+              being played and the one being planned — and which one you care
+              about flips at kickoff and again at the final whistle. Each is a
+              collapsible section; `livePhase` decides which is open and which
+              comes first.
+
+              Reordered with flex `order` rather than by reordering an array of
+              elements: the DOM order never changes, so React cannot remount
+              either subtree at the whistle and wipe an open PlayerDetail
+              popover, an expanded LiveFixtureCard or ChipPlanEditor's own
+              collapse state. The usual a11y objection to visual reordering
+              does not bite here — whichever section is second is also
+              collapsed, and a collapsed CollapsibleCard body is `inert`. */}
+          <div className="mt-5 flex flex-col gap-5">
+            {livePhase !== "none" && livePhase !== "unknown" && liveEvent && (
+              <div className={livePhase === "over" ? "order-2" : "order-1"}>
+                <CollapsibleCard
+                  tier="section"
+                  title={`Live — GW${liveEvent.event}`}
+                  summary={liveSummary}
+                  open={liveOpen}
+                  onOpenChange={(o) => setSectionOpen("live", o)}
                 >
-                  Edit in Builder →
-                </Link>
-              </div>
-              {predsLoading && (
-                <p role="status" className="mb-2 flex items-center gap-2 text-xs text-zinc-500">
-                  <Spinner /> Calculating expected points…
-                </p>
-              )}
-              {/* Read-only: no armband or remove handlers, so the detail panel
-                  opens as information only. Editing stays in /builder. */}
-              <PitchView
-                squad={squadCards}
-                quota={ctx.rules.positionQuota}
-                layout={squadLayout}
-              />
-              <p className="mt-2 text-xs text-zinc-500">
-                {team.name}
-                {team.source === "fpl" ? " · imported from FPL" : ""}
-                {squadLayout && team.startingXI.length !== 11
-                  ? " · showing the model's XI — you haven't set one"
-                  : ""}
-              </p>
-            </section>
-
-            <div className="min-w-0 space-y-4">
-          {validation && (
-            <section className={cardSupporting}>
-              <h2 className={supportingHeading}>Squad readiness</h2>
-              {validation.isLegal ? (
-                <p className="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                  This squad is legal and ready to enter.
-                </p>
-              ) : (
-                <ul className="mt-2 space-y-1.5 text-sm">
-                  {!validation.squadFull && (
-                    <li className="text-amber-700 dark:text-amber-400">
-                      {team.players.length} of {ctx.rules.squadSize} players selected —{" "}
-                      <Link href={`/builder/?draft=${team.draftId}`} className="underline-offset-2 hover:underline">
-                        fill the squad
-                      </Link>
-                      .
-                    </li>
-                  )}
-                  {validation.positions
-                    .filter((p) => p.filled !== p.required)
-                    .map((p) => (
-                      <li key={p.elementType} className="text-amber-700 dark:text-amber-400">
-                        {p.filled} of {p.required} required at position {p.elementType} —{" "}
-                        <Link href={`/builder/?draft=${team.draftId}`} className="underline-offset-2 hover:underline">
-                          fix in Builder
-                        </Link>
-                        .
-                      </li>
-                    ))}
-                  {validation.clubBreaches.map((b) => (
-                    <li key={b.teamId} className="text-amber-700 dark:text-amber-400">
-                      {b.count} players from one club exceed the {ctx.rules.teamLimit}-per-club limit.
-                    </li>
-                  ))}
-                  {validation.overBudget && (
-                    <li className="text-amber-700 dark:text-amber-400">
-                      Over budget by £{(-validation.budgetRemaining / 10).toFixed(1)}m.
-                    </li>
-                  )}
-                  {!validation.hasCaptain && (
-                    <li className="text-amber-700 dark:text-amber-400">No captain set.</li>
-                  )}
-                  {!validation.hasViceCaptain && (
-                    <li className="text-amber-700 dark:text-amber-400">No vice-captain set.</li>
-                  )}
-                </ul>
-              )}
-            </section>
-          )}
-
-          {/* --------------------------------------------------- availability */}
-          <section className={cardSupporting}>
-            <h2 className={supportingHeading}>Availability</h2>
-            {alerts.length === 0 ? (
-              <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
-                Nothing flagged — every player in this squad is fully available.
-              </p>
-            ) : (
-              <ul className="mt-2 space-y-2">
-                {alerts.map((p) => (
-                  <li key={p.id} className="flex items-start gap-2 text-sm">
-                    <AvailabilityBadge status={p.status} chanceOfPlaying={p.chance_of_playing_next_round} news={p.news} />
-                    <span>
-                      <span className="font-medium text-zinc-800 dark:text-zinc-200">{p.web_name}</span>
-                      {p.news && <span className="ml-1.5 text-zinc-500">{p.news}</span>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className={card}>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Captain &amp; starting XI — GW{ctx.nextEvent}
-              </h2>
-              <InfoTooltip label="About the captain model">{CAPTAIN_MODEL_NOTE}</InfoTooltip>
-            </div>
-            {predsLoading ? (
-              <div className="mt-2 space-y-2" role="status" aria-label="Loading captain recommendation">
-                <Skeleton className="h-4 w-2/3" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
-            ) : !lineup ? (
-              <p className="mt-2 text-sm text-zinc-500">Not enough data to recommend a lineup yet.</p>
-            ) : (
-              <>
-                <p className="mt-2 text-sm">
-                  Formation <span className="font-medium">{lineup.formation}</span> ·{" "}
-                  {lineup.startersXp.toFixed(1)} xP starting XI
-                </p>
-                <p className="mt-1 text-sm">
-                  Recommended captain:{" "}
-                  <span className="font-semibold text-purple-900 dark:text-[#00FF87]">
-                    {lineup.captain?.webName ?? "—"}
-                  </span>
-                  {lineup.captain && (
-                    <span className="ml-1.5 text-xs text-zinc-500">
-                      {Math.round(lineup.captain.confidence * 100)}% confidence
-                    </span>
-                  )}
-                  {lineup.vice && (
-                    <span className="ml-2 text-xs text-zinc-500">Vice: {lineup.vice.webName}</span>
-                  )}
-                </p>
-                {lineup.captain && lineup.captain.reasons.length > 0 && (
-                  <ul className="mt-1 space-y-0.5 text-[11px] text-zinc-500">
-                    {lineup.captain.reasons.map((r) => (
-                      <li key={r}>{r}</li>
-                    ))}
-                  </ul>
-                )}
-
-                {captainDiff && (
-                  <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
-                    Your draft has <span className="font-medium">{captainDiff.currentName}</span> captained
-                    {captainDiff.gain !== null ? (
-                      <>
-                        {" "}
-                        ({(captainDiff.currentXp ?? 0).toFixed(1)} xP) vs{" "}
-                        <span className="font-medium">{captainDiff.recommendedName}</span> (
-                        {(captainDiff.recommendedXp ?? 0).toFixed(1)} xP) = {signed(captainDiff.gain)}.
-                      </>
-                    ) : (
-                      <> — the model recommends {captainDiff.recommendedName} instead.</>
-                    )}
-                  </p>
-                )}
-
-                {xiDiff && (
-                  <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
-                    {xiDiff.bringIn.length > 0 && (
-                      <>Bring in: {xiDiff.bringIn.map((id) => lookup(id)?.webName ?? id).join(", ")}. </>
-                    )}
-                    {xiDiff.benchInstead.length > 0 && (
-                      <>Bench: {xiDiff.benchInstead.map((id) => lookup(id)?.webName ?? id).join(", ")}.</>
-                    )}
-                  </p>
-                )}
-              </>
-            )}
-          </section>
-
-          {/* -------------------------------------------------------- chips */}
-          <section className={card}>
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-              Chip call — GW{ctx.nextEvent}
-            </h2>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-              {predsLoading && (
-                <div role="status" aria-label="Loading chip call" className="space-y-2 sm:col-span-2">
-                  <Skeleton className="h-14 w-full" />
-                  <Skeleton className="h-14 w-full" />
-                </div>
-              )}
-              {!predsLoading && [benchBoost, tripleCaptain].map((v) =>
-                v ? (
-                  <div key={v.chip} className="rounded-md border border-zinc-200 px-3 py-2 dark:border-purple-900/40">
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                        {CHIP_LABELS[v.chip]}
-                      </span>
-                      {v.blocked === null && (
-                        <span
-                          className={`text-sm font-bold tabular-nums ${
-                            v.gain > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-zinc-500"
-                          }`}
-                        >
-                          {signed(v.gain)}
+                  <section className={card}>
+                    {/* No title of its own any more — the section header above
+                        already names the gameweek and carries the provisional
+                        marker in its collapsed summary. What is left here is
+                        the pair of controls that used to sit beside it. */}
+                    <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
+                      {gwState?.provisional && (
+                        <span className="mr-auto rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          Provisional
                         </span>
                       )}
+                      <div className="flex items-center gap-3">
+                        <Link
+                          href="/team/"
+                          className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                        >
+                          View in My Team →
+                        </Link>
+                        <InfoTooltip label="About live figures">{LIVE_MODEL_NOTE}</InfoTooltip>
+                      </div>
                     </div>
-                    {v.blocked ? (
-                      <p className="mt-1 text-xs text-zinc-500">{v.blocked}</p>
+
+                    {gwStateLoading && (
+                      <div className="mb-3 space-y-3" role="status" aria-label="Loading live scores">
+                        <Skeleton className="h-9 w-24" />
+                        <div className="space-y-1.5">
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-4 w-3/4" />
+                        </div>
+                      </div>
+                    )}
+                    {gwStateError && (
+                      <p className="text-sm text-red-700 dark:text-red-300">{gwStateError}</p>
+                    )}
+                    {!gwStateLoading && !gwStateError && !gwState && (
+                      <p className="text-sm text-zinc-500">
+                        No picks recorded for this manager for GW{liveEvent.event} yet.
+                      </p>
+                    )}
+
+                    {gwState && (
+                      // `max-w-2xl` — the live card used to sit in a 1fr
+                      // column beside a 360px rail, which is what stopped the
+                      // BPS race stretching the full page width (Sprint 23).
+                      // The rail moved to the top strip in Sprint 28, so the
+                      // constraint has to live here instead.
+                      <div className="mb-3 max-w-2xl space-y-3">
+                        <div>
+                          <p className="text-3xl font-bold tabular-nums text-purple-900 dark:text-primary">
+                            {gwState.liveTotal}
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            Live points, starters + captain{gwState.autoSubs.length > 0 ? " + projected subs" : ""}.
+                            Bench score ({gwState.squadPoints.benchRaw}) only counts under a live Bench
+                            Boost.
+                          </p>
+                          {gwState.captaincy.handedOver && (
+                            <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                              Captain didn&apos;t feature — armband projected onto the vice-captain (
+                              {rowById.get(gwState.captaincy.effectiveElement)?.web_name ?? `#${gwState.captaincy.effectiveElement}`}
+                              ).
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className={supportingHeading}>Player status</p>
+                          <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
+                            {(() => {
+                              const counts = { not_started: 0, playing: 0, finished: 0 };
+                              for (const s of gwState.statusByElement.values()) counts[s] += 1;
+                              return `${counts.playing} playing · ${counts.not_started} yet to play · ${counts.finished} finished`;
+                            })()}
+                          </p>
+                        </div>
+
+                        {gwState.autoSubs.length > 0 && (
+                          <div>
+                            <p className={supportingHeading}>Projected auto-subs</p>
+                            <ul className="mt-1 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
+                              {gwState.autoSubs.map((sub) => (
+                                <li key={`${sub.outElement}-${sub.inElement}`}>
+                                  {rowById.get(sub.inElement)?.web_name ?? `#${sub.inElement}`} on for{" "}
+                                  {rowById.get(sub.outElement)?.web_name ?? `#${sub.outElement}`}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {gwState.bpsRace.length > 0 && (
+                          <div>
+                            <p className={supportingHeading}>BPS race (provisional bonus)</p>
+                            <ul className="mt-1 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
+                              {gwState.bpsRace
+                                .filter((r) => r.bps > 0)
+                                .slice(0, 5)
+                                .map((r) => (
+                                  <li key={r.element} className="flex justify-between">
+                                    <span>{rowById.get(r.element)?.web_name ?? `#${r.element}`}</span>
+                                    <span className="tabular-nums">
+                                      {r.bps} bps{r.bonus > 0 ? ` · +${r.bonus} bonus so far` : ""}
+                                    </span>
+                                  </li>
+                                ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {squadLiveFixtures.length > 0 && (
+                      <div className="flex flex-wrap gap-3">
+                        {squadLiveFixtures.map((f) => (
+                          <LiveFixtureCard
+                            key={f.id}
+                            fixture={f}
+                            teams={liveTeamsById}
+                            playersById={livePlayersById}
+                            squadElementIds={squadElementIds}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                </CollapsibleCard>
+              </div>
+            )}
+
+            <div className={livePhase === "over" ? "order-1" : "order-2"}>
+              <CollapsibleCard
+                tier="section"
+                title={`Upcoming — ${ctx.gameweekName}`}
+                summary={upcomingSummary}
+                open={upcomingOpen}
+                onOpenChange={(o) => setSectionOpen("upcoming", o)}
+              >
+                {/* ------------------ squad ‖ readiness ‖ availability ‖ captain & XI ‖ chip call */}
+                {/* Sprint 23: readiness/availability and captain/chip-call used to
+                    be two independent paired grids stacked full width below the
+                    squad. They're decisions about that same squad, so they now
+                    share a rail beside its pitch view instead of consuming the
+                    page's full width twice more. */}
+                <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+                  <section className="min-w-0">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        Squad — {ctx.gameweekName}
+                      </h2>
+                      <Link
+                        href={`/builder/?draft=${team.draftId}`}
+                        className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                      >
+                        Edit in Builder →
+                      </Link>
+                    </div>
+                    {predsLoading && (
+                      <p role="status" className="mb-2 flex items-center gap-2 text-xs text-zinc-500">
+                        <Spinner /> Calculating expected points…
+                      </p>
+                    )}
+                    {/* Read-only: no armband or remove handlers, so the detail panel
+                        opens as information only. Editing stays in /builder. */}
+                    <PitchView
+                      squad={squadCards}
+                      quota={ctx.rules.positionQuota}
+                      layout={squadLayout}
+                    />
+                    <p className="mt-2 text-xs text-zinc-500">
+                      {team.name}
+                      {team.source === "fpl" ? " · imported from FPL" : ""}
+                      {squadLayout && team.startingXI.length !== 11
+                        ? " · showing the model's XI — you haven't set one"
+                        : ""}
+                    </p>
+                  </section>
+
+                  <div className="min-w-0 space-y-4">
+                {validation && (
+                  <section className={cardSupporting}>
+                    <h2 className={supportingHeading}>Squad readiness</h2>
+                    {validation.isLegal ? (
+                      <p className="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                        This squad is legal and ready to enter.
+                      </p>
                     ) : (
-                      v.explanation.map((line) => (
-                        <p key={line} className="mt-1 text-xs text-zinc-500">
-                          {line}
+                      <ul className="mt-2 space-y-1.5 text-sm">
+                        {!validation.squadFull && (
+                          <li className="text-amber-700 dark:text-amber-400">
+                            {team.players.length} of {ctx.rules.squadSize} players selected —{" "}
+                            <Link href={`/builder/?draft=${team.draftId}`} className="underline-offset-2 hover:underline">
+                              fill the squad
+                            </Link>
+                            .
+                          </li>
+                        )}
+                        {validation.positions
+                          .filter((p) => p.filled !== p.required)
+                          .map((p) => (
+                            <li key={p.elementType} className="text-amber-700 dark:text-amber-400">
+                              {p.filled} of {p.required} required at position {p.elementType} —{" "}
+                              <Link href={`/builder/?draft=${team.draftId}`} className="underline-offset-2 hover:underline">
+                                fix in Builder
+                              </Link>
+                              .
+                            </li>
+                          ))}
+                        {validation.clubBreaches.map((b) => (
+                          <li key={b.teamId} className="text-amber-700 dark:text-amber-400">
+                            {b.count} players from one club exceed the {ctx.rules.teamLimit}-per-club limit.
+                          </li>
+                        ))}
+                        {validation.overBudget && (
+                          <li className="text-amber-700 dark:text-amber-400">
+                            Over budget by £{(-validation.budgetRemaining / 10).toFixed(1)}m.
+                          </li>
+                        )}
+                        {!validation.hasCaptain && (
+                          <li className="text-amber-700 dark:text-amber-400">No captain set.</li>
+                        )}
+                        {!validation.hasViceCaptain && (
+                          <li className="text-amber-700 dark:text-amber-400">No vice-captain set.</li>
+                        )}
+                      </ul>
+                    )}
+                  </section>
+                )}
+
+                {/* --------------------------------------------------- availability */}
+                <section className={cardSupporting}>
+                  <h2 className={supportingHeading}>Availability</h2>
+                  {alerts.length === 0 ? (
+                    <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
+                      Nothing flagged — every player in this squad is fully available.
+                    </p>
+                  ) : (
+                    <ul className="mt-2 space-y-2">
+                      {alerts.map((p) => (
+                        <li key={p.id} className="flex items-start gap-2 text-sm">
+                          <AvailabilityBadge status={p.status} chanceOfPlaying={p.chance_of_playing_next_round} news={p.news} />
+                          <span>
+                            <span className="font-medium text-zinc-800 dark:text-zinc-200">{p.web_name}</span>
+                            {p.news && <span className="ml-1.5 text-zinc-500">{p.news}</span>}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+
+                <section className={card}>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      Captain &amp; starting XI — GW{ctx.nextEvent}
+                    </h2>
+                    <InfoTooltip label="About the captain model">{CAPTAIN_MODEL_NOTE}</InfoTooltip>
+                  </div>
+                  {predsLoading ? (
+                    <div className="mt-2 space-y-2" role="status" aria-label="Loading captain recommendation">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </div>
+                  ) : !lineup ? (
+                    <p className="mt-2 text-sm text-zinc-500">Not enough data to recommend a lineup yet.</p>
+                  ) : (
+                    <>
+                      <p className="mt-2 text-sm">
+                        Formation <span className="font-medium">{lineup.formation}</span> ·{" "}
+                        {lineup.startersXp.toFixed(1)} xP starting XI
+                      </p>
+                      <p className="mt-1 text-sm">
+                        Recommended captain:{" "}
+                        <span className="font-semibold text-purple-900 dark:text-[#00FF87]">
+                          {lineup.captain?.webName ?? "—"}
+                        </span>
+                        {lineup.captain && (
+                          <span className="ml-1.5 text-xs text-zinc-500">
+                            {Math.round(lineup.captain.confidence * 100)}% confidence
+                          </span>
+                        )}
+                        {lineup.vice && (
+                          <span className="ml-2 text-xs text-zinc-500">Vice: {lineup.vice.webName}</span>
+                        )}
+                      </p>
+                      {lineup.captain && lineup.captain.reasons.length > 0 && (
+                        <ul className="mt-1 space-y-0.5 text-[11px] text-zinc-500">
+                          {lineup.captain.reasons.map((r) => (
+                            <li key={r}>{r}</li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {captainDiff && (
+                        <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+                          Your draft has <span className="font-medium">{captainDiff.currentName}</span> captained
+                          {captainDiff.gain !== null ? (
+                            <>
+                              {" "}
+                              ({(captainDiff.currentXp ?? 0).toFixed(1)} xP) vs{" "}
+                              <span className="font-medium">{captainDiff.recommendedName}</span> (
+                              {(captainDiff.recommendedXp ?? 0).toFixed(1)} xP) = {signed(captainDiff.gain)}.
+                            </>
+                          ) : (
+                            <> — the model recommends {captainDiff.recommendedName} instead.</>
+                          )}
                         </p>
-                      ))
+                      )}
+
+                      {xiDiff && (
+                        <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+                          {xiDiff.bringIn.length > 0 && (
+                            <>Bring in: {xiDiff.bringIn.map((id) => lookup(id)?.webName ?? id).join(", ")}. </>
+                          )}
+                          {xiDiff.benchInstead.length > 0 && (
+                            <>Bench: {xiDiff.benchInstead.map((id) => lookup(id)?.webName ?? id).join(", ")}.</>
+                          )}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </section>
+
+                {/* -------------------------------------------------------- chips */}
+                <section className={card}>
+                  <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Chip call — GW{ctx.nextEvent}
+                  </h2>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                    {predsLoading && (
+                      <div role="status" aria-label="Loading chip call" className="space-y-2 sm:col-span-2">
+                        <Skeleton className="h-14 w-full" />
+                        <Skeleton className="h-14 w-full" />
+                      </div>
+                    )}
+                    {!predsLoading && [benchBoost, tripleCaptain].map((v) =>
+                      v ? (
+                        <div key={v.chip} className="rounded-md border border-zinc-200 px-3 py-2 dark:border-purple-900/40">
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                              {CHIP_LABELS[v.chip]}
+                            </span>
+                            {v.blocked === null && (
+                              <span
+                                className={`text-sm font-bold tabular-nums ${
+                                  v.gain > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-zinc-500"
+                                }`}
+                              >
+                                {signed(v.gain)}
+                              </span>
+                            )}
+                          </div>
+                          {v.blocked ? (
+                            <p className="mt-1 text-xs text-zinc-500">{v.blocked}</p>
+                          ) : (
+                            v.explanation.map((line) => (
+                              <p key={line} className="mt-1 text-xs text-zinc-500">
+                                {line}
+                              </p>
+                            ))
+                          )}
+                        </div>
+                      ) : null,
                     )}
                   </div>
-                ) : null,
-              )}
-            </div>
-            <p className="mt-2 text-xs text-zinc-500">
-              This gameweek only —{" "}
-              <Link href={`/chips/?draft=${team.draftId}`} className="underline-offset-2 hover:underline">
-                see the full season schedule
-              </Link>
-              .
-            </p>
-          </section>
+                  <p className="mt-2 text-xs text-zinc-500">
+                    This gameweek only —{" "}
+                    <Link href={`/chips/?draft=${team.draftId}`} className="underline-offset-2 hover:underline">
+                      see the full season schedule
+                    </Link>
+                    .
+                  </p>
+                </section>
+                  </div>
+                </div>
+
+                {/* --------------------------------------------------- chip plan */}
+                <ChipPlanEditor
+                  plan={team.chipPlan}
+                  chipDefinitions={chipDefinitions}
+                  nextEvent={ctx.nextEvent}
+                  lastEvent={ctx.windowEnd}
+                  activeChip={team.activeChip}
+                  onChange={(next: ChipPlan) => {
+                    saveDraft({ ...team, chipPlan: next });
+                    setDrafts(listDrafts());
+                  }}
+                  className="mt-5"
+                />
+
+                {/* ---------------------------------------------------- transfers */}
+                <section className={`mt-5 ${card}`}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Transfer call</h2>
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <div className="flex gap-1.5">
+                        {HORIZONS.map((h) => (
+                          <button
+                            key={h}
+                            onClick={() => setHorizon(h)}
+                            title={h === "season" ? seasonHorizonNote(ctx.seasonWindow) : undefined}
+                            className={`rounded-md px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                              horizon === h
+                                ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
+                                : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
+                            }`}
+                          >
+                            {horizonLabel(h)}
+                          </button>
+                        ))}
+                      </div>
+                      <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+                        Free transfers
+                        <select
+                          value={freeTransfers}
+                          onChange={(e) => {
+                            const n = Number(e.target.value);
+                            setFreeTransfers(n);
+                            // Persisted so the sticky ContextBar (and My Team,
+                            // /transfers) reflect the same count everywhere,
+                            // rather than this page's own throwaway local state —
+                            // this select was the only place that ever set the
+                            // real value and it evaporated on navigation.
+                            saveDraft({ ...team, freeTransfers: n });
+                            setDrafts(listDrafts());
+                          }}
+                          className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                        >
+                          {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
+                            <option key={i} value={i}>
+                              {i}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <InfoTooltip label="About the transfer model">{TRANSFER_MODEL_NOTE}</InfoTooltip>
+                    </div>
+                  </div>
+                  {team.players.length !== ctx.rules.squadSize && (
+                    <p className="mt-2 text-sm text-zinc-500">Complete the squad first to evaluate transfers.</p>
+                  )}
+                  {predsFullLoading && team.players.length === ctx.rules.squadSize && (
+                    <p className="mt-2 flex items-center gap-2 text-sm text-zinc-500">
+                      <Spinner /> Still loading expected points across the horizon…
+                    </p>
+                  )}
+                  {!predsFullLoading && !pathResult && team.players.length === ctx.rules.squadSize && !pathLoading && (
+                    <p className="mt-2 text-sm text-zinc-500">
+                      These settings drive the transfer path below — plan it when ready.
+                    </p>
+                  )}
+                </section>
+
+                {/* Sprint 28 — one answer. This page used to render
+                    TransferPlan (optimizeTransfers' own recommendation) AND
+                    TransferPath below it, two headlines answering "what should
+                    I do at this deadline" at different horizons with no
+                    reconciliation. optimizeTransfers still decides the opening
+                    gameweek; it does it inside planTransferPath now. */}
+                {team.players.length === ctx.rules.squadSize && (
+                  <TransferPath
+                    result={pathResult}
+                    loading={pathLoading}
+                    onRun={runTransferPath}
+                    hasChipPlan={chipPlanUsable.length > 0}
+                    disabled={predsFullLoading}
+                    horizon={horizon}
+                    decisionMargin={decisionMargin}
+                    onDecisionMarginChange={setDecisionMargin}
+                    onLoad={() => router.push(`/transfers/?draft=${team.draftId}`)}
+                  />
+                )}
+              </CollapsibleCard>
             </div>
           </div>
-
-          {/* --------------------------------------------------- chip plan */}
-          <ChipPlanEditor
-            plan={team.chipPlan}
-            chipDefinitions={chipDefinitions}
-            nextEvent={ctx.nextEvent}
-            lastEvent={ctx.windowEnd}
-            activeChip={team.activeChip}
-            onChange={(next: ChipPlan) => {
-              saveDraft({ ...team, chipPlan: next });
-              setDrafts(listDrafts());
-            }}
-            className="mt-5"
-          />
-
-          {/* ---------------------------------------------------- transfers */}
-          <section className={`mt-5 ${card}`}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Transfer call</h2>
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <div className="flex gap-1.5">
-                  {HORIZONS.map((h) => (
-                    <button
-                      key={h}
-                      onClick={() => setHorizon(h)}
-                      title={h === "season" ? seasonHorizonNote(ctx.seasonWindow) : undefined}
-                      className={`rounded-md px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                        horizon === h
-                          ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
-                          : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
-                      }`}
-                    >
-                      {horizonLabel(h)}
-                    </button>
-                  ))}
-                </div>
-                <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-                  Free transfers
-                  <select
-                    value={freeTransfers}
-                    onChange={(e) => {
-                      const n = Number(e.target.value);
-                      setFreeTransfers(n);
-                      // Persisted so the sticky ContextBar (and My Team,
-                      // /transfers) reflect the same count everywhere,
-                      // rather than this page's own throwaway local state —
-                      // this select was the only place that ever set the
-                      // real value and it evaporated on navigation.
-                      saveDraft({ ...team, freeTransfers: n });
-                      setDrafts(listDrafts());
-                    }}
-                    className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
-                  >
-                    {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
-                      <option key={i} value={i}>
-                        {i}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <InfoTooltip label="About the transfer model">{TRANSFER_MODEL_NOTE}</InfoTooltip>
-                <button
-                  onClick={runTransferOptimizer}
-                  disabled={
-                    transferLoading || predsFullLoading || team.players.length !== ctx.rules.squadSize
-                  }
-                  title={
-                    predsFullLoading
-                      ? "Still loading this horizon's expected points"
-                      : undefined
-                  }
-                  className="rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e078]"
-                >
-                  {transferLoading ? "Searching…" : "Run optimiser"}
-                </button>
-              </div>
-            </div>
-            {team.players.length !== ctx.rules.squadSize && (
-              <p className="mt-2 text-sm text-zinc-500">Complete the squad first to evaluate transfers.</p>
-            )}
-            {predsFullLoading && team.players.length === ctx.rules.squadSize && (
-              <p className="mt-2 flex items-center gap-2 text-sm text-zinc-500">
-                <Spinner /> Still loading expected points across the horizon…
-              </p>
-            )}
-            {!predsFullLoading &&
-              !transferResult &&
-              team.players.length === ctx.rules.squadSize &&
-              !transferLoading && (
-                <p className="mt-2 text-sm text-zinc-500">
-                  Runs roughly 1,875 simulations — click &ldquo;Run optimiser&rdquo; when ready.
-                </p>
-              )}
-          </section>
-
-          {transferResult && (
-            <TransferPlan
-              result={transferResult}
-              horizon={horizon}
-              event={ctx.nextEvent}
-              decisionMargin={decisionMargin}
-              onDecisionMarginChange={setDecisionMargin}
-              onLoad={() => router.push(`/transfers/?draft=${team.draftId}`)}
-              loadedSignature={null}
-              loading={transferLoading}
-            />
-          )}
-
-          {team.players.length === ctx.rules.squadSize && (
-            <TransferPath
-              result={pathResult}
-              loading={pathLoading}
-              onRun={runTransferPath}
-              hasChipPlan={chipPlanUsable.length > 0}
-              disabled={predsFullLoading}
-            />
-          )}
 
         </>
       )}

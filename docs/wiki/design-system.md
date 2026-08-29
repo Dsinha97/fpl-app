@@ -480,3 +480,39 @@ follow-on), [sprints/design-audit-response.md](../sprints/design-audit-response.
 accessibility/focus-ring/mobile-layout follow-on, and what an external design audit got wrong),
 [sprints/mobile-reachability.md](../sprints/mobile-reachability.md) (the same day's follow-on: the
 bottom sheet, the tap-target floor, and a real "FT 15" bug).
+
+## `CollapsibleCard` gains a controlled mode and a `section` tier (Sprint 28, 2026-08-29)
+
+`/deadline`'s live/upcoming split needed three things the Sprint 24 primitive could not do.
+
+**A controlled mode.** `CollapsibleCard`'s doc comment invited lifting its open state "when a page
+needs to read or drive it externally"; this is that page. `defaultOpen` is captured at mount, and
+`/deadline` learns whether a gameweek is in play *after* first paint — then learns it again at the
+final whistle. `open` + `onOpenChange` now coexist with the uncontrolled `defaultOpen` path every
+other caller still uses (`open !== undefined` selects controlled; `onOpenChange` fires either way).
+
+**A `section` tier.** `border-transparent p-0` with a `text-base` heading. A section *contains*
+cards — inheriting `primary`'s border and `p-4` would double-frame everything inside it and eat
+32px of `max-w-5xl`, which the 360px rails cannot spare at exactly `lg`.
+
+**Two defects the split exposed:**
+
+- **The accordion clipped absolutely-positioned children.** `PitchView` renders `PlayerDetail` as
+  `position: absolute`, so wrapping the squad in a card cut the popover off. The obvious fix —
+  clip while animating, switch to `overflow-visible` on `onTransitionEnd` — **was built, measured,
+  and does not work**: Chrome resolves an interpolating `fr` track in an indefinite-height grid to
+  `0px` throughout and never fires a `transitionend` for `grid-template-rows`, so the body stayed
+  clipped indefinitely. A `section` therefore opens *instantly*, with no height animation, which is
+  also the better call on its own: sliding ~1,000px of squad, chip and transfer UI open over 300ms
+  is a lurch. Card tiers keep Sprint 24's accordion untouched.
+- **Collapsed bodies stayed in the tab order.** Harmless for a 20-row news list; not for a
+  collapsed section holding horizon buttons, two selects, a run button and fifteen player cards.
+  The body wrapper takes `inert={!isOpen}`. It stays **mounted** — that is load-bearing, since the
+  collapsed summaries read state the collapsed body's own effects keep fresh.
+
+Related: `/deadline` reorders its two sections with flex `order-1`/`order-2` rather than by
+reordering an array of elements, so the DOM order never changes and React cannot remount either
+subtree at the whistle (which would wipe an open popover, an expanded `LiveFixtureCard`, or
+`ChipPlanEditor`'s own collapse state). The usual a11y objection to visual reordering does not
+apply here — whichever section is second is also collapsed, and a collapsed body is `inert`.
+See [sprint-28.md](../sprints/sprint-28.md).

@@ -25,12 +25,11 @@ import {
   TRANSFER_MODEL_NOTE,
   type TransferMove,
 } from "@/lib/transfers";
-import {
-  DEFAULT_DECISION_MARGIN,
-  optimizeTransfers,
-  type XpByEvent,
-} from "@/lib/transfer-optimizer";
-import { signatureOf, TransferPlan } from "@/components/transfer-plan";
+import { DEFAULT_DECISION_MARGIN, type XpByEvent } from "@/lib/transfer-optimizer";
+// `signatureOf` still lives in transfer-plan.tsx, which /deadline still uses
+// for its own optimiser output. /transfers no longer renders TransferPlan —
+// see the note on `TransferPath` for why the page now has one answer.
+import { signatureOf } from "@/components/transfer-plan";
 import { ChipPlanEditor } from "@/components/chip-plan-editor";
 import { TransferPath } from "@/components/transfer-path";
 import { planTransferPath, type TransferPathResult } from "@/lib/transfer-path";
@@ -139,9 +138,7 @@ export default function TransfersPage() {
   const [applied, setApplied] = useState<string | null>(null);
   const [pathResult, setPathResult] = useState<TransferPathResult | null>(null);
   const [pathLoading, setPathLoading] = useState(false);
-  const [plan, setPlan] = useState<ReturnType<typeof optimizeTransfers> | null>(null);
-  const [planLoading, setPlanLoading] = useState(false);
-  const [planSignature, setPlanSignature] = useState<string | null>(null);
+  const [pathSignature, setPathSignature] = useState<string | null>(null);
 
   // Drafts live in localStorage, so they can only be read after mount — an
   // effect is the right place despite the set-state-in-effect lint preference.
@@ -496,7 +493,7 @@ export default function TransfersPage() {
    * last time it ran so a changed input surfaces "re-run", not a stale
    * number silently presented as current.
    */
-  const planSignatureInputs = useMemo(
+  const pathSignatureInputs = useMemo(
     () =>
       JSON.stringify({
         draftId: team?.draftId ?? null,
@@ -505,72 +502,19 @@ export default function TransfersPage() {
         freeTransfers,
         decisionMargin,
         nextEvent,
+        lastEvent,
         wildcard,
-        chipContext,
+        chipPlanUsable,
       }),
-    [team, horizon, freeTransfers, decisionMargin, nextEvent, wildcard, chipContext],
+    [team, horizon, freeTransfers, decisionMargin, nextEvent, lastEvent, wildcard, chipPlanUsable],
   );
-  const planStale = plan !== null && planSignature !== null && planSignature !== planSignatureInputs;
-  const planReady =
-    !!team && scoredById.size > 0 && nextEvent !== null && team.players.length === rules.squadSize;
-
-  const runPlan = useCallback(() => {
-    if (!team || scoredById.size === 0 || nextEvent === null) return;
-    if (team.players.length !== rules.squadSize) return;
-    setPlanLoading(true);
-    setTimeout(() => {
-      const result = optimizeTransfers({
-        team,
-        pool,
-        scoredById: scoredById,
-        lookup,
-        xpOf,
-        availabilityOf,
-        isPenaltyTaker,
-        seriesOf,
-        rules,
-        horizon,
-        freeTransfers,
-        event: nextEvent,
-        wildcard,
-        decisionMargin,
-        chip: chipContext ?? undefined,
-        predAt,
-      });
-      setPlan(result);
-      setPlanSignature(planSignatureInputs);
-      setPlanLoading(false);
-    }, 0);
-  }, [
-    team,
-    pool,
-    scoredById,
-    lookup,
-    xpOf,
-    availabilityOf,
-    isPenaltyTaker,
-    seriesOf,
-    rules,
-    horizon,
-    freeTransfers,
-    chipContext,
-    predAt,
-    nextEvent,
-    wildcard,
-    decisionMargin,
-    planSignatureInputs,
-  ]);
-
-  // Auto-run once, the first time the page has everything it needs — so
-  // opening /transfers still shows a plan without requiring a click. Every
-  // change after that surfaces the "inputs changed" banner instead of
-  // silently re-running, per Sprint 19 Stage 3.
-  useEffect(() => {
-    if (!planReady || plan !== null || planLoading) return;
-    const t = setTimeout(runPlan, 0);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planReady]);
+  const pathStale = pathResult !== null && pathSignature !== null && pathSignature !== pathSignatureInputs;
+  const pathReady =
+    !!team &&
+    scoredById.size > 0 &&
+    nextEvent !== null &&
+    lastEvent !== null &&
+    team.players.length === rules.squadSize;
 
   /** Forward multi-gameweek path — a bounded but real search, gated behind a button like `/deadline`'s optimiser. */
   const runTransferPath = useCallback(() => {
@@ -588,6 +532,8 @@ export default function TransfersPage() {
         seriesOf,
         predAt,
         rules,
+        horizon,
+        decisionMargin,
         freeTransfers,
         event: nextEvent,
         windowEnd: lastEvent,
@@ -595,6 +541,7 @@ export default function TransfersPage() {
         wildcard,
       });
       setPathResult(result);
+      setPathSignature(pathSignatureInputs);
       setPathLoading(false);
     }, 0);
   }, [
@@ -610,10 +557,25 @@ export default function TransfersPage() {
     seriesOf,
     predAt,
     rules,
+    horizon,
+    decisionMargin,
     freeTransfers,
     chipPlanUsable,
     wildcard,
+    pathSignatureInputs,
   ]);
+
+  // Auto-run once, the first time the page has everything it needs — so
+  // opening /transfers still answers without requiring a click, exactly as it
+  // did when TransferPlan owned the headline. Every change after that surfaces
+  // the "inputs changed" banner instead of silently re-running (Sprint 19,
+  // Stage 3).
+  useEffect(() => {
+    if (!pathReady || pathResult !== null || pathLoading) return;
+    const t = setTimeout(runTransferPath, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathReady]);
 
   /** Ranked candidates for the slot being filled, plus a free-text search. */
   const candidates = useMemo(() => {
@@ -974,31 +936,23 @@ export default function TransfersPage() {
       )}
 
       {team && !loading && nextEvent !== null && team.players.length === rules.squadSize && (
-        <TransferPlan
-          result={plan}
+        <TransferPath
+          result={pathResult}
+          loading={pathLoading}
+          onRun={runTransferPath}
+          hasChipPlan={chipPlanUsable.length > 0}
           horizon={horizon}
-          event={nextEvent}
+          stale={pathStale}
           decisionMargin={decisionMargin}
           onDecisionMarginChange={setDecisionMargin}
+          signatureOf={signatureOf}
+          loadedSignature={moves.length > 0 ? signatureOf(moves) : null}
           onLoad={(next) => {
             setMoves(next);
             setPickingFor(null);
             setSearch("");
             setApplied(null);
           }}
-          loadedSignature={moves.length > 0 ? signatureOf(moves) : null}
-          loading={planLoading}
-          stale={planStale}
-          onRerun={runPlan}
-        />
-      )}
-
-      {team && !loading && nextEvent !== null && team.players.length === rules.squadSize && (
-        <TransferPath
-          result={pathResult}
-          loading={pathLoading}
-          onRun={runTransferPath}
-          hasChipPlan={chipPlanUsable.length > 0}
         />
       )}
 

@@ -49,6 +49,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 25 | Domain cutover + UI defect sweep | **Built** 2026-08-23 — `fpldecision.com` is the canonical host (Cloudflare Registrar, apex canonical, `www` redirected, `wrangler.jsonc` routes); eleven UI fixes across `/deadline`, `/team`, `/fixtures`, `/chips`, `/players` and the nav shell — short team codes replacing truncated names, `/team` squad cards no longer overlapping the pitch, `/fixtures`' schedule brought onto the Sprint 24 expand pattern, `/chips`' dead space and duplicated fixture-flatness note fixed, `/players`' xG/xA moved to per-90, desktop nav hover-open + click-to-solidify, mobile drawer wordmark | [sprints/sprint-25.md](sprints/sprint-25.md), [docs/wiki/deployment.md](wiki/deployment.md) |
 | 26 | Casual-user on-ramps + load staging | **Built** 2026-08-23/24 — builder "+" affordance, import-CTA discovery, shared parallelized `lib/player-pool.ts` loader (5s serial → ~1.7s), `/scenarios` freeze fix, staged `/deadline` load, squad Value in the context bar, not-played `–`-instead-of-`0` fix. Two commits with no sprint file at the time, backfilled during the Sprint 27 docs reconciliation | [sprints/sprint-26.md](sprints/sprint-26.md) |
 | 27 | Post-GW1 reckoning | **Built** 2026-08-27 — pre-deadline prediction archive (`player_prediction_archive`, urgent: GW2's snapshot was ~26 hours from being lost the same way GW1's was), the GW1 predicted-lineup layer deleted per its own stated expiry, `/review` (what a gameweek's decision actually cost), and the current-season xP blend built and measured against a real walk-forward sweep — does not clear the gate (2024-25's bias worsens), not shipped. Docs reconciliation: two stale `Blocked` rows corrected, Sprint 26 backfilled | [sprints/sprint-27.md](sprints/sprint-27.md) |
+| 28 | Live/upcoming split, one transfer answer, scenario actuals | **Built** 2026-08-29 — `/deadline` split into collapsible Live GW and Upcoming GW sections ordered by a new `livePhase` (`CollapsibleCard` gained a controlled mode, a `section` tier, `inert` collapsed bodies, and stopped clipping the pitch's player-detail popover); `TransferPlan` removed from `/transfers` and `/deadline` so the transfer path is the single answer, after fixing three real defects in it (hardcoded horizon 5, missing `decisionMargin`, and a roll branch that carried next gameweek's squad forward at zero cost); `/scenarios` gained an xP / Points-scored toggle over a new `lib/scenario-actuals.ts`. Prompted by the owner using the app during a live gameweek | [sprints/sprint-28.md](sprints/sprint-28.md) |
 
 Non-sprint work items, also in `sprints/`: [cold-start-patch.md](sprints/cold-start-patch.md)
 (empirical-Bayes rate priors — phase 1 built, phase 2 deferred/gated) and
@@ -57,6 +58,72 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 [sprints/additional-info.md](sprints/additional-info.md).
 
 ## Next up
+
+- **Price-change prediction — scoped 2026-08-29, not started.** The owner wants to know whether to
+  transfer now or wait for a price move. The data to answer that already exists and nothing reads it:
+  `player_price_history` is change-detected (a row the moment `now_cost` moves, so **labels are sharp
+  at 30-minute resolution**), and `player_ownership_history` carries `selected_by_percent` /
+  `transfers_in_event` / `transfers_out_event` — but **time-gated to roughly once per 20 hours**
+  (`record_player_snapshots`, migration `20260803004948`), because ownership moves on every poll and a
+  row-per-player-per-poll would be ~7.8M rows/season. Today `player_ownership_history` is read by
+  nothing but a row count on `/status`.
+
+  **That asymmetry is the whole problem, not a missing table.** FPL's price algorithm keys on net
+  transfer *velocity* relative to a player's ownership base, measured continuously; we have sharp
+  labels and ~daily features. A daily net-transfer delta is reconstructible, sub-daily velocity is
+  not. Sequence, with only the first two committed:
+  1. **Fix the sampling first.** Drop the ownership gate from ~20h to ~2h for a bounded watchlist
+     only — non-zero `cost_change_event`, high `selected_by_percent`, or moved in the last 24h.
+     Full-population 2-hourly is a row explosion; a watchlist is not. No model can see the signal
+     without this.
+  2. **Ship the descriptive tool, which may be enough.** The real question is "now or wait", which
+     needs a **progress-to-threshold** reading, not a classifier: net transfers since the last price
+     change as a fraction of an estimated threshold, plus a direction and a "likely tonight / not
+     tonight" call, disclosed with its own `*_MODEL_NOTE` on `/players` and `/transfers`. It is
+     honest, immediately useful, and it generates the labelled history a model would need.
+  3. **Only then fit a model**, gated the way the xP blend was: walk-forward over accumulated price
+     history, scored on precision/recall of "rises tonight" against a naive baseline (top-N by net
+     transfers). If it does not beat the baseline, ship the heuristic and say so.
+  FPL's actual flag threshold is unpublished and ownership-dependent — per CLAUDE.md it becomes a
+  documented user-set input, never a coefficient tuned until the answer looks right.
+- **Mini-league ownership UI — the cheapest high-value item on this list, not started.** Sprint 10's
+  engine and pipeline both shipped and **nothing renders them**: `sync-league-picks` writes
+  `league_entries`/`league_entry_picks`, `lib/ownership.ts` computes EO / `differentialScore` /
+  `rankGain` (verified in a harness against a real 5-member league), and `manager_leagues` is already
+  listed on `/team`. [wiki/ownership-and-leagues.md](wiki/ownership-and-leagues.md) records the gap
+  in its own words: "the `/team` surface that reads any of this — the engine and pipeline exist,
+  nothing renders them yet." Proposed slice, all UI over shipped maths:
+  a league picker on `/team` sourced from `manager_leagues` with a Sync-picks button; an EO table for
+  the selected league (your players' league EO, plus the top-owned players you *don't* have);
+  `RankGain` and `Differential` columns with `Upside` exposed as the documented input it already is;
+  rivals auto-populated from the selected league's standings instead of manual ID entry — the one
+  place `lib/manager-profile.ts` (career percentiles, **not** league-aware) and league data should
+  meet; and the Sprint 6 EO-column gap closed on `/players` off the same loader. Note this is the
+  *exact mini-league* slice, which is unblocked — only the field-wide/top-1k sample is blocked
+  (league 314, below).
+- **Repo going public — pre-flight checklist, scoped 2026-08-29.** The owner intends to make
+  `Dsinha97/fpl-app` public for a portfolio. Three items must be settled first:
+  1. **PII.** `sprints/latency.md` contains the owner's email address beside a `user_profiles`
+     description. Redact it. It is the only genuine PII in the repo — the FPL manager ID `274486` in
+     14 files is public by construction (post-deadline picks are readable for any entry, which is
+     Sprint 10's whole premise), and the Supabase project ref is already in the deployed CSP header.
+  2. **The publishable key hardcoded in migration `20260803010912_phase1_scheduling.sql`.** Its
+     header argues the key is public by design and the functions are idempotent read-only, which
+     holds for *disclosure* but not for *abuse* — publishing makes the cron endpoint trivially
+     callable by anyone reading the repo. Move it to a Vault secret referenced by name, or accept it
+     consciously with rate limiting.
+  3. **FootyStats-derived CSVs are tracked** (`docs/Promoted Team Data/`). `.gitignore`'s own note
+     records that the source PDFs were excluded partly on redistribution grounds and that "the repo
+     is private now, which weakens that half of the argument" — going public re-activates it. Check
+     the licence or untrack them.
+  Write access after publishing is GitHub's default (public read, write to no one; outside
+  contributors can only open fork PRs), hardened with: a `main` ruleset requiring a PR and the
+  existing `ci.yml` check, blocking force-push and deletion, **with no administrator bypass**;
+  `.github/CODEOWNERS` plus required Code-Owner review; Actions set to require approval for all
+  outside-collaborator fork PRs (they would otherwise reach `secrets.NEXT_PUBLIC_*`); secret scanning
+  with push protection; and restricted branch creation. A sweep for JWTs, `sk-` keys, PEM blocks and
+  `password =` across all tracked files found nothing but `package-lock.json` integrity hashes;
+  `.env.local` is confirmed untracked.
 
 - **Latency roadmap — `/deadline`, `/builder`, and `/team` fixed 2026-08-27.** Pulled the owner's
   NotebookLM research on web performance into
@@ -97,6 +164,22 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   by ~58% off two gameweeks of data, and a displacement bug that halves the *prior* evidence
   weight the moment any current-season data exists), and the reasoning for not chasing a
   passing weight on 2024-25 alone: [phase-4-model.md](phase-4-model.md#honest-limitations).
+
+  **Attempt 2, scoped 2026-08-29 after the owner asked how current points reach the model** (answer:
+  they do not, at all — `generate-predictions` reads `player_season_history`, filled from FPL's
+  `history_past`, which lists only *completed* seasons, so the model's whole training table is frozen
+  for the season). Two steps, in this order:
+  1. **Fix the expired premise first, separately gated.** `lib/scoring.ts`'s `COMPARISON_WEIGHTS`
+     drops FPL's `form` term and renormalises over 0.90 on the premise that FPL zeroes `form`
+     between seasons. That premise expired the moment GW1 was scored. This is the comparison/ranking
+     layer, not the xP engine — a much smaller blast radius, and the one place current-season
+     performance can legitimately reach a displayed number today.
+  2. **Re-run the sweep with a bias correction.** The blend beats prior-only on *both* accuracy
+     measures in every season and fails on bias alone — the signature of a fixable calibration
+     offset, not a broken feature. Sweep a per-position intercept correction alongside
+     `currentSeasonWeight` and re-gate. **Do not lower the gate to let it through**: an acceptance
+     threshold invented to pass is not evidence. The dormant infrastructure (`SeasonRow.games`,
+     `currentSeasonRow`/`currentSeasonWeight`) is already in `xp-model.ts`, reviewed and inert.
 - **Archive pre-deadline predictions — built 2026-08-27.** `generate-predictions` deletes and
   replaces `player_predictions` wholesale every run, so there was never a record of what the
   model said *before* a gameweek was played — GW1's predictions were gone within the first cron

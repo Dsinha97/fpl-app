@@ -212,3 +212,17 @@ One line per entry, most recent first.
   to defer to `roadmap.md`'s own "Next up" section instead of pinning a sprint name that goes stale
   every time the roadmap moves. No wiki page references this line directly, so no cross-link
   update needed.
+- 2026-08-29 — Ingested `docs/sprints/sprint-28.md` (Live/upcoming split, one transfer answer,
+  scenario actuals). New `deadline-and-matchday.md` subsection superseding Sprint 23's live-hub
+  rail description — the two-section split, the `livePhase` table, and why `liveStarted` could not
+  detect "over" while `data_checked` is the wrong flag to use for it. New `design-system.md`
+  subsection for `CollapsibleCard`'s controlled mode and `section` tier, recording two measured
+  findings: the `onTransitionEnd`-then-`overflow-visible` fix for the clipped `PlayerDetail`
+  popover was built and **does not work** (Chrome resolves an interpolating `fr` track in an
+  indefinite-height grid to 0px and never fires `transitionend` for `grid-template-rows`), and
+  collapsed accordion bodies had been sitting in the tab order since Sprint 24. New
+  `transfer-engine.md` section "One answer per deadline", documenting the three defects in
+  `planTransferPath` that were fixed *before* it became the sole recommendation — including the
+  roll-branch squad leak, a genuine correctness bug rather than a presentation one. New
+  `squad-score-and-scenarios.md` section for `lib/scenario-actuals.ts`, with the counterfactual
+  framing stated as a requirement rather than a caveat. `timeline.md` updated.

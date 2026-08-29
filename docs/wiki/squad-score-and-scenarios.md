@@ -39,3 +39,37 @@ envelope and merges on `updatedAt`, so re-importing an old backup can't clobber 
 
 See also: [transfer-engine.md](transfer-engine.md) (Apply from the simulator writes a new draft here),
 [chip-strategy.md](chip-strategy.md) (chip values shown inline on `/scenarios`).
+
+## Actual points, alongside xP (`lib/scenario-actuals.ts`, Sprint 28, 2026-08-29)
+
+`/scenarios` compared drafts on projection alone — it could say squad A projects 1.4 points better
+than squad B, and nothing on the page ever said whether such a gap had been borne out. A
+`Show: xP / Points scored` toggle now exposes two real figures per scenario, on the draft cards
+and as two new comparison rows:
+
+- **last finished gameweek**, on its own;
+- **season to date** — the same XI and captain applied to every finished gameweek and summed.
+
+**Both are counterfactual, and the page says so in three places.** A scenario is a hypothetical
+squad; applying today's eleven and armband to a gameweek they were not picked for is not a record
+of anything. Season-to-date is the stronger version of that caveat — it credits an XI for weeks
+before some of its players were bought. So: `SCENARIO_ACTUALS_NOTE` behind the toggle's
+`InfoTooltip`, an amber banner naming the exact gameweek range while the toggle is on, and a note
+on each comparison row. Deliberately not modelled, and stated: auto-substitutions (a hypothetical
+squad has no pick history for FPL's rules to run against), chips, bench points, prices and
+transfer costs. A captain is always doubled, even one who did not play.
+
+Mechanics worth knowing:
+
+- One paged query over `player_gameweek_stats` across every finished gameweek for the union of all
+  drafts' players — `loadEventPoints` per event would be a round trip per gameweek per scenario.
+  Paged with `.range()` until a short page comes back, per the API's 1000-row cap.
+- Merged with `player_live_stats` for the latest finished event, per player by higher minutes,
+  exactly as [`lib/manager-picks.ts`](../architecture.md) already reconciles the two — a finalised
+  row can itself be a stale pre-kickoff placeholder.
+- Computed in a plain `useMemo`, **outside** `runCompute`'s gated batch. That batch exists to keep
+  `optimiseLineup`/`squadScore` off the main thread; a few map lookups per draft do not need it,
+  and folding them in would make the query's own async arrival surface as "inputs changed —
+  re-run", which is a lie. The user changed nothing.
+
+See [sprint-28.md](../sprints/sprint-28.md).
