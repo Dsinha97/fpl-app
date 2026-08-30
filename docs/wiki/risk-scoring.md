@@ -12,11 +12,13 @@ RiskScore = 0.30 Rotation + 0.25 Injury + 0.20 Minutes + 0.15 FixtureVariance �
 ```
 
 EO (effective ownership) here means the **field's** ownership — every FPL entry, or at least a top-1k
-sample of it — and that still has no data source: league 314 only unblocks a *rank-ordered* top-1k
-sample once GW1 is scored (see [ownership-and-leagues.md](ownership-and-leagues.md) for the exact
-mini-league EO that *did* unblock at the GW1 deadline — a genuinely different quantity, scoped to a
-few-hundred-person league rather than the whole field, and not wired into this formula). So the term
-is **dropped and the remaining four weights renormalised** over the surviving 0.90:
+sample of it. League 314 ("Overall") is provably syncable at that scale now (a Sprint 29 follow-up
+load-test synced 2000 rank-ordered entries end to end, 0 failures — see
+[ownership-and-leagues.md](ownership-and-leagues.md)#the-field-wide-top-1k-sample-whats-actually-still-blocked)),
+but nobody has run and kept a real sample or wired it into this formula — a different quantity from
+the exact mini-league EO that *did* unblock and ship as its own page (`/leagues`) at the GW1
+deadline, scoped to a few-hundred-person league rather than the whole field. So the term is
+**dropped and the remaining four weights renormalised** over the surviving 0.90:
 
 ```
 0.333 Rotation + 0.278 Injury + 0.222 Minutes + 0.167 FixtureVariance

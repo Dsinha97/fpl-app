@@ -22,6 +22,17 @@ See [data-pipeline.md](data-pipeline.md#player_predictions-and-the-row-cap).
   `player_season_history` row reads a real `0`, not a missing value, which silently deflated `dc90`
   until `deriveDcEligibleSeasons` restricted its denominator to seasons where the stat is genuinely
   populated. See [xp-model.md](xp-model.md).
+- **`teams[].played`/`win`/`draw`/`loss`/`points`/`form` stay `0`/`null` all season, not just
+  pre-season** — this is not a placeholder that clears once matches are played; verified live
+  2026-08-30 by fetching `bootstrap-static` directly against a season with multiple gameweeks
+  already finished (real scorelines in `fixtures`, these fields still zero for every team).
+  `teams.position` is *not* zeroed the same way, but doesn't track played/points either, so it
+  isn't a real table position — trusting it would repeat the same "field FPL doesn't actually
+  carry" mistake. `components/league-table.tsx` now derives the standings table from `fixtures`
+  results instead whenever FPL's own fields read empty (`lib/fdr.ts`'s
+  `deriveStandingsFromFixtures`) — counting a `started` fixture (live score included, distinguished
+  from `finished_provisional` so an over-but-bonus-pending match doesn't read as "still being
+  played"), not just fully `finished` ones. — [sprints/sprint-29.md](../sprints/sprint-29.md)
 
 ## Fixture/gameweek shape
 

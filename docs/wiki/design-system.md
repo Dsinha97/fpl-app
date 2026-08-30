@@ -516,3 +516,29 @@ subtree at the whistle (which would wipe an open popover, an expanded `LiveFixtu
 `ChipPlanEditor`'s own collapse state). The usual a11y objection to visual reordering does not
 apply here — whichever section is second is also collapsed, and a collapsed body is `inert`.
 See [sprint-28.md](../sprints/sprint-28.md).
+
+## The `order` pattern generalises to three sections (Sprint 29, 2026-08-30)
+
+The two watch cards (Price & news, Team news) used to sit in a permanent top strip above both
+Live/Upcoming sections — Sprint 23's reason for keeping them outside a collapsible section (never
+orphaned before GW1's first kickoff) meant they couldn't just join the accordion. Sprint 29 moved
+them into the same `order`-based scheme instead of solving that constraint a second way: a
+`sectionOrder(section)` helper returns `order-1`/`order-2`/`order-3` for `"live"`/`"watch"`/
+`"upcoming"` depending on `livePhase` and whether a live section is rendered at all (no live
+fixture → watch precedes upcoming directly). Live GW's countdown/date/import-note row, which used
+to run on as untitled siblings of the `{gameweekName} deadline` label in one flex row, is now split
+onto its own line below the label — a real visual separation the run-on version lacked. The
+"Imported from your real FPL team" sentence folded into the existing `IMPORTED_SQUAD_NOTE` tooltip
+instead of staying a second always-visible line.
+
+**Side-by-side cards, `self-start` not just a fixed width.** The two watch cards sit in
+`flex flex-wrap` with a `w-[calc(50%-0.625rem)]` basis each — CLAUDE.md's documented gotcha for
+exactly this shape (`LiveFixtureCard`/`ClubTacticsGrid`, [above](#card-hierarchy-stage-4a))
+applies again here: a flex row defaults `align-items: stretch`, so an expanded card still inflates
+its still-collapsed neighbour without `self-start` on top of the width basis. Verified visually at
+desktop width: expanding one card leaves the other at its own natural height.
+
+`/leagues`' clickable league rows gained a trailing `ChevronRight` (lucide-react) plus explicit
+`cursor-pointer` — the same markup previously rendered identically for a clickable and a
+non-clickable row (`/team`'s now-removed inline table used the latter), leaving only a hover
+background to distinguish them, which never shows at rest. — [sprint-29.md](../sprints/sprint-29.md)

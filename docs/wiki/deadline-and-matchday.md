@@ -11,7 +11,19 @@ into one number: points and rank movement (from `manager_gameweek_history`), the
 the best-in-hindsight starter (the gap labelled as not an achievable in-the-moment choice), bench
 points recovered by a projected auto-sub vs. still stranded — shown alongside FPL's own
 `points_on_bench` rather than reconciled against it, since the two can legitimately disagree — and
-transfers (an explicit empty state today: `manager_transfers` has 0 rows).
+transfers, from `manager_transfers` (already written by `sync-manager`; genuinely empty until the
+owner's first real transfer, not a broken read — the first one landed 2026-08-25, see
+"Transfer ledger" below).
+
+### Transfer ledger (Sprint 29.2, 2026-08-30)
+
+`lib/gameweek-review.ts`'s own single-event `loadTransfers` was folded into a new shared
+`lib/manager-transfers.ts` (`loadTransfers`/`groupByEvent`/`hitCost`, the last routed through
+`lib/transfers.ts`'s one `HIT_COST` rather than a second hardcoded 4) — `/review` reads one event's
+worth, `/team` reads the whole season and renders it as a list grouped by gameweek, next to a
+reconciliation note against the local draft-snapshot diff (`lib/squad-diff.ts`) when the ledger and
+the saved squad's own change disagree. Verified against a real synced transfer (GW2, one player in
+for one out) end to end.
 
 Deliberately built on the existing live-hub primitives rather than a parallel implementation:
 `loadGameweekState` (below) is event-agnostic, so pointing it at a *finished* gameweek runs the
@@ -32,6 +44,12 @@ gated behind an explicit "Run optimiser" button (~1,875 simulations — too expe
 unprompted; see [transfer-engine.md](transfer-engine.md)), `benchBoostAt`/`tripleCaptainAt` for the
 current gameweek only (see [chip-strategy.md](chip-strategy.md)), and a squad-scoped slice of
 `change_feed` (see [data-pipeline.md](data-pipeline.md)).
+
+This page's own prediction-loading loop was the clearest finding in a 2026-08-27 latency pass — it
+paged past `player_predictions`' 1000-row cap serially, ~20 sequential round trips dominating a
+measured 6.2s settle time. Fixed by routing through the shared `loadPredictionSeries` helper
+`/transfers`/`/chips`/`/builder` already used — full detail, including a real ordering bug the fix
+caught, in [performance.md](performance.md).
 
 It exists because none of Sprint 13, 15, or 17 were buildable this week (Sprint 13 needs a live
 fixture, 15 needs Sprint 13's foundation, 17 needs completed gameweeks) — but a real gap remained:

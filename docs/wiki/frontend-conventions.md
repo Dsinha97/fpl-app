@@ -29,6 +29,31 @@ the split consistent going forward, and `lib/drafts.ts`'s `readAll()` sanitizes 
 arrays) any draft that already isn't, on every read — so a stale draft heals itself rather than
 needing a migration.
 
+## Re-importing overwrites the same draft, and preserves what FPL can't know (2026-08-30)
+
+Both import paths (`teamStateFromPicks`, `teamStateFromMyTeamJson` — `lib/fpl-squad.ts`) used to
+always mint a fresh `draftId` via `emptyTeamState`, so a second import of the same manager became
+"DS United (FPL) (2)" instead of updating the first — even though `saveDraft` already updates in
+place when a `draftId` matches. `resolveImportTarget` finds the existing import using
+`resolveRequestedDraft`'s own entryId-then-name precedence, and both call sites
+(`app/team/page.tsx`, `app/settings/page.tsx`) now reassign the fresh state onto that `draftId`
+instead of a new one.
+
+That surfaced a real second bug: the fresh `TeamState` never carried forward `chipPlan`, `pinned`,
+`notes`, or `strategy` — all four are user intent a fresh FPL pull cannot know, and were silently
+wiped on every re-import. Both call sites now merge those four fields forward from the draft being
+overwritten before saving; everything else (squad, captain, budget, `activeChip`, `freeTransfers`)
+still comes fresh from the import, deliberately not carried forward. Verified live: set a
+wildcard-GW8 chip plan and a note on an imported draft, re-imported, confirmed both survived under
+the same `draftId`.
+
+`teamStateFromPicks` (the `manager_picks` import path, which carries no real purchase price) also
+gained an optional `purchasePriceOf` parameter — when the season's own `manager_transfers` record
+(already loaded for [transfer-engine.md](transfer-engine.md)'s ledger) shows a real
+`element_in_cost` for a player, that beats the current-price fallback `sellPrice()` was previously
+overstating proceeds from. A player never transferred this season (the original squad) still falls
+back to current price, same as before. — [sprints/sprint-29.md](../sprints/sprint-29.md)
+
 ## One pitch component for a projection or a known XI
 
 `PitchView` (`components/pitch-view.tsx`) draws a `SquadLayout` — starters, bench, formation, a

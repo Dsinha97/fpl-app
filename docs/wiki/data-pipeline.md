@@ -23,8 +23,9 @@ running with the service role — nothing in the front end can mutate league dat
 | `sync-fixtures` | `*/2 * * * *`, self-gated | `fixtures`, `fixture_changes` |
 | `sync-player-history` | `*/10 * * * *` | `player_gameweek_stats`, `player_season_history` — cursor-batched, so ~700 `element-summary` calls spread across runs instead of one timing out |
 | `sync-live-gameweek` | `*/2 * * * *`, self-gated | `player_live_stats` — took its no-op branch every day until GW1's first kickoff (2026-08-21), then wrote 600 real rows; see [deadline-and-matchday.md](deadline-and-matchday.md) |
-| `sync-manager` | manual only | `managers`, `manager_*` — `invoke_sync` POSTs an empty body so it has no `entry_id` to schedule with; only runs when `/team` calls it directly |
-| `sync-league-picks` | manual only, on-demand | `league_entries`, `league_entry_picks` — same reason as `sync-manager`: no `entry_id`/`league_id` to schedule with. See [ownership-and-leagues.md](ownership-and-leagues.md) |
+| `sync-manager` | manual, plus every claim via `sync-claimed-managers` below | `managers`, `manager_*` — `invoke_sync` POSTs an empty body so it has no `entry_id` to schedule with itself; `/team`'s **Refresh** button and rival mutations still call it directly for a forced real-time sync |
+| `sync-claimed-managers` | `*/2 * * * *` (fixed 2026-08-27) | Nothing directly — calls the fetch-and-write logic `sync-manager` was refactored to share (`_shared/manager-sync.ts`), once per claimed manager (`user_profiles.entry_id`) that's due. See "`/team` no longer syncs on every load" below |
+| `sync-league-picks` | manual only, on-demand — first real caller is `/leagues` (2026-08-30) | `league_entries`, `league_entry_picks` — same reason as `sync-manager`: no `entry_id`/`league_id` to schedule with. See [ownership-and-leagues.md](ownership-and-leagues.md) |
 | `generate-predictions` | `5,35 * * * *` | `player_predictions`, plus a pre-deadline snapshot into `player_prediction_archive` — see [xp-model.md](xp-model.md) and "`player_prediction_archive`" below |
 | `fpl-session` / `fpl-my-team` | manual | see [fpl-authentication.md](fpl-authentication.md) — the two functions that verify a Supabase JWT before touching anything |
 | `ingest-fpl-archive` | manual, one-off backfill | `player_gameweek_stats` for past seasons (2022-23 through 2025-26) — see below |
@@ -46,6 +47,31 @@ next 15 minutes or the last 3 hours (covers delays/stoppage time) always gets th
 otherwise it falls back to an hourly floor via its own `sync_runs` history, so the rest of the day
 (price moves, postponements) still refreshes without polling every 2 minutes for no reason. Confirmed
 live: the new cadence fired unassisted twice while GW1's opener was in progress, both `success`.
+
+## `/team` no longer syncs on every load (fixed 2026-08-27)
+
+`app/team/page.tsx`'s auto-connect effect used to call `connect(entryId)` unconditionally on every
+visit while signed in, and `connect` always invoked `sync-manager` — a full live re-fetch from
+FPL's own API (`getEntry`, `getEntryHistory`, `getEntryTransfers`, per-gameweek picks), `await`ed
+before anything from Supabase could render. Measured at **3.7s blocking**, the single largest cost
+found in [performance.md](performance.md)'s latency pass — bigger than the `/deadline` pagination
+bug below. Invisible to a signed-out baseline, since the whole path sits behind `user && entryId`.
+
+Fixed with the same staleness policy `sync-live-gameweek` already uses for live scores, extended to
+managers: `_shared/manager-sync.ts` is the fetch-and-write logic extracted out of `sync-manager`
+verbatim, so the client-triggered single-manager sync and the new `sync-claimed-managers` cron
+(`*/2 * * * *`, matching `sync-live-gameweek`'s own cadence) call one implementation. A claimed
+manager is due if never synced (no `managers` row yet — a fresh claim doesn't wait a day for its
+first data), due unconditionally on a matchday (the 2-minute tick *is* "every switch"), or due
+after 24h on a quiet day (`managers.updated_at`, `sync-manager`'s upsert being the table's only
+writer). `hasLiveFixture` (the "is a match live right now" query) moved into `_shared/sync.ts` so
+both `sync-live-gameweek` and `sync-claimed-managers` share the one implementation rather than each
+deciding matchday separately. `app/team/page.tsx`'s auto-mount effect now reads straight from
+Supabase (`connect(entryId, { sync: false })`); a claim the cron hasn't reached yet falls back to a
+real sync automatically off the same "no `managers` row" signal the cron's due-list check uses.
+
+Measured: `/team` settle time **8.3s → 5.55s**, `sync-manager` gone entirely from an ordinary page
+load. — [performance.md](performance.md), [sprints/latency.md](../sprints/latency.md)
 
 ## Backfilling seasons the FPL API no longer serves
 
@@ -74,10 +100,44 @@ and writes to `player_price_history` / `player_ownership_history` / `player_stat
 minutes would be ~7.8M rows a season; this is ~25k. `fixture_changes` applies the same idea to
 kickoff times and results. `change_feed` (a view) unions all of them for `/news`.
 
+**One FPL update could double-report as two `change_feed` rows (fixed 2026-08-30).**
+`record_player_snapshots` writes `player_status_history` and `player_news` in one transaction, so
+an update touching both status and the news text landed on the identical `observed_at` in both
+tables — the view then emitted a `status` row and a `news` row for one real event. Fixed in the
+view itself: a status event and a co-timestamped news event now merge into one `status` row, with
+the news sentence folded into `detail.news_new` so nothing is lost (`describe()`,
+`lib/change-feed.ts`, surfaces it). The news branch also gained the `rn > 1` baseline guard the
+status branch already had, so a player's very first news row stops being reported as a change.
+Verified live against three players whose duplicated rows collapsed into one merged row each.
+
 A second, separate pipeline — [news-feed.md](news-feed.md) — ingests third-party RSS
 headlines (Sprint 20) into `news_items`/`news_item_entities`, unioned by `news_feed`. It is
 deliberately not merged into `change_feed`: those rows are verified facts derived from the
 FPL API itself, RSS rows are editorial content with a probabilistic player/club link.
+
+### `player_ownership_history`'s watchlist (Sprint 29.0, 2026-08-30)
+
+Ownership snapshots were gated to ~20h for every player — full-population 2-hourly would be ~7.8M
+rows/season. That gate is a data-accrual clock: FPL's price-change algorithm keys on net-transfer
+**velocity**, and a daily snapshot can't reconstruct sub-daily velocity after the fact, so nothing
+downstream could ever see the signal without fixing the sampling first. `record_player_snapshots`
+now also samples at ~2h for a bounded watchlist — `cost_change_event <> 0`, or
+`selected_by_percent`/net-transfer thresholds read from `game_settings`
+(`price_watch_ownership_threshold`/`price_watch_net_transfer_threshold`, not hardcoded) — while the
+rest of the population stays at ~20h. Verified live: watchlist size came back 111 players, not the
+~700-player full population.
+
+`lib/price-watch.ts`'s `priceProgress()` reads net transfers since a player's last recorded price
+change and reports a direction and 0–1 progress toward a threshold that is itself a documented,
+user-adjustable input (`DEFAULT_RISE_THRESHOLD`/`DEFAULT_FALL_THRESHOLD`) — FPL's real threshold is
+unpublished and ownership-dependent, so per
+[methodology.md](methodology.md#when-a-term-cannot-be-dropped-make-it-an-input) this is exposed
+rather than fitted. Returns `"unknown"`, not a guess, below two post-change samples — verified
+against a player who'd repriced the same day and correctly read unknown rather than a fabricated
+percentage. Surfaced on `/players` (a column) and `/transfers` (inline on the incoming player).
+Deliberately **not** a price-change classifier — that's gated on beating a naive
+top-N-by-net-transfers baseline, walk-forward, and stays out until enough watchlist history has
+accumulated. — [sprints/sprint-29.md](../sprints/sprint-29.md)
 
 ## `player_predictions` and the row cap
 

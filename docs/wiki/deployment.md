@@ -50,7 +50,9 @@ domain rather than being removed.
 No server components fetching at request time, no route handlers, no `next/image` optimisation.
 Every page loads its own data from Postgres directly in the browser over the publishable key — see
 [data-pipeline.md](data-pipeline.md) for why that's safe (every write path is a service-role Edge
-Function, never reachable from the client bundle).
+Function, never reachable from the client bundle). This shape is also what rules several generic
+web-performance recommendations out — see [performance.md](performance.md) for the measured
+baseline and which of a third-party optimization playbook's ideas actually apply here.
 
 ## Privacy note
 

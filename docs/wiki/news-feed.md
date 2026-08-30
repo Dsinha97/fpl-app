@@ -117,3 +117,10 @@ outside the Feeds tab itself — a wrong headline attached to a squad player is 
   wins; a plain array can't apply two conflicting rows in one upsert statement). A migration
   cleaned up the 150 pre-fix duplicate rows, verified in a rolled-back transaction first (316 →
   166 rows, zero orphaned `news_item_entities`) before applying for real.
+- **The FFS three-source URL split leaked into `/deadline` (found 2026-08-30).** FantasyFootballScout
+  is registered as three `news_sources` rows sharing one feed URL (`ffs-all`, `ffs-team-news`,
+  `ffs-scout-picks`, filtered by `include_categories`), so one article is upserted up to three times
+  — `/news` already deduplicated by URL (keeping the newest of `published_at`-descending rows), but
+  `/deadline`'s squad-scoped Team News card read the same `news_feed` rows without that filter.
+  Extracted into a shared `dedupeByUrl` (`lib/news-feed.ts`) and applied in both places instead of
+  the dedup living only where it happened to be built first.

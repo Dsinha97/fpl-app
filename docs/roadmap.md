@@ -19,7 +19,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 7 | Replacement Finder | **Built** — builder panel, `findReplacements` | — |
 | 8 | Transfer Simulator | **Built** — `/transfers`, `lib/transfers.ts` | [sprints/sprint-08.md](sprints/sprint-08.md) |
 | 9 | Transfer Optimizer (up to 5 banked FTs) | **Built** — `/transfers` plan panel, `lib/transfer-optimizer.ts` | [sprints/sprint-09.md](sprints/sprint-09.md) |
-| 10 | Ownership Intelligence | **Exact-slice built** 2026-08-21 — mini-league EO (`sync-league-picks`, `lib/ownership.ts`); top-1k sample still **blocked** until 314 is rank-ordered | [sprints/sprint-10.md](sprints/sprint-10.md) |
+| 10 | Ownership Intelligence | **Exact-slice built** 2026-08-21 — mini-league EO (`sync-league-picks`, `lib/ownership.ts`), rendered on `/leagues` (2026-08-30). Top-1k sample: **not blocked as an engineering matter** — a 2026-08-30 load test synced league 314 end to end (2000 rank-ordered entries, 30,000 picks, 0 failures in 47s; test data deleted after verification) — just not currently sampled for real | [sprints/sprint-10.md](sprints/sprint-10.md), [sprints/sprint-29.md](sprints/sprint-29.md) |
 | 11 | Captain & Bench Optimizer | **Built** — `lib/lineup.ts` | — |
 | 12A | Manager Percentile Profile | **Built** — `/team`, `lib/manager-profile.ts` | [sprints/sprint-12.md](sprints/sprint-12.md#sprint-12a--manager-percentile-profile-built) |
 | 12 | Chip Strategy Engine | **Built** — `/chips`, `lib/chips.ts` | [sprints/sprint-12.md](sprints/sprint-12.md) |
@@ -224,9 +224,12 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   fixed same day with a self-gated 2-minute cadence; see [sprints/sprint-13.md](sprints/sprint-13.md).
 - **Sprint 10 (Ownership Intelligence), exact slice — built 2026-08-21.** The same deadline made any
   entry's picks public, not just the top-1k template's, so mini-league effective ownership is now exact
-  for the leagues in `manager_leagues` (`sync-league-picks`, `lib/ownership.ts`) — the top-1k sample
-  itself stays blocked until 314 is rank-ordered by a scored gameweek. See
-  [sprints/sprint-10.md](sprints/sprint-10.md).
+  for the leagues in `manager_leagues` (`sync-league-picks`, `lib/ownership.ts`), rendered on
+  `/leagues` (Sprint 29, 2026-08-30). The top-1k sample's blocker has moved: a 2026-08-30 load test
+  proved `sync-league-picks` handles league 314 ("Overall", 9.9M entries) at full scale —
+  2000 rank-ordered entries, 30,000 picks, 0 failures — so it is no longer a data/engineering gap,
+  just something nobody has run and kept for real (that test's rows were deleted afterward). See
+  [sprints/sprint-10.md](sprints/sprint-10.md), [sprints/sprint-29.md](sprints/sprint-29.md).
 - **GW1 live-hub follow-ups — built 2026-08-21, same evening.** Using the app during the real
   opener surfaced four gaps, all fixed against data already in the database (only one new
   column, `player_live_stats.explain`):
@@ -263,7 +266,7 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 |---|---|---|
 | Team strength (0 for all 20 clubs) | Pre-season; blocks custom FDR and `TeamAttackStrength` | — |
 | Accuracy scoreboard panel (`/status`) | `player_prediction_archive` exists and is being written to, but held ≤1 archived gameweek at last check — a panel built on that would only ever be able to say "n=1", which invites reading a single gameweek's residual as a verdict on the model. Build the UI once ≥2 gameweeks are archived; the data-layer (`lib/prediction-accuracy.ts`) is already done | — |
-| League 314 rank-ordering (top-1k sample) | The "GW1 not scored yet" reason recorded here no longer applies — GW1 is scored, `teams.played`/`points` are real. But `league_entries` for `league_id=314` has **0 rows as of 2026-08-27** — nothing has synced it yet, likely deliberately: it's the millions-strong "Overall" system league, not one of the owner's leagues `sync-league-picks` targets. Blocks only Sprint 10's top-1k sample — the exact mini-league slice (`manager_leagues`) is unblocked and live | [sprints/sprint-10.md](sprints/sprint-10.md) |
+| League 314 rank-ordering (top-1k sample) | **No longer a data/engineering blocker — proven working 2026-08-30.** A Sprint 29 follow-up load test synced league 314 ("Overall", 9.9M entries, `game_settings.league_ownership_entry_cap` = 2000) end to end: 2000 rank-ordered entries, 30,000 picks, 0 failures, 47s. Two real bugs were found and fixed at this scale — an oversized `.in()` existence-check query and a live-rank-shift duplicate-key upsert crash, both in `sync-league-picks`. That test's rows were deleted afterward (verification only, not a production sync), so `league_entries` for `league_id=314` is back to 0 rows as of this writing — sampling it for real is now one click on `/leagues` away, not an unproven pipeline. Blocks only the top-1k sample — the exact mini-league slice has its own page, `/leagues` (built 2026-08-30) | [sprints/sprint-10.md](sprints/sprint-10.md), [sprints/sprint-29.md](sprints/sprint-29.md) |
 | ~~`sync-live-gameweek` write path~~ **Resolved 2026-08-21.** | Executed for real during GW1: 2,434 successful runs, up to 610 rows/run, first success 2026-08-03 (pre-season dry runs against no live fixtures), real writes from GW1 kickoff. Self-gates back to `skipped` between gameweeks, as designed — the 15,154 `skipped` rows are that gate working, not a stuck function | [sprints/sprint-13.md](sprints/sprint-13.md) |
 | Automated FPL credential login | PingOne offers no password grant; the one reachable flow opens with bot detection | [sprints/sprint-14.md](sprints/sprint-14.md#fpl-login-is-blocked--automated-credential-login-not-the-session-handoff) |
 | `positionCalibration` | Fitted in-sample; needs a refit against real 2026/27 results. Walk-forward evidence for why now exists: out-of-sample the model underperforms a naive last-5-gameweeks baseline in every season tested | [sprints/sprint-17a.md](sprints/sprint-17a.md) |

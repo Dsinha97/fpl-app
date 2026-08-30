@@ -25,7 +25,7 @@ file, not separate files.
 | [sprints/sprint-05.md](sprints/sprint-05.md) | historical | Scenario Lab & Draft Management. |
 | [sprints/sprint-08.md](sprints/sprint-08.md) | historical | Transfer Simulator. |
 | [sprints/sprint-09.md](sprints/sprint-09.md) | historical | Transfer Optimizer. |
-| [sprints/sprint-10.md](sprints/sprint-10.md) | live | Ownership Intelligence — exact-slice mini-league EO built 2026-08-21 (`sync-league-picks`, `lib/ownership.ts`); the top-1k sample stays blocked until league 314 is rank-ordered. |
+| [sprints/sprint-10.md](sprints/sprint-10.md) | live | Ownership Intelligence — exact-slice mini-league EO built 2026-08-21 (`sync-league-picks`, `lib/ownership.ts`), rendered on `/leagues` (2026-08-30); the top-1k sample is no longer a data/engineering blocker (a 2026-08-30 load test synced league 314 end to end), just not currently sampled for real. |
 | [sprints/sprint-12.md](sprints/sprint-12.md) | historical | Chip Strategy Engine + §12A (Manager Percentile Profile) + §12.5 (PL Team Manager Intelligence) + §12.6 (Defensive Contribution fix). |
 | [sprints/sprint-13.md](sprints/sprint-13.md) | historical | Live Matchday Hub — built and verified live 2026-08-21 against the real GW1 opener; also fixed a `sync-fixtures` cron lag the dry run found. |
 | [sprints/sprint-14.md](sprints/sprint-14.md) | historical | Authentication & Team Sync + §14.1–§14.4 + the FPL-login probe. |

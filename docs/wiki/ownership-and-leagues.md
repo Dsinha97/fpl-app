@@ -1,9 +1,10 @@
 # Mini-league ownership
 
-Exact effective ownership for the classic leagues the owner is actually in — the slice of Sprint 10
-(Ownership Intelligence) that unblocked at the GW1 deadline, distinct from the field-wide top-1k
-sample the risk formula needs (see [risk-scoring.md](risk-scoring.md)), which is still blocked on
-league 314 being rank-ordered.
+Exact effective ownership for the classic leagues the owner is actually in, now with a real page
+(`/leagues`, built 2026-08-30) — the slice of Sprint 10 (Ownership Intelligence) that unblocked at
+the GW1 deadline, distinct from the field-wide top-1k sample the risk formula needs (see
+[risk-scoring.md](risk-scoring.md)), which is provably unblocked as an engineering matter but not
+yet sampled for real — see "The field-wide top-1k sample" below.
 
 ## What unblocked, and when
 
@@ -58,6 +59,31 @@ Both tables are public-read/service-write RLS, the same shape `manager_leagues` 
 owns) — verified against `anon`: reads succeed, writes are rejected with `insufficient_privilege`. See
 [database-and-rls.md](database-and-rls.md).
 
+### Standings paging rewritten for scale (Sprint 29 follow-up, 2026-08-30)
+
+Pages used to be fetched one at a time, awaited sequentially — up to 40 round-trips for the
+2000-entry cap — with `league_entries` only written after the whole loop finished, so a slow or
+rate-limited large league could lose everything already fetched to a platform timeout. Rewritten to
+fetch pages in concurrent waves (`STANDINGS_CONCURRENCY = 5`, matching the picks fetch's own
+concurrency) and upsert each wave as it completes. FPL's endpoint doesn't report a total page count
+up front, so a wave requests pages speculatively; a page past the real end throws and the loop
+stops there.
+
+Load-testing this against league 314 ("Overall", 9.9M entries, capped at the same
+`league_ownership_entry_cap`) surfaced two real bugs, neither visible at the owner's own
+league sizes (5–7 members):
+
+- The "already synced" existence check crammed all 2000 entry ids into one `.in()` query string,
+  long enough to trip an HTTP/2 protocol error before reaching Postgres — chunked into batches of
+  200.
+- A 9.9M-entry league's rank ordering shifts continuously, so two pages fetched concurrently in the
+  same wave could genuinely return the same entry — failing the upsert ("ON CONFLICT DO UPDATE
+  command cannot affect row a second time"). Fixed with a `seenEntryIds` set tracked across the
+  whole sync, not just within one wave.
+
+Final verified run: 2000 entries, 30,000 picks, 0 failures, 47 seconds — test data deleted
+afterward (this was scale verification, not a real sync the owner needs kept).
+
 ## Verified, not just typechecked
 
 `computeLeagueOwnership` was run in a throwaway `npx tsx` harness against real synced picks for a
@@ -72,14 +98,49 @@ harness against live data — see [methodology.md](methodology.md).
 that league, not the game. This is the same disclosure discipline
 [risk-scoring.md](risk-scoring.md)'s dropped EO term and every other `*_MODEL_NOTE` in the app follow.
 
-## Not yet built
+## `/leagues` — built 2026-08-30
 
-The `/team` surface that reads any of this — the engine and pipeline exist; nothing renders them yet.
+The engine (this page) and pipeline had shipped complete since the GW1 deadline with nothing
+rendering them — `docs/roadmap.md` recorded that gap honestly, and `sync-league-picks` had never
+once been invoked from the app. `/leagues` (`app/leagues/page.tsx`, `lib/leagues.ts`) is that
+wiring, not new maths: a league picker off `manager_leagues` (grouped invitational/general exactly
+as `/team`'s existing `ManagerLeagues` component already did — extended with an optional
+`onSelect` rather than duplicated), standings and picks paged past the 1000-row response cap (see
+[fpl-api-constraints.md](fpl-api-constraints.md)), a **Sync this league** button as the first real
+caller of `sync-league-picks`, and an EO table with differential/rank-gain per player.
 
-See also: [sprint-10.md](../sprints/sprint-10.md) (the source build record, including the still-
-blocked top-1k sample), [sprint-21.md](../sprints/sprint-21.md) (`manager_leagues`, the
-league membership list `/team` already shows and a natural future home for this page's ownership
-view — UI-only, not yet ingested into a wiki page of its own), [risk-scoring.md](risk-scoring.md)
-(why the field-wide EO term in the risk formula is a separate, still-blocked quantity),
-[deadline-and-matchday.md](deadline-and-matchday.md) (the other build that landed the same evening,
-off the same GW1 deadline).
+Two things learned running it against real data:
+
+- Standings and picks sync independently — a league can already have `league_entries` rows (from
+  `manager_leagues`' own periodic sync of the owner's memberships) with zero `league_entry_picks`
+  for the gameweek in question. A blank table with headers and no rows reads as broken, not as
+  "nothing to show yet" — added a second empty state distinguishing "never synced at all" from
+  "standings are in, picks aren't."
+- Verified end to end against production data: synced the owner's smallest real league (5 entries,
+  75 picks), and the EO/captain math checked out by hand.
+
+`/team`'s own leagues section, which used to render the full grouped table inline in a 360px
+sidebar (illegible at that width), now links here instead of duplicating the render.
+
+`OWNERSHIP_MODEL_NOTE` and the entry cap (`game_settings.league_ownership_entry_cap`, 2000) are
+both disclosed inline on `/leagues` rather than presenting a bare "EO" — the same discipline this
+page's own "Every figure carries its scope" section describes.
+
+See also: [sprint-10.md](../sprints/sprint-10.md) (the source build record), [sprint-21.md](../sprints/sprint-21.md)
+(`manager_leagues`, the league membership list `/team` shows), [risk-scoring.md](risk-scoring.md)
+(why the field-wide EO term in the risk formula is a separate, still-blocked quantity — see below),
+[deadline-and-matchday.md](deadline-and-matchday.md) (the other build that landed the same evening
+as this page's engine, off the same GW1 deadline).
+
+## The field-wide top-1k sample: what's actually still blocked
+
+`docs/roadmap.md` records league 314's rank-ordered top-1k sample (the risk formula's field-wide EO
+term, distinct from this page's exact per-league EO) as blocked because `league_entries` for
+`league_id=314` had 0 rows. The Sprint 29 follow-up load-test above (see "Standings paging
+rewritten for scale") proved the *pipeline itself* handles league 314 at full scale — 2000 entries,
+rank-ordered, zero failures — so the blocker was never really "can this be synced," it was "has
+anyone kept the result." That test's rows were deleted afterward (it was verification, not a
+production sync), so `league_entries` for 314 is back to 0 rows as of this writing — the honest
+current state is: **provably unblocked as an engineering matter, still not sampled**, one click on
+`/leagues` away from being real. [blocked-and-data-gaps.md](blocked-and-data-gaps.md)'s row is
+updated to match.

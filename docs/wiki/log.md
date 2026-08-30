@@ -226,3 +226,46 @@ One line per entry, most recent first.
   roll-branch squad leak, a genuine correctness bug rather than a presentation one. New
   `squad-score-and-scenarios.md` section for `lib/scenario-actuals.ts`, with the counterfactual
   framing stated as a requirement rather than a caveat. `timeline.md` updated.
+- 2026-08-30 — Ingested `docs/sprints/latency.md` + `docs/sources/website-optimization.md`, found
+  genuinely un-ingested despite sitting in `.pending-ingest` since 2026-08-27 — the ingest passes
+  between then and Sprint 28 (2026-08-29) covered Sprints 26/27/28 but skipped this one, confirmed
+  by grepping the wiki for `sync-claimed-managers`/`loadPredictionSeries` and finding zero hits
+  before this pass. New page `performance.md` (Platform section): the two-pass latency baseline, the
+  notebook-recommendations table checked against this app's actual architecture, and what's still
+  open (route splitting, unidentified bundle chunks, remaining serial waterfalls on `/players`/
+  `/transfers`). `data-pipeline.md` gained a "`/team` no longer syncs on every load" section (the
+  `sync-claimed-managers` cron, `_shared/manager-sync.ts` extraction, `hasLiveFixture` shared with
+  `sync-live-gameweek`) and an updated function/cadence table row. `deadline-and-matchday.md` gained
+  a pointer to `performance.md` from the Deadline Hub section for the serial-pagination fix.
+  `deployment.md` cross-linked from its static-export section. `index.md`/`timeline.md` updated.
+- 2026-08-30 — Ingested Sprint 29 (`sprint-29.md`, `roadmap.md`, `architecture.md`, `CLAUDE.md`) and
+  its same-day follow-up (six defects filed from screenshots after Sprint 29 shipped, appended to
+  the same sprint file). `ownership-and-leagues.md` rewritten: "Not yet built" replaced with `/leagues`
+  built 2026-08-30 (Sprint 10's EO engine and `sync-league-picks` pipeline had shipped complete with
+  nothing calling them), a new "Standings paging rewritten for scale" section documenting the
+  concurrent-wave rewrite and two real bugs a 9.9M-entry load test surfaced (an oversized `.in()`
+  query, a live-rank-shift duplicate-key crash), and a new "field-wide top-1k sample" section
+  correcting `blocked-and-data-gaps.md`'s stale "never synced" reason — the pipeline is now provably
+  capable at that scale, just not currently sampled (test data was deleted after verification).
+  `risk-scoring.md`'s EO-term explanation corrected to match. `data-pipeline.md` gained a
+  `player_ownership_history` watchlist section (the ~20h→~2h bounded-watchlist sampling fix and
+  `lib/price-watch.ts`'s progress-to-threshold tool) and a `change_feed` status+news merge section
+  (one FPL update no longer double-reports as two rows). `fpl-api-constraints.md` gained a new
+  pre-season-field entry for `teams[].played`/`win`/etc. never populating in-season at all (not just
+  pre-season) — verified live against the real API — and the derived-standings fix this drove.
+  `frontend-conventions.md` gained a section on re-import now overwriting the same draft (previously
+  always minted a new one) and preserving `chipPlan`/`pinned`/`notes`/`strategy`, plus real purchase
+  price from `manager_transfers` replacing the current-price fallback. `design-system.md` extended
+  the Sprint 28 `order`-pattern section to Sprint 29's three-section generalisation, the countdown/
+  heading split, and the `/leagues` chevron affordance. `news-feed.md` gained a gotcha for the FFS
+  URL-triplication dedup extracted to a shared `dedupeByUrl` and applied to `/deadline` (previously
+  only `/news` had it). `deadline-and-matchday.md`'s Review section corrected a stale claim
+  (`manager_transfers` "0 rows" — real rows exist since 2026-08-25) and gained a "Transfer ledger"
+  section. `index.md`/`timeline.md` updated. `.pending-ingest` cleared — its remaining entries
+  (`sprint-26.md`, `sprint-27.md`, `latency.md`, `website-optimization.md`, `sprint-28.md`) were
+  confirmed stale leftovers already covered by the two log entries directly above, not re-processed.
+
+  **Tidy pass, not fixed this round:** none of `/leagues`, `performance.md`'s still-open items, or
+  the price-watchlist tool have their own `blocked-and-data-gaps.md` row — none currently need one
+  (nothing there is blocked), but worth checking once price-change step 3 (the classifier) is
+  scoped, since that item is explicitly gated and will belong on that page.
