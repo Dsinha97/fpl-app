@@ -228,7 +228,22 @@ function ImportTab() {
         return;
       }
 
-      if (targetDraftId) result.state.draftId = targetDraftId;
+      if (targetDraftId) {
+        result.state.draftId = targetDraftId;
+        // Sprint 29 follow-up: same as /team's importer — a fresh FPL pull
+        // can't know the owner's forward chip plan, pinned flag, or
+        // free-text notes/strategy, so carry those forward from the draft
+        // being overwritten instead of losing them to emptyTeamState's
+        // defaults. Squad/captain/budget/activeChip/freeTransfers still come
+        // fresh from this import, deliberately not carried forward.
+        const existing = existingDrafts.find((d) => d.draftId === targetDraftId);
+        if (existing) {
+          result.state.chipPlan = existing.chipPlan;
+          result.state.pinned = existing.pinned;
+          result.state.notes = existing.notes;
+          result.state.strategy = existing.strategy;
+        }
+      }
 
       const saved = saveDraft(result.state);
       setStatus({

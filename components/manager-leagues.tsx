@@ -5,6 +5,8 @@
 // league). No finer split is invented — see docs/sprints/sprint-21.md for
 // why a hardcoded "broadcaster" id list was rejected.
 
+import { ChevronRight } from "lucide-react";
+
 export interface ManagerLeagueRow {
   league_id: number;
   name: string;
@@ -85,15 +87,24 @@ export function ManagerLeagues({ leagues, onSelect, selectedLeagueId }: ManagerL
                   return (
                     <li key={l.league_id}>
                       {onSelect ? (
+                        // A clickable row and a static one (below) used to render
+                        // identical markup — nothing but a hover background told
+                        // them apart, which only shows up on mouse-over. The
+                        // trailing chevron is a permanent, at-rest affordance;
+                        // cursor-pointer is redundant with the native button
+                        // default but keeps the intent visible in the class list.
                         <button
                           type="button"
                           onClick={() => onSelect(l.league_id)}
                           aria-pressed={selected}
-                          className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-purple-950/30 ${
+                          className={`flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-purple-950/30 ${
                             selected ? "bg-purple-50 dark:bg-purple-950/40" : ""
                           }`}
                         >
-                          {content}
+                          <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                            {content}
+                          </span>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden="true" />
                         </button>
                       ) : (
                         <div className="flex items-center justify-between gap-2 px-3 py-2 text-sm">{content}</div>

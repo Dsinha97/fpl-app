@@ -184,3 +184,90 @@ dedup and the standings fix were all confirmed against real rows, not just
 typechecked. No new console errors introduced (the one CORS error observed
 against `sync-manager` predates this sprint and is unrelated to any change
 here).
+
+---
+
+## Follow-up — six defects found using the shipped build
+
+Filed by the owner from screenshots after the above shipped. All fixes,
+plus two real bugs surfaced while verifying one of them.
+
+**`/team`** — the inline "Your Leagues" table was illegible squeezed into
+the 360px rail; replaced with a compact link into `/leagues` (extended
+`ManagerLeagues` with an optional `onSelect`, so `/team` now uses the
+plain non-interactive render path while `/leagues` uses the clickable
+one). "GW{event} as picked" relocated from the main squad column to the
+rail, directly below the leagues link, at the owner's explicit choice
+over leaving the two in their independent desktop columns.
+
+**`/leagues` affordance** — clickable rows and static rows rendered
+identical markup; added a trailing `ChevronRight` (lucide-react) plus
+explicit `cursor-pointer`, shown only on the `onSelect` (clickable)
+variant.
+
+**Large-league sync** — `supabase/functions/sync-league-picks` paged
+standings sequentially (up to 40 round-trips for the 2000-entry cap) and
+only wrote after the whole loop finished. Rewrote to fetch pages in
+concurrent waves (`STANDINGS_CONCURRENCY = 5`, speculative — FPL's
+endpoint doesn't report a page count up front) and upsert each wave as
+it completes. Verified against league 314 ("Overall", 9.9M entries,
+capped at 2000): **two real bugs** surfaced only at this scale, both
+fixed and reverified end to end:
+- The existence-check `.in()` query crammed all 2000 entry ids into one
+  URL, tripping an HTTP/2 protocol error — chunked into batches of 200,
+  matching `lib/leagues.ts`'s own convention.
+- A large league's live rank shifts mid-fetch, so two concurrently-fetched
+  pages could return the same entry, failing the upsert
+  ("ON CONFLICT DO UPDATE command cannot affect row a second time") —
+  fixed with a `seenEntryIds` set tracked across the whole sync.
+  Final verified run: 2000 entries, 30,000 picks, 0 failures, 47s (test
+  data cleaned up afterward — this was verification only, not a real
+  sync the owner needs).
+
+**`/deadline` layout** — split the `{gameweekName} deadline` label onto
+its own line, separated from the countdown+date block below it (was one
+unseparated flex row). Folded "Imported from your real FPL team." into
+`IMPORTED_SQUAD_NOTE`'s tooltip content instead of a second always-visible
+line.
+
+**`/fixtures` live table** — `deriveStandingsFromFixtures` only counted
+`finished` fixtures; extended to count any `started` fixture (live score
+included) so the table updates during a gameweek, matching `/deadline`'s
+own `livePhase` pattern. Found while verifying against real data: the
+first cut flagged a fixture as "still being played" based on `!finished`,
+but `finished_provisional` flips at the final whistle well ahead of
+`finished` (which waits on bonus confirmation) — a provisional-bonus
+match isn't still live. Fixed the `live` signal to key on
+`!finished_provisional` instead; reverified against real GW2 fixtures
+that are over but still bonus-provisional, which now correctly do *not*
+trigger the "still being played" banner.
+
+**Chip plan wiped on re-import** — `teamStateFromPicks`/
+`teamStateFromMyTeamJson` build a fresh `TeamState` from
+`emptyTeamState`, which never carried forward `chipPlan`, `pinned`,
+`notes`, or `strategy` — all four are user intent a fresh FPL pull can't
+know. Both import call sites (`app/team/page.tsx`, `app/settings/page.tsx`)
+now merge those four fields forward from the draft being overwritten.
+Verified live: set a wildcard-GW8 chip plan and a test note on an
+imported draft, re-imported, confirmed both survived under the same
+`draftId` (no "(2)" duplicate).
+
+**Sell-price accuracy** — `teamStateFromPicks` (the `manager_picks`
+import path) fell back every player's `purchasePrice` to current cost,
+so `sellPrice()` overstated proceeds for anyone who'd risen in value
+since being bought. `lib/manager-transfers.ts`'s already-loaded season
+ledger carries `element_in_cost` — the real price paid — for any player
+transferred in this season; `teamStateFromPicks` gained an optional
+`purchasePriceOf` parameter that takes precedence over the now-cost
+fallback when a transfer record exists. A player never transferred this
+season (the original squad) still falls back to current cost, same as
+before — `IMPORTED_SQUAD_NOTE` updated to describe both cases rather
+than one.
+
+### Verification
+
+Same gate (`tsc`, `lint`, `build`, all clean) plus live browser
+verification of every item against real production data — including the
+two bugs above, which only a real 9.9M-entry league surfaced. No
+regressions found; test data created purely for the large-league
+verification was cleaned up from the database afterward.

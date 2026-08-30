@@ -116,25 +116,35 @@ export interface FplSquadMeta {
 /**
  * `manager_picks` carries no purchase price — only which player and which
  * slot. Every downstream sell-price calculation (`sellPrice`, below) is
- * built on purchase price, so this falls back to the player's current cost.
- * That fallback is exact for every player until a price first moves —
- * which, pre-GW1, is every player, since none has moved yet.
+ * built on purchase price, so this falls back to the player's current cost
+ * *unless* the caller supplies `purchasePriceOf` (Sprint 29 follow-up):
+ * `manager_transfers.element_in_cost` is the real price paid for any player
+ * transferred in this season, so a caller that's already loaded the season's
+ * transfer ledger (lib/manager-transfers.ts) can pass a lookup that beats
+ * the now-cost fallback for those players. A player who has been in the
+ * squad since before any transfer this season — the original squad, never
+ * transferred — has no transfer-in row to recover a real price from, so
+ * still falls back to current cost. That's the genuinely unrecoverable case
+ * this note discloses.
  *
  * A squad pasted through `teamStateFromMyTeamJson` instead carries FPL's own
- * real `purchase_price` per pick, so it does not need this fallback at all —
+ * real `purchase_price` per pick, so it does not need either fallback —
  * `IMPORTED_SQUAD_NOTE` distinguishes the two rather than describing one.
  */
 export const IMPORTED_SQUAD_NOTE =
-  "manager_picks doesn't carry what you actually paid for each player, so purchase price here is " +
-  "today's price — exact until a price moves, after which sell values will read slightly off. " +
-  "Pasting your squad from fantasy.premierleague.com/api/my-team/<id>/ (Settings → Import squad) " +
-  "carries your real purchase prices instead.";
+  "manager_picks doesn't carry what you actually paid for each player. Where this season's own " +
+  "transfer record shows what you paid to bring a player in, that real price is used; for anyone " +
+  "still in the squad from before any transfer, purchase price falls back to today's price — " +
+  "exact until that price moves, after which sell values will read slightly off. Pasting your " +
+  "squad from fantasy.premierleague.com/api/my-team/<id>/ (Settings → Import squad) carries your " +
+  "real purchase prices for the whole squad instead.";
 
 /**
  * Builds a TeamState from one gameweek's picks. `nowCostOf` and `rules` come
  * from the caller (already-loaded `players` rows and `game_settings`), so
  * this stays a pure function the way every other TeamState constructor in
- * this file is.
+ * this file is. `purchasePriceOf` is optional and, when it returns a value
+ * for a player, takes precedence over `nowCostOf` — see IMPORTED_SQUAD_NOTE.
  */
 export function teamStateFromPicks(
   picks: FplPick[],
@@ -142,6 +152,7 @@ export function teamStateFromPicks(
   meta: FplSquadMeta,
   rules: SquadRules,
   name: string,
+  purchasePriceOf?: (playerId: number) => number | undefined,
 ): TeamState {
   const base = emptyTeamState(rules, name);
 
@@ -153,7 +164,7 @@ export function teamStateFromPicks(
 
   const players = sorted.map((p) => ({
     playerId: p.element,
-    purchasePrice: nowCostOf(p.element) ?? 0,
+    purchasePrice: purchasePriceOf?.(p.element) ?? nowCostOf(p.element) ?? 0,
   }));
   const spent = totalSpend(players);
 

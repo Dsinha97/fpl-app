@@ -123,11 +123,23 @@ export interface FdrFixtureRef {
  * The fix is to derive the table from `fixtures` instead, which the FDR
  * matrix already loads and which does carry real scorelines — one quantity
  * (a finished result), one implementation.
+ *
+ * Sprint 29 follow-up: extended to count a fixture that has kicked off but
+ * not yet finished, using its live (possibly still-changing) score — a
+ * table that only updates once every match of the gameweek is fully over
+ * is a table that's stale for the entire gameweek it's meant to reflect.
+ * `sync-fixtures` writes `team_h_score`/`team_a_score` from the moment a
+ * match starts, not just once `finished` (see the function's own comment),
+ * so the same "started, not finished" distinction `/deadline`'s `livePhase`
+ * already uses (`app/deadline/page.tsx`'s `started`/`finished_provisional`
+ * gate) is the right one here too, rather than waiting for `finished`.
  */
 export interface StandingsFixtureRef extends FdrFixtureRef {
   team_h_score: number | null;
   team_a_score: number | null;
+  started: boolean | null;
   finished: boolean | null;
+  finished_provisional: boolean | null;
 }
 
 export interface DerivedStanding {
@@ -136,24 +148,34 @@ export interface DerivedStanding {
   draw: number;
   loss: number;
   points: number;
-  /** Last 5 finished results, oldest first, e.g. "WDLWW" — a plain
+  /** Last 5 counted results, oldest first, e.g. "WDLWW" — a plain
    *  win/draw/loss tally, not FPL's own weighted decimal `form` figure
    *  (which the API doesn't publish either); disclosed as derived. */
   form: string | null;
   position: number;
 }
 
+export interface DerivedStandings {
+  byTeam: Map<number, DerivedStanding>;
+  /** True when any counted fixture has started but not finished — the table
+   *  includes a live, still-changing result. */
+  live: boolean;
+}
+
 /**
- * Aggregates finished fixtures into a real table: P/W/D/L/Pts per team, a
- * simple win/draw/loss form string (last 5), and position from sorting by
- * points then goal difference then goals for — the standard tiebreak FPL's
- * own (non-functional) `position` field would apply. Teams with zero
- * finished fixtures still get a row (played: 0, position last).
+ * Aggregates started fixtures (finished or still live) into a real table:
+ * P/W/D/L/Pts per team, a simple win/draw/loss form string (last 5), and
+ * position from sorting by points then goal difference then goals for —
+ * the standard tiebreak FPL's own (non-functional) `position` field would
+ * apply. Teams with zero started fixtures still get a row (played: 0,
+ * position last). A live fixture's current score counts provisionally,
+ * same as the rest of this app treats a live gameweek — see `live` on the
+ * return value for whether to disclose that.
  */
 export function deriveStandingsFromFixtures<T extends FdrTeamRef>(
   teams: T[],
   fixtures: StandingsFixtureRef[],
-): Map<number, DerivedStanding> {
+): DerivedStandings {
   interface Acc {
     played: number;
     win: number;
@@ -161,7 +183,7 @@ export function deriveStandingsFromFixtures<T extends FdrTeamRef>(
     loss: number;
     goalsFor: number;
     goalsAgainst: number;
-    results: string[]; // chronological, one per finished fixture
+    results: string[]; // chronological, one per counted fixture
   }
   const acc = new Map<number, Acc>();
   for (const t of teams) {
@@ -170,11 +192,19 @@ export function deriveStandingsFromFixtures<T extends FdrTeamRef>(
 
   // fixtures aren't guaranteed ordered by event — sort so `results` (and the
   // "last 5" slice of it) reflects actual chronological order.
-  const finished = fixtures
-    .filter((f) => f.finished && f.team_h_score !== null && f.team_a_score !== null)
+  const counted = fixtures
+    .filter((f) => f.started && f.team_h_score !== null && f.team_a_score !== null)
     .sort((a, b) => (a.event ?? 0) - (b.event ?? 0));
+  // `finished`, not `finished_provisional`, is the wrong signal for "is this
+  // score still capable of changing" — verified against real data:
+  // finished_provisional flips at the final whistle, well ahead of
+  // `finished` (which waits on bonus-point confirmation, per CLAUDE.md and
+  // /deadline's own livePhase gate). A fixture that's whistled but still
+  // provisional is over, just not confirmed — its score won't move again,
+  // so it shouldn't read as "still being played".
+  const live = counted.some((f) => f.started && !f.finished_provisional);
 
-  for (const f of finished) {
+  for (const f of counted) {
     const home = acc.get(f.team_h);
     const away = acc.get(f.team_a);
     const hs = f.team_h_score as number;
@@ -209,9 +239,9 @@ export function deriveStandingsFromFixtures<T extends FdrTeamRef>(
     return b.goalsFor - a.goalsFor;
   });
 
-  const result = new Map<number, DerivedStanding>();
+  const byTeam = new Map<number, DerivedStanding>();
   ranked.forEach(([teamId, a], i) => {
-    result.set(teamId, {
+    byTeam.set(teamId, {
       played: a.played,
       win: a.win,
       draw: a.draw,
@@ -221,7 +251,7 @@ export function deriveStandingsFromFixtures<T extends FdrTeamRef>(
       position: i + 1,
     });
   });
-  return result;
+  return { byTeam, live };
 }
 
 /**

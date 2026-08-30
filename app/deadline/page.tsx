@@ -1123,15 +1123,14 @@ export default function DeadlinePage() {
       {!loading && team && ctx && (
         <>
           {/* ------------------------------------------------------ countdown */}
-          {/* Sprint 29.3. No card — a border around one line of text is
-              chrome, not structure (Sprint 19, Stage 4a). Inlined onto one
-              row: the heading, the countdown and the full date used to stack
-              across three lines for no reason once the two-column top strip
-              (Sprint 28) went away — the 3xl number is still the biggest
-              thing on the page, it just doesn't need a paragraph of runway
-              in front of it. */}
-          <div className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className={supportingHeading}>{ctx.gameweekName} deadline</h2>
+          {/* Sprint 29.3, revised in the follow-up. No card — a border
+              around one line of text is chrome, not structure (Sprint 19,
+              Stage 4a). But the label and the countdown+date+hint block are
+              kept visually distinct now (own line each, extra vertical gap)
+              rather than run on as siblings in one flex row — the label
+              names what's below it, it isn't part of the same reading. */}
+          <h2 className={`mt-6 ${supportingHeading}`}>{ctx.gameweekName} deadline</h2>
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <p
               className={`text-3xl font-bold tabular-nums ${
                 countdown?.passed ? "text-red-700 dark:text-red-400" : "text-purple-900 dark:text-primary"
@@ -1148,13 +1147,15 @@ export default function DeadlinePage() {
                 minute: "2-digit",
               })}
             </p>
+            {team.source === "fpl" && (
+              <span className="flex items-center gap-1 text-xs text-zinc-500">
+                Imported squad
+                <InfoTooltip label="About this imported squad">
+                  Imported from your real FPL team. {IMPORTED_SQUAD_NOTE}
+                </InfoTooltip>
+              </span>
+            )}
           </div>
-          {team.source === "fpl" && (
-            <p className="mt-1 text-xs text-zinc-500">
-              <InfoTooltip label="About this imported squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>{" "}
-              Imported from your real FPL team.
-            </p>
-          )}
 
           {/* ------------------------------------ live GW ‖ upcoming GW */}
           {/* Sprint 28. Two gameweeks live on this page at once — the one

@@ -39,7 +39,8 @@ export function LeagueTable({
   // `fixtures`. Rather than present a table of zeros (or worse, sort by
   // `position`, which also isn't a real table position — see
   // lib/fdr.ts's deriveStandingsFromFixtures), the table is derived from
-  // finished fixtures whenever FPL's own fields are empty.
+  // started fixtures (finished or still live) whenever FPL's own fields are
+  // empty.
   const fplPublished = teams.some((t) => (t.played ?? 0) > 0);
 
   const derived = useMemo(
@@ -52,23 +53,26 @@ export function LeagueTable({
     [teams, fixtures, nextGw],
   );
 
-  const noFixturesFinished = derived !== null && [...derived.values()].every((d) => d.played === 0);
+  const noFixturesStarted =
+    derived !== null && [...derived.byTeam.values()].every((d) => d.played === 0);
 
   const rows = useMemo(() => {
     return [...teams].sort((a, b) => {
       if (fplPublished) return (a.position ?? 99) - (b.position ?? 99);
-      if (noFixturesFinished) return a.name.localeCompare(b.name);
-      return (derived?.get(a.id)?.position ?? 99) - (derived?.get(b.id)?.position ?? 99);
+      if (noFixturesStarted) return a.name.localeCompare(b.name);
+      return (derived?.byTeam.get(a.id)?.position ?? 99) - (derived?.byTeam.get(b.id)?.position ?? 99);
     });
-  }, [teams, fplPublished, noFixturesFinished, derived]);
+  }, [teams, fplPublished, noFixturesStarted, derived]);
 
   return (
     <div className="mt-4">
       {!fplPublished && (
         <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-          {noFixturesFinished
-            ? "No gameweek has been scored yet, so there's no table to show. Listed alphabetically below until real results exist."
-            : "FPL's own standings feed doesn't publish P/W/D/L/Pts during the season, so this table is computed from finished fixture results instead — form is a plain win/draw/loss tally (last 5), not FPL's own weighted figure."}
+          {noFixturesStarted
+            ? "No gameweek has kicked off yet, so there's no table to show. Listed alphabetically below until real results exist."
+            : derived?.live
+              ? "FPL's own standings feed doesn't publish P/W/D/L/Pts during the season, so this table is computed from fixture results instead — including matches still being played, so it updates live. Form is a plain win/draw/loss tally (last 5), not FPL's own weighted figure."
+              : "FPL's own standings feed doesn't publish P/W/D/L/Pts during the season, so this table is computed from finished fixture results instead — form is a plain win/draw/loss tally (last 5), not FPL's own weighted figure."}
         </p>
       )}
 
@@ -94,7 +98,7 @@ export function LeagueTable({
           <tbody>
             {rows.map((team, i) => {
               const cells = byTeam.get(team.id) ?? new Map();
-              const d = derived?.get(team.id);
+              const d = derived?.byTeam.get(team.id);
               const played = fplPublished ? (team.played ?? 0) : (d?.played ?? 0);
               const win = fplPublished ? (team.win ?? 0) : (d?.win ?? 0);
               const draw = fplPublished ? (team.draw ?? 0) : (d?.draw ?? 0);
@@ -108,7 +112,7 @@ export function LeagueTable({
                   className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
                 >
                   <td className="sticky left-0 z-10 bg-white px-2 py-1.5 text-center tabular-nums text-zinc-500 dark:bg-[#1E0234]">
-                    {noFixturesFinished ? "—" : position}
+                    {noFixturesStarted ? "—" : position}
                   </td>
                   <td className="sticky left-8 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white px-2 py-1.5 font-medium text-zinc-800 dark:bg-[#1E0234] dark:text-zinc-200">
                     <TeamCrest teamCode={team.code} shortName={team.short_name} className="h-4 w-4 shrink-0" />

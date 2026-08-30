@@ -6,7 +6,8 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { CountryFlag, flagCode, SeasonsBadge, TeamCrest } from "@/components/identity";
 import { ManagerProfileCard, RivalTable } from "@/components/manager-profile-card";
-import { ManagerLeagues, type ManagerLeagueRow } from "@/components/manager-leagues";
+import type { ManagerLeagueRow } from "@/components/manager-leagues";
+import { ChevronRight } from "lucide-react";
 import { groupByEvent, hitCost, loadTransfers, type TransferRow } from "@/lib/manager-transfers";
 import { diffSquads } from "@/lib/squad-diff";
 import { PitchView, type SquadLayout } from "@/components/pitch-view";
@@ -653,6 +654,44 @@ export default function TeamPage() {
     }
   }, [user]);
 
+  // ---------------------------------------------------------- transfer ledger
+  //
+  // Sprint 29.2. manager_transfers is FPL's own record, already written by
+  // sync-manager on every connect — the truth for what actually happened.
+  // Cross-checked (not overridden) against the local draft-snapshot diff,
+  // which needs no sync but only sees whatever squad shape got saved here.
+  // Declared before handleImport (below), which reads purchasePriceByPlayer.
+  const [transfersByEvent, setTransfersByEvent] = useState<Map<number, TransferRow[]>>(new Map());
+  useEffect(() => {
+    const entryId = data?.manager.entry_id;
+    const season = data?.nextGw?.season;
+    if (!entryId || !season) return;
+    (async () => {
+      const rows = await loadTransfers(season, entryId).catch(() => []);
+      setTransfersByEvent(groupByEvent(rows));
+    })();
+  }, [data?.manager.entry_id, data?.nextGw?.season]);
+
+  // Sprint 29 follow-up: real purchase price for the manager_picks import
+  // path, from this season's own transfer record — see teamStateFromPicks'
+  // purchasePriceOf and the updated IMPORTED_SQUAD_NOTE (lib/fpl-squad.ts).
+  // transfersByEvent's rows are already ordered newest-first per event
+  // (lib/manager-transfers.ts's loadTransfers), and events themselves
+  // iterate highest-first below, so the first elementInCost seen per player
+  // is the most recent transfer-in — exactly what "what you paid to bring
+  // them in, currently" needs.
+  const purchasePriceByPlayer = useMemo(() => {
+    const byPlayer = new Map<number, number>();
+    const events = [...transfersByEvent.keys()].sort((a, b) => b - a);
+    for (const event of events) {
+      for (const t of transfersByEvent.get(event) ?? []) {
+        if (t.elementInCost === null) continue;
+        if (!byPlayer.has(t.elementIn)) byPlayer.set(t.elementIn, t.elementInCost);
+      }
+    }
+    return byPlayer;
+  }, [transfersByEvent]);
+
   // Sprint 14 — pull one gameweek's picks into a TeamState the builder,
   // optimiser, and transfer/chip engines can all treat like any manual
   // draft. Rules are fetched lazily here, on click, rather than on every
@@ -694,8 +733,25 @@ export default function TeamPage() {
         // Same naming rule as the /settings paste importer, so
         // resolveRequestedDraft can recognise either as this manager's import.
         draftName,
+        (id) => purchasePriceByPlayer.get(id),
       );
-      if (targetDraftId) state.draftId = targetDraftId;
+      if (targetDraftId) {
+        state.draftId = targetDraftId;
+        // Sprint 29 follow-up: a fresh FPL pull can't know the owner's
+        // forward chip plan, pinned flag, or free-text notes/strategy — none
+        // of those are FPL facts, so carry them forward from the draft being
+        // overwritten rather than losing them to the fresh import's defaults
+        // (emptyTeamState). Everything else (squad, captain, budget,
+        // activeChip, freeTransfers) is deliberately NOT carried forward —
+        // that's supposed to come from the fresh import.
+        const existing = drafts.find((d) => d.draftId === targetDraftId);
+        if (existing) {
+          state.chipPlan = existing.chipPlan;
+          state.pinned = existing.pinned;
+          state.notes = existing.notes;
+          state.strategy = existing.strategy;
+        }
+      }
 
       const saved = saveDraft(state);
       router.push(`/builder/?draft=${saved.draftId}`);
@@ -704,7 +760,7 @@ export default function TeamPage() {
     } finally {
       setImporting(false);
     }
-  }, [data, router, drafts]);
+  }, [data, router, drafts, purchasePriceByPlayer]);
 
   // ------------------------------------------------------------- headlines
   //
@@ -743,23 +799,6 @@ export default function TeamPage() {
       setLeagues((rows ?? []) as ManagerLeagueRow[]);
     })();
   }, [data?.manager.entry_id]);
-
-  // ---------------------------------------------------------- transfer ledger
-  //
-  // Sprint 29.2. manager_transfers is FPL's own record, already written by
-  // sync-manager on every connect — the truth for what actually happened.
-  // Cross-checked (not overridden) against the local draft-snapshot diff,
-  // which needs no sync but only sees whatever squad shape got saved here.
-  const [transfersByEvent, setTransfersByEvent] = useState<Map<number, TransferRow[]>>(new Map());
-  useEffect(() => {
-    const entryId = data?.manager.entry_id;
-    const season = data?.nextGw?.season;
-    if (!entryId || !season) return;
-    (async () => {
-      const rows = await loadTransfers(season, entryId).catch(() => []);
-      setTransfersByEvent(groupByEvent(rows));
-    })();
-  }, [data?.manager.entry_id, data?.nextGw?.season]);
 
   // The most recent two saved snapshots of the currently-resolved imported
   // draft — HISTORY_LIMIT (lib/drafts.ts) keeps the last 20, so "last saved
@@ -1246,19 +1285,6 @@ export default function TeamPage() {
                   {!pointsLoading && gwLayout && (
                     <PitchView squad={gwCards} quota={data.rules.positionQuota} layout={gwLayout} />
                   )}
-                  {!pointsLoading && gwScore && selectedEvent !== null && (
-                    <GameweekSummary
-                      event={selectedEvent}
-                      score={gwScore}
-                      history={data.gwHistory.find((g) => g.event === selectedEvent) ?? null}
-                      captainName={
-                        gwScore.captain
-                          ? (data.players.get(gwScore.captain.element)?.web_name ?? "Captain")
-                          : null
-                      }
-                      provisional={eventProvisional || !data.finishedEvents.has(selectedEvent)}
-                    />
-                  )}
                 </section>
               )}
             </div>
@@ -1333,8 +1359,37 @@ export default function TeamPage() {
               {leagues.length > 0 && (
                 <section className={cardSupporting}>
                   <h2 className={supportingHeading}>Your Leagues</h2>
-                  <ManagerLeagues leagues={leagues} />
+                  {/* Sprint 29 follow-up: the full grouped table read as
+                      illegible squeezed into this 360px rail — /leagues
+                      (Sprint 29.1) is the real place to browse standings
+                      and EO, so this is a pointer, not a second render. */}
+                  <a
+                    href="/leagues/"
+                    className="mt-2 flex items-center justify-between gap-2 text-sm text-purple-700 underline-offset-2 hover:underline dark:text-primary"
+                  >
+                    {leagues.length} league{leagues.length === 1 ? "" : "s"} — view standings & EO
+                    <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  </a>
                 </section>
+              )}
+
+              {/* Sprint 29 follow-up: relocated from directly under the pitch
+                  (main column) to here, below the leagues link — see the plan
+                  for the desktop/mobile trade-off this accepts.
+                  GameweekSummary already renders its own bordered card, so
+                  no cardSupporting wrapper here — that would box it twice. */}
+              {data && !pointsLoading && gwScore && selectedEvent !== null && (
+                <GameweekSummary
+                  event={selectedEvent}
+                  score={gwScore}
+                  history={data.gwHistory.find((g) => g.event === selectedEvent) ?? null}
+                  captainName={
+                    gwScore.captain
+                      ? (data.players.get(gwScore.captain.element)?.web_name ?? "Captain")
+                      : null
+                  }
+                  provisional={eventProvisional || !data.finishedEvents.has(selectedEvent)}
+                />
               )}
 
               {transfersByEvent.size > 0 && (

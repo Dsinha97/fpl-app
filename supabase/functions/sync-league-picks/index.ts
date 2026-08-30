@@ -24,7 +24,19 @@ import { chunk, int } from "../_shared/coerce.ts";
 
 const FUNCTION_NAME = "sync-league-picks";
 const PICKS_CONCURRENCY = 5;
+const STANDINGS_CONCURRENCY = 5;
 const DEFAULT_ENTRY_CAP = 2000;
+
+interface EntryRow {
+  entry: number;
+  entryName: string;
+  playerName: string;
+  rank: number;
+  rankSort: number;
+  lastRank: number;
+  total: number;
+  eventTotal: number;
+}
 
 async function parseBody(req: Request): Promise<{ leagueId: number; event: number | null }> {
   const url = new URL(req.url);
@@ -83,74 +95,131 @@ Deno.serve(async (req) => {
     const entryCap = int(capRow?.value) ?? DEFAULT_ENTRY_CAP;
 
     // ------------------------------------------------------------ standings
-    const entries: {
-      entry: number;
-      entryName: string;
-      playerName: string;
-      rank: number;
-      rankSort: number;
-      lastRank: number;
-      total: number;
-      eventTotal: number;
-    }[] = [];
+    //
+    // Sprint 29 follow-up: pages used to be fetched one at a time, awaited
+    // sequentially — up to 40 round-trips for a 2000-entry cap, with
+    // standings only written to the database after the *entire* loop
+    // finished. A slow or rate-limited large league could run long enough
+    // to hit a platform execution-time limit and lose everything already
+    // fetched. Now pages are fetched in waves of STANDINGS_CONCURRENCY (same
+    // concurrency picks already use below), and each wave is upserted as
+    // soon as it's fetched — a failure partway through leaves the standings
+    // already written intact, and a real 2000-entry league now costs 8
+    // concurrent-waves-of-5 round-trips instead of 40 sequential ones.
+    //
+    // Speculative paging: since FPL's endpoint doesn't report a total page
+    // count up front, each wave requests the next STANDINGS_CONCURRENCY page
+    // numbers without knowing which one is actually last. A page beyond the
+    // real end throws (caught below) — worst case this wastes up to
+    // STANDINGS_CONCURRENCY-1 extra requests on the final wave, not a full
+    // second sequential pass.
+    const entries: EntryRow[] = [];
+    // A large league's rank ordering shifts live (rank changes are
+    // continuous, not per-gameweek), so two pages fetched concurrently in
+    // the same wave can genuinely contain the same entry — found while
+    // testing league 314 (9.9M entries): a duplicate entry_id within one
+    // upsert batch fails the whole batch ("ON CONFLICT DO UPDATE command
+    // cannot affect row a second time"). Tracked globally, not per-wave, in
+    // case a shift moves an entry across a wave boundary instead.
+    const seenEntryIds = new Set<number>();
 
-    let page = 1;
+    let nextPage = 1;
     let hasNext = true;
     let cappedAt: number | null = null;
 
     while (hasNext && entries.length < entryCap) {
-      const standings = await getClassicLeagueStandings(leagueId, page);
-      for (const r of standings.standings.results) {
-        entries.push({
-          entry: r.entry,
-          entryName: r.entry_name,
-          playerName: r.player_name,
-          rank: r.rank,
-          rankSort: r.rank_sort,
-          lastRank: r.last_rank,
-          total: r.total,
-          eventTotal: r.event_total,
-        });
+      const pageNumbers = Array.from({ length: STANDINGS_CONCURRENCY }, (_, i) => nextPage + i);
+      const pages = await mapLimit(pageNumbers, STANDINGS_CONCURRENCY, async (p) => {
+        try {
+          return await getClassicLeagueStandings(leagueId, p);
+        } catch {
+          return null; // past the real last page, or a transient failure — either way, stop here
+        }
+      });
+
+      const waveEntries: EntryRow[] = [];
+      let stop = false;
+      for (const standings of pages) {
+        if (!standings) {
+          stop = true;
+          break;
+        }
+        for (const r of standings.standings.results) {
+          if (seenEntryIds.has(r.entry)) continue;
+          seenEntryIds.add(r.entry);
+          waveEntries.push({
+            entry: r.entry,
+            entryName: r.entry_name,
+            playerName: r.player_name,
+            rank: r.rank,
+            rankSort: r.rank_sort,
+            lastRank: r.last_rank,
+            total: r.total,
+            eventTotal: r.event_total,
+          });
+        }
+        if (!standings.standings.has_next) {
+          stop = true;
+          break;
+        }
       }
-      hasNext = standings.standings.has_next;
-      page += 1;
+
+      // Trim this wave to whatever's left under the cap before writing —
+      // entries beyond the cap are never fetched again on a later run, so
+      // there's no reason to write rows this call is about to discard.
+      const remainingCapacity = entryCap - entries.length;
+      const waveToWrite = waveEntries.slice(0, Math.max(0, remainingCapacity));
+      entries.push(...waveToWrite);
+
+      for (const batch of chunk(waveToWrite, 500)) {
+        const { error } = await db.from("league_entries").upsert(
+          batch.map((e) => ({
+            season,
+            league_id: leagueId,
+            entry_id: e.entry,
+            entry_name: e.entryName,
+            player_name: e.playerName,
+            rank: e.rank,
+            rank_sort: e.rankSort,
+            last_rank: e.lastRank,
+            total: e.total,
+            event_total: e.eventTotal,
+            synced_at: new Date().toISOString(),
+          })),
+          { onConflict: "season,league_id,entry_id" },
+        );
+        if (error) throw new Error(`league_entries: ${error.message}`);
+      }
+
+      nextPage += STANDINGS_CONCURRENCY;
+      hasNext = !stop;
       if (hasNext && entries.length >= entryCap) cappedAt = entries.length;
     }
 
-    const entriesToWrite = entries.slice(0, entryCap);
-
-    for (const batch of chunk(entriesToWrite, 500)) {
-      const { error } = await db.from("league_entries").upsert(
-        batch.map((e) => ({
-          season,
-          league_id: leagueId,
-          entry_id: e.entry,
-          entry_name: e.entryName,
-          player_name: e.playerName,
-          rank: e.rank,
-          rank_sort: e.rankSort,
-          last_rank: e.lastRank,
-          total: e.total,
-          event_total: e.eventTotal,
-          synced_at: new Date().toISOString(),
-        })),
-        { onConflict: "season,league_id,entry_id" },
-      );
-      if (error) throw new Error(`league_entries: ${error.message}`);
-    }
+    const entriesToWrite = entries;
 
     // ---------------------------------------------------------------- picks
     // A member's picks are one fact shared across every league they're in
     // (see the migration's comment) — skip any entry already synced for this
     // event by an earlier call, whether from this league or another.
-    const { data: existing, error: existingError } = await db
-      .from("league_entry_picks")
-      .select("entry_id")
-      .eq("season", season)
-      .eq("event", event)
-      .in("entry_id", entriesToWrite.map((e) => e.entry));
-    if (existingError) throw new Error(`league_entry_picks read: ${existingError.message}`);
-    const already = new Set((existing ?? []).map((r) => r.entry_id as number));
+    //
+    // Sprint 29 follow-up: found while testing the standings speedup above
+    // against league 314 (9.9M entries, capped at 2000) — a single `.in()`
+    // over 2000 entry ids serialises into a query string long enough to trip
+    // an HTTP/2 protocol error before it reaches Postgres. Chunked the same
+    // way lib/leagues.ts's loadLeagueEntryPicks already chunks the entry-id
+    // list for its own `.in()` reads.
+    const already = new Set<number>();
+    for (const idBatch of chunk(entriesToWrite.map((e) => e.entry), 200)) {
+      const { data: existing, error: existingError } = await db
+        .from("league_entry_picks")
+        .select("entry_id")
+        .eq("season", season)
+        .eq("event", event)
+        .in("entry_id", idBatch);
+      if (existingError) throw new Error(`league_entry_picks read: ${existingError.message}`);
+      for (const r of existing ?? []) already.add(r.entry_id as number);
+    }
 
     const toFetch = entriesToWrite.filter((e) => !already.has(e.entry));
     let picksWritten = 0;
