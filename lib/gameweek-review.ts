@@ -11,6 +11,7 @@
 import { supabase } from "./supabase/client";
 import { loadManagerPicks, startersOf } from "./manager-picks";
 import { loadGameweekState, type GameweekState } from "./gameweek-state";
+import { loadTransfers, type TransferRow } from "./manager-transfers";
 
 export const REVIEW_MODEL_NOTE =
   "Bench recovered/stranded and the captain gap are this app's own projection, not FPL's applied " +
@@ -71,37 +72,11 @@ async function loadGwHistory(
   return byEvent;
 }
 
-/** Real transfers FPL recorded for this event — see `TransfersSection`'s empty-state handling
- *  when this comes back empty, which is every event today (`manager_transfers` has 0 rows;
- *  see lib/fpl-squad.ts's IMPORTED_SQUAD_NOTE for the same blocker recorded elsewhere). */
-export interface TransferRow {
-  elementIn: number;
-  elementInCost: number | null;
-  elementOut: number;
-  elementOutCost: number | null;
-  transferTime: string | null;
-}
-
-async function loadTransfers(
-  season: string,
-  entryId: number,
-  event: number,
-): Promise<TransferRow[]> {
-  const { data, error } = await supabase
-    .from("manager_transfers")
-    .select("element_in, element_in_cost, element_out, element_out_cost, transfer_time")
-    .eq("season", season)
-    .eq("entry_id", entryId)
-    .eq("event", event);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => ({
-    elementIn: r.element_in as number,
-    elementInCost: r.element_in_cost as number | null,
-    elementOut: r.element_out as number,
-    elementOutCost: r.element_out_cost as number | null,
-    transferTime: r.transfer_time as string | null,
-  }));
-}
+// Real transfers FPL recorded for this event — see `TransfersSection`'s empty-state handling
+// for a gameweek with none. Sprint 29.2: `loadTransfers`/`TransferRow` moved to
+// lib/manager-transfers.ts, which also backs /team's season-wide transfer ledger — this file
+// re-exports the type so existing imports of `TransferRow` from here don't break.
+export type { TransferRow };
 
 /** Which of a season's gameweeks are finished, most recent first — what a "which gameweek" picker offers. */
 export async function loadFinishedEvents(season: string): Promise<number[]> {

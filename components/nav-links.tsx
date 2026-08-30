@@ -15,6 +15,12 @@ import { Monogram, Wordmark } from "@/components/brand";
  * into `AccountMenu` (a data-freshness page belongs beside account
  * settings, not competing for a nav slot). `News` sits in Live rather than
  * Statistics — it's matchday/deadline-relevant reading, not reference data.
+ *
+ * Sprint 29 — `Review` moved from Live to Strategy: it's a post-mortem on a
+ * gameweek that's already finished (what a past decision actually cost),
+ * not this gameweek's live state — Live is for "what's happening now",
+ * Strategy is for "what should I do", and a backward-looking report reads
+ * naturally next to the forward-looking planning tools, after `Chips`.
  */
 export const NAV_GROUPS = [
   {
@@ -22,7 +28,7 @@ export const NAV_GROUPS = [
     items: [
       { href: "/deadline", label: "Deadline" },
       { href: "/team", label: "My Team" },
-      { href: "/review", label: "Review" },
+      { href: "/leagues", label: "Leagues" },
       { href: "/news", label: "News" },
     ],
   },
@@ -33,6 +39,7 @@ export const NAV_GROUPS = [
       { href: "/scenarios", label: "Scenarios" },
       { href: "/transfers", label: "Transfers" },
       { href: "/chips", label: "Chips" },
+      { href: "/review", label: "Review" },
     ],
   },
   {

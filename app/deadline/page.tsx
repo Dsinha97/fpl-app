@@ -65,7 +65,7 @@ import {
 } from "@/lib/transfer-optimizer";
 import { freeTransfersDisplay, MAX_FREE_TRANSFERS, TRANSFER_MODEL_NOTE } from "@/lib/transfers";
 import { ago, describe, type FeedRow } from "@/lib/change-feed";
-import { confidentEntities, sourceBadge, type NewsRow } from "@/lib/news-feed";
+import { confidentEntities, dedupeByUrl, sourceBadge, type NewsRow } from "@/lib/news-feed";
 import { loadPastResults, type PastResult } from "@/lib/player-history";
 
 interface PlayerRow {
@@ -583,7 +583,7 @@ export default function DeadlinePage() {
   // change_feed already unions price rises/falls, status, news and fixture
   // changes with lag() — no new detection logic, filtered to this squad only.
   useEffect(() => {
-    if (!team || rowById.size === 0) return;
+    if (!team || rowById.size === 0 || !ctx) return;
     const codes = team.players
       .map((p) => rowById.get(p.playerId)?.code)
       .filter((c): c is number => c !== undefined);
@@ -597,13 +597,14 @@ export default function DeadlinePage() {
       const { data } = await supabase
         .from("change_feed")
         .select("*")
+        .eq("season", ctx.season)
         .in("player_code", codes)
         .order("observed_at", { ascending: false })
         .limit(100);
       setFeedRows((data ?? []) as FeedRow[]);
       setFeedLoading(false);
     })();
-  }, [team, rowById]);
+  }, [team, rowById, ctx]);
 
   // ------------------------------------------------------------- team news
   //
@@ -646,7 +647,9 @@ export default function DeadlinePage() {
             (e.entity_type === "team" && clubCodes.has(e.entity_id)),
         ),
       );
-      setNewsRows(rows);
+      // Sprint 29.5: this card previously leaked the FFS triple-source
+      // duplication that /news already filters (lib/news-feed.ts).
+      setNewsRows(dedupeByUrl(rows));
       setNewsLoading(false);
     })();
   }, [team, rowById, teamMeta]);
@@ -1020,6 +1023,27 @@ export default function DeadlinePage() {
       [key]: open,
     }));
 
+  // Sprint 29.3. The watch cards (price/news + team news) moved out of the
+  // top strip and into this same flex `order` scheme, so they never sit
+  // above a live gameweek — live comes first while it's live, and the watch
+  // cards always land between whichever gameweek section is primary and
+  // whichever is secondary, never above both. When no live section is
+  // rendered at all they still precede upcoming (Sprint 23's original
+  // reason for existing outside a collapsible section: never orphaned
+  // behind a collapsed one).
+  const liveRendered = livePhase !== "none" && livePhase !== "unknown" && !!liveEvent;
+  const sectionOrder = (
+    section: "live" | "watch" | "upcoming",
+  ): "order-1" | "order-2" | "order-3" => {
+    if (livePhase === "over") {
+      return section === "upcoming" ? "order-1" : section === "live" ? "order-2" : "order-3";
+    }
+    if (liveRendered) {
+      return section === "live" ? "order-1" : section === "watch" ? "order-2" : "order-3";
+    }
+    return section === "upcoming" ? "order-2" : "order-1";
+  };
+
   const liveSummary = gwStateLoading
     ? "Loading…"
     : gwState
@@ -1098,144 +1122,39 @@ export default function DeadlinePage() {
 
       {!loading && team && ctx && (
         <>
-          {/* ------------------------------- countdown ‖ price & news watch */}
-          {/* Sprint 28. The countdown and the two watch cards sit ABOVE both
-              collapsible sections, never inside one. The countdown answers
-              "how long have I got" — hiding it behind a collapsed upcoming
-              section during a live gameweek is exactly backwards. And the
-              watch cards keep Sprint 23's reason for living outside the live
-              card (never orphaned before GW1's first kickoff) while gaining a
-              second one: they must not vanish behind a collapsed upcoming
-              section either. Both already self-collapse, so they cost two
-              rows when closed. */}
-          <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="min-w-0">
-            {/* ------------------------------------------------------ countdown */}
-            {/* No card — a border around one line of text is chrome, not
-                structure (Sprint 19, Stage 4a). The 3xl number is still the
-                biggest thing on the page; it just isn't boxed any more. */}
-            <div className="mt-6">
-              <h2 className={supportingHeading}>{ctx.gameweekName} deadline</h2>
-              <p
-                className={`mt-1 text-3xl font-bold tabular-nums ${
-                  countdown?.passed
-                    ? "text-red-700 dark:text-red-400"
-                    : "text-purple-900 dark:text-primary"
-                }`}
-              >
-                {countdown?.text}
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">
-                {new Date(ctx.deadlineTime).toLocaleString(undefined, {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </p>
-              {team.source === "fpl" && (
-                <p className="mt-2 text-xs text-zinc-500">
-                  <InfoTooltip label="About this imported squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>{" "}
-                  Imported from your real FPL team.
-                </p>
-              )}
-            </div>
-            </div>
-
-            <div className="min-w-0 space-y-4">
-              {/* ------------------------------------------------- price & news */}
-              <CollapsibleCard
-                title="Price & news watch"
-                tier="supporting"
-                summary={
-                  feedLoading
-                    ? "Loading…"
-                    : feedRows.length === 0
-                      ? "Nothing has changed for this squad recently."
-                      : `${feedRows.length} change${feedRows.length === 1 ? "" : "s"} flagged`
-                }
-              >
-                {!feedLoading && feedRows.length > 0 && (
-                  <ul className="divide-y divide-zinc-100 dark:divide-purple-900/30">
-                    {feedRows.slice(0, 20).map((row, i) => {
-                      const { icon, text } = describe(row);
-                      return (
-                        <li key={i} className="flex items-start gap-2 py-2 text-sm">
-                          <span aria-hidden="true">{icon}</span>
-                          <span className="min-w-0 flex-1">
-                            {row.web_name && <span className="font-medium">{row.web_name}</span>} {text}
-                          </span>
-                          <span className="shrink-0 text-xs text-zinc-400">{ago(row.observed_at)}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-                <p className="mt-2 text-xs text-zinc-500">
-                  <Link href="/news" className="underline-offset-2 hover:underline">
-                    See every change, not just this squad
-                  </Link>
-                  .
-                </p>
-              </CollapsibleCard>
-
-              {/* ---------------------------------------------------- team news */}
-              <CollapsibleCard
-                title="Team news"
-                tier="supporting"
-                summary={
-                  newsLoading
-                    ? "Loading…"
-                    : newsRows.length === 0
-                      ? "No recent headlines for this squad."
-                      : newsRows.length > 5
-                        ? `Latest 5 of ${newsRows.length}`
-                        : `${newsRows.length} headline${newsRows.length === 1 ? "" : "s"}`
-                }
-              >
-                <p className="text-[11px] text-zinc-500">
-                  Third-party reporting, not verified data — see{" "}
-                  <Link href="/news" className="underline-offset-2 hover:underline">
-                    every source
-                  </Link>
-                  .
-                </p>
-                {!newsLoading && newsRows.length > 0 && (
-                  <>
-                    <ul className="mt-2 divide-y divide-zinc-100 dark:divide-purple-900/30">
-                      {newsRows.slice(0, 5).map((row) => (
-                        <li key={row.id} className="py-2 text-sm">
-                          <div className="flex items-start justify-between gap-2">
-                            <a
-                              href={row.url}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                              className="min-w-0 flex-1 font-medium underline-offset-2 hover:underline"
-                            >
-                              {row.title}
-                            </a>
-                            <span className="shrink-0 text-xs text-zinc-400">{ago(row.published_at)}</span>
-                          </div>
-                          <span className="mt-0.5 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                            {sourceBadge(row)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    {newsRows.length > 5 && (
-                      <Link
-                        href="/news"
-                        className="mt-2 block text-center text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
-                      >
-                        All {newsRows.length} headlines →
-                      </Link>
-                    )}
-                  </>
-                )}
-              </CollapsibleCard>
-            </div>
+          {/* ------------------------------------------------------ countdown */}
+          {/* Sprint 29.3. No card — a border around one line of text is
+              chrome, not structure (Sprint 19, Stage 4a). Inlined onto one
+              row: the heading, the countdown and the full date used to stack
+              across three lines for no reason once the two-column top strip
+              (Sprint 28) went away — the 3xl number is still the biggest
+              thing on the page, it just doesn't need a paragraph of runway
+              in front of it. */}
+          <div className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className={supportingHeading}>{ctx.gameweekName} deadline</h2>
+            <p
+              className={`text-3xl font-bold tabular-nums ${
+                countdown?.passed ? "text-red-700 dark:text-red-400" : "text-purple-900 dark:text-primary"
+              }`}
+            >
+              {countdown?.text}
+            </p>
+            <p className="text-xs text-zinc-500">
+              {new Date(ctx.deadlineTime).toLocaleString(undefined, {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
           </div>
+          {team.source === "fpl" && (
+            <p className="mt-1 text-xs text-zinc-500">
+              <InfoTooltip label="About this imported squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>{" "}
+              Imported from your real FPL team.
+            </p>
+          )}
 
           {/* ------------------------------------ live GW ‖ upcoming GW */}
           {/* Sprint 28. Two gameweeks live on this page at once — the one
@@ -1253,7 +1172,7 @@ export default function DeadlinePage() {
               collapsed, and a collapsed CollapsibleCard body is `inert`. */}
           <div className="mt-5 flex flex-col gap-5">
             {livePhase !== "none" && livePhase !== "unknown" && liveEvent && (
-              <div className={livePhase === "over" ? "order-2" : "order-1"}>
+              <div className={sectionOrder("live")}>
                 <CollapsibleCard
                   tier="section"
                   title={`Live — GW${liveEvent.event}`}
@@ -1391,7 +1310,111 @@ export default function DeadlinePage() {
               </div>
             )}
 
-            <div className={livePhase === "over" ? "order-1" : "order-2"}>
+            {/* --------------------------------------- price/news watch pair */}
+            {/* Sprint 29.3. Moved out of the old top strip so a live gameweek
+                is never buried under two collapsed watch cards — see
+                sectionOrder above for exactly where this lands. Side by side
+                on `flex flex-wrap` rather than a grid, each with a fixed
+                `w-[calc(...)]` basis AND `self-start`: these are two
+                independently-expandable cards, and a grid (or a flex row
+                without self-start) stretches the collapsed neighbour to
+                match whichever one is expanded (CLAUDE.md). */}
+            <div className={`${sectionOrder("watch")} flex flex-wrap gap-5`}>
+              <div className="w-full self-start space-y-0 lg:w-[calc(50%-0.625rem)]">
+                <CollapsibleCard
+                  title="Price & news watch"
+                  tier="supporting"
+                  summary={
+                    feedLoading
+                      ? "Loading…"
+                      : feedRows.length === 0
+                        ? "Nothing has changed for this squad recently."
+                        : `${feedRows.length} change${feedRows.length === 1 ? "" : "s"} flagged`
+                  }
+                >
+                  {!feedLoading && feedRows.length > 0 && (
+                    <ul className="divide-y divide-zinc-100 dark:divide-purple-900/30">
+                      {feedRows.slice(0, 20).map((row, i) => {
+                        const { icon, text } = describe(row);
+                        return (
+                          <li key={i} className="flex items-start gap-2 py-2 text-sm">
+                            <span aria-hidden="true">{icon}</span>
+                            <span className="min-w-0 flex-1">
+                              {row.web_name && <span className="font-medium">{row.web_name}</span>} {text}
+                            </span>
+                            <span className="shrink-0 text-xs text-zinc-400">{ago(row.observed_at)}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  <p className="mt-2 text-xs text-zinc-500">
+                    <Link href="/news" className="underline-offset-2 hover:underline">
+                      See every change, not just this squad
+                    </Link>
+                    .
+                  </p>
+                </CollapsibleCard>
+              </div>
+
+              <div className="w-full self-start space-y-0 lg:w-[calc(50%-0.625rem)]">
+                <CollapsibleCard
+                  title="Team news"
+                  tier="supporting"
+                  summary={
+                    newsLoading
+                      ? "Loading…"
+                      : newsRows.length === 0
+                        ? "No recent headlines for this squad."
+                        : newsRows.length > 5
+                          ? `Latest 5 of ${newsRows.length}`
+                          : `${newsRows.length} headline${newsRows.length === 1 ? "" : "s"}`
+                  }
+                >
+                  <p className="text-[11px] text-zinc-500">
+                    Third-party reporting, not verified data — see{" "}
+                    <Link href="/news" className="underline-offset-2 hover:underline">
+                      every source
+                    </Link>
+                    .
+                  </p>
+                  {!newsLoading && newsRows.length > 0 && (
+                    <>
+                      <ul className="mt-2 divide-y divide-zinc-100 dark:divide-purple-900/30">
+                        {newsRows.slice(0, 5).map((row) => (
+                          <li key={row.id} className="py-2 text-sm">
+                            <div className="flex items-start justify-between gap-2">
+                              <a
+                                href={row.url}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="min-w-0 flex-1 font-medium underline-offset-2 hover:underline"
+                              >
+                                {row.title}
+                              </a>
+                              <span className="shrink-0 text-xs text-zinc-400">{ago(row.published_at)}</span>
+                            </div>
+                            <span className="mt-0.5 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                              {sourceBadge(row)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      {newsRows.length > 5 && (
+                        <Link
+                          href="/news"
+                          className="mt-2 block text-center text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
+                        >
+                          All {newsRows.length} headlines →
+                        </Link>
+                      )}
+                    </>
+                  )}
+                </CollapsibleCard>
+              </div>
+            </div>
+
+            <div className={sectionOrder("upcoming")}>
               <CollapsibleCard
                 tier="section"
                 title={`Upcoming — ${ctx.gameweekName}`}

@@ -26,6 +26,7 @@ import {
   type TransferMove,
 } from "@/lib/transfers";
 import { DEFAULT_DECISION_MARGIN, type XpByEvent } from "@/lib/transfer-optimizer";
+import { loadPriceProgress, PRICE_WATCH_MODEL_NOTE, type PriceProgress } from "@/lib/price-watch";
 // `signatureOf` still lives in transfer-plan.tsx, which /deadline still uses
 // for its own optimiser output. /transfers no longer renders TransferPlan —
 // see the note on `TransferPath` for why the page now has one answer.
@@ -56,6 +57,7 @@ import {
 
 interface PlayerRow {
   id: number;
+  code: number;
   web_name: string;
   first_name: string | null;
   second_name: string | null;
@@ -93,6 +95,7 @@ export default function TransfersPage() {
   const [drafts, setDrafts] = useState<TeamState[]>([]);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [rowById, setRowById] = useState<Map<number, PlayerRow>>(new Map());
+  const [priceProgress, setPriceProgress] = useState<Map<number, PriceProgress>>(new Map());
   const [scoredById, setScoredById] = useState<Map<number, ScoredPlayer>>(new Map());
   const [xp, setXp] = useState<Map<number, XpRow>>(new Map());
   const [rules, setRules] = useState<SquadRules>(DEFAULT_RULES);
@@ -177,7 +180,7 @@ export default function TransfersPage() {
             supabase
               .from("players")
               .select(
-                "id, web_name, first_name, second_name, known_name, team_id, element_type, now_cost, selected_by_percent, points_per_game, status, news, chance_of_playing_next_round, penalties_order",
+                "id, code, web_name, first_name, second_name, known_name, team_id, element_type, now_cost, selected_by_percent, points_per_game, status, news, chance_of_playing_next_round, penalties_order",
               )
               .eq("season", gw.season)
               .limit(1000),
@@ -343,6 +346,10 @@ export default function TransfersPage() {
         setRowById(new Map(rows.map((p) => [p.id, p])));
         setScoredById(scored);
         setXp(xpById);
+        // Secondary signal, loaded separately so it never blocks first paint.
+        loadPriceProgress(gw.season, rows.map((p) => p.code))
+          .then(setPriceProgress)
+          .catch(() => setPriceProgress(new Map()));
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -1054,8 +1061,21 @@ export default function TransfersPage() {
                             <ViceCaptainBadge className="h-4 w-4 shrink-0" />
                           )}
                           {incoming && (
-                            <span className="truncate text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                            <span className="flex min-w-0 items-center gap-1 truncate text-xs font-medium text-emerald-700 dark:text-emerald-400">
                               → {incoming.webName}
+                              {(() => {
+                                const inCode = rowById.get(move!.inId)?.code;
+                                const pp = inCode !== undefined ? priceProgress.get(inCode) : undefined;
+                                if (!pp || pp.verdict !== "likely tonight") return null;
+                                return (
+                                  <span
+                                    className="shrink-0 text-amber-600 dark:text-amber-400"
+                                    title={`Price watch: ${pp.direction} — ${Math.round((pp.progress ?? 0) * 100)}% (${pp.verdict})`}
+                                  >
+                                    {pp.direction === "rise" ? "↑" : "↓"}
+                                  </span>
+                                );
+                              })()}
                             </span>
                           )}
                         </span>
@@ -1299,6 +1319,10 @@ export default function TransfersPage() {
 
                 <p className="mt-3 text-[10px] leading-relaxed text-zinc-400">
                   {TRANSFER_MODEL_NOTE}
+                </p>
+                <p className="mt-1 text-[10px] leading-relaxed text-zinc-400">
+                  An ↑/↓ next to an incoming player above means its price watch reads &ldquo;likely
+                  tonight&rdquo;. {PRICE_WATCH_MODEL_NOTE}
                 </p>
               </div>
             )}

@@ -32,7 +32,17 @@ function movement(l: ManagerLeagueRow): number | null {
   return l.entry_last_rank - l.entry_rank; // positive = moved up (lower rank number)
 }
 
-export function ManagerLeagues({ leagues }: { leagues: ManagerLeagueRow[] }) {
+interface ManagerLeaguesProps {
+  leagues: ManagerLeagueRow[];
+  /** Sprint 29.1 — /leagues reuses this same grouping as a clickable picker
+   *  rather than a second implementation of "invitational vs general" (see
+   *  GROUPS above). /team omits these two props and keeps its original
+   *  read-only rows. */
+  onSelect?: (leagueId: number) => void;
+  selectedLeagueId?: number | null;
+}
+
+export function ManagerLeagues({ leagues, onSelect, selectedLeagueId }: ManagerLeaguesProps) {
   if (leagues.length === 0) return null;
 
   const prePublished = leagues.every((l) => l.rank_count === null && (!l.entry_rank || l.entry_rank <= 0));
@@ -54,11 +64,9 @@ export function ManagerLeagues({ leagues }: { leagues: ManagerLeagueRow[] }) {
               <ul className="mt-1.5 divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-card dark:divide-purple-900/30 dark:border-purple-900/40">
                 {rows.map((l) => {
                   const move = movement(l);
-                  return (
-                    <li
-                      key={l.league_id}
-                      className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
-                    >
+                  const selected = selectedLeagueId === l.league_id;
+                  const content = (
+                    <>
                       <span className="truncate text-zinc-800 dark:text-zinc-200">{l.name}</span>
                       <span className="flex shrink-0 items-center gap-1 tabular-nums text-zinc-500">
                         {rankLabel(l)}
@@ -72,6 +80,24 @@ export function ManagerLeagues({ leagues }: { leagues: ManagerLeagueRow[] }) {
                           </span>
                         )}
                       </span>
+                    </>
+                  );
+                  return (
+                    <li key={l.league_id}>
+                      {onSelect ? (
+                        <button
+                          type="button"
+                          onClick={() => onSelect(l.league_id)}
+                          aria-pressed={selected}
+                          className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-purple-950/30 ${
+                            selected ? "bg-purple-50 dark:bg-purple-950/40" : ""
+                          }`}
+                        >
+                          {content}
+                        </button>
+                      ) : (
+                        <div className="flex items-center justify-between gap-2 px-3 py-2 text-sm">{content}</div>
+                      )}
                     </li>
                   );
                 })}

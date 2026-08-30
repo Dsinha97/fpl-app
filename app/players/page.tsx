@@ -19,6 +19,7 @@ import {
   type ScoredPlayer,
 } from "@/lib/scoring";
 import { DEFAULT_GEM_CUTS, detectGems, type GemCandidate } from "@/lib/hidden-gems";
+import { loadPriceProgress, PRICE_WATCH_MODEL_NOTE, type PriceProgress } from "@/lib/price-watch";
 import {
   defaultPlayerFilters,
   matchesFilters,
@@ -198,6 +199,7 @@ const xdcForHorizon = (x: XpRow | undefined, h: Horizon): number | null => {
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
+  const [priceProgress, setPriceProgress] = useState<Map<number, PriceProgress>>(new Map());
   const [history, setHistory] = useState<Map<number, HistoryRow>>(new Map());
   const [teamShort, setTeamShort] = useState<Map<number, string>>(new Map());
   const [runs, setRuns] = useState<Map<number, RunCell[]>>(new Map());
@@ -326,13 +328,20 @@ export default function PlayersPage() {
         const xpList = (xpRows ?? []) as XpRow[];
         const rateProfileList = (rateProfileRes.data ?? []) as RateProfileRow[];
         const predictionList = (predictionsRes.data ?? []) as PredictionRow[];
-        setPlayers((playersRes.data ?? []) as PlayerRow[]);
+        const playerRows = (playersRes.data ?? []) as PlayerRow[];
+        setPlayers(playerRows);
         setTeamShort(shorts);
         setRuns(runMap);
         setXp(new Map(xpList.map((r) => [r.player_id, r])));
         setHistory(new Map(historyRows.map((h) => [h.player_code, h])));
         setRateProfile(new Map(rateProfileList.map((r) => [r.player_code, r])));
         setPredictions(new Map(predictionList.map((r) => [r.player_id, r])));
+        // Price watch is loaded separately (not blocking first paint) — it's a
+        // secondary signal, and loadPriceProgress needs the player codes we
+        // just resolved.
+        loadPriceProgress(gw.season, playerRows.map((p) => p.code))
+          .then(setPriceProgress)
+          .catch(() => setPriceProgress(new Map()));
 
         // first_event/last_event are constant across every row for one
         // season/model_version — any row gives the real prediction window.
@@ -597,6 +606,16 @@ export default function PlayersPage() {
                 <th className="px-2 py-2 uppercase tracking-wide">Team</th>
                 <th className="px-2 py-2 uppercase tracking-wide">Pos</th>
                 {header("Price", "price")}
+                <th className="px-2 py-2">
+                  <span className="flex items-center gap-1.5">
+                    <span className="uppercase tracking-wide">Price watch</span>
+                    <InfoTooltip label="What is Price watch?">
+                      <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                        {PRICE_WATCH_MODEL_NOTE}
+                      </p>
+                    </InfoTooltip>
+                  </span>
+                </th>
                 {header("xP GW", "xp1")}
                 {header(`xP ${horizonLabel(horizon)}`, "xpH")}
                 {header("Pts", "gwPoints")}
@@ -702,6 +721,26 @@ export default function PlayersPage() {
                     <td className="px-2 py-1.5 text-zinc-500">{POSITIONS[p.element_type]}</td>
                     <td className="px-2 py-1.5 tabular-nums">
                       £{((p.now_cost ?? 0) / 10).toFixed(1)}m
+                    </td>
+                    <td className="px-2 py-1.5 text-xs">
+                      {(() => {
+                        const pp = priceProgress.get(p.code);
+                        if (!pp || pp.verdict === "unknown") {
+                          return <span className="text-zinc-400">unknown</span>;
+                        }
+                        const arrow = pp.direction === "rise" ? "↑" : pp.direction === "fall" ? "↓" : "→";
+                        const color =
+                          pp.direction === "rise"
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : pp.direction === "fall"
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-zinc-400";
+                        return (
+                          <span className={`tabular-nums ${color}`} title={pp.verdict}>
+                            {arrow} {Math.round((pp.progress ?? 0) * 100)}%
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
                       {x?.xp_1?.toFixed(1) ?? "—"}

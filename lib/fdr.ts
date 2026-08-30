@@ -106,6 +106,125 @@ export interface FdrFixtureRef {
 }
 
 /**
+ * Sprint 29 bugfix — `teams.played/win/draw/loss/points/form` are populated
+ * verbatim from FPL's own `bootstrap-static` `teams[]` array
+ * (supabase/functions/sync-bootstrap), but that array's standings fields
+ * stay 0/null all season on the live API — verified 2026-08-30 by fetching
+ * bootstrap-static directly against a season with multiple gameweeks
+ * already finished (real scorelines in `fixtures`, `teams.played` still 0
+ * for every team). `teams.position` is *not* zeroed the same way, but it
+ * doesn't track played/points either, so it isn't a real table position —
+ * treating it as one would be exactly the mistake CLAUDE.md warns about
+ * ("don't multiply a term by zero and ship a quietly shrunken score"). This
+ * is the same class of bug as the documented `total_players` and team
+ * attack-strength gotchas: a field FPL's public API simply doesn't carry,
+ * silently read as if it did.
+ *
+ * The fix is to derive the table from `fixtures` instead, which the FDR
+ * matrix already loads and which does carry real scorelines — one quantity
+ * (a finished result), one implementation.
+ */
+export interface StandingsFixtureRef extends FdrFixtureRef {
+  team_h_score: number | null;
+  team_a_score: number | null;
+  finished: boolean | null;
+}
+
+export interface DerivedStanding {
+  played: number;
+  win: number;
+  draw: number;
+  loss: number;
+  points: number;
+  /** Last 5 finished results, oldest first, e.g. "WDLWW" — a plain
+   *  win/draw/loss tally, not FPL's own weighted decimal `form` figure
+   *  (which the API doesn't publish either); disclosed as derived. */
+  form: string | null;
+  position: number;
+}
+
+/**
+ * Aggregates finished fixtures into a real table: P/W/D/L/Pts per team, a
+ * simple win/draw/loss form string (last 5), and position from sorting by
+ * points then goal difference then goals for — the standard tiebreak FPL's
+ * own (non-functional) `position` field would apply. Teams with zero
+ * finished fixtures still get a row (played: 0, position last).
+ */
+export function deriveStandingsFromFixtures<T extends FdrTeamRef>(
+  teams: T[],
+  fixtures: StandingsFixtureRef[],
+): Map<number, DerivedStanding> {
+  interface Acc {
+    played: number;
+    win: number;
+    draw: number;
+    loss: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    results: string[]; // chronological, one per finished fixture
+  }
+  const acc = new Map<number, Acc>();
+  for (const t of teams) {
+    acc.set(t.id, { played: 0, win: 0, draw: 0, loss: 0, goalsFor: 0, goalsAgainst: 0, results: [] });
+  }
+
+  // fixtures aren't guaranteed ordered by event — sort so `results` (and the
+  // "last 5" slice of it) reflects actual chronological order.
+  const finished = fixtures
+    .filter((f) => f.finished && f.team_h_score !== null && f.team_a_score !== null)
+    .sort((a, b) => (a.event ?? 0) - (b.event ?? 0));
+
+  for (const f of finished) {
+    const home = acc.get(f.team_h);
+    const away = acc.get(f.team_a);
+    const hs = f.team_h_score as number;
+    const as = f.team_a_score as number;
+    if (home) {
+      home.played += 1;
+      home.goalsFor += hs;
+      home.goalsAgainst += as;
+      home.results.push(hs > as ? "W" : hs < as ? "L" : "D");
+      if (hs > as) home.win += 1;
+      else if (hs < as) home.loss += 1;
+      else home.draw += 1;
+    }
+    if (away) {
+      away.played += 1;
+      away.goalsFor += as;
+      away.goalsAgainst += hs;
+      away.results.push(as > hs ? "W" : as < hs ? "L" : "D");
+      if (as > hs) away.win += 1;
+      else if (as < hs) away.loss += 1;
+      else away.draw += 1;
+    }
+  }
+
+  const ranked = [...acc.entries()].sort(([, a], [, b]) => {
+    const aPts = a.win * 3 + a.draw;
+    const bPts = b.win * 3 + b.draw;
+    if (aPts !== bPts) return bPts - aPts;
+    const aGd = a.goalsFor - a.goalsAgainst;
+    const bGd = b.goalsFor - b.goalsAgainst;
+    if (aGd !== bGd) return bGd - aGd;
+    return b.goalsFor - a.goalsFor;
+  });
+
+  const result = new Map<number, DerivedStanding>();
+  ranked.forEach(([teamId, a], i) => {
+    result.set(teamId, {
+      played: a.played,
+      win: a.win,
+      draw: a.draw,
+      loss: a.loss,
+      points: a.win * 3 + a.draw,
+      form: a.results.length > 0 ? a.results.slice(-5).join("") : null,
+      position: i + 1,
+    });
+  });
+  return result;
+}
+
+/**
  * For each team, a map of gameweek -> that gameweek's fixture(s) across a
  * window of `windowSize` gameweeks starting at `fromGw` (capped at GW38).
  * A blank gameweek is simply absent from the inner map; a double has 2+

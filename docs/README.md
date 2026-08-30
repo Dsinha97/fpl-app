@@ -47,6 +47,10 @@ file, not separate files.
 | [sprints/sprint-24.md](sprints/sprint-24.md) | live | Expand/collapse polish — `ExpandToggle` primitive, grid-rows accordion replacing mount/unmount on every card expander in the app. |
 | [sprints/sprint-25.md](sprints/sprint-25.md) | live | Domain cutover to `fpldecision.com` + an eleven-item UI defect sweep across `/deadline`, `/team`, `/fixtures`, `/chips`, `/players` and the nav shell. |
 | [sprints/latency.md](sprints/latency.md) | live | Latency baseline + ranked roadmap, measured 2026-08-27. Fixed: `/deadline` and `/builder` both serially paged `player_predictions` (now routed through `lib/player-pool.ts`, plus an ordering bug fixed in that shared loader), and `/team` re-synced from the live FPL API on every load (3.7s blocking — now a `sync-claimed-managers` cron keeps claimed managers fresh in the background, mirroring `sync-live-gameweek`'s gating). Still open: zero route-level code splitting anywhere; a serial-waterfall pattern among non-prediction reads on `/players`, `/transfers`, and now `/team` too. |
+| [sprints/sprint-26.md](sprints/sprint-26.md) | live | Retroactive record of two undocumented 2026-08-23/24 changes: casual-user on-ramps and load staging. |
+| [sprints/sprint-27.md](sprints/sprint-27.md) | live | Post-GW1 reckoning, 2026-08-27 — checked what actually unblocked once GW1 was scored against what the roadmap assumed. |
+| [sprints/sprint-28.md](sprints/sprint-28.md) | live | Live/upcoming split on `/deadline`, one transfer answer (removed the duplicate `TransferPlan`), `/scenarios` actuals. |
+| [sprints/sprint-29.md](sprints/sprint-29.md) | live | Price-watchlist sampling, `/leagues` (Sprint 10's EO engine finally rendered), import-replaces-in-place + a transfer ledger on `/team`, `/deadline` layout, `change_feed` de-duplication, and a `/fixtures` league-table fix (FPL never publishes in-season standings fields). |
 
 ## Source specs
 

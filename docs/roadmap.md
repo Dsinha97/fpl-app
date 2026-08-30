@@ -50,6 +50,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 26 | Casual-user on-ramps + load staging | **Built** 2026-08-23/24 — builder "+" affordance, import-CTA discovery, shared parallelized `lib/player-pool.ts` loader (5s serial → ~1.7s), `/scenarios` freeze fix, staged `/deadline` load, squad Value in the context bar, not-played `–`-instead-of-`0` fix. Two commits with no sprint file at the time, backfilled during the Sprint 27 docs reconciliation | [sprints/sprint-26.md](sprints/sprint-26.md) |
 | 27 | Post-GW1 reckoning | **Built** 2026-08-27 — pre-deadline prediction archive (`player_prediction_archive`, urgent: GW2's snapshot was ~26 hours from being lost the same way GW1's was), the GW1 predicted-lineup layer deleted per its own stated expiry, `/review` (what a gameweek's decision actually cost), and the current-season xP blend built and measured against a real walk-forward sweep — does not clear the gate (2024-25's bias worsens), not shipped. Docs reconciliation: two stale `Blocked` rows corrected, Sprint 26 backfilled | [sprints/sprint-27.md](sprints/sprint-27.md) |
 | 28 | Live/upcoming split, one transfer answer, scenario actuals | **Built** 2026-08-29 — `/deadline` split into collapsible Live GW and Upcoming GW sections ordered by a new `livePhase` (`CollapsibleCard` gained a controlled mode, a `section` tier, `inert` collapsed bodies, and stopped clipping the pitch's player-detail popover); `TransferPlan` removed from `/transfers` and `/deadline` so the transfer path is the single answer, after fixing three real defects in it (hardcoded horizon 5, missing `decisionMargin`, and a roll branch that carried next gameweek's squad forward at zero cost); `/scenarios` gained an xP / Points-scored toggle over a new `lib/scenario-actuals.ts`. Prompted by the owner using the app during a live gameweek | [sprints/sprint-28.md](sprints/sprint-28.md) |
+| 29 | Price sampling, mini-league EO, transfer tracking, layout/feed fixes | **Built** 2026-08-30 — price-change prediction steps 1–2 (bounded ~2h ownership watchlist, `lib/price-watch.ts`'s progress-to-threshold tool on `/players`/`/transfers`); new `/leagues` wires up Sprint 10's already-shipped `lib/ownership.ts` engine and `sync-league-picks` pipeline (never previously called from the app) into a real EO table; re-importing an FPL squad now overwrites the existing draft instead of minting a new one (`resolveImportTarget`), and `manager_transfers` (already written, previously empty) is rendered as a season transfer ledger on `/team` with a snapshot-diff reconciliation check; `/deadline`'s countdown inlined and its watch cards moved below the Live section via a generalised `sectionOrder`; `/review` moved from Live to Strategy nav; `change_feed` no longer double-reports one FPL update as both a status and a news row, and both `/news`/`/deadline` dedupe the FFS RSS triplication. Also fixed, found mid-sprint: `/fixtures`' league table was reading FPL's own `teams[].played/win/...` fields, which the live API never populates in-season — now derived from finished `fixtures` instead (`deriveStandingsFromFixtures`). | [sprints/sprint-29.md](sprints/sprint-29.md) |
 
 Non-sprint work items, also in `sprints/`: [cold-start-patch.md](sprints/cold-start-patch.md)
 (empirical-Bayes rate priors — phase 1 built, phase 2 deferred/gated) and
@@ -59,48 +60,31 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
-- **Price-change prediction — scoped 2026-08-29, not started.** The owner wants to know whether to
-  transfer now or wait for a price move. The data to answer that already exists and nothing reads it:
-  `player_price_history` is change-detected (a row the moment `now_cost` moves, so **labels are sharp
-  at 30-minute resolution**), and `player_ownership_history` carries `selected_by_percent` /
-  `transfers_in_event` / `transfers_out_event` — but **time-gated to roughly once per 20 hours**
-  (`record_player_snapshots`, migration `20260803004948`), because ownership moves on every poll and a
-  row-per-player-per-poll would be ~7.8M rows/season. Today `player_ownership_history` is read by
-  nothing but a row count on `/status`.
-
-  **That asymmetry is the whole problem, not a missing table.** FPL's price algorithm keys on net
-  transfer *velocity* relative to a player's ownership base, measured continuously; we have sharp
-  labels and ~daily features. A daily net-transfer delta is reconstructible, sub-daily velocity is
-  not. Sequence, with only the first two committed:
-  1. **Fix the sampling first.** Drop the ownership gate from ~20h to ~2h for a bounded watchlist
-     only — non-zero `cost_change_event`, high `selected_by_percent`, or moved in the last 24h.
-     Full-population 2-hourly is a row explosion; a watchlist is not. No model can see the signal
-     without this.
-  2. **Ship the descriptive tool, which may be enough.** The real question is "now or wait", which
-     needs a **progress-to-threshold** reading, not a classifier: net transfers since the last price
-     change as a fraction of an estimated threshold, plus a direction and a "likely tonight / not
-     tonight" call, disclosed with its own `*_MODEL_NOTE` on `/players` and `/transfers`. It is
-     honest, immediately useful, and it generates the labelled history a model would need.
-  3. **Only then fit a model**, gated the way the xP blend was: walk-forward over accumulated price
-     history, scored on precision/recall of "rises tonight" against a naive baseline (top-N by net
-     transfers). If it does not beat the baseline, ship the heuristic and say so.
-  FPL's actual flag threshold is unpublished and ownership-dependent — per CLAUDE.md it becomes a
-  documented user-set input, never a coefficient tuned until the answer looks right.
-- **Mini-league ownership UI — the cheapest high-value item on this list, not started.** Sprint 10's
-  engine and pipeline both shipped and **nothing renders them**: `sync-league-picks` writes
-  `league_entries`/`league_entry_picks`, `lib/ownership.ts` computes EO / `differentialScore` /
-  `rankGain` (verified in a harness against a real 5-member league), and `manager_leagues` is already
-  listed on `/team`. [wiki/ownership-and-leagues.md](wiki/ownership-and-leagues.md) records the gap
-  in its own words: "the `/team` surface that reads any of this — the engine and pipeline exist,
-  nothing renders them yet." Proposed slice, all UI over shipped maths:
-  a league picker on `/team` sourced from `manager_leagues` with a Sync-picks button; an EO table for
-  the selected league (your players' league EO, plus the top-owned players you *don't* have);
-  `RankGain` and `Differential` columns with `Upside` exposed as the documented input it already is;
-  rivals auto-populated from the selected league's standings instead of manual ID entry — the one
-  place `lib/manager-profile.ts` (career percentiles, **not** league-aware) and league data should
-  meet; and the Sprint 6 EO-column gap closed on `/players` off the same loader. Note this is the
-  *exact mini-league* slice, which is unblocked — only the field-wide/top-1k sample is blocked
-  (league 314, below).
+- **Price-change prediction — steps 1–2 built 2026-08-30, step 3 not started.** The owner wants to
+  know whether to transfer now or wait for a price move. Sprint 29.0 built the first two steps of the
+  sequence below; step 3 (fitting a classifier) stays out until enough watchlist history has
+  accumulated.
+  1. **Fix the sampling first — built.** `player_ownership_history` was time-gated to ~20h for every
+     player; a bounded watchlist (`cost_change_event <> 0`, or `selected_by_percent` / net-transfer
+     thresholds in `game_settings`) now samples at ~2h instead
+     (`supabase/migrations/20260830191442_sprint29_price_watchlist.sql`). Verified live: watchlist
+     size came back 111 players, not the ~700-player full population.
+  2. **Ship the descriptive tool — built.** `lib/price-watch.ts`'s `priceProgress()` reads net
+     transfers since a player's last price change and reports a direction and 0–1 progress toward a
+     documented, user-adjustable threshold (never a fitted coefficient) — `"unknown"`, not a guess,
+     below two post-change samples. Surfaced on `/players` and `/transfers`.
+  3. **Fit a model — not started, and may never be.** Gated the way the xP blend was: walk-forward
+     over accumulated price history, scored on precision/recall of "rises tonight" against a naive
+     top-N-by-net-transfers baseline. If it does not beat the baseline, ship the heuristic and say so.
+  See [sprints/sprint-29.md](sprints/sprint-29.md) for the change.
+- **Mini-league ownership UI — built 2026-08-30.** Sprint 10's engine and pipeline had shipped with
+  nothing rendering them; `/leagues` (`app/leagues/page.tsx`, `lib/leagues.ts`) is that wiring — a
+  league picker off `manager_leagues`, standings and EO paged past the 1000-row cap, a sync button as
+  the first real caller of `sync-league-picks`, and an EO table with differential/rank-gain per
+  player. Verified against real production data: synced a 5-entry league end to end and checked the
+  EO math by hand. See [sprints/sprint-29.md](sprints/sprint-29.md). Not built: rivals
+  auto-populated from a league's standings, and the Sprint 6 EO-column gap on `/players` — both still
+  open if wanted later.
 - **Repo going public — pre-flight checklist, scoped 2026-08-29.** The owner intends to make
   `Dsinha97/fpl-app` public for a portfolio. Three items must be settled first:
   1. **PII.** `sprints/latency.md` contains the owner's email address beside a `user_profiles`

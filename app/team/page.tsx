@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase/client";
 import { CountryFlag, flagCode, SeasonsBadge, TeamCrest } from "@/components/identity";
 import { ManagerProfileCard, RivalTable } from "@/components/manager-profile-card";
 import { ManagerLeagues, type ManagerLeagueRow } from "@/components/manager-leagues";
+import { groupByEvent, hitCost, loadTransfers, type TransferRow } from "@/lib/manager-transfers";
+import { diffSquads } from "@/lib/squad-diff";
 import { PitchView, type SquadLayout } from "@/components/pitch-view";
 import type { PlayerData } from "@/components/player-card";
 import { loadSquadHeadlines, type NewsHeadline } from "@/lib/news-feed";
@@ -18,8 +20,15 @@ import {
   type ManagerProfile,
   type RivalRow,
 } from "@/lib/manager-profile";
-import { IMPORTED_SQUAD_NOTE, importedDraftName, teamStateFromPicks } from "@/lib/fpl-squad";
-import { listDrafts, onDraftsChanged, resolveRequestedDraft, saveDraft, uniqueDraftName } from "@/lib/drafts";
+import { IMPORTED_SQUAD_NOTE, importedDraftName, resolveImportTarget, teamStateFromPicks } from "@/lib/fpl-squad";
+import {
+  draftHistory,
+  listDrafts,
+  onDraftsChanged,
+  resolveRequestedDraft,
+  saveDraft,
+  uniqueDraftName,
+} from "@/lib/drafts";
 import { freeTransfersDisplay, MAX_FREE_TRANSFERS } from "@/lib/transfers";
 import {
   layoutFromPicks,
@@ -660,6 +669,17 @@ export default function TeamPage() {
       const latestEvent = data.picks[0].event;
       const gw = data.gwHistory.find((g) => g.event === latestEvent);
 
+      // Sprint 29.2: re-importing overwrites the existing import (found via
+      // resolveImportTarget's entryId/name precedence) instead of minting a
+      // new draft each time — uniqueDraftName's " (2)" only applies on a
+      // genuine first import. saveDraft's own update-in-place logic
+      // (matching on draftId) does the rest. `drafts` is this page's own
+      // live-updating list (above), not a fresh listDrafts() call.
+      const targetDraftId = resolveImportTarget(drafts, data.manager.entry_id, data.manager.team_name);
+      const draftName = targetDraftId
+        ? importedDraftName(data.manager.team_name, data.manager.entry_id)
+        : uniqueDraftName(importedDraftName(data.manager.team_name, data.manager.entry_id));
+
       const state = teamStateFromPicks(
         data.picks,
         (id) => data.players.get(id)?.now_cost ?? undefined,
@@ -673,8 +693,9 @@ export default function TeamPage() {
         rules,
         // Same naming rule as the /settings paste importer, so
         // resolveRequestedDraft can recognise either as this manager's import.
-        uniqueDraftName(importedDraftName(data.manager.team_name, data.manager.entry_id)),
+        draftName,
       );
+      if (targetDraftId) state.draftId = targetDraftId;
 
       const saved = saveDraft(state);
       router.push(`/builder/?draft=${saved.draftId}`);
@@ -683,7 +704,7 @@ export default function TeamPage() {
     } finally {
       setImporting(false);
     }
-  }, [data, router]);
+  }, [data, router, drafts]);
 
   // ------------------------------------------------------------- headlines
   //
@@ -722,6 +743,36 @@ export default function TeamPage() {
       setLeagues((rows ?? []) as ManagerLeagueRow[]);
     })();
   }, [data?.manager.entry_id]);
+
+  // ---------------------------------------------------------- transfer ledger
+  //
+  // Sprint 29.2. manager_transfers is FPL's own record, already written by
+  // sync-manager on every connect — the truth for what actually happened.
+  // Cross-checked (not overridden) against the local draft-snapshot diff,
+  // which needs no sync but only sees whatever squad shape got saved here.
+  const [transfersByEvent, setTransfersByEvent] = useState<Map<number, TransferRow[]>>(new Map());
+  useEffect(() => {
+    const entryId = data?.manager.entry_id;
+    const season = data?.nextGw?.season;
+    if (!entryId || !season) return;
+    (async () => {
+      const rows = await loadTransfers(season, entryId).catch(() => []);
+      setTransfersByEvent(groupByEvent(rows));
+    })();
+  }, [data?.manager.entry_id, data?.nextGw?.season]);
+
+  // The most recent two saved snapshots of the currently-resolved imported
+  // draft — HISTORY_LIMIT (lib/drafts.ts) keeps the last 20, so "last saved
+  // vs the one before" is always available once a second save has happened.
+  const importReconciliation = useMemo(() => {
+    if (!importedDraft) return null;
+    const history = draftHistory(importedDraft.draftId);
+    if (history.length < 2) return null;
+    const [prev, latest] = history.slice(-2);
+    const diff = diffSquads(prev, latest);
+    if (diff.in.length === 0 && diff.out.length === 0) return null;
+    return { diff, latestEvent: [...transfersByEvent.keys()].sort((a, b) => b - a)[0] ?? null };
+  }, [importedDraft, transfersByEvent]);
 
   /** Gameweeks with picks, newest first — what the selector offers. */
   const pickedEvents = useMemo(
@@ -1283,6 +1334,52 @@ export default function TeamPage() {
                 <section className={cardSupporting}>
                   <h2 className={supportingHeading}>Your Leagues</h2>
                   <ManagerLeagues leagues={leagues} />
+                </section>
+              )}
+
+              {transfersByEvent.size > 0 && (
+                <section className={cardSupporting}>
+                  <h2 className={supportingHeading}>Transfers this season</h2>
+                  <ul className="mt-2 space-y-2">
+                    {[...transfersByEvent.entries()]
+                      .sort(([a], [b]) => b - a)
+                      .map(([event, rows]) => (
+                        <li key={event} className="text-sm">
+                          <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                            GW{event}
+                          </span>{" "}
+                          <span className="text-zinc-500">
+                            {rows.length} transfer{rows.length === 1 ? "" : "s"}
+                            {rows.length > 1 ? ` · ${hitCost(Math.max(0, rows.length - 1))} pt hit` : ""}
+                          </span>
+                          <ul className="mt-1 space-y-0.5 pl-3 text-xs text-zinc-500">
+                            {rows.map((t, i) => (
+                              <li key={i}>
+                                {data?.players.get(t.elementOut)?.web_name ?? `#${t.elementOut}`} →{" "}
+                                {data?.players.get(t.elementIn)?.web_name ?? `#${t.elementIn}`}
+                              </li>
+                            ))}
+                          </ul>
+                        </li>
+                      ))}
+                  </ul>
+                  <p className="mt-2 text-[11px] text-zinc-400">
+                    From FPL&apos;s own transfer record. Only appears once a transfer has been
+                    synced — see Refresh above if a recent change is missing.
+                  </p>
+                  {importReconciliation && (
+                    <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">
+                      Your saved squad also changed by{" "}
+                      {importReconciliation.diff.in
+                        .map((id) => data?.players.get(id)?.web_name ?? `#${id}`)
+                        .join(", ") || "—"}{" "}
+                      in / {importReconciliation.diff.out
+                        .map((id) => data?.players.get(id)?.web_name ?? `#${id}`)
+                        .join(", ") || "—"}{" "}
+                      out since the last save — check that against the ledger above if the two
+                      don&apos;t obviously match.
+                    </p>
+                  )}
                 </section>
               )}
             </div>

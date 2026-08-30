@@ -51,6 +51,27 @@ export function sourceBadge(row: Pick<NewsRow, "source_slug" | "source_name">): 
   return SOURCE_BADGE[row.source_slug] ?? row.source_name;
 }
 
+/**
+ * Fantasy Football Scout is registered as three logical sources sharing one
+ * feed URL (ffs-all, ffs-team-news, ffs-scout-picks — see
+ * news_sources.include_categories), so an item whose categories satisfy more
+ * than one filter is upserted once per source and appears more than once in
+ * an unfiltered list. `rows` must already be ordered newest-first (as
+ * news_feed is) — this keeps the first (newest) occurrence per url.
+ *
+ * Sprint 29.5: originally /news-only logic, extracted here so /deadline's
+ * Team news card — which reads the same news_feed rows without this filter
+ * — inherits it too, instead of leaking the FFS triplication.
+ */
+export function dedupeByUrl<T extends Pick<NewsRow, "url">>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  return rows.filter((r) => {
+    if (seen.has(r.url)) return false;
+    seen.add(r.url);
+    return true;
+  });
+}
+
 /** Confident entity links only — what a player card or the deadline strip should show. */
 export function confidentEntities(row: NewsRow): NewsEntity[] {
   return row.entities.filter((e) => e.confidence >= CONFIDENT_ENTITY_THRESHOLD);

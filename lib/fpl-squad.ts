@@ -59,6 +59,38 @@ export function isImportedDraftFor(draftName: string, teamName: string | null): 
   return base === wanted || base === `${wanted}${IMPORT_SUFFIX}`;
 }
 
+/**
+ * Sprint 29.2 — re-importing used to always mint a new draft: both importers
+ * called `uniqueDraftName` on a freshly-built `TeamState` (a fresh
+ * `draftId` from `emptyTeamState`), so a second import became
+ * "DS United (FPL) (2)" instead of updating the first. That defeated
+ * `saveDraft`'s own update-in-place behaviour (lib/drafts.ts:
+ * `drafts.findIndex((d) => d.draftId === stamped.draftId)`) — it only
+ * updates when the id already matches.
+ *
+ * This resolves which existing draft (if any) a new import should overwrite,
+ * using the same precedence `resolveRequestedDraft` already uses to find
+ * "this manager's import": match by `entryId` first (the durable link, see
+ * the header comment above), then by `isImportedDraftFor` name matching,
+ * then the newest import for any manager as a last resort (covers a squad
+ * imported before `entryId` was ever recorded). Returns `undefined` only
+ * when there is truly no prior import to overwrite — a first-ever import
+ * still gets a fresh draftId via `emptyTeamState`, same as before.
+ */
+export function resolveImportTarget(
+  drafts: TeamState[],
+  entryId: number | null,
+  teamName: string | null,
+): string | undefined {
+  // `drafts` is expected newest-first (list ordering already used
+  // throughout lib/drafts.ts), so the first match at each tier is the most
+  // recent import at that confidence level.
+  const imports = drafts.filter((d) => d.source === "fpl");
+  const byEntry = entryId !== null ? imports.find((d) => d.entryId === entryId) : undefined;
+  const byName = imports.find((d) => isImportedDraftFor(d.name, teamName));
+  return (byEntry ?? byName ?? imports[0])?.draftId;
+}
+
 // ------------------------------------------------- manager_picks import
 // (works once manager_picks/manager_transfers are populated — blocked
 // pre-GW1, see teamStateFromMyTeamJson below for what works today)

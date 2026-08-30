@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ago, describe, type FeedRow } from "@/lib/change-feed";
-import { confidentEntities, sourceBadge, type NewsRow } from "@/lib/news-feed";
+import { confidentEntities, dedupeByUrl, sourceBadge, type NewsRow } from "@/lib/news-feed";
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -43,11 +43,22 @@ export default function NewsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const { data, error: feedError } = await supabase
+        // change_feed carries every season's rows — scope to the current one
+        // (same lookup used below for news_feed's entity names) so a second
+        // season doesn't interleave into this feed once one exists.
+        const { data: gw } = await supabase
+          .from("gameweeks")
+          .select("season")
+          .eq("is_next", true)
+          .limit(1)
+          .maybeSingle();
+        let query = supabase
           .from("change_feed")
           .select("*")
           .order("observed_at", { ascending: false })
           .limit(200);
+        if (gw?.season) query = query.eq("season", gw.season);
+        const { data, error: feedError } = await query;
         if (feedError) throw new Error(feedError.message);
         setRows((data ?? []) as FeedRow[]);
       } catch (err) {
@@ -122,18 +133,9 @@ export default function NewsPage() {
 
   const visibleNews = useMemo(() => {
     const filtered = source === "all" ? newsRows : newsRows.filter((r) => r.source_slug === source);
-    // Fantasy Football Scout is registered as three logical sources sharing
-    // one feed URL (all-news, team-news, scout-picks — see
-    // news_sources.include_categories), so an item whose categories satisfy
-    // more than one filter is upserted once per source and shows up more
-    // than once in "All". newsRows is already published_at-descending, so
-    // keeping the first occurrence per url keeps the newest.
-    const seen = new Set<string>();
-    return filtered.filter((r) => {
-      if (seen.has(r.url)) return false;
-      seen.add(r.url);
-      return true;
-    });
+    // newsRows is already published_at-descending, so dedupeByUrl keeps the
+    // newest occurrence of a triplicated FFS item — see lib/news-feed.ts.
+    return dedupeByUrl(filtered);
   }, [newsRows, source]);
 
   return (

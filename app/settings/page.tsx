@@ -6,9 +6,14 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/auth-provider";
 import { InfoTooltip } from "@/components/info-tooltip";
-import { saveDraft, uniqueDraftName } from "@/lib/drafts";
+import { listDrafts, saveDraft, uniqueDraftName } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
-import { importedDraftName, teamStateFromMyTeamJson, type SellPriceMismatch } from "@/lib/fpl-squad";
+import {
+  importedDraftName,
+  resolveImportTarget,
+  teamStateFromMyTeamJson,
+  type SellPriceMismatch,
+} from "@/lib/fpl-squad";
 
 // Sprint 14.3 — one settings page with two tabs, replacing the standalone
 // /settings/fpl route (now a redirect, below) and giving "claim your Manager
@@ -191,12 +196,20 @@ function ImportTab() {
       );
 
       // Named from the linked FPL team ("DS United (FPL)") rather than a fixed
-      // "Imported squad" — every re-import used to collide on that one name.
-      // The name itself now comes from importedDraftName so /team's importer
-      // and this one agree, which is what lets resolveRequestedDraft find
-      // "this manager's import"; uniqueDraftName disambiguates a repeat import
-      // the same way it disambiguates a repeat clone (lib/drafts.ts).
-      const draftName = uniqueDraftName(importedDraftName(teamName, entryId));
+      // "Imported squad" — the name itself comes from importedDraftName so
+      // /team's importer and this one agree, which is what lets
+      // resolveRequestedDraft find "this manager's import".
+      //
+      // Sprint 29.2: re-importing now overwrites the existing import rather
+      // than minting a new draft each time — resolveImportTarget finds it by
+      // entryId (or name, for a squad imported before entryId existed);
+      // uniqueDraftName's " (2)" disambiguator only applies on a genuine
+      // first import.
+      const existingDrafts = listDrafts();
+      const targetDraftId = resolveImportTarget(existingDrafts, entryId, teamName);
+      const draftName = targetDraftId
+        ? importedDraftName(teamName, entryId)
+        : uniqueDraftName(importedDraftName(teamName, entryId));
 
       const result = teamStateFromMyTeamJson(
         trimmed,
@@ -214,6 +227,8 @@ function ImportTab() {
         setStatus({ kind: "error", message: result.error ?? "Import failed" });
         return;
       }
+
+      if (targetDraftId) result.state.draftId = targetDraftId;
 
       const saved = saveDraft(result.state);
       setStatus({

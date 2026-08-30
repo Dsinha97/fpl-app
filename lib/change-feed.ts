@@ -48,7 +48,11 @@ export function describe(row: FeedRow): { icon: string; text: string } {
         ? ` (${d.new_chance}% next round)`
         : "";
       const ruledOut = d.new_status === "i" || d.new_status === "s" || d.new_status === "u";
-      return { icon: ruledOut ? "🔴" : "🟡", text: `${oldS} → ${newS}${chance}` };
+      // Sprint 29.5: change_feed folds a co-timestamped news change into the
+      // same status row (news_new) rather than emitting a second row for the
+      // same FPL update — surface it here so the sentence isn't lost.
+      const news = typeof d.news_new === "string" && d.news_new !== "" ? ` — "${d.news_new}"` : "";
+      return { icon: ruledOut ? "🔴" : "🟡", text: `${oldS} → ${newS}${chance}${news}` };
     }
     case "news": {
       const text = d.new === null || d.new === "" ? "News cleared" : String(d.new);
