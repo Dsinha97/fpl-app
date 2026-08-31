@@ -7,7 +7,7 @@ import { InfoTooltip } from "@/components/info-tooltip";
 import { fmtCountdown } from "@/lib/countdown";
 import { listDrafts, onDraftsChanged, resolveRequestedDraft } from "@/lib/drafts";
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
-import { squadSellValue, totalSpend } from "@/lib/squad-budget";
+import { squadSellValue } from "@/lib/squad-budget";
 import { supabase } from "@/lib/supabase/client";
 import type { TeamState } from "@/lib/team-state";
 import { freeTransfersDisplay } from "@/lib/transfers";
@@ -85,8 +85,12 @@ export function ContextBar() {
   }, [ctx, draft]);
 
   const countdown = ctx ? fmtCountdown(ctx.deadlineTime, now) : null;
-  const bank = hasSquad ? draft!.budget - totalSpend(draft!.players) : null;
   const squadValue = hasSquad ? squadSellValue(draft!.players, (id) => nowCostById.get(id)) : null;
+  // budget - Σ purchasePrice would double-count every held player's
+  // unrealised gain/loss as spendable cash (see replacementLegality's
+  // comment, lib/scoring.ts) — subtract the live sell value instead so
+  // Value + Bank always equals `draft.budget`, the real total.
+  const bank = hasSquad && squadValue !== null ? draft!.budget - squadValue : null;
 
   if (!ctx) return null;
 
@@ -130,11 +134,11 @@ export function ContextBar() {
           </span>
         )}
 
-        {hasSquad && (
+        {hasSquad && bank !== null && (
           <span className="flex items-center gap-1">
             Bank
             <span className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
-              £{(bank! / 10).toFixed(1)}m
+              £{(bank / 10).toFixed(1)}m
             </span>
           </span>
         )}
