@@ -363,6 +363,17 @@ export function teamStateFromMyTeamJson(
 
   const players = sorted.map((p) => ({ playerId: p.element, purchasePrice: p.purchase_price }));
 
+  // Real data (2026-08-30): `data.transfers.value` disagreed with the sum of
+  // the picks' own `selling_price` by 2 tenths (£0.2m) for a squad where
+  // every pick's purchase_price equalled its selling_price — no gain/loss
+  // to explain the gap, so `transfers.value` itself was simply wrong for
+  // that payload. Each pick's own `selling_price` is what FPL will actually
+  // credit on a sale; summing those directly is ground truth in a way the
+  // separately-reported aggregate isn't, and is the one number this file
+  // already treats as authoritative (see the sellPriceMismatches check
+  // below, which trusts selling_price over a locally recomputed one).
+  const sellingValue = sorted.reduce((sum, p) => sum + p.selling_price, 0);
+
   // Cross-check, not a second implementation: recompute sellPrice from the
   // pasted purchase_price and compare against FPL's own selling_price for
   // the same pick. FPL is authoritative on its own sell rule, so a
@@ -412,7 +423,7 @@ export function teamStateFromMyTeamJson(
     startingXI,
     benchOrder,
     activeChip,
-    budget: data.transfers.value + data.transfers.bank,
+    budget: sellingValue + data.transfers.bank,
     freeTransfers,
   };
 
