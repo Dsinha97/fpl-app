@@ -394,11 +394,14 @@ export function teamStateFromMyTeamJson(
   // in a real payload) — no hit is possible in that state, so it maps to
   // "as many as the squad", not a default of 1, which would let
   // simulateTransfers invent a -4 FPL would never actually charge.
-  // Post-deadline, limit is a real number and is used directly.
+  // Post-deadline, limit is the free transfers banked for this gameweek —
+  // `made` (real data: limit=2, made=1) is how many are already spent, so
+  // what's actually still free to use is limit - made, not limit on its own
+  // (which double-counts a transfer already made as still available).
   const freeTransfers =
     data.transfers.limit === null && data.transfers.status === "unlimited"
       ? rules.squadSize
-      : (data.transfers.limit ?? 1);
+      : Math.max(0, (data.transfers.limit ?? 1) - data.transfers.made);
 
   // Chip-active detection is best-effort: FPL's own status_for_entry enum
   // for an *active* chip isn't confirmed against a live example (every

@@ -1,3 +1,5 @@
+import { sellPrice } from "./transfers";
+
 // TeamState — the normalised squad object every downstream feature consumes.
 //
 // The updated build plan makes this the central abstraction: a squad may
@@ -184,7 +186,15 @@ export function validateSquad(
 
   for (const pick of state.players) {
     const meta = lookup(pick.playerId);
-    spent += pick.purchasePrice;
+    // What's actually committed to this squad is sell value, not purchase
+    // price — for an imported squad, `state.budget` is set from real sell
+    // value + bank (see lib/fpl-squad.ts), so comparing it against a
+    // purchase-price sum double-counts every held player's unrealised
+    // gain/loss (same bug already fixed for Bank/replacementLegality — see
+    // lib/scoring.ts). A held player who's dropped in price frees up less
+    // than what was paid for him; this makes that loss actually count
+    // against the budget instead of pretending it doesn't exist.
+    spent += meta ? sellPrice(pick.purchasePrice, meta.nowCost) : pick.purchasePrice;
     if (!meta) continue;
     positionCounts.set(meta.elementType, (positionCounts.get(meta.elementType) ?? 0) + 1);
     clubCounts.set(meta.teamId, (clubCounts.get(meta.teamId) ?? 0) + 1);
