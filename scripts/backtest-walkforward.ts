@@ -144,6 +144,18 @@ async function main() {
 
   const results: Record<string, unknown>[] = [];
 
+  // Per-position bias-correction sweep (docs/roadmap.md's "attempt 2" step 2)
+  // — accumulated across the whole walk-forward loop below so the correction
+  // for a held-out season can be fit only from the OTHER two seasons
+  // (leave-one-season-out), never from the season it's tested against. Keyed
+  // by currentSeasonWeight, then archiveSeason, holding that season's own
+  // blended residuals (with position) for that weight.
+  type BlendResidual = { pred: number; actual: number; positionCode: string };
+  const blendResidualsByWeightAndSeason = new Map<number, Map<string, BlendResidual[]>>(
+    [0.3, 0.6, 1.0].map((w) => [w, new Map<string, BlendResidual[]>()]),
+  );
+  const priorOnlyStatsBySeason = new Map<string, ReturnType<typeof accuracyStats>>();
+
   for (const { archiveSeason, slashSeason } of targets) {
     console.error(`\n=== ${archiveSeason} (walk-forward, trained on seasons < ${slashSeason}) ===`);
 
@@ -295,7 +307,6 @@ async function main() {
       }
 
       const CURRENT_SEASON_WEIGHTS = [0.3, 0.6, 1.0];
-      type BlendResidual = { pred: number; actual: number; positionCode: string };
       const priorOnlyResiduals: BlendResidual[] = [];
       const blendedResidualsByWeight = new Map<number, BlendResidual[]>(
         CURRENT_SEASON_WEIGHTS.map((w) => [w, []]),
@@ -382,6 +393,10 @@ async function main() {
       }
 
       const priorOnlyStats = stats(priorOnlyResiduals);
+      priorOnlyStatsBySeason.set(archiveSeason, priorOnlyStats);
+      for (const w of CURRENT_SEASON_WEIGHTS) {
+        blendResidualsByWeightAndSeason.get(w)!.set(archiveSeason, blendedResidualsByWeight.get(w)!);
+      }
       console.error(`\n  -- current-season blend sweep (deriveRatesWithPrior, both arms) --`);
       console.error(`  prior-only (no blend)  n=${priorOnlyStats.n} bias=${priorOnlyStats.bias.toFixed(3)} mae=${priorOnlyStats.mae.toFixed(3)} r=${priorOnlyStats.r.toFixed(3)}`);
       const blendResults: Record<string, unknown>[] = [];
@@ -407,6 +422,75 @@ async function main() {
       });
     }
   }
+
+  // ---------------------------------------------------------------------
+  // Per-position bias-correction sweep, leave-one-season-out.
+  //
+  // The existing blend sweep above found MAE/r improve at every weight in
+  // every season, but bias consistently worsens — "the signature of a
+  // fixable calibration offset, not a broken feature" (docs/roadmap.md).
+  // A per-position intercept correction is exactly that: shift each
+  // position's predictions by a constant so their mean residual (bias) goes
+  // to ~0. Pearson r is invariant to an additive shift, so this can only
+  // help bias/MAE and never touches r — the correction is fit ONLY from the
+  // two seasons NOT being scored (never the season under test), so this
+  // stays a genuine out-of-sample check rather than the closed-form zero
+  // this would trivially become if fit and scored on the same season.
+  const POSITIONS = ["GKP", "DEF", "MID", "FWD"] as const;
+  const correctionResults: Record<string, unknown>[] = [];
+
+  for (const w of [0.3, 0.6, 1.0]) {
+    const bySeason = blendResidualsByWeightAndSeason.get(w)!;
+    console.error(`\n=== bias correction, wCur=${w} (leave-one-season-out) ===`);
+    for (const heldOutSeason of targets.map((t) => t.archiveSeason)) {
+      const trainSeasons = targets.map((t) => t.archiveSeason).filter((s) => s !== heldOutSeason);
+      const trainResiduals = trainSeasons.flatMap((s) => bySeason.get(s) ?? []);
+
+      const correctionByPosition = new Map<string, number>();
+      for (const pos of POSITIONS) {
+        const posResiduals = trainResiduals.filter((r) => r.positionCode === pos);
+        // bias = mean(actual - pred); adding it back de-biases the arm it was fit on.
+        correctionByPosition.set(pos, posResiduals.length > 0 ? stats(posResiduals).bias : 0);
+      }
+
+      const testResiduals = bySeason.get(heldOutSeason) ?? [];
+      const corrected = testResiduals.map((r) => ({
+        ...r,
+        pred: r.pred + (correctionByPosition.get(r.positionCode) ?? 0),
+      }));
+      const correctedStats = stats(corrected);
+      const priorOnly = priorOnlyStatsBySeason.get(heldOutSeason)!;
+      const uncorrected = stats(testResiduals);
+
+      const clears = correctedStats.n > 0 && correctedStats.mae < priorOnly.mae && correctedStats.r > priorOnly.r &&
+        Math.abs(correctedStats.bias) <= Math.abs(priorOnly.bias) + 0.01;
+
+      console.error(
+        `  ${heldOutSeason}: correction(GKP/DEF/MID/FWD)=${POSITIONS.map((p) => correctionByPosition.get(p)!.toFixed(2)).join("/")}\n` +
+          `    before  n=${uncorrected.n} bias=${uncorrected.bias.toFixed(3)} mae=${uncorrected.mae.toFixed(3)} r=${uncorrected.r.toFixed(3)}\n` +
+          `    after   n=${correctedStats.n} bias=${correctedStats.bias.toFixed(3)} mae=${correctedStats.mae.toFixed(3)} r=${correctedStats.r.toFixed(3)}  ${clears ? "CLEARS gate" : "does not clear"}`,
+      );
+
+      correctionResults.push({
+        currentSeasonWeight: w,
+        heldOutSeason,
+        correctionByPosition: Object.fromEntries(correctionByPosition),
+        before: uncorrected,
+        after: correctedStats,
+        priorOnly,
+        clearsGate: clears,
+      });
+    }
+  }
+
+  const allClear = [0.3, 0.6, 1.0].some((w) =>
+    correctionResults.filter((r) => r.currentSeasonWeight === w).every((r) => r.clearsGate === true),
+  );
+  console.error(
+    `\n=== bias-correction verdict: ${allClear ? "at least one weight clears the gate in all three seasons" : "no weight clears the gate in all three seasons — do not ship"} ===`,
+  );
+
+  results.push({ biasCorrectionSweep: correctionResults, allClear });
 
   console.log(JSON.stringify(results, null, 2));
 }

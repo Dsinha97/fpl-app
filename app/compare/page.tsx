@@ -190,6 +190,7 @@ export default function ComparePage() {
             price: p.now_cost ?? 0,
             ownership: p.selected_by_percent,
             pointsPerGame: p.points_per_game,
+            form: p.form,
             xp: {
               1: x?.xp_1 ?? null,
               3: x?.xp_3 ?? null,
@@ -341,7 +342,7 @@ export default function ComparePage() {
       dir: "high",
       value: (p) => playersById.get(p.id)?.form ?? null,
       format: (v) => (v === null ? "—" : v.toFixed(1)),
-      hint: "FPL's own form figure — reads 0 for everyone pre-season and only becomes meaningful once the season is scoring.",
+      hint: "FPL's own 30-day rolling form figure. Now folded into the comparison score at 10% weight.",
     },
     {
       label: "DC actions",
@@ -355,7 +356,7 @@ export default function ComparePage() {
       dir: "high",
       value: (p) => p.pointsPerGame,
       format: (v) => (v === null ? "—" : v.toFixed(1)),
-      hint: "Points per game in the last completed season — shown because FPL zeroes form pre-season",
+      hint: "Points per game in the last completed season — a longer-run reference alongside this season's form.",
     },
     {
       label: "Expected minutes",

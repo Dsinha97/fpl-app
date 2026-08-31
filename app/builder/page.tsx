@@ -74,7 +74,7 @@ import {
   type GemArchetype,
   type GemCandidate,
 } from "@/lib/hidden-gems";
-import { squadBudget, totalSpend } from "@/lib/squad-budget";
+import { squadBudget } from "@/lib/squad-budget";
 import { GemBadge } from "@/components/gem-badge";
 import { InfoTooltip, TapToReveal } from "@/components/info-tooltip";
 import { Spinner } from "@/components/ui/spinner";
@@ -175,6 +175,29 @@ const FALLBACK_SEASON_WINDOW = 8;
 const money = (tenths: number) => `£${(tenths / 10).toFixed(1)}m`;
 
 type SortKey = "xp5" | "xp1" | "price" | "ownership" | "points" | "goals" | "assists" | "minutes";
+
+/** Header/cell for the picker's sortable numeric column — the xp5/xp1 cases keep
+ * the horizon-aware label the column always had; every other metric gets its
+ * own name so the header matches what the dropdown actually sorted by. */
+function sortColumnLabel(sortKey: SortKey, horizon: Horizon): string {
+  switch (sortKey) {
+    case "xp5":
+    case "xp1":
+      return horizonLabel(horizon);
+    case "price":
+      return "£";
+    case "ownership":
+      return "Owned";
+    case "points":
+      return "Points";
+    case "goals":
+      return "Goals";
+    case "assists":
+      return "Assists";
+    case "minutes":
+      return "Minutes";
+  }
+}
 
 export default function BuilderPage() {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -1337,10 +1360,8 @@ export default function BuilderPage() {
     if (replaceFor === null) return 0;
     const target = scoredById.get(replaceFor);
     if (!target) return 0;
-    const outgoing = team.players.find((p) => p.playerId === replaceFor);
-    const spent = totalSpend(team.players);
-    return team.budget - spent + (outgoing?.purchasePrice ?? target.price);
-  }, [replaceFor, scoredById, team]);
+    return replacementLegality(target, team, rules, lookup).priceCeiling;
+  }, [replaceFor, scoredById, team, rules, lookup]);
 
   const replacements = useMemo<Replacement[]>(() => {
     if (replaceFor === null) return [];
@@ -2354,7 +2375,7 @@ export default function BuilderPage() {
                   <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
                     <th className="py-1.5 pl-1">Player</th>
                     <th className="py-1.5">£</th>
-                    <th className="py-1.5">{horizonLabel(horizon)}</th>
+                    <th className="py-1.5">{sortColumnLabel(sortKey, horizon)}</th>
                     <th className="py-1.5">
                       <span className="inline-flex items-center gap-1">
                         Risk
@@ -2420,7 +2441,25 @@ export default function BuilderPage() {
                         </td>
                         <td className="py-1 tabular-nums">{((p.now_cost ?? 0) / 10).toFixed(1)}</td>
                         <td className="py-1 font-semibold tabular-nums text-purple-800 dark:text-primary">
-                          {xpAt(xpOf(p.id), horizon)?.toFixed(1) ?? "—"}
+                          {(() => {
+                            switch (sortKey) {
+                              case "xp5":
+                              case "xp1":
+                                return xpAt(xpOf(p.id), horizon)?.toFixed(1) ?? "—";
+                              case "price":
+                                return ((p.now_cost ?? 0) / 10).toFixed(1);
+                              case "ownership":
+                                return `${(p.selected_by_percent ?? 0).toFixed(1)}%`;
+                              case "points":
+                                return String(p.total_points ?? 0);
+                              case "goals":
+                                return String(p.goals_scored ?? 0);
+                              case "assists":
+                                return String(p.assists ?? 0);
+                              case "minutes":
+                                return String(p.minutes ?? 0);
+                            }
+                          })()}
                         </td>
                         <td className="py-1 tabular-nums text-zinc-500">
                           {scoredById.has(p.id)

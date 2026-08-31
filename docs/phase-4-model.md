@@ -312,10 +312,39 @@ starters less — is a different algorithm, not a parameter, and is recorded as 
   investigating *why* 2024-25's bias specifically worsens) can reuse both without re-deriving
   them, and doesn't need to re-litigate whether append-vs-displace or the games fix are correct.
 
-  **Adjacent finding, not yet acted on:** `COMPARISON_WEIGHTS` (`lib/scoring.ts`) drops FPL's own
-  `form` and renormalises over 0.90 because FPL zeroes it between seasons — a premise that expired
-  the moment `players.form` went non-zero for real players post-GW1. Worth its own small,
-  separately-gated commit; not part of this pass.
+  **Adjacent finding, acted on 2026-08-30:** `COMPARISON_WEIGHTS` (`lib/scoring.ts`) dropped FPL's
+  own `form` and renormalised over 0.90 because FPL zeroes it between seasons — a premise that
+  expired the moment `players.form` went non-zero for real players post-GW1. Fixed: `ScoredPlayer`
+  gained an optional `form` field (only `/compare` populates it, from the `players.form` column it
+  was already fetching for its own informational column); when present, `comparePlayers` uses the
+  plan's full five-term weighting (0.40/0.20/0.15/0.15/0.10); every other caller, with no `form`
+  data, keeps the renormalised four-term weights unchanged. This is the comparison/ranking layer
+  only — not the production xP engine, and not the blend below.
+
+  **Attempt 2, bias correction — swept 2026-08-30, does not clear the gate, not shipped.** The blend
+  above fails only on bias, in one season, which reads like a fixable calibration offset — so a
+  per-position additive intercept correction was swept alongside `wCur`, fit **leave-one-season-out**
+  (each held-out season's correction comes only from the *other* two seasons' blended residuals,
+  never its own — Pearson r is invariant to an additive shift, so this can only move bias/MAE and
+  never touches r). Verdict: **no weight clears the gate in all three seasons.** The correction
+  learned from 2024-25 and 2025-26 (both blend arms under-predict, bias strongly negative) is itself
+  strongly negative per position; applied to 2023-24 — whose blend arm was already *slightly
+  over-predicting* (bias +0.015 to +0.079 depending on weight) — it overshoots into a large positive
+  bias (e.g. +0.51 at w=0.3) instead of correcting it:
+
+  | wCur | 2023-24 (bias before → after) | 2024-25 (before → after) | 2025-26 (before → after) |
+  |---|---|---|---|
+  | 0.3 | +0.042 → **+0.514 (fails)** | −0.359 → −0.035 (clears) | −0.539 → −0.360 (clears) |
+  | 0.6 | +0.016 → **+0.486 (fails)** | −0.375 → −0.050 (clears) | −0.523 → −0.325 (clears) |
+  | 1.0 | −0.013 → **+0.457 (fails)** | −0.390 → −0.063 (clears) | −0.510 → −0.293 (clears) |
+
+  This is itself a finding, not a tuning failure: bias direction and magnitude aren't stable across
+  seasons, so a single global per-position intercept can't be the fix — whatever is making 2023-24
+  read differently from the other two (a genuinely different season, not a data artifact so far as
+  this pass checked) would need to be understood before a correction could generalise. Per
+  CLAUDE.md, this null result stands as-is rather than narrowing the gate (e.g. two-of-three) to let
+  it through. Reproduce with `npx tsx scripts/backtest-walkforward.ts`, which now sweeps and reports
+  this correction permanently, alongside the existing blend sweep.
 - **`dc90` (defensive contribution) applies one aggregate count to two different FPL rules.** FPL
   scores defenders on clearances + blocks + interceptions + tackles, and midfielders/forwards on the
   same four plus recoveries — but the API exposes only the combined `defensive_contribution` total,

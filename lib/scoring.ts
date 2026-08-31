@@ -13,6 +13,7 @@ import {
 } from "./team-state";
 import { clamp, mean, stdevPopulation } from "./stats";
 import { totalSpend } from "./squad-budget";
+import { sellPrice } from "./transfers";
 
 export interface ScoredPlayer {
   id: number;
@@ -32,6 +33,8 @@ export interface ScoredPlayer {
   reliability?: "high" | "medium" | "low";
   /** 0 = pure Premier League evidence, 1 = pure prior. */
   priorWeight?: number | null;
+  /** FPL's own 30-day rolling form figure. Optional — only /compare populates it. */
+  form?: number | null;
   expectedMinutes: number | null;
   startProbability: number | null;
   /** 0–1 from status / chance_of_playing. */
@@ -211,13 +214,24 @@ export const valuePerMillion = (p: ScoredPlayer, horizon: Horizon): number =>
 //   0.40 x xP + 0.20 x FixtureScore + 0.15 x Value + 0.15 x Minutes
 //   + 0.10 x Form - RiskPenalty
 //
-// FPL zeroes `form` between seasons — it is a 30-day rolling average, so every
-// one of the 564 players reads 0.0 until matches are played. Rather than
-// multiply that term by zero and quietly shrink every score, it is dropped and
-// the remaining weights renormalised over 0.90. Last season's points per game
-// is shown as its own column instead: informative, but genuinely not form.
+// FPL zeroes `form` between seasons — it's a 30-day rolling average, so it
+// reads 0.0 for every player until matches are played. That premise expired
+// at GW1: form is real once the season is scoring. `ScoredPlayer.form` is
+// optional and only /compare populates it (fetched from `players.form`,
+// already shown there as its own column) — when it's present the full
+// five-term weighting applies; callers that don't supply it fall back to the
+// pre-GW1 renormalised weights, so nothing else in the app changes.
 
 export const COMPARISON_WEIGHTS = {
+  xp: 0.4,
+  fixture: 0.2,
+  value: 0.15,
+  minutes: 0.15,
+  form: 0.1,
+} as const;
+
+/** Renormalised over 0.90 for callers with no `form` data (everyone but /compare). */
+const COMPARISON_WEIGHTS_NO_FORM = {
   xp: 0.4 / 0.9,
   fixture: 0.2 / 0.9,
   value: 0.15 / 0.9,
@@ -225,9 +239,9 @@ export const COMPARISON_WEIGHTS = {
 } as const;
 
 export const COMPARISON_MODEL_NOTE =
-  "Form is omitted — FPL resets it between seasons, so it reads zero for every player until " +
-  "matches are played. The remaining weights are renormalised; last season's points per game " +
-  "is shown separately.";
+  "Form is FPL's own 30-day rolling average, weighted 10% once the season is scoring. Pre-season, " +
+  "or for any comparison without form data, that weight is redistributed across xP/fixture/value/" +
+  "minutes instead; last season's points per game is shown separately either way.";
 
 export interface ComparisonRow {
   player: ScoredPlayer;
@@ -236,15 +250,16 @@ export interface ComparisonRow {
   valuePerMillion: number;
   fixture: number;
   minutes: number;
+  form: number;
   risk: number;
   strengths: string[];
   weaknesses: string[];
 }
 
 /**
- * Rank a small set of players. xP and value are normalised across the set
- * rather than against the whole league, so the score answers "which of these"
- * rather than "how good in the abstract".
+ * Rank a small set of players. xP, value, and form are normalised across the
+ * set rather than against the whole league, so the score answers "which of
+ * these" rather than "how good in the abstract".
  */
 export function comparePlayers(
   players: ScoredPlayer[],
@@ -255,22 +270,27 @@ export function comparePlayers(
 
   const maxXp = Math.max(...players.map((p) => xpFor(p, horizon)), 0);
   const maxValue = Math.max(...players.map((p) => valuePerMillion(p, horizon)), 0);
+  const hasForm = players.some((p) => p.form != null);
+  const maxForm = hasForm ? Math.max(...players.map((p) => p.form ?? 0), 0) : 0;
+  const weights = hasForm ? COMPARISON_WEIGHTS : COMPARISON_WEIGHTS_NO_FORM;
 
   const rows = players.map((player) => {
     const xp = xpFor(player, horizon);
     const value = valuePerMillion(player, horizon);
     const fixture = fixtureScore(player, horizon, seasonWindow);
     const minutes = player.startProbability ?? player.availability;
+    const form = player.form ?? 0;
     const risk = riskScore(player, horizon, seasonWindow);
 
     const score =
-      COMPARISON_WEIGHTS.xp * (maxXp > 0 ? xp / maxXp : 0) +
-      COMPARISON_WEIGHTS.fixture * fixture +
-      COMPARISON_WEIGHTS.value * (maxValue > 0 ? value / maxValue : 0) +
-      COMPARISON_WEIGHTS.minutes * minutes -
+      weights.xp * (maxXp > 0 ? xp / maxXp : 0) +
+      weights.fixture * fixture +
+      weights.value * (maxValue > 0 ? value / maxValue : 0) +
+      weights.minutes * minutes +
+      (hasForm ? COMPARISON_WEIGHTS.form * (maxForm > 0 ? form / maxForm : 0) : 0) -
       risk / 100;
 
-    return { player, score, xp, valuePerMillion: value, fixture, minutes, risk };
+    return { player, score, xp, valuePerMillion: value, fixture, minutes, form, risk };
   });
 
   // Strengths and weaknesses are stated relative to the group, which is the
@@ -456,8 +476,11 @@ export function replacementLegality(
   const outgoing = team.players.find((p) => p.playerId === target.id);
   const spent = totalSpend(team.players);
 
-  // Selling the outgoing player frees up what was paid for him.
-  const affordable = team.budget - spent + (outgoing?.purchasePrice ?? target.price);
+  // Selling the outgoing player frees up his sell price, not what was paid
+  // for him — FPL's profit-on-sale rule means those differ once his price
+  // has moved (`sellPrice`, lib/transfers.ts, the one implementation of it).
+  const affordable =
+    team.budget - spent + (outgoing ? sellPrice(outgoing.purchasePrice, target.price) : target.price);
   const priceCeiling = maxPrice != null ? Math.min(maxPrice, affordable) : affordable;
 
   const clubCounts = new Map<number, number>();

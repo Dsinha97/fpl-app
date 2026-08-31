@@ -51,6 +51,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 27 | Post-GW1 reckoning | **Built** 2026-08-27 — pre-deadline prediction archive (`player_prediction_archive`, urgent: GW2's snapshot was ~26 hours from being lost the same way GW1's was), the GW1 predicted-lineup layer deleted per its own stated expiry, `/review` (what a gameweek's decision actually cost), and the current-season xP blend built and measured against a real walk-forward sweep — does not clear the gate (2024-25's bias worsens), not shipped. Docs reconciliation: two stale `Blocked` rows corrected, Sprint 26 backfilled | [sprints/sprint-27.md](sprints/sprint-27.md) |
 | 28 | Live/upcoming split, one transfer answer, scenario actuals | **Built** 2026-08-29 — `/deadline` split into collapsible Live GW and Upcoming GW sections ordered by a new `livePhase` (`CollapsibleCard` gained a controlled mode, a `section` tier, `inert` collapsed bodies, and stopped clipping the pitch's player-detail popover); `TransferPlan` removed from `/transfers` and `/deadline` so the transfer path is the single answer, after fixing three real defects in it (hardcoded horizon 5, missing `decisionMargin`, and a roll branch that carried next gameweek's squad forward at zero cost); `/scenarios` gained an xP / Points-scored toggle over a new `lib/scenario-actuals.ts`. Prompted by the owner using the app during a live gameweek | [sprints/sprint-28.md](sprints/sprint-28.md) |
 | 29 | Price sampling, mini-league EO, transfer tracking, layout/feed fixes | **Built** 2026-08-30 — price-change prediction steps 1–2 (bounded ~2h ownership watchlist, `lib/price-watch.ts`'s progress-to-threshold tool on `/players`/`/transfers`); new `/leagues` wires up Sprint 10's already-shipped `lib/ownership.ts` engine and `sync-league-picks` pipeline (never previously called from the app) into a real EO table; re-importing an FPL squad now overwrites the existing draft instead of minting a new one (`resolveImportTarget`), and `manager_transfers` (already written, previously empty) is rendered as a season transfer ledger on `/team` with a snapshot-diff reconciliation check; `/deadline`'s countdown inlined and its watch cards moved below the Live section via a generalised `sectionOrder`; `/review` moved from Live to Strategy nav; `change_feed` no longer double-reports one FPL update as both a status and a news row, and both `/news`/`/deadline` dedupe the FFS RSS triplication. Also fixed, found mid-sprint: `/fixtures`' league table was reading FPL's own `teams[].played/win/...` fields, which the live API never populates in-season — now derived from finished `fixtures` instead (`deriveStandingsFromFixtures`). | [sprints/sprint-29.md](sprints/sprint-29.md) |
+| 30 | xP comparison form-blend (attempt 2) + three defect fixes | **Built** 2026-08-30 — `/compare`'s `COMPARISON_WEIGHTS` restored to the plan's full five-term weighting once `form` data is present (see "Next up" below); a per-position bias-correction sweep added to `scripts/backtest-walkforward.ts` found no weight clears the gate, not shipped; `findReplacements`/`replacementLegality` (`lib/scoring.ts`) and `/builder`'s replace-picker ceiling both now use `sellPrice`, not raw purchase price, when computing what selling the outgoing player actually frees up; `/builder`'s picker table column and header now switch with the selected sort metric instead of always showing xP-at-horizon; squad value (`components/context-bar.tsx`) was checked and already used sell value correctly — no change needed | — |
 
 Non-sprint work items, also in `sprints/`: [cold-start-patch.md](sprints/cold-start-patch.md)
 (empirical-Bayes rate priors — phase 1 built, phase 2 deferred/gated) and
@@ -149,21 +150,26 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   weight the moment any current-season data exists), and the reasoning for not chasing a
   passing weight on 2024-25 alone: [phase-4-model.md](phase-4-model.md#honest-limitations).
 
-  **Attempt 2, scoped 2026-08-29 after the owner asked how current points reach the model** (answer:
-  they do not, at all — `generate-predictions` reads `player_season_history`, filled from FPL's
-  `history_past`, which lists only *completed* seasons, so the model's whole training table is frozen
-  for the season). Two steps, in this order:
-  1. **Fix the expired premise first, separately gated.** `lib/scoring.ts`'s `COMPARISON_WEIGHTS`
-     drops FPL's `form` term and renormalises over 0.90 on the premise that FPL zeroes `form`
-     between seasons. That premise expired the moment GW1 was scored. This is the comparison/ranking
-     layer, not the xP engine — a much smaller blast radius, and the one place current-season
-     performance can legitimately reach a displayed number today.
-  2. **Re-run the sweep with a bias correction.** The blend beats prior-only on *both* accuracy
-     measures in every season and fails on bias alone — the signature of a fixable calibration
-     offset, not a broken feature. Sweep a per-position intercept correction alongside
-     `currentSeasonWeight` and re-gate. **Do not lower the gate to let it through**: an acceptance
-     threshold invented to pass is not evidence. The dormant infrastructure (`SeasonRow.games`,
-     `currentSeasonRow`/`currentSeasonWeight`) is already in `xp-model.ts`, reviewed and inert.
+  **Attempt 2, scoped 2026-08-29, swept 2026-08-30 (Sprint 30) — neither step ships a model
+  change.** Two steps, in order:
+  1. **Fix the expired premise — built.** `lib/scoring.ts`'s `COMPARISON_WEIGHTS` dropped FPL's
+     `form` term and renormalised over 0.90 on the premise that FPL zeroes `form` between seasons —
+     expired at GW1. `ScoredPlayer` gained an optional `form` field, populated only by `/compare`
+     (which already fetched `players.form` for its own column); `comparePlayers` uses the plan's
+     full five-term weighting when it's present, and the renormalised weights unchanged everywhere
+     else. Comparison/ranking layer only, not the xP engine.
+  2. **Re-run the sweep with a per-position bias correction — swept, does not clear the gate, not
+     shipped.** The blend beats prior-only on MAE/r in every season and fails on bias alone, which
+     reads like a fixable calibration offset — so a per-position additive intercept was swept
+     alongside `currentSeasonWeight`, fit leave-one-season-out (never from the season it corrects).
+     **No weight clears the gate in all three seasons.** The correction learned from 2024-25 and
+     2025-26 (both under-predicting, strongly negative bias) overshoots when applied to 2023-24
+     (which was already near-zero/slightly over-predicting), flipping its bias to +0.46–0.51 instead
+     of correcting it — bias direction and magnitude aren't stable enough across seasons for one
+     global per-position constant to fix. The dormant infrastructure (`SeasonRow.games`,
+     `currentSeasonRow`/`currentSeasonWeight`) stays in `xp-model.ts`, inert. Full measured table:
+     [phase-4-model.md](phase-4-model.md#honest-limitations). Reproduce with
+     `npx tsx scripts/backtest-walkforward.ts`, which now sweeps and reports this permanently.
 - **Archive pre-deadline predictions — built 2026-08-27.** `generate-predictions` deletes and
   replaces `player_predictions` wholesale every run, so there was never a record of what the
   model said *before* a gameweek was played — GW1's predictions were gone within the first cron
