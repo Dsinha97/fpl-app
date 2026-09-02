@@ -2,6 +2,26 @@
 
 One line per entry, most recent first.
 
+- 2026-09-02 — Tidy pass, then ingest of its two consequential findings plus the pending
+  `CLAUDE.md`/`roadmap.md`/`phase-4-model.md` entries. **Team strength**: the wiki's blanket "zero
+  for all 20 clubs pre-season" claim was checked against the live `teams` table and is now only half
+  true — `strength_overall_home`/`_away` are populated for all 20 (2–4 scale, three distinct home
+  tiers), while `strength_attack_*`/`strength_defence_*` are still `0` and `strength` still `NULL`.
+  Corrected in place with dated notes rather than rewritten, across `fpl-api-constraints.md`,
+  `blocked-and-data-gaps.md` (the single blocked row split into an unblocked custom-FDR row and a
+  still-blocked `TeamAttackStrength` row), `glossary.md`, `lineup-captain-bench.md`,
+  `risk-scoring.md`, `xp-model.md` and `methodology.md`. **Sprint 30** had no wiki presence at all:
+  added its form-blend attempt 2 to `xp-model.md` (second failure on the same gap — the blend is not
+  one coefficient away from working) and its `sellPrice` call-site fixes to `transfer-engine.md`,
+  plus a `timeline.md` row. **New page section** in `frontend-conventions.md` for `TeamState.bank`
+  becoming the stored primitive (commit `461a455`), cross-linked from `transfer-engine.md`, with a
+  second `timeline.md` row. Also restated the accuracy-scoreboard blocker in terms of *scored*
+  gameweeks rather than archived ones — the archive runs one gameweek ahead of what can be scored,
+  so the old wording read as met when only GW2 actually has both an archive and a result. Left for
+  the owner: `roadmap.md:273`'s blocked row and the shipped `*_MODEL_NOTE` strings in `lib/` still
+  carry the old "zero until matches are played" claim, and `log.md`'s historical entry ordering is
+  inverted below this point.
+
 - 2026-08-27 — Ingested Sprints 26 and 27 (post-GW1 reckoning). `xp-model.md`'s "known, disclosed
   gaps" current-season-form entry rewritten from "proposed, not built" to the measured result: MAE
   and Pearson r improve in every backtest season, but 2024-25's bias worsens, so it wasn't shipped.

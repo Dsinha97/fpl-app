@@ -104,10 +104,20 @@ r to 0.830. Full detail: [phase-4-model.md §3](../phase-4-model.md#3-squad-reco
   worsened at every weight, and the gate needs all three seasons. **Not wired into
   `generate-predictions`**; `MODEL_VERSION` stays `v1.5.0`. No caller passes either new field today,
   so this is dormant, reviewed infrastructure for a future attempt, not a live code path.
+  **Attempt 2 (Sprint 30, 2026-08-30) also failed the gate.** A per-position bias-correction sweep
+  was added to `scripts/backtest-walkforward.ts` on the theory that the 2024-25 bias regression was
+  position-specific and could be corrected away. No weight cleared the gate, so nothing shipped and
+  `MODEL_VERSION` is still `v1.5.0`. Two failed attempts on the same gap is itself the finding: the
+  blend is not one coefficient away from working. Note the ingredient is no longer missing —
+  `players.form` is populated for 358 of 651 players as of 2026-09-02 — so what blocks this now is
+  the backtest gate, not the data. — [roadmap.md](../roadmap.md) Sprint 30
 - **Out-of-sample accuracy is currently worse than a naive baseline** — see the walk-forward
   validation section above. (The current-season-form gap just above is the leading suspect why.)
-- **Fixture difficulty is the official FDR**, not a custom model — team attack/defence strength is
-  zero for every club pre-season, which also blocks a calibrated fixture model (Phase 5, unbuilt).
+- **Fixture difficulty is the official FDR**, not a custom model. The stated reason changed on
+  2026-09-02: team *attack/defence* strength is still zero for every club in-season, so a calibrated
+  attack/defence fixture model (Phase 5, unbuilt) stays blocked — but `strength_overall_home`/`_away`
+  are now populated for all 20 clubs, so a coarser custom FDR is no longer data-blocked, just
+  unbuilt. See [fpl-api-constraints.md](fpl-api-constraints.md).
 
 See also: [cold-start-priors.md](cold-start-priors.md) (what happens for players with thin or no PL
 evidence), [methodology.md](methodology.md) (the "drop, renormalise, disclose" and "verify with a

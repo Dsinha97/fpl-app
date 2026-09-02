@@ -29,8 +29,10 @@ the GW1 deadline made picks public — see [ownership-and-leagues.md](ownership-
 field-wide top-1k version the risk formula needs is still blocked on league 314 being rank-ordered;
 see [blocked-and-data-gaps.md](blocked-and-data-gaps.md).
 
-**FDR** — fixture difficulty rating. Currently the official FPL rating; a custom analytical version
-is blocked on team strength being zero pre-season. See [fpl-api-constraints.md](fpl-api-constraints.md).
+**FDR** — fixture difficulty rating. Currently the official FPL rating. A custom analytical version
+was blocked on team strength being zero pre-season; as of 2026-09-02 it isn't — `strength_overall_home`/
+`_away` are populated for all 20 clubs, though the attack/defence split still isn't. See
+[fpl-api-constraints.md](fpl-api-constraints.md).
 
 **DC / `dc90`** — defensive contribution, an FPL scoring category since 2024/25 (2 points for
 clearing a per-match action threshold). See [xp-model.md](xp-model.md).

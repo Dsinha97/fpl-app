@@ -12,6 +12,12 @@ the remaining weights, and surface a `*_MODEL_NOTE`/`*_NOTE` next to the number.
 [risk-scoring.md](risk-scoring.md)'s EO term, [lineup-captain-bench.md](lineup-captain-bench.md)'s
 `CAPTAIN_MODEL_NOTE`, `SEASON_HORIZON_NOTE`, `TRANSFER_MODEL_NOTE`.
 
+*Status note (2026-09-02): both example fields have since partly refilled — `players.form` is
+populated for 358 of 651 players, and `strength_overall_home`/`_away` for all 20 clubs, though
+`strength_attack_*`/`strength_defence_*` are still zero. The rule is unchanged; the examples are now
+historical for form and half-historical for strength. Sprint 30 acted on the form half. See
+[fpl-api-constraints.md](fpl-api-constraints.md).*
+
 ## When a term cannot be dropped, make it an input
 
 If the missing quantity is the feature itself — not decoration on it — don't estimate it, expose it

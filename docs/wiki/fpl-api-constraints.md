@@ -12,9 +12,20 @@ See [data-pipeline.md](data-pipeline.md#player_predictions-and-the-row-cap).
 
 ## Pre-season zeroed/placeholder fields
 
-- **Team strength** (`strength_attack_*`/`strength_defence_*`) is `0`/`null` for all 20 clubs
-  pre-season — blocks a custom FDR and any `TeamAttackStrength` term (see
-  [risk-scoring.md](risk-scoring.md), [lineup-captain-bench.md](lineup-captain-bench.md)).
+- **Team strength — half of this cleared in-season (corrected 2026-09-02).** The original claim
+  here was that team strength is `0`/`null` for all 20 clubs. That was true pre-season and is no
+  longer true in full. Checked live against `teams` on 2026-09-02 (rows synced that morning, GW3):
+  - `strength_overall_home` / `strength_overall_away` are **populated for all 20 clubs** — a coarse
+    2–4 scale, three distinct home tiers. Real, differentiated data.
+  - `strength_attack_home`/`_away` and `strength_defence_home`/`_away` are **still `0` for all 20**.
+  - `strength` itself is **still `NULL` for all 20**.
+
+  So the two things this blocked are no longer one blocker. A custom analytical FDR built on the
+  overall home/away ratings now has data to work from; a `TeamAttackStrength` term still has none,
+  because the attack/defence split is the part that never populated. See
+  [blocked-and-data-gaps.md](blocked-and-data-gaps.md) for the split rows,
+  [risk-scoring.md](risk-scoring.md) and [lineup-captain-bench.md](lineup-captain-bench.md) for the
+  disclosures that still cite the old blanket claim in shipped `*_MODEL_NOTE` text.
 - **`total_players`** (bootstrap-static) is a pre-season snapshot, not a stable field size — it
   climbs roughly 4× before GW1 (2,889,243 in early August toward ~11M). Nothing consumes it yet;
   `game_settings.updated_at` is the sample-time record.

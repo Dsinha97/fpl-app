@@ -12,7 +12,13 @@ claim attributed to the sprint file or source spec it came from. It is **not** t
 unedited, and `docs/sprints/` is the chronological build record. When the wiki and `roadmap.md`
 disagree, `roadmap.md` wins — treat that as a signal the wiki page is stale and fix it.
 
-## The three jobs
+## Folder conventions
+
+<!-- RETRO fills this in over time. Each line is a rule learned from a correction the owner gave
+Claude while working in docs/wiki/ specifically — not a general repo rule, those belong in root
+CLAUDE.md/AGENTS.md. Empty until the first RETRO pass has something to add. -->
+
+## The jobs
 
 ### INGEST
 
@@ -53,6 +59,31 @@ When asked to "tidy the wiki," produce a **punch list only** — never auto-fix:
 
 Present the list and stop. Fixes happen in a follow-up ingest pass, with the owner's sign-off if the
 fix is non-trivial.
+
+Run RETRO (below) at the end of the same TIDY pass, unless only the punch list was asked for. Skip
+it on the first TIDY if there's no history yet to look back on.
+
+### RETRO
+
+This file is written once and otherwise never changes, so a correction the owner keeps repeating —
+wrong section for a topic, a tagging habit that keeps getting missed, how a certain kind of page
+should be named — gets re-learned from scratch every session instead of sticking.
+
+- Look back over this conversation (and recent past sessions, if transcript access is available) for
+  moments where the owner corrected how something in `docs/wiki/` specifically was organised,
+  tagged, or named — not general project preferences, those belong in root `CLAUDE.md`/`AGENTS.md`
+  or Claude's own memory, not here.
+- Distill each real, **recurring** correction into one short rule. A single one-off fix isn't a
+  convention; the same correction happening twice is.
+- Compare against **Folder conventions** above: add what's new and non-conflicting, let the newest
+  correction replace a conflicting older line, and drop anything that no longer applies.
+- **Show the exact lines being added, changed, or removed before writing them** — this is the one
+  part of TIDY that edits this file itself, so it gets a diff and waits for a "yes"; everything else
+  in TIDY only reports.
+- On approval, update **Folder conventions** and append a line to `log.md` noting the change.
+
+Keep **Folder conventions** short — a handful of sharp rules beats a long vague list. If it passes
+~15 lines, fold related ones together instead of letting it sprawl.
 
 ## Ground rules inherited from the project
 

@@ -49,7 +49,9 @@ squad's risk. See [squad-score-and-scenarios.md](squad-score-and-scenarios.md) a
 
 ## Disclosed omissions elsewhere in the app follow the same pattern
 
-`CAPTAIN_MODEL_NOTE` (`lib/lineup.ts` — TeamAttack term dropped, team strength is zero pre-season),
+`CAPTAIN_MODEL_NOTE` (`lib/lineup.ts` — TeamAttack term dropped; the attack/defence strength it
+needs is still zero in-season, though the *overall* strength fields are not — corrected 2026-09-02,
+see [fpl-api-constraints.md](fpl-api-constraints.md)),
 `COMPARISON_MODEL_NOTE` / `REPLACEMENT_MODEL_NOTE` (`lib/scoring.ts`), `SEASON_HORIZON_NOTE`
 (`lib/team-state.ts`), `TRANSFER_MODEL_NOTE` (`lib/transfers.ts`), `TRANSFER_OPTIMIZER_NOTE`
 (`lib/transfer-optimizer.ts`) — every one of these is a term the model can't compute honestly today,

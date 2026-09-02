@@ -15,8 +15,16 @@ falls back toward the vice rather than assuming the doubtful player plays. `setV
 rather than vacating the other armband (`lib/team-state.ts`).
 
 `CAPTAIN_MODEL_NOTE` discloses a dropped term: the spec's TeamAttack component can't be computed
-because team strength is zero for all 20 clubs pre-season — see
+because team strength is zero for all 20 clubs — see
 [blocked-and-data-gaps.md](blocked-and-data-gaps.md).
+
+**Correction (2026-09-02):** the term is still correctly dropped, but the *reason* as worded is now
+partly wrong, in this wiki and in the shipped note text. `strength_attack_*`/`strength_defence_*` —
+what this term actually needs — are still `0` for all 20 clubs. But `strength_overall_home`/`_away`
+are populated, so "team strength is zero" is no longer true as a blanket statement, and the note's
+"until matches are played" framing has been overtaken: matches have been played. The shipped string
+in `lib/lineup.ts` still says otherwise; flagged for a code fix, not changed here. See
+[fpl-api-constraints.md](fpl-api-constraints.md).
 
 ## Bench order
 

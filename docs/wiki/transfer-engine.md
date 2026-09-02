@@ -15,9 +15,21 @@ TransferGain = xP(after) − xP(before) − pointsCost − riskPointsChange
 - **The hit is always its own term** — the headline reads `+8.5 xP − 8 hit − 0.2 risk = +0.3`, never
   a bare net figure, so a basket that only breaks even looks like one.
 - **`sellPrice`** follows FPL's rule exactly (purchase price + half of any rise, rounded down) — the
-  single implementation `lib/transfers.ts:118`; nothing else recomputes it.
+  single implementation `lib/transfers.ts:118`; nothing else recomputes it. Having one
+  implementation is not the same as every caller reaching for it: Sprint 30 (2026-08-30) found
+  `findReplacements` and `replacementLegality` (`lib/scoring.ts`) and `/builder`'s replace-picker
+  price ceiling all still computing what selling a player frees up from his raw purchase price, and
+  routed all three through `sellPrice`. `components/context-bar.tsx`'s squad value was checked in
+  the same pass and was already correct. — [roadmap.md](../roadmap.md) Sprint 30
 - **Risk shares `riskPoints`** with [squad-score-and-scenarios.md](squad-score-and-scenarios.md), so
   the two screens can't disagree about the same squad.
+- **Bank is stored cash, not a residual (2026-09-02).** `squadBank` (`lib/squad-budget.ts`) is the
+  one implementation of "what's left to spend", and reads `TeamState.bank` directly. It replaced
+  three divergent copies, two of them here: `metricsFor`'s `bank` and the forward path's funder
+  sort both computed `budget − Σ purchasePrice`, while `validateSquad` and `replacementLegality`
+  computed `budget − Σ sellPrice` — same name, three different numbers. See
+  [frontend-conventions.md](frontend-conventions.md#bank-is-the-stored-primitive-budget-is-derived-2026-09-02)
+  for why the residual form was wrong in the first place.
 - Selling the captain moves the armband and prices that as part of the cost.
 - **Apply writes a new draft** ("`<draft> +n transfers`"), leaving the original untouched.
 - Free-transfer **accrual** (`accrueFreeTransfers`, Sprint 9) — one per gameweek, capped at 5,

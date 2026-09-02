@@ -29,6 +29,38 @@ the split consistent going forward, and `lib/drafts.ts`'s `readAll()` sanitizes 
 arrays) any draft that already isn't, on every read — so a stale draft heals itself rather than
 needing a migration.
 
+## Bank is the stored primitive, budget is derived (2026-09-02)
+
+`TeamState.bank` is real cash in tenths, and total budget is derived from it (`bank +
+squadSellValue`). It used to be the other way round: `budget` was stored as squad sell value plus
+bank *at the moment of import*, and every consumer recovered the bank as `budget − Σ sellPrice(now)`.
+
+That residual is invariant under transfers — selling frees exactly what the replacement costs
+against it — but **not** under price changes. When a held player rose, his sell value rose and the
+frozen total didn't, so the difference came out of the bank: a *per-player* price move charged to
+the *team's* cash. The owner hit it on a real squad at GW3 — Bank reading `£-0.1m` and an
+over-budget bar on a legal 15. A price fall did the mirror thing and credited money that doesn't
+exist.
+
+Consequences for anything touching a squad:
+
+- Read the bank through `squadBank` (`lib/squad-budget.ts`), never by subtracting a spend total from
+  `state.budget`. `teamBudget` is there for the total. This is the same "one quantity, one
+  implementation" rule [methodology.md](methodology.md) states generally — there were three
+  disagreeing copies of "bank" before this.
+- `addPlayer` debits the live price and `removePlayer` credits `sellPrice`, so `removePlayer` now
+  takes the outgoing player's live price. Money moves only when the squad buys or sells.
+- `state.budget` is still written on every new state and is still what `squadBank` falls back to, so
+  drafts saved before the field existed keep parsing. Their cash was never persisted and can't be
+  recovered after the fact — such a draft keeps the old drifting behaviour until it is re-imported
+  once.
+
+Verified before shipping with a throwaway `npx tsx` harness against real player rows, per
+[methodology.md](methodology.md)'s harness rule: a +£0.2m rise moved value and total while bank held
+flat, a −£0.2m fall did the same in reverse, and a sale-plus-purchase moved the bank by exactly
+`sellPrice(out) − nowCost(in)`. The legacy derivation on the same squad read £0.1m off.
+— commit `461a455`, [transfer-engine.md](transfer-engine.md)
+
 ## Re-importing overwrites the same draft, and preserves what FPL can't know (2026-08-30)
 
 Both import paths (`teamStateFromPicks`, `teamStateFromMyTeamJson` — `lib/fpl-squad.ts`) used to
