@@ -41,6 +41,23 @@ squad's risk. See [squad-score-and-scenarios.md](squad-score-and-scenarios.md) a
 
 - **`comparePlayers`** (`lib/scoring.ts`) — normalises risk across the compared set, so it answers
   "which of these is riskier" rather than an absolute score.
+
+  **Its form term came back on 2026-08-30 (Sprint 30 §0).** `COMPARISON_WEIGHTS` had dropped FPL's
+  `form` term and renormalised the rest over 0.90, on the documented grounds that FPL zeroes `form`
+  between seasons — true when written, expired the moment GW1 was scored. `/compare` now uses the
+  plan's full five-term weighting (0.40 xP / 0.20 fixture / 0.15 value / 0.15 minutes / 0.10 form,
+  normalised against the compared group's own max) whenever `form` is present. This is the "drop,
+  renormalise, disclose" rule running in reverse — an expired premise is a stale disclosure, and the
+  column's hint text, which still told the reader form "reads 0 for everyone pre-season", was
+  corrected in the same pass.
+
+  Scoped deliberately narrowly: `ScoredPlayer.form` is optional, following `reliability`/
+  `priorWeight`, so the seven other construction sites keep the four-term weights and needed no
+  change — `comparePlayers` is only ever called from `/compare`. Verified live (Haaland 7.5 vs.
+  Palmer 10.0, folding into each score with the new note rendering). Note this is the *comparison
+  layer* only; the xP engine itself still has no current-season form in it, and
+  [xp-model.md](xp-model.md) records why two attempts to put it there have failed the backtest gate.
+  — [sprints/sprint-30.md](../sprints/sprint-30.md#0-xp-comparison-layer-restore-the-form-term-compare)
 - **`findReplacements`** — squad-aware: the outgoing player's price is spendable, their club slot is
   freed, and risk feeds the ranking alongside xP and fixture.
 - **The squad optimiser's `RiskLevel`** — reuses the risk band the cold-start prior already produces

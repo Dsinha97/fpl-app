@@ -20,7 +20,10 @@ TransferGain = xP(after) − xP(before) − pointsCost − riskPointsChange
   `findReplacements` and `replacementLegality` (`lib/scoring.ts`) and `/builder`'s replace-picker
   price ceiling all still computing what selling a player frees up from his raw purchase price, and
   routed all three through `sellPrice`. `components/context-bar.tsx`'s squad value was checked in
-  the same pass and was already correct. — [roadmap.md](../roadmap.md) Sprint 30
+  the same pass and pronounced already correct — which turned out to be one level too shallow: the
+  formula was right, but what `budget` itself held was not. That chase is §3–§4 of the sprint file and
+  ends in the bank rule below.
+  — [sprints/sprint-30.md](../sprints/sprint-30.md#2-three-defects-filed-from-the-shipped-app)
 - **Risk shares `riskPoints`** with [squad-score-and-scenarios.md](squad-score-and-scenarios.md), so
   the two screens can't disagree about the same squad.
 - **Bank is stored cash, not a residual (2026-09-02).** `squadBank` (`lib/squad-budget.ts`) is the

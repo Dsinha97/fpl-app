@@ -22,8 +22,9 @@ because team strength is zero for all 20 clubs — see
 partly wrong, in this wiki and in the shipped note text. `strength_attack_*`/`strength_defence_*` —
 what this term actually needs — are still `0` for all 20 clubs. But `strength_overall_home`/`_away`
 are populated, so "team strength is zero" is no longer true as a blanket statement, and the note's
-"until matches are played" framing has been overtaken: matches have been played. The shipped string
-in `lib/lineup.ts` still says otherwise; flagged for a code fix, not changed here. See
+"until matches are played" framing has been overtaken: matches have been played. The shipped
+`CAPTAIN_MODEL_NOTE` string in `lib/lineup.ts` was corrected the same day — it now says the field
+is zero "in-season as much as pre-season" rather than promising data that never arrives. See
 [fpl-api-constraints.md](fpl-api-constraints.md).
 
 ## Bench order

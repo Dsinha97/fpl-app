@@ -230,8 +230,9 @@ export function FdrMatrix({
       </div>
 
       <p className="mt-4 text-xs text-zinc-400">
-        Uses the official FPL difficulty rating for now — the custom analytical FDR needs team
-        strength data, which FPL leaves at zero until matches are played.
+        Uses the official FPL difficulty rating for now. A custom analytical FDR is no longer
+        blocked on missing data — FPL now publishes an overall home/away strength for every club —
+        it just hasn’t been built.
       </p>
     </>
   );

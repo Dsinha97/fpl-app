@@ -131,7 +131,8 @@ export const GEMS_MODEL_NOTE =
   "their own record, the same evidence standard the cold-start layer already applies. The defcon " +
   "defender archetype's clean-sheet term is `fixtureScore`, the same fixture-difficulty figure the " +
   "risk engine and /compare already use — a run-of-fixtures estimate, not a squad-quality one, since " +
-  "team attacking/defensive strength is zero for all twenty clubs pre-season (see COLD_START_NOTE) and " +
+  "team attacking/defensive strength is zero for all twenty clubs, in-season as much as pre-season " +
+  "(see COLD_START_NOTE), and " +
   "says nothing about a back line's real quality. Outside the season the FPL API breaks the defensive-contribution count into " +
   "its components, the defender and midfielder archetypes fall back to the aggregate dc90 rate, which " +
   "mixes defenders' CBIT actions with midfielders' CBIRT actions (see XDC_MODEL_NOTE) — the same " +

@@ -60,13 +60,13 @@ export const COLD_START_NOTE =
   "position, price and role alone, since no other external-league data is in use. This does not raise " +
   "a covered player's confidence label: the shrinkage weight is unchanged, only which number sits at " +
   "the fully-prior end of it. Team attacking strength is omitted entirely because the API reports it " +
-  "as zero for all twenty clubs " +
-  "pre-season. Since v1.2.0, every club's squad is also reconciled so exactly eleven players and one " +
+  "as zero for all twenty clubs, in-season as much as pre-season. " +
+  "Since v1.2.0, every club's squad is also reconciled so exactly eleven players and one " +
   "goalkeeper start each fixture, so a player's number now depends on their team-mates too — where a " +
   "squad's raw numbers fall short of eleven (promoted clubs, mainly) or run past it (deep, expensive " +
   "squads), the shortfall or surplus is spread across the squad capped at each player's own chance of " +
-  "playing. This fixes how much a club plays, not how well — team strength is still zero for all " +
-  "twenty clubs, so it is a role estimate, not a quality one — and it does not order players within a " +
+  "playing. This fixes how much a club plays, not how well — team attack and defence strength is " +
+  "still zero for all twenty clubs, so it is a role estimate, not a quality one — and it does not order players within a " +
   "position, so understudies can end up sharing a start rather than one being picked out as first " +
   "choice. Since v1.3.0 the correction is weighted by how much of each player's number is prior " +
   "rather than their own Premier League record, so an established starter moves far less than a " +

@@ -23,6 +23,15 @@ Cold-Start Player Prediction Patch — Implementation Plan
 > reference for phase 2, which is not built.** It is blocked on a data source, not on effort: see the
 > roadmap for why API-Football carries no xG, why soccerdata does not cover the Championship, and why
 > a translation cohort drawn from this database would be survivor-biased.
+>
+> **Reconciliation note, 2026-09-02 — §13's stated reason has partly expired.** The line above
+> says team context has no data source because "FPL reports team strength as zero for all 20 clubs
+> pre-season." Checked live against `teams` on 2026-09-02 (GW3): `strength_overall_home`/`_away`
+> **are** populated for all 20 clubs, on a coarse 2–4 scale. It is only `strength_attack_*` and
+> `strength_defence_*` — and `strength` itself, still `NULL` — that stay zero once the season is
+> under way. So §13 is not blocked outright: an overall home/away team-context term has data behind
+> it today, while an attack/defence split still does not. The body below is left unedited, as this
+> file's convention requires. See [wiki/fpl-api-constraints.md](../wiki/fpl-api-constraints.md).
 
 1. Patch Objective
 

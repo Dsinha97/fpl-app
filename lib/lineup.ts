@@ -94,10 +94,14 @@ export function poissonAtLeast(lambda: number, k: number): number {
 //   0.50 x xP + 0.20 x FixtureScore + 0.15 x MinutesProbability
 //   + 0.10 x TeamAttackStrength + 0.05 x PenaltyBonus - RiskPenalty
 //
-// FPL leaves team attack/defence strength at zero until matches are played, so
-// that term has no data behind it this side of the season opener. Rather than
-// multiply it by zero — which would quietly shrink every score by a tenth — the
-// term is dropped and the remaining weights are renormalised over 0.90.
+// FPL leaves team attack/defence strength at zero, and — checked against the
+// live `teams` table on 2026-09-02, three gameweeks in — it stays zero once
+// matches are played rather than filling in at the season opener, so this term
+// has no data behind it at all. (`strength_overall_home`/`_away` *do* populate
+// in-season on a coarse 2-4 scale; it is only the attack/defence split, which
+// is what this term needs, that never arrives.) Rather than multiply it by
+// zero — which would quietly shrink every score by a tenth — the term is
+// dropped and the remaining weights are renormalised over 0.90.
 
 export const CAPTAIN_WEIGHTS = {
   xp: 0.5 / 0.9,
@@ -108,8 +112,8 @@ export const CAPTAIN_WEIGHTS = {
 } as const;
 
 export const CAPTAIN_MODEL_NOTE =
-  "Team attack strength is omitted — FPL publishes it as zero until matches are played, " +
-  "so the remaining weights are renormalised.";
+  "Team attack strength is omitted — FPL publishes it as zero for every club, in-season as much " +
+  "as pre-season, so the remaining weights are renormalised.";
 
 function captainScore(c: LineupCandidate, maxXp: number) {
   const xpNorm = maxXp > 0 ? clamp((c.xp ?? 0) / maxXp, 0, 1) : 0;

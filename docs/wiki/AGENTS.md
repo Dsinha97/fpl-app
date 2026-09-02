@@ -18,6 +18,12 @@ disagree, `roadmap.md` wins — treat that as a signal the wiki page is stale an
 Claude while working in docs/wiki/ specifically — not a general repo rule, those belong in root
 CLAUDE.md/AGENTS.md. Empty until the first RETRO pass has something to add. -->
 
+- **A stale claim gets fixed everywhere it lives, not just in the wiki.** The same wrong sentence is
+  usually in `roadmap.md`, a shipped `*_MODEL_NOTE`, and a source spec's banner too. Fix the wiki
+  page, then follow the claim out: correct `roadmap.md` and the code strings, and add a dated
+  reconciliation note to the source banner (never its body). Report a punch list only when TIDY was
+  what was asked for.
+
 ## The jobs
 
 ### INGEST
@@ -37,7 +43,11 @@ When new material lands in `docs/sources/` (a new source spec) or an existing `d
 6. Append one line to `log.md`: `YYYY-MM-DD — what changed`.
 
 Never delete or overwrite raw source material in `docs/sources/` or `docs/sprints/` as part of an
-ingest — this wiki only adds and updates pages under `docs/wiki/`.
+ingest — their bodies are read-only to this job. Writing pages under `docs/wiki/` is the job's
+*purpose*, not its boundary: when an ingest finds the same stale claim living in `roadmap.md`, in a
+shipped `*_MODEL_NOTE` string, or in a source spec's banner, fix it there too rather than handing
+back a list — see **Folder conventions** above. A source spec is the one exception that stays
+note-only: add a dated reconciliation note to its banner, leave the body untouched.
 
 ### ANSWER
 

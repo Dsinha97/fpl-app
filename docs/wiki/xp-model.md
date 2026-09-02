@@ -104,13 +104,30 @@ r to 0.830. Full detail: [phase-4-model.md §3](../phase-4-model.md#3-squad-reco
   worsened at every weight, and the gate needs all three seasons. **Not wired into
   `generate-predictions`**; `MODEL_VERSION` stays `v1.5.0`. No caller passes either new field today,
   so this is dormant, reviewed infrastructure for a future attempt, not a live code path.
-  **Attempt 2 (Sprint 30, 2026-08-30) also failed the gate.** A per-position bias-correction sweep
-  was added to `scripts/backtest-walkforward.ts` on the theory that the 2024-25 bias regression was
-  position-specific and could be corrected away. No weight cleared the gate, so nothing shipped and
-  `MODEL_VERSION` is still `v1.5.0`. Two failed attempts on the same gap is itself the finding: the
-  blend is not one coefficient away from working. Note the ingredient is no longer missing —
-  `players.form` is populated for 358 of 651 players as of 2026-09-02 — so what blocks this now is
-  the backtest gate, not the data. — [roadmap.md](../roadmap.md) Sprint 30
+  **Attempt 2 (Sprint 30, 2026-08-30) also failed the gate, and failed informatively.** Since the
+  blend only ever failed on *bias* — MAE and Pearson r improved everywhere — a per-position additive
+  intercept was swept alongside `currentSeasonWeight`, fitted **leave-one-season-out** so no season
+  ever sees its own correction. Pearson r is invariant to an additive shift, so the sweep could only
+  move the term the gate was failing on.
+
+  It didn't. The correction learned from 2024-25 and 2025-26 — both arms under-predicting, strongly
+  negative bias — is itself strongly negative, and applying it to 2023-24, whose blend arm was
+  already near zero or slightly *over*-predicting, overshoots into a large positive bias instead of
+  correcting anything (at `wCur` 0.3: 2023-24 goes +0.042 → **+0.514** while the other two clear).
+  Every weight tested does this.
+
+  That's a finding about the data, not a tuning failure: bias direction isn't stable enough across
+  seasons for one global per-position constant to fix, and whatever makes 2023-24 read differently
+  would have to be understood first. Per [methodology.md](methodology.md), the null result stands —
+  the three-season gate was **not** narrowed to two-of-three to let it through. `MODEL_VERSION`
+  stays `v1.5.0`. The sweep is kept permanently in `scripts/backtest-walkforward.ts`, so
+  `npx tsx scripts/backtest-walkforward.ts` reproduces it.
+
+  Note the *ingredient* is no longer missing — `players.form` is populated for 358 of 651 players as
+  of 2026-09-02, and Sprint 30 restored it to `/compare`'s own weighting — see
+  [risk-scoring.md](risk-scoring.md#consumers). What blocks the
+  xP blend now is the backtest gate, not the data.
+  — [sprints/sprint-30.md](../sprints/sprint-30.md#1-current-season-blend-attempt-2-per-position-bias-correction)
 - **Out-of-sample accuracy is currently worse than a naive baseline** — see the walk-forward
   validation section above. (The current-season-form gap just above is the leading suspect why.)
 - **Fixture difficulty is the official FDR**, not a custom model. The stated reason changed on
