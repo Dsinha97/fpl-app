@@ -1,0 +1,11 @@
+{
+  "colorSchemes": ["light", "dark"],
+  "breakpoints": [
+    { "label": "mobile", "width": 375, "height": 812, "preset": "mobile" },
+    { "label": "tablet", "width": 768, "height": 1024 },
+    { "label": "tablet-landscape", "width": 1024, "height": 768 },
+    { "label": "zen-width", "width": 1208, "height": 900 },
+    { "label": "desktop", "width": 1280, "height": 800 },
+    { "label": "wide-desktop", "width": 1440, "height": 900 }
+  ]
+}

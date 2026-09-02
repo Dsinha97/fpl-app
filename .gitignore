@@ -42,8 +42,12 @@ yarn-error.log*
 # local Obsidian vault config — editor-local state, not repo content
 /.obsidian/
 
-# claude code local settings
-.claude/
+# claude code local settings. .claude/* rather than .claude/ so the skills below
+# can be re-included — git cannot re-include a path whose parent directory is
+# itself excluded, so the parent must exclude its children, not itself.
+.claude/*
+# project workflow definitions, versioned with the code they describe
+!.claude/skills/
 
 # typescript
 *.tsbuildinfo
