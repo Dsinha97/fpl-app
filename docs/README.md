@@ -51,6 +51,7 @@ file, not separate files.
 | [sprints/sprint-27.md](sprints/sprint-27.md) | live | Post-GW1 reckoning, 2026-08-27 — checked what actually unblocked once GW1 was scored against what the roadmap assumed. |
 | [sprints/sprint-28.md](sprints/sprint-28.md) | live | Live/upcoming split on `/deadline`, one transfer answer (removed the duplicate `TransferPlan`), `/scenarios` actuals. |
 | [sprints/sprint-29.md](sprints/sprint-29.md) | live | Price-watchlist sampling, `/leagues` (Sprint 10's EO engine finally rendered), import-replaces-in-place + a transfer ledger on `/team`, `/deadline` layout, `change_feed` de-duplication, and a `/fixtures` league-table fix (FPL never publishes in-season standings fields). |
+| [sprints/sprint-30.md](sprints/sprint-30.md) | live | xP comparison form-blend attempt 2 (bias-correction sweep still doesn't clear the gate) plus a real bug chain in imported-squad money tracking, ending in `TeamState.bank` becoming the stored primitive instead of a residual derived from a frozen total. |
 
 ## Source specs
 
