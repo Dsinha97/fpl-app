@@ -1442,7 +1442,7 @@ export default function BuilderPage() {
 
   /** Swap in one action so the squad is never transiently illegal. */
   const doSwap = (outId: number, incoming: PlayerMeta) => {
-    persist(addPlayer(removePlayer(team, outId), incoming));
+    persist(addPlayer(removePlayer(team, outId, lookup(outId)?.nowCost), incoming));
     stopReplacing();
   };
 
@@ -1855,7 +1855,7 @@ export default function BuilderPage() {
             header={pitchHeader}
             onSetCaptain={(id) => persist(setCaptain(team, id))}
             onSetVice={(id) => persist(setViceCaptain(team, id))}
-            onRemove={(id) => persist(removePlayer(team, id))}
+            onRemove={(id) => persist(removePlayer(team, id, lookup(id)?.nowCost))}
             onFindReplacement={startReplacing}
             onAddToSlot={startAdding}
           />
@@ -2542,7 +2542,7 @@ export default function BuilderPage() {
                 onClose={closePickerDetail}
                 onSetCaptain={(id) => persist(setCaptain(team, id))}
                 onSetVice={(id) => persist(setViceCaptain(team, id))}
-                onRemove={(id) => persist(removePlayer(team, id))}
+                onRemove={(id) => persist(removePlayer(team, id, lookup(id)?.nowCost))}
                 owned={pickerPanel.owned}
                 addDisabledReason={pickerPanel.addDisabledReason}
                 addLabel={replaceFor !== null ? "Swap in" : "Add to squad"}

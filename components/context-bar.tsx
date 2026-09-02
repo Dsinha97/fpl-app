@@ -7,7 +7,7 @@ import { InfoTooltip } from "@/components/info-tooltip";
 import { fmtCountdown } from "@/lib/countdown";
 import { listDrafts, onDraftsChanged, resolveRequestedDraft } from "@/lib/drafts";
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
-import { squadSellValue } from "@/lib/squad-budget";
+import { squadBank, squadSellValue } from "@/lib/squad-budget";
 import { supabase } from "@/lib/supabase/client";
 import type { TeamState } from "@/lib/team-state";
 import { freeTransfersDisplay } from "@/lib/transfers";
@@ -86,11 +86,10 @@ export function ContextBar() {
 
   const countdown = ctx ? fmtCountdown(ctx.deadlineTime, now) : null;
   const squadValue = hasSquad ? squadSellValue(draft!.players, (id) => nowCostById.get(id)) : null;
-  // budget - Σ purchasePrice would double-count every held player's
-  // unrealised gain/loss as spendable cash (see replacementLegality's
-  // comment, lib/scoring.ts) — subtract the live sell value instead so
-  // Value + Bank always equals `draft.budget`, the real total.
-  const bank = hasSquad && squadValue !== null ? draft!.budget - squadValue : null;
+  // Cash in hand, from the one implementation of it (squadBank,
+  // lib/squad-budget.ts). Value moves when a player's price moves; Bank does
+  // not — Value + Bank is the total, and the total is what grows on a rise.
+  const bank = hasSquad ? squadBank(draft!, (id) => nowCostById.get(id)) : null;
 
   if (!ctx) return null;
 

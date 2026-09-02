@@ -174,6 +174,14 @@ or `tsc --noEmit` breaks on Deno globals.
   the two conventions in one screen.
 - **`total_players` is a pre-season snapshot, not a field size** — it climbs ~4× before
   GW1. Nothing consumes it yet; `game_settings.updated_at` is the sample-time record.
+- **Bank is stored cash, not a residual.** `TeamState.bank` is the primitive; total
+  budget is derived (`bank + squadSellValue`). Deriving it the other way — from the
+  frozen at-sync `budget` — charges a *per-player* price move to the team's cash: one
+  player rising £0.2m silently took £0.1m out of Bank and tripped "over budget" on a
+  legal squad. Read it only through `squadBank` (`lib/squad-budget.ts`); `addPlayer`/
+  `removePlayer` are what move it, so `removePlayer` needs the outgoing player's live
+  price to credit `sellPrice`, not what was paid. Drafts saved before the field existed
+  have no bank to recover and keep the old drifting derivation until re-imported.
 - **CSS Grid — and flex rows — stretch every cell to its tallest sibling.** A `grid ...
   sm:grid-cols-2`-style pairing of independently-expandable/variable-height cards (e.g.
   `LiveFixtureCard`, `ClubTacticsGrid`) shows dead space (default `stretch`) or ragged bottoms

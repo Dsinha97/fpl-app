@@ -1,4 +1,5 @@
 import { sellPrice } from "./transfers";
+import { bankFrom } from "./squad-budget";
 
 // TeamState — the normalised squad object every downstream feature consumes.
 //
@@ -52,8 +53,31 @@ export interface TeamState {
    */
   chipPlan?: ChipPlan;
 
-  /** Tenths, as FPL reports them. */
+  /**
+   * Tenths. **Legacy total** — squad sell value plus bank *at the moment the
+   * squad was created or synced*. It is invariant under transfers (selling
+   * frees exactly what the replacement costs against it) but **not** under
+   * price changes: when a held player rises, his sell value rises and this
+   * frozen total does not, so a bank derived as `budget − Σ sellPrice` shrinks
+   * by the rise — a per-player price move charged to the team's cash. That is
+   * the bug `bank` exists to fix. Still written on every new state so drafts
+   * saved before `bank` existed keep parsing and keep their old (derived)
+   * behaviour; read it only through `squadBank` (lib/squad-budget.ts).
+   */
   budget: number;
+  /**
+   * Tenths of real cash in hand — the primitive. Money only moves when *this
+   * squad* buys or sells (`addPlayer`/`removePlayer` adjust it), never when a
+   * held player's price moves: a rise raises squad value, not the bank, which
+   * is exactly how FPL behaves. Total budget is therefore derived
+   * (`bank + squadSellValue`), not stored.
+   *
+   * Optional, and absent on every draft saved before this field existed —
+   * `squadBank` falls back to the legacy `budget − Σ sellPrice` derivation for
+   * those, so they behave exactly as they did (drift included) until the squad
+   * is re-imported or rebuilt. Re-import once to get a drift-proof bank.
+   */
+  bank?: number;
   freeTransfers: number;
   strategy: string | null;
   notes: string;
@@ -163,6 +187,7 @@ export function emptyTeamState(rules: SquadRules, name = "New draft"): TeamState
     activeChip: null,
     chipPlan: EMPTY_CHIP_PLAN,
     budget: rules.totalSpend,
+    bank: rules.totalSpend,
     freeTransfers: 1,
     strategy: null,
     notes: "",
@@ -212,7 +237,9 @@ export function validateSquad(
     .filter(([, count]) => count > rules.teamLimit)
     .map(([teamId, count]) => ({ teamId, count }));
 
-  const budgetRemaining = state.budget - spent;
+  // `spent` above is exactly the sell-value total `squadBank` would compute,
+  // so hand it straight to the shared rule rather than walking the squad twice.
+  const budgetRemaining = bankFrom(state, spent);
   const squadFull = state.players.length === rules.squadSize;
   const positionsValid = positions.every((p) => p.filled === p.required);
   const clubsValid = clubBreaches.length === 0;
@@ -486,6 +513,7 @@ export function sameSquadState(a: TeamState, b: TeamState): boolean {
     a.captain === b.captain &&
     a.viceCaptain === b.viceCaptain &&
     a.budget === b.budget &&
+    a.bank === b.bank &&
     a.activeChip === b.activeChip &&
     a.freeTransfers === b.freeTransfers &&
     sameChipPlan(a.chipPlan, b.chipPlan) &&
@@ -536,12 +564,27 @@ export function addPlayer(state: TeamState, meta: PlayerMeta): TeamState {
   return {
     ...state,
     players,
+    // Buying costs the live price, out of the bank. `budget` is deliberately
+    // left alone: it is a sell-value-plus-bank total, and the purchase moves
+    // both halves of it by the same amount.
+    bank: state.bank === undefined ? undefined : state.bank - meta.nowCost,
     benchOrder: hadLineup ? [...state.benchOrder, meta.id] : state.benchOrder,
     updatedAt: new Date().toISOString(),
   };
 }
 
-export function removePlayer(state: TeamState, playerId: number): TeamState {
+/**
+ * `nowCost` is the outgoing player's live price, and selling credits the bank
+ * with `sellPrice(purchasePrice, nowCost)` — not what was paid for him, since
+ * FPL only pays back half of any rise (`sellPrice`, lib/transfers.ts).
+ *
+ * It is optional only because a caller without price data still has to be able
+ * to drop a player; omitting it credits the purchase price, which is the right
+ * answer whenever the price has not risen and understates the sale when it
+ * has. Every call site in this repo passes it — pass it.
+ */
+export function removePlayer(state: TeamState, playerId: number, nowCost?: number): TeamState {
+  const outgoing = state.players.find((p) => p.playerId === playerId);
   const players = state.players.filter((p) => p.playerId !== playerId);
   const startingXI = state.startingXI.filter((id) => id !== playerId);
   const benchOrder = state.benchOrder.filter((id) => id !== playerId);
@@ -554,6 +597,10 @@ export function removePlayer(state: TeamState, playerId: number): TeamState {
   return {
     ...state,
     players,
+    bank:
+      state.bank === undefined || !outgoing
+        ? state.bank
+        : state.bank + sellPrice(outgoing.purchasePrice, nowCost ?? outgoing.purchasePrice),
     startingXI: stillConsistent ? startingXI : [],
     benchOrder: stillConsistent ? benchOrder : [],
     captain: state.captain === playerId ? null : state.captain,

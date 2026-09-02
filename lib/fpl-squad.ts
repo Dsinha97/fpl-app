@@ -186,6 +186,10 @@ export function teamStateFromPicks(
     benchOrder,
     activeChip: meta.activeChip,
     budget,
+    // Real cash, stored rather than re-derived from `budget` on every read —
+    // see TeamState.bank. Left unset when FPL didn't report both halves, so
+    // squadBank falls back to the legacy derivation rather than inventing one.
+    bank: meta.bank ?? undefined,
     // manager_gameweek_history.event_transfers is transfers *used* that
     // gameweek, not the free-transfer allowance carried forward — that
     // needs accrueFreeTransfers' rollover history, which an import can't
@@ -427,6 +431,9 @@ export function teamStateFromMyTeamJson(
     benchOrder,
     activeChip,
     budget: sellingValue + data.transfers.bank,
+    // FPL's own cash figure, kept as the primitive: from here a price change
+    // moves squad value, never the bank (see TeamState.bank).
+    bank: data.transfers.bank,
     freeTransfers,
   };
 

@@ -34,7 +34,7 @@ export function totalSpend(picks: readonly { purchasePrice: number }[]): number 
 export interface SquadBudget {
   /** Σ purchasePrice across all 15 picks. */
   spent: number;
-  /** state.budget - spent. */
+  /** Real cash in hand — `squadBank`, not `state.budget - spent`. */
   bank: number;
   /** Null when the XI/bench split is unknown (see splitKnown). */
   xiSpend: number | null;
@@ -102,7 +102,7 @@ export function squadBudget(
   lineup?: LineupResult | null,
 ): SquadBudget {
   const spent = totalSpend(state.players);
-  const bank = state.budget - spent;
+  const bank = squadBank(state, (id) => lookup(id)?.nowCost);
 
   const split = resolveSplit(state, lineup);
   if (!split) {
@@ -172,4 +172,46 @@ export function squadSellValue(
     total += sellPrice(p.purchasePrice, nowCost);
   }
   return total;
+}
+
+/**
+ * Cash in hand — **the one implementation** of "how much money does this squad
+ * have left", replacing three divergent copies (`budget − Σ purchasePrice` in
+ * `metricsFor`/`transfer-path`, `budget − Σ sellPrice` in `validateSquad`/
+ * `replacementLegality`/the context bar).
+ *
+ * `state.bank` is authoritative when present: it is real cash, moved only by
+ * this squad's own buys and sells, so a *per-player* price change leaves it
+ * alone and shows up in squad value instead — the way FPL actually works.
+ *
+ * Without it (any draft saved before `TeamState.bank` existed) the only
+ * recoverable answer is the legacy derivation from the frozen at-sync total,
+ * which charges every held player's price rise to the bank. That is the bug;
+ * it cannot be undone after the fact from a state that never stored the cash,
+ * so such a draft keeps its old behaviour until it is re-imported.
+ */
+export function bankFrom(state: TeamState, squadValue: number): number {
+  return state.bank ?? state.budget - squadValue;
+}
+
+export function squadBank(
+  state: TeamState,
+  nowCostOf: (playerId: number) => number | undefined,
+): number {
+  if (state.bank !== undefined) return state.bank;
+  return bankFrom(state, squadSellValue(state.players, nowCostOf) ?? totalSpend(state.players));
+}
+
+/**
+ * Total spending power: cash plus what the 15 picks would fetch today. Derived,
+ * never stored — see `TeamState.budget` for why the stored total goes stale.
+ */
+export function teamBudget(
+  state: TeamState,
+  nowCostOf: (playerId: number) => number | undefined,
+): number {
+  return (
+    squadBank(state, nowCostOf) +
+    (squadSellValue(state.players, nowCostOf) ?? totalSpend(state.players))
+  );
 }

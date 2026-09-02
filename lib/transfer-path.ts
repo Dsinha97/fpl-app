@@ -42,7 +42,7 @@ import {
 } from "./transfer-optimizer";
 import { freeHitRebuildAt, wildcardRebuildAt, type RebuildContext } from "./chips";
 import { chipBonusAt, chipContextFor, type PredAt } from "./chip-plan";
-import { totalSpend } from "./squad-budget";
+import { squadBank } from "./squad-budget";
 import {
   projectAtEvent,
   type ChipKind,
@@ -420,8 +420,8 @@ export function planTransferPath(input: TransferPathInput): TransferPathResult {
     const carriedSigs = new Set(carried.map((s) => s.steps.map((st) => signatureOfMoves(st.moves)).join("|")));
     const funder = [...deduped]
       .sort((a, b) => {
-        const bankA = a.team.budget - totalSpend(a.team.players);
-        const bankB = b.team.budget - totalSpend(b.team.players);
+        const bankA = squadBank(a.team, (id) => lookup(id)?.nowCost);
+        const bankB = squadBank(b.team, (id) => lookup(id)?.nowCost);
         return bankB - bankA;
       })
       .find((s) => !carriedSigs.has(s.steps.map((st) => signatureOfMoves(st.moves)).join("|")));

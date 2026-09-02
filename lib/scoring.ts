@@ -12,7 +12,7 @@ import {
   type TeamState,
 } from "./team-state";
 import { clamp, mean, stdevPopulation } from "./stats";
-import { squadSellValue, totalSpend } from "./squad-budget";
+import { squadBank } from "./squad-budget";
 import { sellPrice } from "./transfers";
 
 export interface ScoredPlayer {
@@ -475,15 +475,10 @@ export function replacementLegality(
   const owned = new Set(team.players.map((p) => p.playerId));
   const outgoing = team.players.find((p) => p.playerId === target.id);
 
-  // Real cash in the bank, not `budget - Σ purchasePrice`: for an imported
-  // squad `budget` is (real sell value + real bank) at sync time (see
-  // teamStateFromMyTeamJson), so subtracting the *purchase-price* total
-  // double-counts every other held player's unrealised gain/loss as
-  // spendable money. Subtracting the live sell value instead cancels back
-  // to the real bank; a manual draft has no gain (purchasePrice already is
-  // today's price), so this is a no-op change for that case.
-  const squadValue = squadSellValue(team.players, (id) => lookup(id)?.nowCost);
-  const bank = team.budget - (squadValue ?? totalSpend(team.players));
+  // Real cash in the bank — `squadBank` (lib/squad-budget.ts) is the one
+  // implementation of that rule, and reads `team.bank` where the squad
+  // carries one so a held player's price move can't be charged to the cash.
+  const bank = squadBank(team, (id) => lookup(id)?.nowCost);
 
   // Selling the outgoing player frees up his sell price, not what was paid
   // for him — FPL's profit-on-sale rule means those differ once his price

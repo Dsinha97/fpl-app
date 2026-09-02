@@ -10,7 +10,7 @@
 
 import { fixtureScore, riskScore, xpFor, type ScoredPlayer } from "./scoring";
 import { riskPoints } from "./squad-score";
-import { totalSpend } from "./squad-budget";
+import { squadBank } from "./squad-budget";
 import { mean } from "./stats";
 import { optimiseLineup, type LineupCandidate } from "./lineup";
 import { chipAdjustmentFor, type ChipAdjustment, type ChipContext, type PredAt } from "./chip-plan";
@@ -207,7 +207,6 @@ function metricsFor(
   }));
   const lineup = candidates.length > 0 ? optimiseLineup(candidates) : null;
 
-  const spent = totalSpend(team.players);
 
   const projection = computeProjection(
     team.players,
@@ -240,7 +239,9 @@ function metricsFor(
     benchContribution: lineup ? lineup.benchExpectedContribution : null,
     captain: team.captain,
     viceCaptain: team.viceCaptain,
-    bank: team.budget - spent,
+    // Not `budget - spent`: that charges every held player's price rise to
+    // the bank (see squadBank, lib/squad-budget.ts).
+    bank: squadBank(team, (id) => lookup(id)?.nowCost),
     chipAdjustment,
     chipAdjustedTotal,
   };
@@ -292,7 +293,7 @@ export function simulateTransfers(input: SimulateInput): TransferSimulation {
 
     // Removing first frees the cash, then the incoming player is bought at the
     // live price — the order the game itself uses.
-    working = addPlayer(removePlayer(working, move.outId), inMeta);
+    working = addPlayer(removePlayer(working, move.outId, outScored.price), inMeta);
 
     details.push({
       outId: move.outId,
