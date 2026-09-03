@@ -137,6 +137,19 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   `password =` across all tracked files found nothing but `package-lock.json` integrity hashes;
   `.env.local` is confirmed untracked.
 
+  **Turned into a step-by-step runbook 2026-09-03** —
+  [sprints/sprint-31.md](sprints/sprint-31.md)'s "Branch-protection runbook", with the exact
+  ruleset settings, an equivalent `gh api` call, and the ordering (ruleset *before* the flip, so
+  `main` is never public and unprotected). Two corrections to the sketch above came out of writing
+  it: the required status check is named **`build`** (the job id), not `ci.yml`/"CI"; and
+  **required Code-Owner review and any non-zero approval count are unsatisfiable on a one-person
+  repo** — GitHub does not let a PR author approve their own PR, so pairing them with a no-bypass
+  ruleset would block every merge. The runbook sets approvals to 0 (the PR requirement itself is
+  what forces the diff through CI) and names "a second maintainer exists" as the trigger to raise
+  it. "Restricted branch creation" is also dropped: it governs creating branches matching the
+  target pattern, which is meaningless on a ruleset targeting only the already-existing default
+  branch.
+
 - **Latency roadmap — `/deadline`, `/builder`, and `/team` fixed 2026-08-27.** Pulled the owner's
   NotebookLM research on web performance into
   [sources/website-optimization.md](sources/website-optimization.md), measured the live site

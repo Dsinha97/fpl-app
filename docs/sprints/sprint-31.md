@@ -208,9 +208,118 @@ The three items roadmap.md scoped, each re-checked and now settled.
    `external_player_seasons`, and `championship-priors.md` documents the drop,
    the three-check gate it passed and the fitted λ per metric.
 
-**Flipping the repo to public remains the owner's action**, along with the
-branch-ruleset hardening roadmap.md already enumerates. This sprint settled the
-blockers, not the switch.
+**Flipping the repo to public remains the owner's action.** This sprint settled
+the blockers, not the switch. The hardening runbook below is the other half.
+
+### Branch-protection runbook (written 2026-09-03, not yet applied)
+
+roadmap.md enumerated the intent; these are the concrete steps. **Order
+matters** — apply the ruleset *before* flipping to public, so there is no window
+where the repo is public and `main` is unprotected.
+
+Two facts to settle first, because they change what you click:
+
+- **`ci.yml` already runs on PRs.** It triggers on `pull_request: branches:
+  [main]` and runs lint → `tsc --noEmit` → `npm run build`. Verified on
+  [PR #1](https://github.com/Dsinha97/fpl-app/pull/1) (green, 1m24s). What is
+  missing is only that the check is not *required* — it reports, it does not
+  block. The status-check name to require is **`build`** (the job id), not
+  "CI" (the workflow name).
+- **A solo owner cannot approve their own PR.** GitHub does not count the PR
+  author as a reviewer, so "Required approvals: 1" on a one-person repo means
+  *nothing can ever merge* except by bypass — which defeats the no-bypass rule
+  it is paired with. This is the one place the roadmap's original sketch does
+  not survive contact. Resolution below.
+
+**Step 1 — `.github/CODEOWNERS`.** One line, committed to `main`:
+
+```
+* @Dsinha97
+```
+
+Note what this does and does not buy on a solo repo: it makes ownership
+explicit and routes future outside-contributor PRs for review, but "Require
+review from Code Owners" is subject to the same self-approval problem as any
+approval rule. Add the file; hold the rule until there is a second maintainer.
+
+**Step 2 — the ruleset.** Settings → Rules → Rulesets → New ruleset → New
+branch ruleset.
+
+- **Name:** `main protection`
+- **Enforcement status:** Active
+- **Bypass list:** *empty.* This is the "no administrator bypass" requirement,
+  and it is the whole point — a rule an admin can wave through is documentation,
+  not a control. Note the consequence: you will push to `main` only through a
+  PR, exactly as this sprint did.
+- **Target branches:** Add target → Include default branch.
+- **Rules to enable:**
+  - **Restrict deletions** — `main` cannot be deleted.
+  - **Block force pushes** — history cannot be rewritten.
+  - **Require a pull request before merging** — with **Required approvals: 0**.
+    Zero is deliberate, not a weakening: the PR requirement itself is what
+    forces the diff through CI and leaves a reviewable record, and a non-zero
+    count on a one-person repo is unsatisfiable (see above). Raise it to 1 and
+    enable "Dismiss stale pull request approvals when new commits are pushed"
+    and "Require review from Code Owners" the moment a second maintainer
+    exists — that is the trigger, not a date.
+  - **Require status checks to pass** — add **`build`**, and enable **Require
+    branches to be up to date before merging**. Cloudflare's own
+    `Workers Builds: fpl-app` check also reports on PRs; requiring it too is
+    reasonable but couples merges to a third party's availability, so it is a
+    judgement call rather than a default.
+  - **Restrict creations** is listed in roadmap.md but does **not** belong on a
+    ruleset targeting only the default branch — it governs creating branches
+    matching the target pattern, and `main` already exists. Skip it, or give it
+    its own ruleset targeting a `release/*`-style pattern if that ever matters.
+
+Equivalent as one API call, if the UI is tedious:
+
+```bash
+gh api repos/Dsinha97/fpl-app/rulesets --method POST --input - <<'JSON'
+{
+  "name": "main protection",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    { "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false
+      } },
+    { "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "required_status_checks": [ { "context": "build" } ]
+      } }
+  ]
+}
+JSON
+```
+
+**Step 3 — fork-PR workflow approval.** Settings → Actions → General → Fork
+pull request workflows from outside collaborators → **Require approval for all
+external contributors**. This is not cosmetic: `ci.yml`'s build step reads
+`secrets.NEXT_PUBLIC_SUPABASE_URL` and
+`secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, so an unapproved fork PR would
+otherwise get a workflow run with those in its environment. Both are public
+values, but the principle stands and the next secret added might not be.
+
+**Step 4 — secret scanning + push protection.** Settings → Code security →
+enable **Secret scanning** and **Push protection**. Worth knowing: these are
+free on *public* repos, so this step becomes available at the moment of the
+flip rather than before it. The Sprint 31 sweep found no JWTs, `sk-` keys, PEM
+blocks or `password =` anywhere in tracked files; push protection is what keeps
+that true going forward.
+
+**Step 5 — flip to public**, then re-verify: open a throwaway PR and confirm it
+cannot merge with a failing `build`, and that a direct push to `main` is
+rejected.
 
 ## 6. A blocked row that stated the wrong condition
 
