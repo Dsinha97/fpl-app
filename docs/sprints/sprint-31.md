@@ -231,16 +231,15 @@ Two facts to settle first, because they change what you click:
   it is paired with. This is the one place the roadmap's original sketch does
   not survive contact. Resolution below.
 
-**Step 1 — `.github/CODEOWNERS`.** One line, committed to `main`:
+**Step 1 — `.github/CODEOWNERS`. Done** (this sprint): `* @Dsinha97`, with the
+reasoning in the file's own header.
 
-```
-* @Dsinha97
-```
-
-Note what this does and does not buy on a solo repo: it makes ownership
-explicit and routes future outside-contributor PRs for review, but "Require
-review from Code Owners" is subject to the same self-approval problem as any
-approval rule. Add the file; hold the rule until there is a second maintainer.
+Note what this does and does not buy on a solo repo. It makes ownership
+explicit and auto-requests review from the owner on any PR, including one from
+an outside contributor's fork — that much works today. But "Require review from
+Code Owners" is subject to the same self-approval problem as any approval rule,
+so the *rule* stays off. The file is added; the enforcement waits for a second
+maintainer.
 
 **Step 2 — the ruleset.** Settings → Rules → Rulesets → New ruleset → New
 branch ruleset.
