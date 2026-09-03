@@ -1,0 +1,18 @@
+# Code owners for Dsinha97/fpl-app.
+#
+# Added 2026-09-03 as step 1 of the public-repo hardening runbook
+# (docs/sprints/sprint-31.md, "Branch-protection runbook").
+#
+# On its own this file changes nothing: ownership is only enforced once
+# "Require review from Code Owners" is enabled on the `main` ruleset, and that
+# rule is deliberately NOT enabled yet. GitHub does not let a pull request
+# author approve their own pull request, so on a one-person repo a Code-Owner
+# review requirement paired with the runbook's no-administrator-bypass rule
+# would block every merge, including the owner's. Enable it when a second
+# maintainer exists — that is the trigger, not a date.
+#
+# What it does do today: make ownership explicit, and auto-request review from
+# the owner on any pull request, including one opened from an outside
+# contributor's fork.
+
+* @Dsinha97

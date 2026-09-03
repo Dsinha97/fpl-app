@@ -36,6 +36,7 @@ import { TransferPath } from "@/components/transfer-path";
 import { planTransferPath, type TransferPathResult } from "@/lib/transfer-path";
 import {
   chipContextFor,
+  chipLabel,
   validateChipPlan,
   type ChipDefinitionRow,
   type EventPrediction,
@@ -484,7 +485,7 @@ export default function TransfersPage() {
     !wildcard.available
       ? wildcard.reason
       : team && team.activeChip && team.activeChip !== "wildcard"
-        ? `This draft already has the ${team.activeChip} chip active.`
+        ? `This draft already has the ${chipLabel(team.activeChip)} chip active.`
         : null;
 
   const pool = useMemo(() => [...scoredById.values()], [scoredById]);

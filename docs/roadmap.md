@@ -52,6 +52,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 28 | Live/upcoming split, one transfer answer, scenario actuals | **Built** 2026-08-29 — `/deadline` split into collapsible Live GW and Upcoming GW sections ordered by a new `livePhase` (`CollapsibleCard` gained a controlled mode, a `section` tier, `inert` collapsed bodies, and stopped clipping the pitch's player-detail popover); `TransferPlan` removed from `/transfers` and `/deadline` so the transfer path is the single answer, after fixing three real defects in it (hardcoded horizon 5, missing `decisionMargin`, and a roll branch that carried next gameweek's squad forward at zero cost); `/scenarios` gained an xP / Points-scored toggle over a new `lib/scenario-actuals.ts`. Prompted by the owner using the app during a live gameweek | [sprints/sprint-28.md](sprints/sprint-28.md) |
 | 29 | Price sampling, mini-league EO, transfer tracking, layout/feed fixes | **Built** 2026-08-30 — price-change prediction steps 1–2 (bounded ~2h ownership watchlist, `lib/price-watch.ts`'s progress-to-threshold tool on `/players`/`/transfers`); new `/leagues` wires up Sprint 10's already-shipped `lib/ownership.ts` engine and `sync-league-picks` pipeline (never previously called from the app) into a real EO table; re-importing an FPL squad now overwrites the existing draft instead of minting a new one (`resolveImportTarget`), and `manager_transfers` (already written, previously empty) is rendered as a season transfer ledger on `/team` with a snapshot-diff reconciliation check; `/deadline`'s countdown inlined and its watch cards moved below the Live section via a generalised `sectionOrder`; `/review` moved from Live to Strategy nav; `change_feed` no longer double-reports one FPL update as both a status and a news row, and both `/news`/`/deadline` dedupe the FFS RSS triplication. Also fixed, found mid-sprint: `/fixtures`' league table was reading FPL's own `teams[].played/win/...` fields, which the live API never populates in-season — now derived from finished `fixtures` instead (`deriveStandingsFromFixtures`). | [sprints/sprint-29.md](sprints/sprint-29.md) |
 | 30 | xP comparison form-blend (attempt 2) + a real-money accounting bug chain | **Built** 2026-08-30/09-02 — `/compare`'s `COMPARISON_WEIGHTS` restored to the plan's full five-term weighting once `form` data is present (see "Next up" below); a per-position bias-correction sweep added to `scripts/backtest-walkforward.ts` found no weight clears the gate, not shipped; `findReplacements`/`replacementLegality` and `/builder`'s picker sort column fixed. What looked like a settled "squad value already correct" turned out to be one level too shallow: chased into a real bug chain (Bank/affordability mixing sell-value and purchase-price bases, FPL's own `transfers.value` disagreeing with real per-player selling prices, `validateSquad`'s over-budget false positive, `freeTransfers` reading `limit` instead of `limit − made`) ending in `TeamState.bank` becoming the stored primitive instead of a residual derived from a frozen total | [sprints/sprint-30.md](sprints/sprint-30.md) |
+| 31 | Chip awareness end to end, display-only custom FDR, public-repo pre-flight | **Built** 2026-09-03 — the owner played Triple Captain, pasted the JSON, and nothing acknowledged it. The parse was fine; three things downstream were not: nothing rendered `activeChip` anywhere, `chipAt` (the fact-beats-plan reconciler) had **zero callers** so the projection scored the squad as if the captain were merely doubled, and the chip had no gameweek of its own so a stale draft would claim it live in the *next* gameweek. Fixed with `TeamState.activeChipEvent` (from `played_by_entry`), a `multiplier`-based cross-check that proves 3xc/bboost from the payload's own arithmetic rather than an unverified `status_for_entry` enum, `fplActiveChipAt`/`chipEntriesInForce`, a status pill on `/deadline`, a Chip field in the ContextBar, and `chipLabel` replacing the raw `3xc` slug on `/transfers`/`/review`. Also: a strength-derived FDR on `/fixtures`, **display-only** because `teams` carries no strength history and so it cannot be backtested at all; and the three public-repo blockers settled | [sprints/sprint-31.md](sprints/sprint-31.md) |
 
 Non-sprint work items, also in `sprints/`: [cold-start-patch.md](sprints/cold-start-patch.md)
 (empirical-Bayes rate priors — phase 1 built, phase 2 deferred/gated) and
@@ -61,6 +62,19 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
+- **Rate-limit or `verify_jwt` the Edge Functions — scoped 2026-09-03, not started.** Fell out of
+  Sprint 31's public-repo pre-flight. The cron endpoints authenticate with the publishable key,
+  which is public in the deployed browser bundle whatever the repo's visibility — so anyone can
+  call `/functions/v1/sync-*` today. Every function is idempotent and read-only against public
+  FPL data, so the exposure is cost and noise rather than data, which is why this is an item
+  rather than an emergency. Hiding the key is not the fix and was explicitly rejected as theatre
+  (see the migration header and [sprints/sprint-31.md](sprints/sprint-31.md)); the fix is on the
+  functions themselves.
+- **A results-derived custom FDR — scoped 2026-09-03, not started.** Sprint 31 built the
+  strength-derived one and proved it can never be model-grade (no strength history to backtest
+  against). A difficulty derived from `deriveStandingsFromFixtures`' real scorelines *is*
+  backtestable against four seasons of `player_gameweek_stats`, and is the only honest path to an
+  FDR that could replace `ScoredPlayer.fdrRun`. Gate it the way the xP blend was gated.
 - **Price-change prediction — steps 1–2 built 2026-08-30, step 3 not started.** The owner wants to
   know whether to transfer now or wait for a price move. Sprint 29.0 built the first two steps of the
   sequence below; step 3 (fitting a classifier) stays out until enough watchlist history has
@@ -86,8 +100,21 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   EO math by hand. See [sprints/sprint-29.md](sprints/sprint-29.md). Not built: rivals
   auto-populated from a league's standings, and the Sprint 6 EO-column gap on `/players` — both still
   open if wanted later.
-- **Repo going public — pre-flight checklist, scoped 2026-08-29.** The owner intends to make
-  `Dsinha97/fpl-app` public for a portfolio. Three items must be settled first:
+- **Repo going public — all three pre-flight items settled 2026-09-03 (Sprint 31); the switch
+  itself is still the owner's to flip.** (1) **PII redacted** — the email is gone from
+  `sprints/latency.md` and a repo-wide sweep now returns none; noted-not-changed is
+  `fpl-app.deepayansinha.workers.dev` in `sprint-25.md` and `wiki/deployment.md`, a public URL
+  that happens to carry the owner's name. (2) **The hardcoded publishable key is consciously
+  accepted, no migration** — moving it to Vault would be theatre, since the identical key already
+  ships in the deployed browser bundle and is readable off fpldecision.com today regardless of
+  who can read the repo; the reasoning is written into the migration header itself. The *real*
+  mitigation is `verify_jwt` or rate limiting on the Edge Functions, which is now its own open
+  item (below). (3) **The two genuinely FootyStats-derived files are untracked** —
+  `extracted/footystats_championship_2025_26.csv` and `extracted/insert.sql`; the roster CSV and
+  this repo's own `match_report.json` stay, and nothing about the shipped cold-start priors
+  becomes unauditable. Full reasoning: [sprints/sprint-31.md](sprints/sprint-31.md). The branch
+  hardening below still needs applying, and publishing remains a deliberate owner action.
+  The original scoping, kept for the reasoning behind each item:
   1. **PII.** `sprints/latency.md` contains the owner's email address beside a `user_profiles`
      description. Redact it. It is the only genuine PII in the repo — the FPL manager ID `274486` in
      14 files is public by construction (post-deadline picks are readable for any entry, which is
@@ -109,6 +136,35 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   with push protection; and restricted branch creation. A sweep for JWTs, `sk-` keys, PEM blocks and
   `password =` across all tracked files found nothing but `package-lock.json` integrity hashes;
   `.env.local` is confirmed untracked.
+
+  **Turned into a step-by-step runbook 2026-09-03** —
+  [sprints/sprint-31.md](sprints/sprint-31.md)'s "Branch-protection runbook", with the exact
+  ruleset settings, an equivalent `gh api` call, and the ordering (ruleset *before* the flip, so
+  `main` is never public and unprotected). Two corrections to the sketch above came out of writing
+  it: the required status check is named **`build`** (the job id), not `ci.yml`/"CI"; and
+  **required Code-Owner review and any non-zero approval count are unsatisfiable on a one-person
+  repo** — GitHub does not let a PR author approve their own PR, so pairing them with a no-bypass
+  ruleset would block every merge. The runbook sets approvals to 0 (the PR requirement itself is
+  what forces the diff through CI) and names "a second maintainer exists" as the trigger to raise
+  it. "Restricted branch creation" is also dropped: it governs creating branches matching the
+  target pattern, which is meaningless on a ruleset targeting only the already-existing default
+  branch.
+
+  **Applied 2026-09-03: steps 1–2 only, and the flip is now blocked on something else.** The
+  `main` ruleset is live (id `22227209`, no bypass actors, `build` required, force-push and
+  deletion blocked) and `.github/CODEOWNERS` is committed. Steps 3–4 turned out to be
+  **impossible while private** — GitHub returns 422 for both fork-PR approval and secret scanning
+  on a private repo — so the real order is 1 → 2 → flip → 3 → 4, not 1–5. More importantly:
+  **items 1 and 3 of the pre-flight above were fixed in the working tree only.** The FootyStats
+  CSV blob is still reachable in `9d4fe99` and the owner's email in `cfc5c17`, so publishing
+  exposes both regardless of the removals — and the "no JWTs / `sk-` keys / PEM blocks" sweep
+  carries the same caveat, since it read tracked files rather than history. **Accepted 2026-09-03**
+  rather than rewriting history or republishing from a squash: not worth the cost for one email
+  address and 58 rows of derived stats. So **items 1 and 3 above are mitigations, not removals** —
+  the working tree is clean and nothing new accumulates, but both remain recoverable via
+  `git log -p`. Recorded as such in [sprints/sprint-31.md](sprints/sprint-31.md), which also notes
+  that step 4's secret scanning will likely flag the email out of history once enabled: expected,
+  close it as accepted. The flip itself is now unblocked and is purely an owner decision.
 
 - **Latency roadmap — `/deadline`, `/builder`, and `/team` fixed 2026-08-27.** Pulled the owner's
   NotebookLM research on web performance into
@@ -271,8 +327,8 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 | Blocked | Reason | Detail |
 |---|---|---|
 | `TeamAttackStrength` (attack/defence strength 0 for all 20 clubs) | Still blocked — `strength_attack_*`/`strength_defence_*` are `0` for every club **in-season too**, not just pre-season, and `strength` is `NULL`; checked live against `teams` 2026-09-02, GW3. This is the half the model term needs | [wiki/fpl-api-constraints.md](wiki/fpl-api-constraints.md) |
-| ~~Custom FDR~~ **unblocked 2026-09-02** | No longer a data blocker: `strength_overall_home`/`_away` *are* populated for all 20 clubs (coarse 2–4 scale, three distinct home tiers). Not started, but nothing is stopping it. The old row here read "Team strength (0 for all 20 clubs) — Pre-season", which stopped being true once the season started | [wiki/fpl-api-constraints.md](wiki/fpl-api-constraints.md) |
-| Accuracy scoreboard panel (`/status`) | `player_prediction_archive` exists and is being written to, but held ≤1 archived gameweek at last check — a panel built on that would only ever be able to say "n=1", which invites reading a single gameweek's residual as a verdict on the model. Build the UI once ≥2 gameweeks are archived; the data-layer (`lib/prediction-accuracy.ts`) is already done | — |
+| ~~Custom FDR~~ **built display-only 2026-09-03 (Sprint 31); a model-grade one is blocked for a different reason** | The data blocker is gone — `strength_overall_home`/`_away` *are* populated for all 20 clubs — and `/fixtures` now offers a strength-derived rating beside FPL's own. But it **can never feed the model**: `teams` holds one season's rows and strength is a live snapshot with no history, so `scripts/backtest-walkforward.ts` has nothing to walk forward over and the standing gate cannot be run at all. The honest path to a model-grade FDR is a *results*-derived one on `deriveStandingsFromFixtures`, which **is** backtestable against four seasons of `player_gameweek_stats` — not started, its own sprint | [sprints/sprint-31.md](sprints/sprint-31.md), [wiki/fpl-api-constraints.md](wiki/fpl-api-constraints.md) |
+| Accuracy scoreboard panel (`/status`) | **This row stated the wrong condition until 2026-09-03.** The bar is not "≥2 archived" — it is ≥2 gameweeks both **archived and scored**, since a residual needs a prediction *and* a result. Checked live 2026-09-03: `player_prediction_archive` holds GW2 and GW3, `player_gameweek_stats` for 2026-27 holds GW1 and GW2, so the usable intersection is **GW2 alone, n=1**. A panel on that could only ever say "n=1", which invites reading one gameweek's residual as a verdict on the model. Unblocks when GW3 is scored; the data layer (`lib/prediction-accuracy.ts`) is already done | [sprints/sprint-31.md](sprints/sprint-31.md) |
 | League 314 rank-ordering (top-1k sample) | **No longer a data/engineering blocker — proven working 2026-08-30.** A Sprint 29 follow-up load test synced league 314 ("Overall", 9.9M entries, `game_settings.league_ownership_entry_cap` = 2000) end to end: 2000 rank-ordered entries, 30,000 picks, 0 failures, 47s. Two real bugs were found and fixed at this scale — an oversized `.in()` existence-check query and a live-rank-shift duplicate-key upsert crash, both in `sync-league-picks`. That test's rows were deleted afterward (verification only, not a production sync), so `league_entries` for `league_id=314` is back to 0 rows as of this writing — sampling it for real is now one click on `/leagues` away, not an unproven pipeline. Blocks only the top-1k sample — the exact mini-league slice has its own page, `/leagues` (built 2026-08-30) | [sprints/sprint-10.md](sprints/sprint-10.md), [sprints/sprint-29.md](sprints/sprint-29.md) |
 | ~~`sync-live-gameweek` write path~~ **Resolved 2026-08-21.** | Executed for real during GW1: 2,434 successful runs, up to 610 rows/run, first success 2026-08-03 (pre-season dry runs against no live fixtures), real writes from GW1 kickoff. Self-gates back to `skipped` between gameweeks, as designed — the 15,154 `skipped` rows are that gate working, not a stuck function | [sprints/sprint-13.md](sprints/sprint-13.md) |
 | Automated FPL credential login | PingOne offers no password grant; the one reachable flow opens with bot detection | [sprints/sprint-14.md](sprints/sprint-14.md#fpl-login-is-blocked--automated-credential-login-not-the-session-handoff) |

@@ -22,6 +22,9 @@ export interface StandingsTeam extends FdrTeamRef {
   loss: number | null;
   points: number | null;
   form: string | null;
+  /** Sprint 31. Feeds the FDR matrix's Strength view (see lib/fdr.ts's strengthFdr); the table itself ignores them. */
+  strength_overall_home: number | null;
+  strength_overall_away: number | null;
 }
 
 export function LeagueTable({

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { CHIP_LABELS, fplActiveChipAt } from "@/lib/chip-plan";
 import { fmtCountdown } from "@/lib/countdown";
 import { listDrafts, onDraftsChanged, resolveRequestedDraft } from "@/lib/drafts";
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
@@ -90,6 +91,10 @@ export function ContextBar() {
   // lib/squad-budget.ts). Value moves when a player's price moves; Bank does
   // not — Value + Bank is the total, and the total is what grows on a rise.
   const bank = hasSquad ? squadBank(draft!, (id) => nowCostById.get(id)) : null;
+  // Sprint 31. Fact, never plan — `fplActiveChipAt`, not `chipAt`. Before
+  // this, Bench Boost and Triple Captain had no visible signal anywhere in the
+  // app; only Wildcard/Free Hit surfaced, and only indirectly as `FT ∞` below.
+  const activeChip = hasSquad && ctx ? fplActiveChipAt(draft!, ctx.nextEvent) : null;
 
   if (!ctx) return null;
 
@@ -139,6 +144,22 @@ export function ContextBar() {
             <span className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
               £{(bank / 10).toFixed(1)}m
             </span>
+          </span>
+        )}
+
+        {activeChip && (
+          <span className="flex items-center gap-1">
+            Chip
+            <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+              {CHIP_LABELS[activeChip]}
+            </span>
+            <InfoTooltip label="What does this chip mean?">
+              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                FPL reports this chip as already in play for {ctx.gameweekName} — it&apos;s what
+                the game says is happening, not a chip you&apos;ve planned. Projections for this
+                gameweek include it.
+              </p>
+            </InfoTooltip>
           </span>
         )}
 

@@ -16,7 +16,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { TransferPath } from "@/components/transfer-path";
 import { planTransferPath, type TransferPathResult } from "@/lib/transfer-path";
-import { chipContextFor, validateChipPlan, type ChipDefinitionRow } from "@/lib/chip-plan";
+import {
+  chipContextFor,
+  chipEntriesInForce,
+  fplActiveChipAt,
+  validateChipPlan,
+  type ChipDefinitionRow,
+} from "@/lib/chip-plan";
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
 import { fmtCountdown } from "@/lib/countdown";
 import { loadManagerPicks, type ManagerPick } from "@/lib/manager-picks";
@@ -896,8 +902,25 @@ export default function DeadlinePage() {
   /** The chip plan's legal entries — shared by the deadline optimiser (window-bounded below) and the forward path (which resolves its own window per gameweek). */
   const chipPlanUsable = useMemo(() => {
     if (!team || !ctx) return [];
-    return validateChipPlan(team.chipPlan, chipDefinitions, ctx.nextEvent, ctx.windowEnd, team.activeChip).usable;
+    const usable = validateChipPlan(
+      team.chipPlan,
+      chipDefinitions,
+      ctx.nextEvent,
+      ctx.windowEnd,
+      team.activeChip,
+    ).usable;
+    // A chip FPL already has in play is a term in this gameweek's points even
+    // though it is no longer a choice — merged here so the projection, the
+    // optimiser and the forward path all see it. `chipEntriesInForce` is the
+    // single place that reconciles FPL's fact with the owner's plan.
+    return chipEntriesInForce(team, usable, ctx.nextEvent);
   }, [team, chipDefinitions, ctx]);
+
+  /** The chip FPL reports as live for the deadline gameweek, if any — fact, never a plan. */
+  const activeChip = useMemo(
+    () => (team && ctx ? fplActiveChipAt(team, ctx.nextEvent) : null),
+    [team, ctx],
+  );
 
   const chipContext = useMemo(() => {
     if (!ctx) return null;
@@ -1147,6 +1170,15 @@ export default function DeadlinePage() {
                 minute: "2-digit",
               })}
             </p>
+            {/* Sprint 31. The one place the page states what FPL says is
+                already in play. Amber, matching the Provisional marker below
+                rather than the green a recommendation would use — this is a
+                fact about the squad, not advice. */}
+            {activeChip && (
+              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                {CHIP_LABELS[activeChip]} active · GW{team.activeChipEvent ?? team.gameweek}
+              </span>
+            )}
             {team.source === "fpl" && (
               <span className="flex items-center gap-1 text-xs text-zinc-500">
                 Imported squad
@@ -1627,16 +1659,33 @@ export default function DeadlinePage() {
                             <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
                               {CHIP_LABELS[v.chip]}
                             </span>
-                            {v.blocked === null && (
-                              <span
-                                className={`text-sm font-bold tabular-nums ${
-                                  v.gain > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-zinc-500"
-                                }`}
-                              >
-                                {signed(v.gain)}
+                            {/* Sprint 31. A chip already in play is not a gain
+                                still on offer, so it never shows a signed
+                                figure — the value is stated as taken, in its
+                                own words, rather than netted into a headline
+                                that reads as a recommendation. */}
+                            {v.chip === activeChip ? (
+                              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                Active
                               </span>
+                            ) : (
+                              v.blocked === null && (
+                                <span
+                                  className={`text-sm font-bold tabular-nums ${
+                                    v.gain > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-zinc-500"
+                                  }`}
+                                >
+                                  {signed(v.gain)}
+                                </span>
+                              )
                             )}
                           </div>
+                          {v.chip === activeChip && v.blocked === null && (
+                            <p className="mt-1 text-xs text-zinc-500">
+                              Already played this gameweek — worth {signed(v.gain)} xP, and counted
+                              in the projection above.
+                            </p>
+                          )}
                           {v.blocked ? (
                             <p className="mt-1 text-xs text-zinc-500">{v.blocked}</p>
                           ) : (

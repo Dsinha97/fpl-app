@@ -30,6 +30,16 @@ interface FixtureCellProps {
   gw?: number;
   team?: string;
   className?: string;
+  /** Names which rating this is, in the tooltip — e.g. "Strength FDR". Defaults to "FDR". */
+  ratingLabel?: string;
+  /**
+   * Opt-in handling for a missing rating. Without it, `fdr` of null/undefined
+   * falls through `asRating` to Medium, which is right for FPL's own rating
+   * (always published) and wrong for one that can genuinely be absent — a
+   * yellow "3" would be an invented value. Supply a reason and the cell renders
+   * neutral instead. Existing callers are unaffected.
+   */
+  unratedReason?: string;
 }
 
 /**
@@ -44,17 +54,31 @@ export function FixtureCell({
   gw,
   team,
   className = "",
+  ratingLabel = "FDR",
+  unratedReason,
 }: FixtureCellProps) {
+  const unrated = unratedReason !== undefined && (fdr === null || fdr === undefined);
   const rating = asRating(fdr);
   const cfg = fdrTheme[rating];
   const where = home ? "home vs" : "away at";
   const title = [
     gw !== undefined ? `GW${gw}` : null,
     team ? `${team} ${where} ${opponent}` : `${where} ${opponent}`,
-    `FDR ${rating} — ${cfg.label}`,
+    unrated ? unratedReason : `${ratingLabel} ${rating} — ${cfg.label}`,
   ]
     .filter(Boolean)
     .join(" · ");
+
+  if (unrated) {
+    return (
+      <span
+        title={title}
+        className={`inline-flex items-center justify-center rounded bg-zinc-200 px-1 py-0.5 text-[10px] font-bold text-zinc-500 shadow-sm dark:bg-[#2A0A45] dark:text-zinc-500 ${venueRing(home)} ${className}`}
+      >
+        {opponent.toUpperCase()}
+      </span>
+    );
+  }
 
   return (
     <span

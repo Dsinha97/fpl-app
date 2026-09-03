@@ -46,6 +46,16 @@ export interface TeamState {
    */
   activeChip: string | null;
   /**
+   * The gameweek `activeChip` belongs to, as FPL reports it — `my-team` JSON's
+   * `played_by_entry`, or the event of the `manager_gameweeks` row the chip was
+   * read from. Optional exactly as `entryId` is: drafts saved before this field
+   * existed keep parsing unchanged and fall back to `gameweek` in `chipAt`,
+   * which is what they were already doing. Without it, `activeChip` is pinned
+   * to whatever `gameweek` the import stamped — so once that deadline passes,
+   * the same saved draft claims the chip is live in the *following* gameweek.
+   */
+  activeChipEvent?: number | null;
+  /**
    * Forward chip intent — which chip the owner means to play in which future
    * gameweek. Optional exactly as `entryId` is: every draft already in
    * localStorage and in team_drafts.payload keeps parsing unchanged, and
@@ -104,8 +114,13 @@ export type ChipKind = "bboost" | "3xc" | "freehit" | "wildcard";
 export interface ChipPlanEntry {
   chip: ChipKind;
   event: number;
-  /** How it got here — a shortlist pin reads differently from a deliberate choice. */
-  source: "manual" | "shortlist";
+  /**
+   * How it got here — a shortlist pin reads differently from a deliberate
+   * choice, and `"fpl"` is neither: it marks an entry synthesised from what FPL
+   * reports as *already active*, not something anyone planned. See
+   * `chipEntriesInForce` (lib/chip-plan.ts).
+   */
+  source: "manual" | "shortlist" | "fpl";
   /** When it was pinned, so a stale plan can be shown as stale. */
   pinnedAt: string;
 }
@@ -185,6 +200,7 @@ export function emptyTeamState(rules: SquadRules, name = "New draft"): TeamState
     startingXI: [],
     benchOrder: [],
     activeChip: null,
+    activeChipEvent: null,
     chipPlan: EMPTY_CHIP_PLAN,
     budget: rules.totalSpend,
     bank: rules.totalSpend,
@@ -515,6 +531,10 @@ export function sameSquadState(a: TeamState, b: TeamState): boolean {
     a.budget === b.budget &&
     a.bank === b.bank &&
     a.activeChip === b.activeChip &&
+    // Normalised, because the field is optional: a draft saved before it
+    // existed carries `undefined` where a fresh import carries `null`, and a
+    // raw `===` would read that as a difference forever.
+    (a.activeChipEvent ?? null) === (b.activeChipEvent ?? null) &&
     a.freeTransfers === b.freeTransfers &&
     sameChipPlan(a.chipPlan, b.chipPlan) &&
     a.players.length === b.players.length &&

@@ -43,6 +43,18 @@ export const CHIP_LABELS: Record<ChipKind, string> = {
 
 export const CHIP_KINDS: ChipKind[] = ["bboost", "3xc", "freehit", "wildcard"];
 
+/**
+ * A chip slug rendered for a human. `TeamState.activeChip` and
+ * `manager_gameweek_history.active_chip` are untyped strings FPL owns, so this
+ * falls back to the raw value for anything it doesn't recognise rather than
+ * throwing or printing "undefined" — but nothing user-facing should ever print
+ * a bare `3xc` again, which is what both call sites were doing.
+ */
+export function chipLabel(chip: string | null | undefined): string | null {
+  if (!chip) return null;
+  return CHIP_KINDS.includes(chip as ChipKind) ? CHIP_LABELS[chip as ChipKind] : chip;
+}
+
 export interface ChipValuation {
   chip: ChipKind;
   event: number;
@@ -364,13 +376,63 @@ export function chipPlanOf(state: TeamState): ChipPlan {
  * the game says is already happening. An `activeChip` value that is not one
  * of the four typed kinds returns null rather than guessed, matching
  * `lib/fpl-squad.ts`'s fail-closed treatment of the same field.
+ *
+ * The chip's gameweek is `activeChipEvent` when the draft carries one, and
+ * `gameweek` otherwise — the fallback is what every draft saved before that
+ * field existed was already doing, so their behaviour is unchanged. The
+ * distinction matters once a deadline passes: `gameweek` is stamped with
+ * whichever gameweek was next at import time, so a stale draft would otherwise
+ * report last gameweek's chip as live in this one.
  */
 export function chipAt(state: TeamState, event: number): ChipKind | null {
-  if (state.gameweek === event && state.activeChip && CHIP_KINDS.includes(state.activeChip as ChipKind)) {
-    return state.activeChip as ChipKind;
-  }
+  const fact = fplActiveChipAt(state, event);
+  if (fact) return fact;
   const entry = chipPlanOf(state).entries.find((e) => e.event === event);
   return entry?.chip ?? null;
+}
+
+/**
+ * The fact half of `chipAt`, on its own: the chip **FPL itself** reports as
+ * already played at `event`, never one the owner merely planned. Split out
+ * because a status badge must not label an intention as something that has
+ * happened — and because splitting it is the only way to have one
+ * implementation of the rule rather than two (CLAUDE.md).
+ */
+export function fplActiveChipAt(state: TeamState, event: number): ChipKind | null {
+  const activeEvent = state.activeChipEvent ?? state.gameweek;
+  if (activeEvent === event && state.activeChip && CHIP_KINDS.includes(state.activeChip as ChipKind)) {
+    return state.activeChip as ChipKind;
+  }
+  return null;
+}
+
+/**
+ * The chip entries actually in force from `event` onward: the plan's usable
+ * entries, plus a synthetic `source: "fpl"` entry for a chip FPL reports as
+ * already active at `event`.
+ *
+ * This is the one place the fact and the intention are merged, so no page
+ * writes a second version of the rule (CLAUDE.md: one quantity, one
+ * implementation). A chip already in play is not a *choice* the optimiser can
+ * still make, but it is very much a term in this gameweek's points — leaving
+ * it out means the projection quietly scores a Triple Captain squad as if the
+ * captain were only doubled.
+ *
+ * `usableEntries` must be `validateChipPlan`'s `usable` output, which has
+ * already rejected any plan entry conflicting with the active chip — so this
+ * cannot double up a gameweek.
+ */
+export function chipEntriesInForce(
+  state: TeamState,
+  usableEntries: ChipPlanEntry[],
+  event: number,
+): ChipPlanEntry[] {
+  const chip = chipAt(state, event);
+  if (!chip || usableEntries.some((e) => e.event === event)) return usableEntries;
+  return sortEntries([
+    ...usableEntries,
+    { chip, event, source: "fpl", pinnedAt: new Date().toISOString() },
+  ]);
 }
 
 const sortEntries = (entries: ChipPlanEntry[]): ChipPlanEntry[] =>

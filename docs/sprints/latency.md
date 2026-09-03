@@ -81,7 +81,7 @@ That single loop accounts for the majority of `/deadline/`'s 6.2 s settle time.
 ## Signed-in baseline (measured 2026-08-27, local dev, real manager)
 
 The "signed out only" gap above is closed. Signed in as the owner's real Google-linked account
-(`deepayansinha@gmail.com`, FPL manager 274486, claimed via `user_profiles.entry_id`) against the
+(FPL manager 274486, claimed via `user_profiles.entry_id`) against the
 local dev server — dev mode's React StrictMode double-invokes effects, so absolute request counts
 here run roughly 2× a production count and aren't comparable across environments; only the
 before/after comparison within this same session is.
