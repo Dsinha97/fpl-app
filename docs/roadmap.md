@@ -150,6 +150,17 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   target pattern, which is meaningless on a ruleset targeting only the already-existing default
   branch.
 
+  **Applied 2026-09-03: steps 1–2 only, and the flip is now blocked on something else.** The
+  `main` ruleset is live (id `22227209`, no bypass actors, `build` required, force-push and
+  deletion blocked) and `.github/CODEOWNERS` is committed. Steps 3–4 turned out to be
+  **impossible while private** — GitHub returns 422 for both fork-PR approval and secret scanning
+  on a private repo — so the real order is 1 → 2 → flip → 3 → 4, not 1–5. More importantly:
+  **items 1 and 3 of the pre-flight above were fixed in the working tree only.** The FootyStats
+  CSV blob is still reachable in `9d4fe99` and the owner's email in `cfc5c17`, so publishing
+  exposes both regardless of the removals — and the "no JWTs / `sk-` keys / PEM blocks" sweep
+  carries the same caveat, since it read tracked files rather than history. Accept, rewrite
+  history, or publish a fresh repo: undecided, and the flip waits on that, not on steps 3–4.
+
 - **Latency roadmap — `/deadline`, `/builder`, and `/team` fixed 2026-08-27.** Pulled the owner's
   NotebookLM research on web performance into
   [sources/website-optimization.md](sources/website-optimization.md), measured the live site

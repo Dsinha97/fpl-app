@@ -217,6 +217,21 @@ roadmap.md enumerated the intent; these are the concrete steps. **Order
 matters** — apply the ruleset *before* flipping to public, so there is no window
 where the repo is public and `main` is unprotected.
 
+**Status: steps 1–2 applied 2026-09-03. Steps 3–4 are refused by GitHub while
+the repo is private and must run *after* the flip** — not a preference, an API
+error each way:
+
+```
+GET  /repos/…/actions/permissions/fork-pr-contributor-approval
+  422  "Fork PR approval is not allowed for private repositories."
+PATCH /repos/…  security_and_analysis[secret_scanning][status]=enabled
+  422  "Secret scanning is not available for this repository."
+```
+
+So the real sequence is **1 → 2 → flip → 3 → 4 → re-verify**, not the 1–5 the
+first draft of this runbook implied. The window that ordering was written to
+avoid does not open: the ruleset is live before the repo is visible.
+
 Two facts to settle first, because they change what you click:
 
 - **`ci.yml` already runs on PRs.** It triggers on `pull_request: branches:
@@ -241,7 +256,23 @@ Code Owners" is subject to the same self-approval problem as any approval rule,
 so the *rule* stays off. The file is added; the enforcement waits for a second
 maintainer.
 
-**Step 2 — the ruleset.** Settings → Rules → Rulesets → New ruleset → New
+**Step 2 — the ruleset. Applied 2026-09-03** as ruleset `22227209`, via the
+`gh api` call below. Verified: `GET /repos/…/rules/branches/main` returns
+`["deletion", "non_fast_forward", "pull_request", "required_status_checks"]`,
+and the ruleset reports `bypass_actors: []` with
+`current_user_can_bypass: "never"`. PR #1 stayed `MERGEABLE`/`CLEAN` under it,
+which is the check that matters — a ruleset that locks the owner out of their
+own repo is the failure mode this design was written to avoid.
+
+One thing GitHub adds on its own and it is worth knowing about:
+`require_extra_approval_for_unattributed_changes: true` appears in the created
+ruleset even though it was not in the payload. It did not block PR #1 —
+confirmed against the live mergeable state, not assumed — but it is the rule
+most likely to bite later, since this repo's commits are authored as
+`Dsinha-altiora <deepayan@altiorasystems.com>` rather than the `Dsinha97`
+account that owns it.
+
+To create it by hand instead: Settings → Rules → Rulesets → New ruleset → New
 branch ruleset.
 
 - **Name:** `main protection`
@@ -319,6 +350,41 @@ that true going forward.
 **Step 5 — flip to public**, then re-verify: open a throwaway PR and confirm it
 cannot merge with a failing `build`, and that a direct push to `main` is
 rejected.
+
+### The flip has an unsettled blocker: history (found 2026-09-03)
+
+**§5's items 1 and 3 above are working-tree fixes only, and publishing exposes
+git history.** Confirmed by `git log`:
+
+- The FootyStats CSV blob is reachable in `9d4fe99` ("Sprint 15.6: Championship
+  cold-start priors") — `git rm --cached` untracked it going forward, it did
+  not unpublish it.
+- The owner's email is reachable in `cfc5c17` ("Measure and fix real latency").
+
+So the redaction and the untracking each fix what a *fresh clone's working tree*
+contains and what gets added from here on — real, and worth having — but
+neither changes what someone can recover from a public clone's history. Both
+pre-flight items were written and closed against the wrong scope, this one
+included. The sweep that found "no JWTs, no `sk-` keys, no PEM blocks" also ran
+against tracked files, not history, so its clean result carries the same
+caveat.
+
+Three ways out, none free:
+
+1. **Accept.** A 58-row derived CSV and one email address are low-stakes, and
+   the working-tree fixes still mean nothing new accumulates. Cheapest, and
+   defensible — but it means saying plainly that the pre-flight's items 1 and 3
+   are mitigations, not removals.
+2. **Rewrite history** (`git filter-repo`) before publishing. Actually removes
+   the blobs. Costs: every commit SHA changes, the open PR is invalidated, and
+   the `non_fast_forward` rule just applied has to come off and go back on
+   around the force-push. Do it before the flip or not at all.
+3. **Publish a fresh repo** from a squashed or orphan history, keeping this one
+   private as the full record. Clean disclosure boundary, loses the public
+   commit history that is arguably the portfolio's point.
+
+Unresolved at the time of writing. The flip is blocked on this decision, not on
+steps 3–4.
 
 ## 6. A blocked row that stated the wrong condition
 
