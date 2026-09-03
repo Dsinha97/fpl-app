@@ -62,14 +62,21 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
-- **Rate-limit or `verify_jwt` the Edge Functions — scoped 2026-09-03, not started.** Fell out of
-  Sprint 31's public-repo pre-flight. The cron endpoints authenticate with the publishable key,
-  which is public in the deployed browser bundle whatever the repo's visibility — so anyone can
-  call `/functions/v1/sync-*` today. Every function is idempotent and read-only against public
-  FPL data, so the exposure is cost and noise rather than data, which is why this is an item
-  rather than an emergency. Hiding the key is not the fix and was explicitly rejected as theatre
-  (see the migration header and [sprints/sprint-31.md](sprints/sprint-31.md)); the fix is on the
-  functions themselves.
+- **Sprint 32 — lock down the Edge Function surface. Scoped 2026-09-03, not started, and the
+  repo flip waits on it.** Fell out of Sprint 31's pre-flight. `/functions/v1/sync-*` is callable
+  by anyone holding the publishable key, which today means anyone who opens devtools on
+  fpldecision.com; publishing the repo does not create that exposure but changes who finds it,
+  since public repos are scraped mechanically for keys and endpoints in a way minified bundles
+  are not. Bounded blast radius (idempotent, public data, public tables) — the cost is Supabase
+  invocations and FPL traffic on this project's bill. The surface splits by caller: **cron-only**
+  functions get a shared secret header minted by `invoke_sync` from a Vault secret (the inverse of
+  Sprint 31's verdict on the publishable key, and for the inverse reason — this secret has no
+  public copy, so hiding it *is* the mechanism), and the two **browser-invoked** ones
+  (`sync-manager`, `sync-league-picks`) get the already-existing `verifyUser` plus a per-user rate
+  limit off `sync_runs`. Found while scoping: `sync-fixtures?force=1` bypasses its own self-gate,
+  which turns the cheapest case into a full 380-fixture pull on demand. Full scope, the
+  deployment ordering that can silently 401 every cron job, and the verification plan:
+  [sprints/sprint-32.md](sprints/sprint-32.md).
 - **A results-derived custom FDR — scoped 2026-09-03, not started.** Sprint 31 built the
   strength-derived one and proved it can never be model-grade (no strength history to backtest
   against). A difficulty derived from `deriveStandingsFromFixtures`' real scorelines *is*
