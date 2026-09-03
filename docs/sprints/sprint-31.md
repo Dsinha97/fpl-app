@@ -351,7 +351,7 @@ that true going forward.
 cannot merge with a failing `build`, and that a direct push to `main` is
 rejected.
 
-### The flip has an unsettled blocker: history (found 2026-09-03)
+### History is not clean — accepted as a mitigation (decided 2026-09-03)
 
 **§5's items 1 and 3 above are working-tree fixes only, and publishing exposes
 git history.** Confirmed by `git log`:
@@ -369,22 +369,36 @@ included. The sweep that found "no JWTs, no `sk-` keys, no PEM blocks" also ran
 against tracked files, not history, so its clean result carries the same
 caveat.
 
-Three ways out, none free:
+**Decision: accepted.** The two alternatives were rewriting history with
+`git filter-repo` (removes the blobs, but changes every SHA, invalidates open
+PRs, and needs the `non_fast_forward` rule taken off and put back around a
+force-push) and publishing a fresh squashed repo (clean boundary, loses the
+commit history that is arguably the portfolio's point). Neither is worth its
+cost for a 58-row derived CSV and one email address.
 
-1. **Accept.** A 58-row derived CSV and one email address are low-stakes, and
-   the working-tree fixes still mean nothing new accumulates. Cheapest, and
-   defensible — but it means saying plainly that the pre-flight's items 1 and 3
-   are mitigations, not removals.
-2. **Rewrite history** (`git filter-repo`) before publishing. Actually removes
-   the blobs. Costs: every commit SHA changes, the open PR is invalidated, and
-   the `non_fast_forward` rule just applied has to come off and go back on
-   around the force-push. Do it before the flip or not at all.
-3. **Publish a fresh repo** from a squashed or orphan history, keeping this one
-   private as the full record. Clean disclosure boundary, loses the public
-   commit history that is arguably the portfolio's point.
+**So items 1 and 3 of §5 are mitigations, not removals, and this document says
+so rather than letting the checkmarks imply otherwise:**
 
-Unresolved at the time of writing. The flip is blocked on this decision, not on
-steps 3–4.
+| Pre-flight item | What was actually achieved | What remains true |
+|---|---|---|
+| PII redaction | The email is gone from the working tree, so fresh clones and every future commit are clean | Recoverable from `cfc5c17` in history |
+| FootyStats untracking | Untracked and gitignored, so it is absent from the working tree and cannot be re-added by accident | The blob is recoverable from `9d4fe99` |
+| Secrets sweep | No JWTs, `sk-` keys, PEM blocks or `password =` in **tracked files** | History was never swept; `.env.local` is confirmed untracked, which is the part that actually matters |
+
+The honest summary: publishing this repo discloses one personal email address
+and 58 rows of transcribed third-party stats to anyone who runs `git log -p`.
+That is the accepted cost, consciously, and it is written down here so nobody
+later reads "redacted" and "untracked" as stronger claims than they are. The
+forward-looking half is real and is what stops the problem growing: nothing new
+accumulates, and push protection (step 4, once public) enforces that
+mechanically.
+
+**Consequence for step 4.** Secret scanning will scan history when it is
+enabled and may flag the email. That is expected, not a regression — close it
+as accepted with a pointer to this section rather than re-litigating it.
+
+With this settled, the flip is unblocked and waits only on the owner choosing
+to do it.
 
 ## 6. A blocked row that stated the wrong condition
 

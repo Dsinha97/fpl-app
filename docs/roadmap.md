@@ -158,8 +158,13 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   **items 1 and 3 of the pre-flight above were fixed in the working tree only.** The FootyStats
   CSV blob is still reachable in `9d4fe99` and the owner's email in `cfc5c17`, so publishing
   exposes both regardless of the removals — and the "no JWTs / `sk-` keys / PEM blocks" sweep
-  carries the same caveat, since it read tracked files rather than history. Accept, rewrite
-  history, or publish a fresh repo: undecided, and the flip waits on that, not on steps 3–4.
+  carries the same caveat, since it read tracked files rather than history. **Accepted 2026-09-03**
+  rather than rewriting history or republishing from a squash: not worth the cost for one email
+  address and 58 rows of derived stats. So **items 1 and 3 above are mitigations, not removals** —
+  the working tree is clean and nothing new accumulates, but both remain recoverable via
+  `git log -p`. Recorded as such in [sprints/sprint-31.md](sprints/sprint-31.md), which also notes
+  that step 4's secret scanning will likely flag the email out of history once enabled: expected,
+  close it as accepted. The flip itself is now unblocked and is purely an owner decision.
 
 - **Latency roadmap — `/deadline`, `/builder`, and `/team` fixed 2026-08-27.** Pulled the owner's
   NotebookLM research on web performance into
