@@ -90,12 +90,75 @@ export interface FdrCell {
   opp: string;
   home: boolean;
   fdr: number;
+  /**
+   * Sprint 31. The strength-derived alternative to FPL's own `fdr`, present
+   * only when `fixtureCellsByTeam` was given team strengths. Deliberately a
+   * *second* field rather than a replacement — see `strengthFdr`.
+   */
+  strengthFdr?: number;
 }
 
 export interface FdrTeamRef {
   id: number;
   short_name: string;
 }
+
+/** A team's own overall strength, by venue, as FPL publishes it. */
+export interface TeamStrength {
+  strength_overall_home?: number | null;
+  strength_overall_away?: number | null;
+}
+
+export type FdrSource = "official" | "strength";
+
+/**
+ * Difficulty of facing an opponent, derived from that opponent's own overall
+ * strength at the venue they are playing.
+ *
+ * FPL's `strength_overall_home`/`_away` were `0` for every club through the
+ * whole of pre-season (the long-standing `TeamAttackStrength` block); they
+ * became populated for all 20 clubs on 2026-09-02, which is what unblocked
+ * this. `strength_attack_*`/`strength_defence_*` are **still** 0 and `strength`
+ * still NULL, so the overall pair is the only usable half — see
+ * docs/wiki/fpl-api-constraints.md.
+ *
+ * **This never feeds the model, and here is the reason.** `teams` holds one
+ * season's rows and `strength_overall_*` is a live snapshot, not history —
+ * there is nothing for `scripts/backtest-walkforward.ts` to walk forward over,
+ * so a strength-based FDR cannot be measured against the standing gate at all.
+ * `ScoredPlayer.fdrRun` (lib/scoring.ts) feeds `fixtureScore` and `riskScore`'s
+ * `fixtureVariance`, so swapping it would move ranked output on no evidence —
+ * CLAUDE.md's "an acceptance threshold you invented is not evidence", with the
+ * threshold missing entirely. It is offered as a second view on /fixtures and
+ * nowhere else.
+ *
+ * The scale is FPL's own 1–5, unmapped: a strength value *is* already on that
+ * scale. What it is not is evenly spread — see `STRENGTH_FDR_NOTE`.
+ */
+export function strengthFdr(opponent: TeamStrength | undefined, opponentAtHome: boolean): number | null {
+  const raw = opponentAtHome ? opponent?.strength_overall_home : opponent?.strength_overall_away;
+  // 0 is FPL's "not published", not a real floor — the same zeroed-field trap
+  // this codebase hits with team attack strength and `players.form`. Drop the
+  // cell rather than painting a very-easy green over missing data.
+  if (raw === null || raw === undefined || raw === 0) return null;
+  return asRating(raw);
+}
+
+/**
+ * Disclosure for the strength view, per CLAUDE.md's "say what the number
+ * means". Measured against live data 2026-09-03: across all 20 clubs
+ * `strength_overall_home` takes only {2, 3, 4} and `strength_overall_away`
+ * only {2, 3, 4, 5} — three home tiers and four away, painted onto a five-step
+ * colour ramp. The cells are honest about their own inputs; the ramp is finer
+ * than the data behind it.
+ */
+export const STRENGTH_FDR_NOTE =
+  "Derived from FPL's own overall home/away team strength — the difficulty of a fixture is the " +
+  "opponent's strength at the venue they're playing. Coarser than it looks: across all 20 clubs " +
+  "home strength takes only three distinct values and away strength four, so this five-colour " +
+  "ramp is finer than its input. It is a second view only — no ranking, score or projection " +
+  "anywhere in this app uses it, because FPL publishes strength as a live snapshot with no " +
+  "history, leaving nothing to backtest it against.";
 
 export interface FdrFixtureRef {
   event: number | null;
@@ -265,6 +328,8 @@ export function fixtureCellsByTeam(
   fixtures: FdrFixtureRef[],
   fromGw: number | null,
   windowSize: number,
+  /** Optional, by team id. Supply it to populate `FdrCell.strengthFdr` alongside FPL's own rating. */
+  strengthOf?: (teamId: number) => TeamStrength | undefined,
 ): { gwCols: number[]; byTeam: Map<number, Map<number, FdrCell[]>> } {
   if (fromGw === null) return { gwCols: [], byTeam: new Map() };
 
@@ -285,28 +350,44 @@ export function fixtureCellsByTeam(
       m.get(f.event!)!.push(cell);
     };
 
+    // The home side faces the away side playing *away*, and vice versa — the
+    // opponent's strength at the venue they're actually at, not at ours.
+    const awayStrength = strengthOf ? strengthFdr(strengthOf(f.team_a), false) : null;
+    const homeStrength = strengthOf ? strengthFdr(strengthOf(f.team_h), true) : null;
+
     push(f.team_h, {
       opp: shortOf.get(f.team_a) ?? "?",
       home: true,
       fdr: f.team_h_difficulty ?? 3,
+      ...(awayStrength !== null ? { strengthFdr: awayStrength } : {}),
     });
     push(f.team_a, {
       opp: shortOf.get(f.team_h) ?? "?",
       home: false,
       fdr: f.team_a_difficulty ?? 3,
+      ...(homeStrength !== null ? { strengthFdr: homeStrength } : {}),
     });
   }
 
   return { gwCols, byTeam };
 }
 
-/** Mean FDR across `gwCols` for one team, or null when it has no fixtures in the window. */
+/**
+ * Mean FDR across `gwCols` for one team, or null when it has no fixtures in
+ * the window. `source` selects which rating to average; a `"strength"` average
+ * skips cells with no strength rather than substituting the official one, so
+ * it never silently mixes the two scales.
+ */
 export function averageFdr(
   byTeam: Map<number, Map<number, FdrCell[]>>,
   teamId: number,
   gwCols: number[],
+  source: FdrSource = "official",
 ): number | null {
   const cells = byTeam.get(teamId) ?? new Map<number, FdrCell[]>();
-  const fdrs = gwCols.flatMap((g) => (cells.get(g) ?? []).map((c) => c.fdr));
+  const fdrs = gwCols
+    .flatMap((g) => cells.get(g) ?? [])
+    .map((c) => (source === "strength" ? c.strengthFdr : c.fdr))
+    .filter((n): n is number => n !== undefined);
   return fdrs.length > 0 ? fdrs.reduce((a, b) => a + b, 0) / fdrs.length : null;
 }

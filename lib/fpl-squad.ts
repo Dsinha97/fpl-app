@@ -185,6 +185,11 @@ export function teamStateFromPicks(
     startingXI,
     benchOrder,
     activeChip: meta.activeChip,
+    // The chip belongs to the gameweek it was read from, not to whatever
+    // gameweek is next by the time this draft is read back — see
+    // TeamState.activeChipEvent. `meta.event` is exactly that gameweek here,
+    // since `meta.activeChip` came off the same `manager_gameweeks` row.
+    activeChipEvent: meta.activeChip ? meta.event : null,
     budget,
     // Real cash, stored rather than re-derived from `budget` on every read —
     // see TeamState.bank. Left unset when FPL didn't report both halves, so
@@ -263,6 +268,80 @@ export interface MyTeamImportResult {
    * warning rather than silently trusted or silently overridden.
    */
   sellPriceMismatches: SellPriceMismatch[];
+}
+
+export interface ActiveChipReading {
+  /** Untyped for the same reason `TeamState.activeChip` is — FPL owns the value. */
+  chip: string | null;
+  /** The gameweek the chip belongs to. See `TeamState.activeChipEvent`. */
+  event: number | null;
+  /**
+   * What established it. `"confirmed"` means both independent signals agree;
+   * `"multipliers"` is the payload's own arithmetic alone; `"status"` is FPL's
+   * enum alone. Recorded so a caller can be honest about which it had, rather
+   * than presenting all three as equally certain.
+   */
+  evidence: "confirmed" | "multipliers" | "status" | null;
+}
+
+/**
+ * Which chip FPL reports as live on a pasted `my-team` payload, and for which
+ * gameweek.
+ *
+ * Two independent signals, because `status_for_entry`'s *active* enum was
+ * never confirmed against a live example when this file was written (every
+ * payload seen at the time was pre-season, with every chip "available"):
+ *
+ *   1. **The picks' own arithmetic**, which cannot be wrong about itself — a
+ *      captain carrying `multiplier: 3` is Triple Captain by definition, and a
+ *      bench where every pick carries `multiplier >= 1` (rather than the usual
+ *      0) is Bench Boost by definition. This is evidence, not an enum guess.
+ *   2. **`chips[].status_for_entry === "active"`**, as before.
+ *
+ * Agreement is `"confirmed"`. Where only one fires, it is still trusted — but
+ * on disagreement the arithmetic wins, because it is arithmetic. Wildcard and
+ * Free Hit leave **no** multiplier trace at all (they change the squad, not the
+ * multipliers), so they remain signal-2-only; the cross-check covers the two
+ * chips that can be corroborated, not all four. Nothing is inferred from
+ * `is_pending`, so an unrecognised state still fails closed to `null` rather
+ * than falsely claiming a chip is in play.
+ *
+ * The event comes from the matching chip's own `played_by_entry` — a history,
+ * so the highest entry is the current play — and falls back to the import's
+ * gameweek when FPL reports none. Never inferred beyond that.
+ */
+export function activeChipFromMyTeam(
+  picks: MyTeamPick[],
+  chips: MyTeamChip[] | undefined,
+  fallbackEvent: number,
+): ActiveChipReading {
+  const bench = picks.filter((p) => p.position >= 12);
+  const fromMultipliers: string[] = [];
+  if (picks.some((p) => p.is_captain && p.multiplier === 3)) fromMultipliers.push("3xc");
+  if (bench.length > 0 && bench.every((p) => p.multiplier >= 1)) fromMultipliers.push("bboost");
+  // Two at once is not a state FPL allows (one chip per gameweek), so a
+  // payload claiming both is self-contradictory — drop back to the status
+  // enum rather than picking a winner between two impossible readings.
+  const byMultiplier = fromMultipliers.length === 1 ? fromMultipliers[0] : null;
+
+  const entries = Array.isArray(chips) ? chips : [];
+  const byStatus = entries.find((c) => c.status_for_entry === "active")?.name ?? null;
+
+  const chip = byMultiplier ?? byStatus;
+  if (!chip) return { chip: null, event: null, evidence: null };
+
+  const evidence =
+    byMultiplier && byStatus === byMultiplier
+      ? "confirmed"
+      : byMultiplier
+        ? "multipliers"
+        : "status";
+
+  const played = entries.find((c) => c.name === chip)?.played_by_entry;
+  const event =
+    Array.isArray(played) && played.length > 0 ? Math.max(...played) : fallbackEvent;
+
+  return { chip, event, evidence };
 }
 
 /**
@@ -407,15 +486,7 @@ export function teamStateFromMyTeamJson(
       ? rules.squadSize
       : Math.max(0, (data.transfers.limit ?? 1) - data.transfers.made);
 
-  // Chip-active detection is best-effort: FPL's own status_for_entry enum
-  // for an *active* chip isn't confirmed against a live example (every
-  // payload seen so far has both chips "available", pre-season) — treated
-  // as active only on an explicit "active" status rather than guessed from
-  // is_pending, so a wrong guess fails closed (activeChip: null) rather
-  // than falsely claiming a chip is in play.
-  const activeChip =
-    (Array.isArray(data.chips) ? data.chips : []).find((c) => c.status_for_entry === "active")
-      ?.name ?? null;
+  const { chip: activeChip, event: activeChipEvent } = activeChipFromMyTeam(sorted, data.chips, opts.event);
 
   const base = emptyTeamState(rules, name);
 
@@ -430,6 +501,7 @@ export function teamStateFromMyTeamJson(
     startingXI,
     benchOrder,
     activeChip,
+    activeChipEvent,
     budget: sellingValue + data.transfers.bank,
     // FPL's own cash figure, kept as the primitive: from here a price change
     // moves squad value, never the bank (see TeamState.bank).

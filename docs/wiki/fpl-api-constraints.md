@@ -26,6 +26,28 @@ See [data-pipeline.md](data-pipeline.md#player_predictions-and-the-row-cap).
   [blocked-and-data-gaps.md](blocked-and-data-gaps.md) for the split rows,
   [risk-scoring.md](risk-scoring.md) and [lineup-captain-bench.md](lineup-captain-bench.md) for the
   disclosures that still cite the old blanket claim in shipped `*_MODEL_NOTE` text.
+
+  **A second constraint sits behind the first, found 2026-09-03 (Sprint 31): strength has no
+  history.** `teams` holds exactly one season's rows — 20, season `2026-27` — and
+  `strength_overall_*` is a *live snapshot* FPL overwrites, not a per-gameweek or per-season
+  record. So a strength-derived FDR cannot be walk-forward tested:
+  `scripts/backtest-walkforward.ts` has nothing to walk forward over, and the standing three-season
+  gate cannot be run against it *at all*. That is why Sprint 31's Strength view on `/fixtures` is
+  display-only and never touches `ScoredPlayer.fdrRun` — not caution, an absent measurement. The
+  same snapshot property also means the ratings are coarse in practice: across all 20 clubs
+  `strength_overall_home` takes only {2, 3, 4} and `strength_overall_away` only {2, 3, 4, 5},
+  three home tiers and four away, which `STRENGTH_FDR_NOTE` (`lib/fdr.ts`) discloses next to the
+  five-colour ramp. A *results*-derived FDR (`deriveStandingsFromFixtures`, real scorelines) is
+  the backtestable alternative — see [methodology.md](methodology.md).
+- **`my-team` picks carry their own chip evidence — use it (Sprint 31).** `chips[].status_for_entry`
+  was the only signal the importer read, and its *active* value was never confirmed against a live
+  example. The same payload proves the chip arithmetically: a captain with `multiplier: 3` is
+  Triple Captain, and a bench where every pick has `multiplier >= 1` (rather than the usual 0) is
+  Bench Boost. `activeChipFromMyTeam` (`lib/fpl-squad.ts`) reads both and prefers the arithmetic on
+  disagreement. Wildcard and Free Hit leave no multiplier trace — they change the squad, not the
+  multipliers — so those two remain status-only. `played_by_entry` carries the gameweek the chip
+  was played in, which is *not* the same as the gameweek an import happens to be stamped with; see
+  [chip-plan.md](chip-plan.md).
 - **`total_players`** (bootstrap-static) is a pre-season snapshot, not a stable field size — it
   climbs roughly 4× before GW1 (2,889,243 in early August toward ~11M). Nothing consumes it yet;
   `game_settings.updated_at` is the sample-time record.

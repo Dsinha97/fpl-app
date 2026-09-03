@@ -1,7 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { averageFdr, fdrTheme, fixtureCellsByTeam, type FdrCell, type FdrRating } from "@/lib/fdr";
+import {
+  averageFdr,
+  fdrTheme,
+  fixtureCellsByTeam,
+  STRENGTH_FDR_NOTE,
+  type FdrCell,
+  type FdrRating,
+  type FdrSource,
+} from "@/lib/fdr";
 import { FDRBadge, FixtureCell } from "./fdr-badge";
 
 export interface MatrixFixture {
@@ -18,6 +26,9 @@ export interface MatrixTeam {
   short_name: string;
   /** FPL's own league position — 0 for every team pre-season, since FPL publishes no table until GW1 is scored. */
   position?: number | null;
+  /** Sprint 31. Optional: without both, the Strength view isn't offered at all. */
+  strength_overall_home?: number | null;
+  strength_overall_away?: number | null;
 }
 
 /** Column counts for the matrix — a window width, not an xP horizon. */
@@ -44,6 +55,9 @@ export function FdrMatrix({
   const [horizon, setHorizon] = useState<number>(8);
   const [sort, setSort] = useState<SortOrder>("easiest");
   const [search, setSearch] = useState("");
+  // Defaults to FPL's own rating. The strength view is a second opinion, not a
+  // replacement — nothing this app ranks or projects uses it (see strengthFdr).
+  const [source, setSource] = useState<FdrSource>("official");
 
   // Every position reads 0 pre-season (FPL publishes no table until GW1 is
   // scored) — sorting by it would just be "sorted by zero, tie-broken by
@@ -51,9 +65,24 @@ export function FdrMatrix({
   // an explanation rather than silently letting the option no-op.
   const positionsKnown = teams.some((t) => (t.position ?? 0) > 0);
 
+  const strengthById = useMemo(
+    () => new Map(teams.map((t) => [t.id, t])),
+    [teams],
+  );
+  // Offered only when FPL has actually published strength for someone. It read
+  // 0 for all 20 clubs through the whole of pre-season, and a toggle that
+  // paints every cell "no rating" is worse than no toggle.
+  const strengthKnown = useMemo(
+    () =>
+      teams.some(
+        (t) => (t.strength_overall_home ?? 0) > 0 || (t.strength_overall_away ?? 0) > 0,
+      ),
+    [teams],
+  );
+
   const { gwCols, byTeam } = useMemo(
-    () => fixtureCellsByTeam(teams, fixtures, nextGw, horizon),
-    [teams, fixtures, nextGw, horizon],
+    () => fixtureCellsByTeam(teams, fixtures, nextGw, horizon, (id) => strengthById.get(id)),
+    [teams, fixtures, nextGw, horizon, strengthById],
   );
 
   const rows = useMemo(() => {
@@ -67,7 +96,7 @@ export function FdrMatrix({
     const withAvg = filtered.map((team) => ({
       team,
       cells: byTeam.get(team.id) ?? new Map<number, FdrCell[]>(),
-      avg: averageFdr(byTeam, team.id, gwCols),
+      avg: averageFdr(byTeam, team.id, gwCols, source),
     }));
 
     switch (sort) {
@@ -81,7 +110,7 @@ export function FdrMatrix({
       default:
         return withAvg.sort((a, b) => (a.avg ?? 99) - (b.avg ?? 99));
     }
-  }, [teams, byTeam, gwCols, sort, search]);
+  }, [teams, byTeam, gwCols, sort, search, source]);
 
   return (
     <>
@@ -139,6 +168,27 @@ export function FdrMatrix({
         {sort === "position" && !positionsKnown && (
           <span className="text-xs text-zinc-500">
             FPL hasn&apos;t published table positions yet — showing GW1 order instead.
+          </span>
+        )}
+
+        {strengthKnown && (
+          <span className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
+            Rating
+            {(["official", "strength"] as FdrSource[]).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSource(s)}
+                aria-pressed={source === s}
+                className={`rounded-md border px-2.5 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  source === s
+                    ? "border-transparent bg-primary text-primary-foreground"
+                    : "border-input text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {s === "official" ? "Official" : "Strength"}
+              </button>
+            ))}
           </span>
         )}
       </div>
@@ -205,10 +255,16 @@ export function FdrMatrix({
                               key={i}
                               opponent={c.opp}
                               home={c.home}
-                              fdr={c.fdr}
+                              fdr={source === "strength" ? c.strengthFdr : c.fdr}
                               gw={g}
                               team={team.short_name}
                               className="w-full"
+                              ratingLabel={source === "strength" ? "Strength FDR" : "FDR"}
+                              unratedReason={
+                                source === "strength"
+                                  ? "no strength published for this opponent"
+                                  : undefined
+                              }
                             />
                           ))}
                         </span>
@@ -230,9 +286,9 @@ export function FdrMatrix({
       </div>
 
       <p className="mt-4 text-xs text-zinc-400">
-        Uses the official FPL difficulty rating for now. A custom analytical FDR is no longer
-        blocked on missing data — FPL now publishes an overall home/away strength for every club —
-        it just hasn’t been built.
+        {source === "official"
+          ? "Uses FPL's own published difficulty rating for each fixture."
+          : STRENGTH_FDR_NOTE}
       </p>
     </>
   );

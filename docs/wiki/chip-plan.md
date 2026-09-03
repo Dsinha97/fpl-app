@@ -13,7 +13,30 @@ pinnedAt }` entries, optional so every existing draft keeps parsing. It rides th
 It is deliberately **separate from `activeChip`**: `activeChip` is FPL's own report of a chip
 already live on the squad (imported, fail-closed, untyped because FPL owns the value); `chipPlan`
 is the owner's forward intention. `chipAt(state, event)` (`lib/chip-plan.ts`) is the one place
-anything reconciles the two — `activeChip` always wins at the draft's own gameweek.
+anything reconciles the two — `activeChip` always wins at the gameweek it belongs to.
+
+### The fact half, and how it reaches the numbers (Sprint 31)
+
+`chipAt` had **zero callers** until Sprint 31 — the reconciliation above was written and then
+never wired up, so an FPL-reported chip changed nothing anywhere. Three pieces close that:
+
+- **`fplActiveChipAt(state, event)`** is `chipAt`'s fact half on its own. Anything that *states*
+  a chip is in play — the `/deadline` status pill, the ContextBar's Chip field — must use this and
+  never `chipAt`, or it will label a planned chip as something that has already happened.
+- **`TeamState.activeChipEvent?: number | null`** is the gameweek the active chip belongs to, from
+  `my-team`'s `played_by_entry` or the `manager_gameweeks` row's own event. Optional, falling back
+  to `gameweek` for drafts saved before it existed. Without it, `activeChip` is pinned to whatever
+  gameweek an import was stamped with, so once that deadline passes the same saved draft claims
+  last gameweek's chip is live in this one — reproduced in Sprint 31's harness.
+- **`chipEntriesInForce(state, usable, event)`** merges the fact into `validateChipPlan`'s
+  `usable` output as a synthetic `source: "fpl"` entry. This is the piece that matters for the
+  numbers: a chip already in play is not a *choice* the optimiser can still make, but it is very
+  much a term in this gameweek's points. Without it, `/deadline` scored a Triple Captain squad as
+  if the captain were merely doubled, and offered Triple Captain as an available `+gain` in the
+  same breath.
+
+Anything rendering a chip slug goes through **`chipLabel`** — `activeChip` is an untyped string
+FPL owns, and `/transfers` and `/review` were both printing a bare `3xc` at users.
 
 `validateChipPlan` checks every entry against the real `chip_definitions` windows: the chip has an
 open window covering that gameweek, at most one chip per gameweek, at most one of a given chip per

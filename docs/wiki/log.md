@@ -2,6 +2,14 @@
 
 One line per entry, most recent first.
 
+- 2026-09-03 — Ingested Sprint 31 (`docs/sprints/sprint-31.md`): updated `chip-plan.md` (new "The
+  fact half, and how it reaches the numbers" — `fplActiveChipAt`, `activeChipEvent`,
+  `chipEntriesInForce`, `chipLabel`, and the fact that `chipAt` had zero callers until now) and
+  `fpl-api-constraints.md` (two additions: team strength has **no history**, which is why a
+  strength-derived FDR can never be backtested and is display-only; and `my-team` picks carrying
+  their own `multiplier` evidence for 3xc/bboost, which beats the never-confirmed
+  `status_for_entry` enum). No new page.
+
 - 2026-09-02 — First RETRO pass. Added one rule to `AGENTS.md`'s (previously empty) **Folder
   conventions**: a stale claim gets fixed everywhere it lives — `roadmap.md`, shipped `*_MODEL_NOTE`
   strings, a source spec's banner — not just on the wiki page, and a punch list is the deliverable

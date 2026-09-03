@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/auth-provider";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { chipLabel } from "@/lib/chip-plan";
 import {
   loadFinishedEvents,
   loadGameweekReview,
@@ -244,7 +245,7 @@ export default function ReviewPage() {
                 </p>
                 <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                   {fmtPercentileRank(review.history.percentileRank)} of the field this gameweek
-                  {review.history.activeChip ? ` · ${review.history.activeChip} played` : ""}
+                  {review.history.activeChip ? ` · ${chipLabel(review.history.activeChip)} played` : ""}
                 </p>
               </>
             ) : (

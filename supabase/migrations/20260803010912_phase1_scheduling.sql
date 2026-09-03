@@ -7,6 +7,19 @@
 -- unauthorised caller achieves is triggering a sync that was going to happen
 -- anyway.
 --
+-- Re-examined 2026-09-03 (Sprint 31) for the public-repo pre-flight, where
+-- roadmap.md flagged this as needing a decision: the argument above holds for
+-- *disclosure* but not for *abuse*, since publishing makes the endpoint
+-- trivially callable by anyone reading the repo. **Consciously accepted, and
+-- the migration is deliberately left as-is.** Moving the key to a Vault secret
+-- would be theatre: the identical key already ships in the deployed browser
+-- bundle, so it is readable off fpldecision.com today whether or not this file
+-- is public — a Vault read would change nothing about who can call the
+-- endpoint, while adding a failure mode where every scheduled sync silently
+-- 401s. The real mitigation is `verify_jwt` or rate limiting on the functions
+-- themselves, which is its own piece of work and is recorded in roadmap.md
+-- rather than being half-done here.
+--
 -- Cadence follows the build plan: "Avoid unnecessarily aggressive polling."
 -- sync-player-history and sync-live-gameweek are self-gating, so their short
 -- intervals cost one cheap query on most invocations.

@@ -50,7 +50,7 @@ export default function FixturesPage() {
           supabase
             .from("teams")
             .select(
-              "id, code, name, short_name, tactical_manager_id, position, played, win, draw, loss, points, form",
+              "id, code, name, short_name, tactical_manager_id, position, played, win, draw, loss, points, form, strength_overall_home, strength_overall_away",
             )
             .eq("season", gw.season)
             .order("name"),

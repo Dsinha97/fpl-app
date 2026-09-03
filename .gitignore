@@ -84,3 +84,18 @@ next-env.d.ts
 /docs/Promoted Team Data/Coventry/
 /docs/Promoted Team Data/Hull City/
 /docs/Promoted Team Data/Ipswich/
+
+# Sprint 31, public-repo pre-flight. These two are the genuinely
+# FootyStats-derived files: 58 rows of transcribed per-player stats, each row
+# naming the FootyStats PDF it came from, plus the same values as SQL. The
+# redistribution half of the argument above becomes live again the moment the
+# repo goes public, so they are untracked rather than published. Nothing about
+# the shipped cold-start priors becomes unauditable: the data itself lives in
+# `external_player_seasons` in Supabase, and
+# docs/sprints/championship-priors.md documents the drop, the three-check gate
+# it passed, and the fitted λ per metric. The other two files here stay tracked
+# — premier_league_new_players.csv is plain roster fact (name/fpl_id/club/
+# position) and match_report.json is this repo's own matching output, neither
+# of which is FootyStats' to withhold.
+/docs/Promoted Team Data/extracted/footystats_championship_2025_26.csv
+/docs/Promoted Team Data/extracted/insert.sql
