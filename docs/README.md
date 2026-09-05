@@ -2,8 +2,11 @@
 
 One screen, every doc. Status column: **live** (current reference, keep it accurate),
 **source-spec** (owner's original plan, kept unedited — a banner at the top says what
-shipped and where), **historical** (a finished build record, not actively maintained), or
-**data asset** (not prose — a seed fixture or reference dataset).
+shipped and where), **historical** (a finished build record, not actively maintained),
+**data asset** (not prose — a seed fixture or reference dataset), or
+**awaiting deploy** (the code is written and merged, but a step outside the repo
+has to happen before it is true of the running system — read the doc's own
+runbook before assuming the behaviour it describes is live).
 
 ## Start here
 
@@ -53,7 +56,7 @@ file, not separate files.
 | [sprints/sprint-29.md](sprints/sprint-29.md) | live | Price-watchlist sampling, `/leagues` (Sprint 10's EO engine finally rendered), import-replaces-in-place + a transfer ledger on `/team`, `/deadline` layout, `change_feed` de-duplication, and a `/fixtures` league-table fix (FPL never publishes in-season standings fields). |
 | [sprints/sprint-30.md](sprints/sprint-30.md) | live | xP comparison form-blend attempt 2 (bias-correction sweep still doesn't clear the gate) plus a real bug chain in imported-squad money tracking, ending in `TeamState.bank` becoming the stored primitive instead of a residual derived from a frozen total. |
 | [sprints/sprint-31.md](sprints/sprint-31.md) | live | Chip awareness end to end — an active chip is now recorded with its own gameweek, corroborated by the picks' own multipliers, shown on `/deadline` and in the ContextBar, and (the real bug) actually reaches the projection via `chipEntriesInForce`. Plus a strength-derived FDR that is deliberately display-only, and the public-repo pre-flight settled. |
-| [sprints/sprint-32.md](sprints/sprint-32.md) | scoped, not started | Lock down the `/functions/v1/sync-*` surface before the repo goes public: a Vault-backed cron secret for the cron-only functions, `verifyUser` + a per-user rate limit for the two the browser calls. Includes the deployment ordering that can silently 401 every scheduled sync, and a `?force=1` self-gate bypass found while scoping. |
+| [sprints/sprint-32.md](sprints/sprint-32.md) | awaiting deploy | Locks down the `/functions/v1/` surface before the repo goes public: an `x-cron-secret` header for the eight cron-only functions, `verifyUser` + a per-user rate limit for the two the browser calls, CORS off `*`, and `verify_jwt` made explicit per function. Code is merged; **nothing is deployed.** Carries the deploy runbook, whose ordering matters because getting it wrong silently 401s every scheduled sync, plus the curl matrix that verifies it. |
 | [sprints/sprint-33.md](sprints/sprint-33.md) | live | Four page merges — /compare into /players as a slide-over, /chips into /transfers as a tab, /review under /team's gameweek selector, /status into /settings. Records the survey of all seventeen routes, including the three merges that were considered and rejected, and the sign-in wall that nearly took /status private. |
 
 ## Source specs

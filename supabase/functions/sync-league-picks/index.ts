@@ -19,8 +19,22 @@
 // is a config change, not a redeploy.
 
 import { getClassicLeagueStandings, getEntryPicks, mapLimit } from "../_shared/fpl.ts";
-import { currentSeason, jsonResponse, preflight, serviceClient, SyncRun } from "../_shared/sync.ts";
+import {
+  currentSeason,
+  jsonResponse,
+  preflight,
+  serviceClient,
+  SyncRun,
+  withCors,
+} from "../_shared/sync.ts";
 import { chunk, int } from "../_shared/coerce.ts";
+import { verifyUser } from "../_shared/auth.ts";
+import {
+  checkRateLimit,
+  loadRateLimit,
+  rateLimitMessage,
+  recordRejection,
+} from "../_shared/rate-limit.ts";
 
 const FUNCTION_NAME = "sync-league-picks";
 const PICKS_CONCURRENCY = 5;
@@ -54,11 +68,38 @@ async function parseBody(req: Request): Promise<{ leagueId: number; event: numbe
   return { leagueId, event: int(eventRaw) };
 }
 
-Deno.serve(async (req) => {
+// Named rather than inline so `withCors` can wrap it without reindenting
+// 240 lines of handler.
+async function handle(req: Request): Promise<Response> {
   const cors = preflight(req);
   if (cors) return cors;
 
   const db = serviceClient();
+
+  // Sprint 32 — Class B, same shape as sync-manager. This is the most
+  // expensive function in the app when driven hard: a 2000-entry league is
+  // hundreds of FPL round-trips per call.
+  const user = await verifyUser(req);
+  if (!user) {
+    return jsonResponse({ ok: false, error: "sign in to sync a league" }, 401);
+  }
+
+  // currentSeason throws on an empty database. It sits outside the
+  // SyncRun try below, and an escaping throw would 500 without CORS
+  // headers — which reaches the browser as an opaque CORS failure
+  // rather than a message the button can show.
+  let season: string;
+  try {
+    season = await currentSeason(db);
+  } catch (err) {
+    return jsonResponse({ ok: false, error: (err as Error).message }, 503);
+  }
+  const limit = await loadRateLimit(db, season);
+  const verdict = await checkRateLimit(db, FUNCTION_NAME, user.id, limit);
+  if (!verdict.allowed) {
+    await recordRejection(db, FUNCTION_NAME, user.id, verdict);
+    return jsonResponse({ ok: false, error: rateLimitMessage(limit) }, 429);
+  }
 
   let leagueId: number;
   let requestedEvent: number | null;
@@ -68,11 +109,9 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, error: (err as Error).message }, 400);
   }
 
-  const run = await SyncRun.start(db, FUNCTION_NAME);
+  const run = await SyncRun.start(db, FUNCTION_NAME, season, user.id);
 
   try {
-    const season = await currentSeason(db);
-
     let event = requestedEvent;
     if (event === null) {
       const { data: gw, error: gwError } = await db
@@ -293,4 +332,6 @@ Deno.serve(async (req) => {
     await run.finish("error", { error: message, details: { league_id: leagueId } });
     return jsonResponse({ ok: false, error: message }, 500);
   }
-});
+}
+
+Deno.serve(withCors(handle));

@@ -65,10 +65,26 @@ export class SyncRun {
     readonly functionName: string,
   ) {}
 
-  static async start(db: SupabaseClient, functionName: string, season?: string) {
+  /**
+   * `invokedBy` is the Supabase user id for the two browser-invoked
+   * functions, and null for everything cron drives. It is what the Sprint 32
+   * per-user rate limit counts on, so a run that omits it is invisible to the
+   * limit — which is correct for cron and wrong for anything else.
+   */
+  static async start(
+    db: SupabaseClient,
+    functionName: string,
+    season?: string,
+    invokedBy?: string,
+  ) {
     const { data, error } = await db
       .from("sync_runs")
-      .insert({ function_name: functionName, season: season ?? null, status: "running" })
+      .insert({
+        function_name: functionName,
+        season: season ?? null,
+        status: "running",
+        invoked_by: invokedBy ?? null,
+      })
       .select("id")
       .single();
 
@@ -107,22 +123,75 @@ export class SyncRun {
   }
 }
 
-// Browser calls arrive via supabase-js with a CORS preflight; without these
-// headers the frontend cannot invoke any function.
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-};
+/**
+ * Origins allowed to invoke the browser-facing functions.
+ *
+ * Sprint 32. This used to be `Access-Control-Allow-Origin: "*"` on every
+ * response from every function, including the eight nothing in a browser has
+ * any business calling.
+ *
+ * Read this as defence in depth and nothing more: CORS is enforced by
+ * browsers, so it does not inconvenience `curl` in the slightest. It is not a
+ * substitute for verifyCron/verifyUser and must never be treated as one — it
+ * only removes the case where someone else's *page* drives these endpoints
+ * with a visitor's credentials.
+ */
+const ALLOWED_ORIGINS = new Set([
+  "https://fpldecision.com",
+  "https://www.fpldecision.com",
+  "http://localhost:3000",
+]);
 
-/** Standard OPTIONS handling; returns null for non-preflight requests. */
+function corsHeadersFor(req: Request): Record<string, string> | null {
+  const origin = req.headers.get("Origin");
+  if (!origin || !ALLOWED_ORIGINS.has(origin)) return null;
+  return {
+    "Access-Control-Allow-Origin": origin,
+    // Vary matters: without it a cache can serve one origin's allowed
+    // response to another origin.
+    Vary: "Origin",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  };
+}
+
+/**
+ * Wraps a handler so its responses carry CORS headers — but only for the
+ * browser-invoked functions, which opt in by wrapping, and only for an
+ * allowlisted origin.
+ *
+ * A cron-only function is deliberately *not* wrapped: it emits no CORS
+ * headers at all, so a page cannot read its response even if it manages to
+ * issue the request.
+ */
+export function withCors(
+  handler: (req: Request) => Promise<Response>,
+): (req: Request) => Promise<Response> {
+  return async (req: Request) => {
+    const res = await handler(req);
+    const cors = corsHeadersFor(req);
+    if (!cors) return res;
+
+    const headers = new Headers(res.headers);
+    for (const [k, v] of Object.entries(cors)) headers.set(k, v);
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+  };
+}
+
+/**
+ * Standard OPTIONS handling; returns null for non-preflight requests.
+ *
+ * The headers come from `withCors` now, so an unwrapped (cron-only) function
+ * answers a preflight with a bare 204 that no browser will accept — which is
+ * the intent.
+ */
 export function preflight(req: Request): Response | null {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204 });
   return null;
 }
 
 export const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body, null, 2), {
     status,
-    headers: { "Content-Type": "application/json", ...corsHeaders },
+    headers: { "Content-Type": "application/json" },
   });

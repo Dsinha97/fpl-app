@@ -19,6 +19,7 @@ import { chunk } from "../_shared/coerce.ts";
 import { fetchWithRetry } from "../_shared/http.ts";
 import { parseFeed, parsePubDate, stripTags, type FeedItem } from "../_shared/rss.ts";
 import { resolveEntities, type PlayerRow, type TeamRow } from "../_shared/entities.ts";
+import { verifyCron } from "../_shared/cron-auth.ts";
 
 const FUNCTION_NAME = "sync-news";
 const USER_AGENT = "fpl-app/0.1 (+https://fpldecision.com)";
@@ -63,6 +64,14 @@ Deno.serve(async (req) => {
   if (cors) return cors;
 
   const db = serviceClient();
+
+  // Sprint 32 — cron-only: nothing in a browser has any business calling
+  // this. Checked before any work at all, which is what closes the
+  // `?force=1` escape hatch rather than merely guarding it — the URL below
+  // is not even parsed until this passes.
+  const denied = await verifyCron(req, db);
+  if (denied) return denied;
+
   const run = await SyncRun.start(db, FUNCTION_NAME);
 
   try {

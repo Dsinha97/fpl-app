@@ -1,1 +1,82 @@
 project_id = "fyxyqxpscmqjyjxsyhms"
+
+# ---------------------------------------------------------------- functions
+#
+# Sprint 32. This file used to carry only `project_id`, which meant the
+# `verify_jwt` posture of every function was a property of how someone last
+# ran `supabase functions deploy` rather than something reviewable in the
+# repo.
+#
+# These values were read back off the deployed project, not chosen. The first
+# draft of this file asserted `verify_jwt = false` everywhere, which was wrong
+# for ten of the twelve — writing it would have *loosened* the gateway check on
+# them, which is the exact opposite of the point of this sprint. Stating a
+# posture is only useful if it is the real one.
+#
+# What `verify_jwt` does and does not buy here: it makes the platform gateway
+# require a JWT before the function runs. The publishable key satisfies it, and
+# the publishable key is public by design — which is why cron's
+# `Authorization: Bearer sb_publishable_…` passes it today, and why it is not
+# an access control on its own. The real gates are in the function bodies:
+#
+#   - Class A (cron-only) checks `x-cron-secret` via _shared/cron-auth.ts,
+#     against a Vault secret read with the function's own service role (no
+#     CRON_SECRET env var — the value never leaves Postgres).
+#   - Class B and the fpl-* pair call `verifyUser` (_shared/auth.ts), which
+#     validates the JWT's signature against Supabase Auth rather than trusting
+#     it, and lets the function distinguish "signed out" (401) from "over your
+#     rate limit" (429) — a distinction the UI surfaces.
+
+# --- Class A: cron-only. Reject anything without the cron secret. -----------
+[functions.sync-bootstrap]
+verify_jwt = true
+
+[functions.sync-fixtures]
+verify_jwt = true
+
+[functions.sync-player-history]
+verify_jwt = true
+
+[functions.sync-live-gameweek]
+verify_jwt = true
+
+# sync-news and generate-predictions are the two deployed with the gateway
+# check off. Left as found: the cron secret is what actually gates them now,
+# and flipping a gateway setting on two functions mid-deploy is a change with
+# its own blast radius that belongs in its own commit. Recorded rather than
+# quietly normalised — they are the odd ones out, and someone should decide
+# deliberately whether to bring them in line.
+[functions.sync-news]
+verify_jwt = false
+
+[functions.sync-claimed-managers]
+verify_jwt = true
+
+[functions.generate-predictions]
+verify_jwt = false
+
+[functions.ingest-fpl-archive]
+verify_jwt = true
+
+# --- Class B: browser-invoked. verifyUser + per-user rate limit. ------------
+[functions.sync-manager]
+verify_jwt = true
+
+[functions.sync-league-picks]
+verify_jwt = true
+
+# --- Superseded but deliberately still deployed (CLAUDE.md). ---------------
+# Both have always called verifyUser; confirmed in Sprint 32 rather than
+# assumed, since they are the two that touch per-user data.
+[functions.fpl-session]
+verify_jwt = true
+
+[functions.fpl-my-team]
+verify_jwt = true
+
+# Not declared here, and deliberately: `scratch-path-test`, a leftover debug
+# function deployed 2026-08-25 with verify_jwt = false. Found while reading the
+# deployed function list during this sprint. It is not in this repo, nothing
+# calls it, and it is the same class of problem as the `?force=1` hatches —
+# left for the owner to delete rather than removed here, because deleting a
+# deployed function is not reversible from the repo.
