@@ -38,7 +38,8 @@ export const NAV_GROUPS = [
       { href: "/builder", label: "Builder" },
       { href: "/scenarios", label: "Scenarios" },
       { href: "/transfers", label: "Transfers" },
-      { href: "/chips", label: "Chips" },
+      // Sprint 33 — Chips merged into Transfers as its "Chip timing" tab
+      // (same draft, same engine). /chips survives as a redirect stub.
       { href: "/review", label: "Review" },
     ],
   },

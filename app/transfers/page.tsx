@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { AvailabilityBadge } from "@/components/player-status-icons";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
+import { ChipTiming } from "@/components/chip-timing";
 import { fullName, matchesPlayerQuery } from "@/lib/player-search";
 import { loadPredictionSeries } from "@/lib/player-pool";
 import {
@@ -89,12 +90,22 @@ const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FW
 const FALLBACK_SEASON_WINDOW = 8;
 const CANDIDATES = 8;
 
+/** Sprint 33 — /chips folded in here. Same `type Tab` idiom /fixtures and
+ *  /settings already use. */
+type TransfersTab = "transfers" | "chips";
+
 const money = (tenths: number) => `£${(tenths / 10).toFixed(1)}m`;
 const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
 export default function TransfersPage() {
   const [drafts, setDrafts] = useState<TeamState[]>([]);
   const [draftId, setDraftId] = useState<string | null>(null);
+
+  // Sprint 33: /chips merged in here as a second tab. Read from
+  // window.location.search rather than useSearchParams — the static export
+  // has no Suspense-boundary precedent, and /settings and /fixtures already
+  // read their own tab state this way.
+  const [tab, setTab] = useState<TransfersTab>("transfers");
   const [rowById, setRowById] = useState<Map<number, PlayerRow>>(new Map());
   const [priceProgress, setPriceProgress] = useState<Map<number, PriceProgress>>(new Map());
   const [scoredById, setScoredById] = useState<Map<number, ScoredPlayer>>(new Map());
@@ -154,6 +165,7 @@ export default function TransfersPage() {
     // the most recently saved draft when the id is absent or stale.
     const requested = resolveRequestedDraft(list, window.location.search);
     setDraftId(requested?.draftId ?? null);
+    if (new URLSearchParams(window.location.search).get("tab") === "chips") setTab("chips");
   }, []);
 
   useEffect(() => {
@@ -784,6 +796,21 @@ export default function TransfersPage() {
     </>
   );
 
+  const tabButton = (id: TransfersTab, label: string) => (
+    <button
+      type="button"
+      onClick={() => setTab(id)}
+      aria-current={tab === id ? "page" : undefined}
+      className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        tab === id
+          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-[#00FF87] dark:ring-1 dark:ring-[#00FF87]/40"
+          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/50"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -798,6 +825,7 @@ export default function TransfersPage() {
             Queue transfers against a saved draft and see what they buy after the hit.
           </p>
         </div>
+        {tab === "transfers" && (
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="text-zinc-500">Horizon</span>
           {HORIZONS.map((h) => (
@@ -817,16 +845,25 @@ export default function TransfersPage() {
             </button>
           ))}
         </div>
+        )}
       </div>
 
-      {horizon === "season" && (
+      {tab === "transfers" && horizon === "season" && (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{seasonHorizonNote(seasonWindow)}</p>
       )}
 
-      {/* controls */}
-      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+      {/* Sprint 33 — /chips merged in here. The Squad selector moved up out
+          of the simulator's control row because both tabs plan the *same*
+          draft: two selectors that can disagree is worse than one that
+          can't, which is why ChipTiming takes the draft as a prop rather
+          than resolving its own. */}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="flex gap-1 rounded-lg border border-zinc-200 p-1 dark:border-purple-900/40">
+          {tabButton("transfers", "Transfer path")}
+          {tabButton("chips", "Chip timing")}
+        </div>
         {drafts.length > 0 && (
-          <label className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+          <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
             Squad
             <select
               value={draftId ?? ""}
@@ -841,6 +878,24 @@ export default function TransfersPage() {
             </select>
           </label>
         )}
+      </div>
+
+      {/* Mounted only while its tab is showing: the chip engine does its own
+          player/prediction/fixture loads, and someone only planning
+          transfers should not pay for them. */}
+      {tab === "chips" && (
+        <ChipTiming
+          drafts={drafts}
+          draftId={draftId}
+          onDraftsChanged={() => setDrafts(listDrafts())}
+          onShowTransferPath={() => setTab("transfers")}
+        />
+      )}
+
+      {tab === "transfers" && (
+      <>
+      {/* controls */}
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
         <label
           className={`flex items-center gap-2 text-zinc-600 dark:text-zinc-400 ${wildcardMode ? "opacity-40" : ""}`}
         >
@@ -1329,6 +1384,8 @@ export default function TransfersPage() {
             )}
           </aside>
         </div>
+      )}
+      </>
       )}
     </main>
   );

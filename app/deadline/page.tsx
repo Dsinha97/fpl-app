@@ -1701,7 +1701,7 @@ export default function DeadlinePage() {
                   </div>
                   <p className="mt-2 text-xs text-zinc-500">
                     This gameweek only —{" "}
-                    <Link href={`/chips/?draft=${team.draftId}`} className="underline-offset-2 hover:underline">
+                    <Link href={`/transfers/?tab=chips&draft=${team.draftId}`} className="underline-offset-2 hover:underline">
                       see the full season schedule
                     </Link>
                     .

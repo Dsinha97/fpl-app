@@ -1839,7 +1839,7 @@ export default function BuilderPage() {
                   <p>{cheapChips.threeXC.explanation.join(" ")}</p>
                 </TapToReveal>
                 <Link
-                  href={`/chips?draft=${team.draftId}`}
+                  href={`/transfers?tab=chips&draft=${team.draftId}`}
                   className="ml-auto text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
                 >
                   Free Hit &amp; Wildcard schedule →
