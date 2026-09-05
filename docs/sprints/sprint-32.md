@@ -213,6 +213,44 @@ Nothing was deployed and no migration was applied. `/status` gained no view of
 natural place for that, and adding a second half-panel first would be worse
 than adding neither.
 
+## 5b. Deployment status — partial, deliberately, as of 2026-09-05
+
+Steps 1, 2 and 4 are **done and verified against the live project**. Step 3 is
+**2 of 10 functions**.
+
+| Step | State |
+|---|---|
+| 1. Vault secret `cron_secret` | **Done.** Generated in-database with `gen_random_bytes(36)`; nobody has ever held the value. |
+| 2. Both migrations | **Applied and verified.** `invoked_by` + grants + `sync_rate_limit`; `invoke_sync` sending the header; `verify_cron_secret` RPC. |
+| 3. Function deploys | **sync-fixtures and sync-live-gameweek only.** The other eight are unchanged. |
+| 4. Verify `sync_runs` | **Done** over a full 20-minute cycle — every scheduled function still `success`/`skipped`, the two gated ones 10/10. |
+
+**Why it stopped at two.** These deploys went through the Supabase MCP
+integration, which takes file *contents* as arguments — meaning every byte of
+each function plus its shared dependencies is retyped by hand on the way in.
+That is ~35 KB per function and ~300 KB for the remaining eight, and
+`generate-predictions` alone carries `_shared/xp-model.ts` (70 KB of model
+code) where a single silently-mistyped coefficient would corrupt predictions in
+a way no test here would catch. The CLI deploys the same files from disk,
+byte-exact, in one command — it just needs an authenticated session, which is
+the owner's to give.
+
+**The partial state is safe, and monotonic.** A deployed function is gated; an
+undeployed one behaves exactly as it did before this sprint. `invoke_sync`
+sends the header to all ten either way, and the eight that do not yet check it
+ignore it — which is precisely the harmless middle state step 2 was ordered to
+create. Nothing is half-broken; eight things are simply not yet tightened.
+
+**To finish**, after `npx supabase login`:
+
+```bash
+npx supabase functions deploy sync-bootstrap sync-player-history sync-news sync-claimed-managers sync-manager sync-league-picks ingest-fpl-archive generate-predictions
+```
+
+Then re-run the `sync_runs` check in step 4. Until that lands, the eight remain
+callable by anyone holding the publishable key, so **the repo flip still
+waits** — on this command, not on more code.
+
 ## 6. The deployment ordering, which can break everything silently
 
 The Class A change has one real failure mode, and it is the one Sprint 31 named
