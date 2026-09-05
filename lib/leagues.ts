@@ -6,6 +6,7 @@
 // response at 1000 rows — CLAUDE.md — and a 2000-entry league is 30,000
 // picks rows), plus the on-demand sync call.
 
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase/client";
 import type { LeaguePickRow } from "./ownership";
 
@@ -116,7 +117,19 @@ export async function syncLeaguePicks(leagueId: number, event: number): Promise<
   const { data, error } = await supabase.functions.invoke("sync-league-picks", {
     body: { league_id: leagueId, event },
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    // Sprint 32: the function now answers 401 (signed out) and 429 (over the
+    // per-user rate limit) with a message worth reading, and supabase-js
+    // hides it — `error.message` on a non-2xx is the generic "Edge Function
+    // returned a non-2xx status code". Unwrap it, same as /team's
+    // sync-manager call already does, or the sync button reports nothing
+    // useful at exactly the two moments it has something to say.
+    if (error instanceof FunctionsHttpError) {
+      const body = await error.context.json().catch(() => null);
+      return { ok: false, error: body?.error ?? error.message };
+    }
+    return { ok: false, error: error.message };
+  }
   const d = data as Record<string, unknown>;
   if (!d.ok) return { ok: false, error: (d.error as string) ?? "Sync failed" };
   return {

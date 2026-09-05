@@ -99,3 +99,6 @@ next-env.d.ts
 # of which is FootyStats' to withhold.
 /docs/Promoted Team Data/extracted/footystats_championship_2025_26.csv
 /docs/Promoted Team Data/extracted/insert.sql
+
+# Supabase CLI scratch (version check cache)
+supabase/.temp/

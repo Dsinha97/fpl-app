@@ -33,6 +33,7 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse, preflight, serviceClient, SyncRun } from "../_shared/sync.ts";
 import { bool, chunk, int, num, ts } from "../_shared/coerce.ts";
+import { verifyCron } from "../_shared/cron-auth.ts";
 
 const FUNCTION_NAME = "ingest-fpl-archive";
 const ARCHIVE = "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data";
@@ -164,6 +165,12 @@ function gameweekRow(season: string, playerCode: number, r: Record<string, strin
 Deno.serve(async (req) => {
   const cors = preflight(req);
   if (cors) return cors;
+
+  // Sprint 32 — cron-only: nothing in a browser has any business calling
+  // this. Checked before any work at all, which is also what closes the
+  // `?force=1` escape hatch rather than merely guarding it.
+  const denied = verifyCron(req);
+  if (denied) return denied;
 
   const db = serviceClient();
   const url = new URL(req.url);

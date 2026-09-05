@@ -55,6 +55,19 @@ import { useAuth } from "@/components/auth-provider";
 /** Separator between identity badges in the profile line. */
 const Dot = () => <span className="text-zinc-300 dark:text-purple-700">•</span>;
 
+/**
+ * Not an error in the page-failed sense — a refresh this visitor isn't
+ * entitled to. Sprint 32 put sync-manager behind `verifyUser`, so a
+ * signed-out visitor reads what the background cron wrote and is told why
+ * the Refresh button didn't fetch, rather than being shown a 401.
+ */
+class SignedOutSyncError extends Error {
+  constructor() {
+    super("Sign in to refresh from FPL. Showing the last data the background sync wrote.");
+    this.name = "SignedOutSyncError";
+  }
+}
+
 // ---------------------------------------------------------------- types
 
 interface ManagerRow {
@@ -282,6 +295,9 @@ export default function TeamPage() {
   const [savedId, setSavedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Why a requested refresh didn't happen — distinct from `error`, which
+   *  means the page has nothing to show. */
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [data, setData] = useState<TeamData | null>(null);
   const [importing, setImporting] = useState(false);
 
@@ -326,6 +342,7 @@ export default function TeamPage() {
     setInputId(String(entryId));
     setLoading(true);
     setError(null);
+    setSyncNotice(null);
 
     // A background cron (supabase/functions/sync-claimed-managers) now keeps
     // every claimed manager fresh — once a day, or every 2 minutes while a
@@ -336,6 +353,14 @@ export default function TeamPage() {
     // Connect/Refresh button and rival mutations below keep forcing a real
     // sync (sync: true, the default) exactly as before.
     const syncFromFpl = async () => {
+      // Sprint 32: sync-manager requires a signed-in caller now. Check here
+      // rather than letting it 401, so a signed-out visitor gets a sentence
+      // that explains itself instead of a rejection they can't act on.
+      // Reading the page signed out still works — it just shows whatever the
+      // background cron last wrote, which for a claimed manager is fresh.
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) throw new SignedOutSyncError();
+
       const { error: fnError } = await supabase.functions.invoke("sync-manager", {
         body: { entry_id: entryId },
       });
@@ -372,7 +397,16 @@ export default function TeamPage() {
 
     try {
       // 1. Ask the Edge Function to pull fresh data from FPL into Supabase.
-      if (sync) await syncFromFpl();
+      if (sync) {
+        try {
+          await syncFromFpl();
+        } catch (err) {
+          // Signed out is not a failure to load the page — it's a failure to
+          // *refresh*. Say which, and carry on to the read-back below.
+          if (err instanceof SignedOutSyncError) setSyncNotice(err.message);
+          else throw err;
+        }
+      }
 
       // 2. Read everything back from Supabase.
       let [managerRes, seasonsRes, gwRes, nextGwRes] = await readBack();
@@ -382,9 +416,23 @@ export default function TeamPage() {
       // a real sync rather than surfacing an error. Same "no row yet"
       // signal sync-claimed-managers' own due-list check uses server-side,
       // checked here instead of guessed at with a timer.
+      //
+      // Sprint 32: signed out, this path can no longer fetch. A manager the
+      // cron has never seen genuinely has no rows to show, so let the
+      // PGRST116 fall through to the error below with the reason attached
+      // rather than reporting a bare "no rows".
       if (!sync && managerRes.error?.code === "PGRST116") {
-        await syncFromFpl();
-        [managerRes, seasonsRes, gwRes, nextGwRes] = await readBack();
+        try {
+          await syncFromFpl();
+          [managerRes, seasonsRes, gwRes, nextGwRes] = await readBack();
+        } catch (err) {
+          if (err instanceof SignedOutSyncError) {
+            throw new Error(
+              "That Manager ID hasn't been synced yet, and refreshing from FPL needs you signed in.",
+            );
+          }
+          throw err;
+        }
       }
 
       if (managerRes.error) throw new Error(managerRes.error.message);
@@ -1125,6 +1173,18 @@ export default function TeamPage() {
       {error && (
         <p className="mt-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
           {error}
+        </p>
+      )}
+
+      {/* A refresh that didn't happen, not a page that failed — amber, and it
+          sits alongside the data rather than replacing it. */}
+      {syncNotice && (
+        <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+          {syncNotice}{" "}
+          <a href="/signin/" className="underline">
+            Sign in
+          </a>
+          .
         </p>
       )}
 

@@ -1,161 +1,306 @@
-# Sprint 32 — Lock down the Edge Function surface (scoped 2026-09-03, not started)
+# Sprint 32 — Lock down the Edge Function surface
 
-**Why now.** Sprint 31 settled every public-repo blocker except one, and this is
-it. `/functions/v1/sync-*` is callable by anyone holding the publishable key,
-which today means anyone who opens devtools on fpldecision.com. Publishing the
-repo does not create that exposure — but it changes who finds it. Public GitHub
-repos are scraped continuously and mechanically for keys and endpoints in a way
-minified bundles are not, so a `sb_publishable_…` string in a public repo gets
-harvested in days without anyone deciding to look. **The repo flip waits on
-this.**
+Built 2026-09-05, **code only — nothing deployed.** Scoped 2026-09-03 as the
+last public-repo blocker: `/functions/v1/sync-*` was callable by anyone holding
+the publishable key, which in practice meant anyone who opened devtools on
+fpldecision.com, and would have meant anyone scraping a public repo. Every
+function is now gated, by one of two mechanisms depending on who legitimately
+calls it. The Vault secret, the migrations and the function deploys are
+deliberately left un-applied behind the ordering in §6 — applying them in the
+wrong order silently 401s every scheduled sync.
 
-The blast radius is bounded and worth stating honestly: every sync function is
-idempotent, reads public FPL data, and writes public tables, so this is not a
-data-disclosure problem. The cost is *yours* — Supabase invocations, egress and
-compute on the project's bill, and FPL API traffic attributed to this project,
-which is the kind of thing that gets a project throttled.
+The blast radius was bounded and it is worth restating honestly rather than
+inflating: every sync is idempotent, reads public FPL data and writes public
+tables, so this was never a data-disclosure problem. The cost is Supabase
+invocations, egress and compute on this project's bill, plus FPL API traffic
+attributed to this project — which is how a project gets throttled.
 
 ---
 
-## The one thing that makes it worse than it looks
+## 0. What the scope doc got wrong, found by grepping rather than reading
 
-`sync-fixtures` accepts `?force=1`, which **bypasses its own self-gate**
-(`supabase/functions/sync-fixtures/index.ts`). The scheduling migration's whole
-cost argument — "self-gating, so their short intervals cost one cheap query on
-most invocations" — evaporates for anyone who appends a query parameter. That
-turns the cheapest case into the most expensive one on demand: a full 380-fixture
-pull from FPL per call. Check every function for the same escape hatch while
-doing this; `force` is a debugging affordance that was never meant to be
-reachable from the open internet.
+The scope doc named **one** `?force=1` escape hatch, in `sync-fixtures`, and
+described it as the thing that "makes it worse than it looks". There are
+**five**:
 
-## The shape: two classes of function, two different fixes
+| Function | Line |
+|---|---|
+| `sync-fixtures` | `index.ts:39` |
+| `sync-live-gameweek` | `index.ts:28` |
+| `sync-player-history` | `index.ts:141` |
+| `sync-claimed-managers` | `index.ts:56` |
+| `ingest-fpl-archive` | `index.ts:172` |
 
-The surface splits cleanly by who legitimately calls it. Establishing that split
-is most of the work; the fixes follow from it.
+The argument the scope doc made about one of them applies to all five, and to
+the two most expensive ones it applies harder: `sync-player-history` fetches a
+per-player element summary for every player, and `ingest-fpl-archive` pulls
+whole-season CSVs. The scheduling migration's cost argument — "self-gating, so
+their short intervals cost one cheap query on most invocations" — evaporated
+for anyone who could append a query parameter to any of them.
 
-### Class A — cron-only. No legitimate browser caller at all.
+`verifyCron` runs **before** the URL is even parsed, so the gates are closed
+rather than guarded. Nothing else in `supabase/functions/` reads a query
+parameter that changes behaviour (`sync-manager`'s `entry_id` and
+`sync-league-picks`' `league_id`/`event` are arguments, not switches).
+
+## 1. The split: two classes, two mechanisms
+
+### Class A — cron-only (`supabase/functions/_shared/cron-auth.ts`, new)
 
 `sync-bootstrap`, `sync-fixtures`, `sync-player-history`, `sync-live-gameweek`,
 `sync-news`, `sync-claimed-managers`, `generate-predictions`,
 `ingest-fpl-archive`.
 
-**Fix: a shared secret header, minted by `invoke_sync` from a Vault secret.**
-These are reachable today only because they authenticate with a key that is
-public by design. Give them a second header that has no public copy, and reject
-anything without it. That takes the endpoint from "anyone holding the publishable
-key" to "the database's own cron, and nothing else" — which is what these
-functions actually needed all along.
+`verifyCron(req)` requires an `x-cron-secret` header matching a Vault-backed
+secret, compared in constant time, checked immediately after `preflight`. That
+takes these endpoints from "anyone holding the publishable key" to "the
+database's own cron, and nothing else".
 
-**Note the deliberate contrast with Sprint 31**, because the same tool gets the
-opposite verdict and the reason matters. Vault was *rejected* there for the
-publishable key: an identical copy already ships in the browser bundle, so
-hiding the repo's copy would have changed nothing about who could call the
-endpoint while adding a silent-401 failure mode. Here Vault is *correct*, for
-precisely the inverse reason — the new secret has no public copy anywhere, so
-hiding it is the entire mechanism rather than theatre. Tool identical, verdict
-opposite, and the difference is the reasoning, not the tool.
+**Deliberate contrast with Sprint 31, because the same tool gets the opposite
+verdict.** Vault was *rejected* there for the publishable key: an identical
+copy already ships in the browser bundle, so hiding the repo's copy would have
+changed nothing about who could call the endpoint while adding a silent-401
+failure mode. Here Vault is *correct*, for precisely the inverse reason — the
+new secret has no public copy anywhere, so hiding it is the entire mechanism
+rather than theatre. Tool identical, verdict opposite, and the difference is
+the reasoning rather than the tool.
 
-### Class B — browser-invoked. Must stay reachable, but not by everyone.
+**Fails closed when `CRON_SECRET` is unset.** That is the right security
+default and also the failure mode §6 exists to prevent. It logs loudly to the
+function console and says nothing useful in the response body.
 
-`sync-manager` (`app/settings/page.tsx:62`, `app/team/page.tsx:339` and `:1051`)
-and `sync-league-picks` (`lib/leagues.ts:116`).
+### Class B — browser-invoked (`verifyUser` + a per-user rate limit)
 
-**Fix: `verifyUser` plus a per-user rate limit.** `verifyUser` already exists
-(`supabase/functions/_shared/auth.ts`) and is already used by `fpl-session` and
-`fpl-my-team` — this is adoption, not new code. Its header comment currently
-argues these sync functions "deliberately skip this — a sync triggered by any
-visitor is harmless." That premise expires the moment the repo is public and the
-endpoint is greppable; **update the comment in the same change**, or the next
-reader inherits a stale justification (AGENTS.md's folder convention: a stale
-claim gets fixed everywhere it lives).
+`sync-manager` and `sync-league-picks`.
+
+`verifyUser` (`_shared/auth.ts`) already existed and was already used by
+`fpl-session` and `fpl-my-team` — adoption, not new code. Its header comment
+argued that the sync functions "deliberately skip this — a sync triggered by
+any visitor is harmless"; that premise expired here and the comment is rewritten
+in the same change rather than left to mislead the next reader.
 
 Requiring a signed-in user turns "anyone on the internet" into "anyone with an
-account", which is necessary but not sufficient — accounts are free. The rate
-limit is what bounds it.
+account", which is necessary and not sufficient — accounts are free. The rate
+limit is the actual bound.
 
-## Rate limiting
+## 2. The rate limit, and where its number came from
 
-`sync_runs` (`20260803001253_phase1_reference_schema.sql:281`) already records
-every execution with `function_name` and `started_at`, which is most of the
-substrate. What it lacks is *who*.
+`supabase/functions/_shared/rate-limit.ts`, counting rows in `sync_runs`, which
+already recorded every execution with `function_name` and `started_at`. What it
+lacked was *who*; the migration adds `invoked_by`.
 
-Recommended: add `invoked_by uuid null references auth.users(id)` to `sync_runs`
-plus an index on `(function_name, invoked_by, started_at desc)`, and have Class B
-functions count rows in a window before doing any work. One table, one
-implementation, and the rate limit is queryable next to the audit trail that
-already exists.
+**The limit is an input, not a tuned constant** (CLAUDE.md's `decisionMargin`
+precedent). It is a row in `game_settings` under `sync_rate_limit`, so raising
+it is a config change rather than a redeploy — the same treatment
+`league_ownership_entry_cap` already gets.
 
-The wrinkle to decide during implementation rather than now: `sync_runs` is an
-audit of *runs*, and a rejected call is not a run. Either write a `rejected` row
-(cheap, and the record of who is hammering what has real diagnostic value) or
-keep rejections out of the audit and count only successes (cleaner semantics,
-blind to abuse). Prefer the former, and extend the `sync_runs_status_check`
-constraint rather than working around it.
+The value is derived from what legitimate use of these two buttons has actually
+done, measured against `sync_runs` on 2026-09-05:
 
-**Do not invent the limit.** Pick it from what legitimate use actually does —
-`/team`'s Refresh button and `/leagues`' sync button, at human speed — and put
-the number in `game_settings` as a documented, user-set input rather than a
-constant tuned until it felt right (CLAUDE.md's `decisionMargin` precedent).
+| Function | Runs | Since | Median gap | Busiest 10-min window |
+|---|---|---|---|---|
+| `sync-manager` | 432 | 2026-08-03 | 164s | **27** |
+| `sync-league-picks` | 12 | 2026-08-21 | 150s | 4 |
 
-## Also worth doing while in here
+**30 per 10 minutes** clears the busiest window ever observed with headroom,
+while capping one account at 180/hour per function instead of the unbounded
+surface it replaces. `rate-limit.ts` repeats those numbers as a fallback for a
+missing `game_settings` row — so a missing row degrades to the documented limit
+rather than to no limit. The row is the source of truth; the fallback is not a
+second one to be tuned independently.
 
-- **CORS is `Access-Control-Allow-Origin: "*"`** (`_shared/sync.ts:113`).
-  Tighten Class B to the known origins (`fpldecision.com`, localhost for dev).
-  This is defence in depth, not a control — CORS binds browsers, not `curl` —
-  so it must not be mistaken for, or substituted for, the auth work above.
-- **`supabase/config.toml` carries only `project_id`.** Whatever `verify_jwt`
-  posture these functions are deployed with is currently implicit. Make it
-  explicit per function so it is reviewable in the repo rather than being a
-  property of how someone last ran `supabase functions deploy`.
-- **`fpl-session` / `fpl-my-team`** are superseded but deliberately still
-  deployed (CLAUDE.md). They already call `verifyUser`, so they are not part of
-  the problem — but confirm rather than assume, since they are the two functions
-  that touch per-user data.
+**Rejections are recorded**, as `status = 'rejected'` with `invoked_by` set.
+`sync_runs` is an audit of *runs* and a refusal is not a run, so this was a real
+choice between two honest options; the record of who is hammering what is the
+whole diagnostic value of having the column at all. The `sync_runs_status_check`
+constraint is extended rather than worked around.
 
-## The deployment ordering, which can break everything
+A failure to *count* allows the call. The limit bounds cost, not access to
+data, and a database hiccup should not take the Refresh button down for a
+legitimate user.
 
-The Class A change has a real failure mode, and it is the one Sprint 31 named
-when rejecting Vault for the publishable key: **if the function starts requiring
-a header before `invoke_sync` sends it, every scheduled sync silently 401s** —
-and silently is the operative word, because `sync_runs` would record failures
-that nobody is watching.
+### The privacy consequence, which the scope doc did not anticipate
 
-Sequence deliberately:
+`sync_runs` carries a **public-read** policy (`anon, authenticated`) because
+`/status` renders the pipeline log signed-out. Adding `invoked_by` to that table
+would have published Supabase user ids to anonymous readers.
 
-1. Create the Vault secret.
-2. Migration updating `invoke_sync` to send the header. Cron now sends something
-   the functions ignore. Harmless.
-3. Deploy the functions that require it.
-4. **Verify against `sync_runs` before walking away** — confirm a real cron tick
-   lands `success`, not `error`, for at least one function on a short cadence
-   (`sync-live-gameweek` at `*/2` is the fastest signal).
+RLS is row-level, so the fix is a column-level grant:
+`revoke select (invoked_by) on public.sync_runs from anon, authenticated`.
+`app/status/page.tsx` selects an explicit column list that does not include it,
+so nothing in the frontend breaks; a `select *` as anon now fails, which is the
+intended and visible consequence.
 
-Rolling back means reversing 3 then 2, in that order, for the same reason.
+## 3. CORS, correctly labelled
+
+`_shared/sync.ts` sent `Access-Control-Allow-Origin: "*"` on every response from
+every function, including the eight nothing in a browser should call.
+
+Replaced with an origin allowlist (`fpldecision.com`, `www.`, and
+`localhost:3000`) applied by a new `withCors` wrapper that **only the
+browser-invoked functions opt into**. A cron-only function now emits no CORS
+headers at all and answers a preflight with a bare 204, so a page cannot read
+its response even if it manages to issue the request. `Vary: Origin` is set,
+without which a cache can serve one origin's allowed response to another.
+
+`withCors` wraps the handler rather than threading a request through
+`jsonResponse`, which kept the diff to one line per function instead of
+reindenting a 240-line handler.
+
+**This is defence in depth and nothing more.** CORS is enforced by browsers, so
+it does not inconvenience `curl` in the slightest. It is not a substitute for
+§1 and the code says so where it lives.
+
+## 4. `verify_jwt`, made reviewable
+
+`supabase/config.toml` carried only `project_id`, so the `verify_jwt` posture of
+every function was a property of how someone last ran `supabase functions
+deploy` rather than something visible in a diff. Now stated per function, with
+the reason `verify_jwt = false` is *not* "unauthenticated" for any of them: the
+gateway's check is satisfied by the publishable key, which is public by design,
+so the function does its own checking and can return a useful error — a 401
+"signed out" distinguished from a 429 "over your limit" — instead of an opaque
+gateway rejection.
+
+`fpl-session` and `fpl-my-team` were **confirmed, not assumed**, to call
+`verifyUser` already (`index.ts:28` in both). They are the two functions that
+touch per-user data and were never part of the problem.
+
+## 5. What this changes in the UI
+
+Class B refusals only matter if someone sees them.
+
+- **`/leagues`** — `syncLeaguePicks` (`lib/leagues.ts`) returned
+  `error.message`, which on any non-2xx is supabase-js's generic "Edge Function
+  returned a non-2xx status code". Both new statuses would have been swallowed
+  at exactly the two moments they had something to say. Now unwraps
+  `FunctionsHttpError` the way `/team`'s `sync-manager` call already did.
+- **`/team`** — a real behaviour change worth naming: the page works signed-out
+  off a `localStorage` manager id, and Connect/Refresh forced a live sync.
+  That sync now requires a session. Rather than surfacing a 401 the visitor
+  cannot act on, `syncFromFpl` checks for a session first and throws a
+  `SignedOutSyncError`; the page renders it as an amber **notice** beside the
+  data, not a red error replacing it — the refresh failed, the page did not.
+  Signed-out visitors still see everything the background cron wrote.
+  The one case that genuinely cannot work signed-out is a manager id the cron
+  has never seen, which now says so instead of reporting a bare "no rows".
+
+### Not done here
+
+Nothing was deployed and no migration was applied. `/status` gained no view of
+`rejected` rows — the accuracy-scoreboard panel it is already waiting on is the
+natural place for that, and adding a second half-panel first would be worse
+than adding neither.
+
+## 6. The deployment ordering, which can break everything silently
+
+The Class A change has one real failure mode, and it is the one Sprint 31 named
+when it rejected Vault for the publishable key: **if the function starts
+requiring a header before `invoke_sync` sends it, every scheduled sync 401s** —
+silently, into `sync_runs` rows nobody is watching.
+
+Run in this order. Do not reorder 2 and 3.
+
+**1. Create the Vault secret.** Supabase dashboard → Project Settings → Vault →
+new secret named exactly `cron_secret`. Generate the value locally and never
+paste it into chat or a commit:
+
+```bash
+openssl rand -base64 48
+```
+
+Then set the same value as a function secret, so `Deno.env.get("CRON_SECRET")`
+resolves inside the functions:
+
+```bash
+npx supabase secrets set CRON_SECRET="<the value from step 1>"
+```
+
+**2. Apply the migrations.** In this order — the second is the one that matters:
+
+```bash
+npx supabase db push
+```
+
+`20260905120000_sprint32_sync_runs_invoked_by.sql` adds the column, index,
+constraint, column grant and `game_settings` row.
+`20260905120100_sprint32_invoke_sync_cron_secret.sql` makes `invoke_sync` send
+the header. **After this step cron sends a header the deployed functions still
+ignore. That is harmless, and it is the whole point of doing it second.**
+
+**3. Deploy the functions.** Class A first, then Class B:
+
+```bash
+npx supabase functions deploy sync-bootstrap sync-fixtures sync-player-history sync-live-gameweek sync-news sync-claimed-managers generate-predictions ingest-fpl-archive
+```
+
+```bash
+npx supabase functions deploy sync-manager sync-league-picks
+```
+
+**4. Verify against `sync_runs` before walking away.** `sync-live-gameweek`
+runs every 2 minutes and is the fastest signal:
+
+```sql
+select function_name, status, started_at, error
+from sync_runs
+where started_at > now() - interval '15 minutes'
+order by started_at desc;
+```
+
+Every scheduled function must still be reaching `success` or `skipped`. A wall
+of `error` rows carrying a 401 means step 3 landed before step 2.
+
+**Rollback** reverses 3 then 2, in that order, for the same reason.
 
 ## Verification
 
-Per CLAUDE.md's "verify, don't assume" and the RLS precedent of simulating the
-role rather than trusting the policy:
+Per CLAUDE.md's "verify, don't assume", and the RLS precedent of simulating the
+caller rather than trusting the policy. **None of this has been run — it is the
+post-deploy gate, not a record of a pass.**
 
-- `curl` a Class A function with the publishable key and **no** cron secret →
-  must be rejected. This is the exact request the threat model is about, so run
-  it rather than reasoning about it.
-- `curl` the same with the secret → succeeds.
-- `curl` `sync-fixtures?force=1` unauthenticated → rejected, and confirm the
-  self-gate bypass is closed rather than merely guarded.
-- Class B signed-out → rejected; signed in → succeeds; signed in over the limit
-  → rejected with a real message, and the UI surfaces it rather than failing
-  silently (`/team`'s Refresh and `/leagues`' sync both have visible buttons that
-  need a sensible error state).
-- A second user's limit is independent of the first's — same
-  `set_config('request.jwt.claims', …)` discipline the RLS checks use.
-- **`sync_runs` after a full cron cycle**: every scheduled function still
-  succeeding. This is the regression test that matters most, because the failure
-  is silent.
+Class A, with the publishable key and no cron secret — the exact request the
+threat model is about, so run it rather than reason about it:
+
+```bash
+curl -i -X POST "https://fyxyqxpscmqjyjxsyhms.supabase.co/functions/v1/sync-fixtures" -H "Authorization: Bearer $SB_PUBLISHABLE_KEY"
+```
+
+Expect `401 {"error":"unauthorized"}`. Then with the secret:
+
+```bash
+curl -i -X POST "https://fyxyqxpscmqjyjxsyhms.supabase.co/functions/v1/sync-fixtures" -H "Authorization: Bearer $SB_PUBLISHABLE_KEY" -H "x-cron-secret: $CRON_SECRET"
+```
+
+Expect `200`. Then the bypass that started this sprint, unauthenticated:
+
+```bash
+curl -i -X POST "https://fyxyqxpscmqjyjxsyhms.supabase.co/functions/v1/sync-fixtures?force=1" -H "Authorization: Bearer $SB_PUBLISHABLE_KEY"
+```
+
+Expect `401`, and confirm from the function log that it never reached the URL
+parse — guarded is not the same as closed. Repeat for the other four in §0.
+
+Class B, against `sync-manager`:
+
+- Signed out → `401`, and `/team` shows the amber notice rather than a red
+  error or a silent nothing.
+- Signed in → `200`.
+- Signed in, 31 calls inside 10 minutes → `429`, the message names the limit,
+  and `/team`'s Refresh surfaces it.
+- A `rejected` row lands in `sync_runs` with the right `invoked_by`.
+- **A second user's limit is independent of the first's** — same
+  `set_config('request.jwt.claims', …)` discipline the RLS checks use, inside a
+  rolled-back transaction.
+- As `anon`, `select invoked_by from sync_runs` is refused while `/status`'s own
+  column list still works.
+
+And the regression test that matters most, because its failure is silent:
+`sync_runs` after a full cron cycle, every scheduled function still succeeding.
 
 ## Out of scope
 
 Making the repo public (a separate, deliberate owner action, unblocked once this
-lands); rotating the publishable key (pointless — it is public by design, and
-Sprint 31 recorded why); rate limiting the read path (RLS already governs it,
-and `/functions/v1/` is the part with no equivalent).
+is deployed); rotating the publishable key (pointless — it is public by design,
+and Sprint 31 recorded why); rate limiting the read path (RLS governs it, and
+`/functions/v1/` was the part with no equivalent).

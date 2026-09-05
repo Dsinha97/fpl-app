@@ -13,8 +13,22 @@
 // sync, and report the result via SyncRun — unchanged from before the split.
 
 import { FplHttpError, int } from "../_shared/fpl.ts";
-import { currentSeason, jsonResponse, preflight, serviceClient, SyncRun } from "../_shared/sync.ts";
+import {
+  currentSeason,
+  jsonResponse,
+  preflight,
+  serviceClient,
+  SyncRun,
+  withCors,
+} from "../_shared/sync.ts";
 import { ManagerNotFoundError, ManagerSyncError, syncManagerData } from "../_shared/manager-sync.ts";
+import { verifyUser } from "../_shared/auth.ts";
+import {
+  checkRateLimit,
+  loadRateLimit,
+  rateLimitMessage,
+  recordRejection,
+} from "../_shared/rate-limit.ts";
 
 const FUNCTION_NAME = "sync-manager";
 
@@ -34,48 +48,76 @@ async function parseEntryId(req: Request): Promise<number> {
   return id;
 }
 
-Deno.serve(async (req) => {
-  const cors = preflight(req);
-  if (cors) return cors;
+Deno.serve(
+  withCors(async (req) => {
+    const cors = preflight(req);
+    if (cors) return cors;
 
-  const db = serviceClient();
+    const db = serviceClient();
 
-  let entryId: number;
-  try {
-    entryId = await parseEntryId(req);
-  } catch (err) {
-    return jsonResponse({ ok: false, error: (err as Error).message }, 400);
-  }
-
-  const run = await SyncRun.start(db, FUNCTION_NAME);
-
-  try {
-    const season = await currentSeason(db);
-
-    let counts: Record<string, number>;
-    try {
-      counts = await syncManagerData(db, season, entryId);
-    } catch (err) {
-      if (err instanceof ManagerNotFoundError) {
-        await run.finish("error", { season, error: `entry ${entryId} not found` });
-        return jsonResponse({ ok: false, error: err.message }, 404);
-      }
-      throw err;
+    // Sprint 32 — Class B. This one has a real browser caller, so it stays
+    // reachable, but not by everyone: signed in, and inside a per-user limit.
+    // "Anyone with an account" is not a bound on its own — accounts are free.
+    const user = await verifyUser(req);
+    if (!user) {
+      return jsonResponse({ ok: false, error: "sign in to refresh your team" }, 401);
     }
 
-    const rowsWritten = Object.values(counts).reduce((a, b) => a + b, 0);
-    await run.finish("success", {
-      season,
-      rowsWritten,
-      details: { entry_id: entryId, ...counts },
-    });
+    // currentSeason throws on an empty database. It sits outside the
+    // SyncRun try below, and an escaping throw would 500 without CORS
+    // headers — which reaches the browser as an opaque CORS failure
+    // rather than a message the button can show.
+    let season: string;
+    try {
+      season = await currentSeason(db);
+    } catch (err) {
+      return jsonResponse({ ok: false, error: (err as Error).message }, 503);
+    }
+    const limit = await loadRateLimit(db, season);
+    const verdict = await checkRateLimit(db, FUNCTION_NAME, user.id, limit);
+    if (!verdict.allowed) {
+      await recordRejection(db, FUNCTION_NAME, user.id, verdict);
+      return jsonResponse({ ok: false, error: rateLimitMessage(limit) }, 429);
+    }
 
-    return jsonResponse({ ok: true, season, entry_id: entryId, counts });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`${FUNCTION_NAME} failed for entry ${entryId}: ${message}`);
-    const partialCounts = err instanceof ManagerSyncError ? err.counts : {};
-    await run.finish("error", { error: message, details: { entry_id: entryId, ...partialCounts } });
-    return jsonResponse({ ok: false, error: message }, 500);
-  }
-});
+    let entryId: number;
+    try {
+      entryId = await parseEntryId(req);
+    } catch (err) {
+      return jsonResponse({ ok: false, error: (err as Error).message }, 400);
+    }
+
+    const run = await SyncRun.start(db, FUNCTION_NAME, season, user.id);
+
+    try {
+      let counts: Record<string, number>;
+      try {
+        counts = await syncManagerData(db, season, entryId);
+      } catch (err) {
+        if (err instanceof ManagerNotFoundError) {
+          await run.finish("error", { season, error: `entry ${entryId} not found` });
+          return jsonResponse({ ok: false, error: err.message }, 404);
+        }
+        throw err;
+      }
+
+      const rowsWritten = Object.values(counts).reduce((a, b) => a + b, 0);
+      await run.finish("success", {
+        season,
+        rowsWritten,
+        details: { entry_id: entryId, ...counts },
+      });
+
+      return jsonResponse({ ok: true, season, entry_id: entryId, counts });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`${FUNCTION_NAME} failed for entry ${entryId}: ${message}`);
+      const partialCounts = err instanceof ManagerSyncError ? err.counts : {};
+      await run.finish("error", {
+        error: message,
+        details: { entry_id: entryId, ...partialCounts },
+      });
+      return jsonResponse({ ok: false, error: message }, 500);
+    }
+  }),
+);

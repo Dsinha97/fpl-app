@@ -19,6 +19,7 @@ import { chunk } from "../_shared/coerce.ts";
 import { fetchWithRetry } from "../_shared/http.ts";
 import { parseFeed, parsePubDate, stripTags, type FeedItem } from "../_shared/rss.ts";
 import { resolveEntities, type PlayerRow, type TeamRow } from "../_shared/entities.ts";
+import { verifyCron } from "../_shared/cron-auth.ts";
 
 const FUNCTION_NAME = "sync-news";
 const USER_AGENT = "fpl-app/0.1 (+https://fpldecision.com)";
@@ -61,6 +62,12 @@ function passesFilter(categories: string[], include: string[], exclude: string[]
 Deno.serve(async (req) => {
   const cors = preflight(req);
   if (cors) return cors;
+
+  // Sprint 32 — cron-only: nothing in a browser has any business calling
+  // this. Checked before any work at all, which is also what closes the
+  // `?force=1` escape hatch rather than merely guarding it.
+  const denied = verifyCron(req);
+  if (denied) return denied;
 
   const db = serviceClient();
   const run = await SyncRun.start(db, FUNCTION_NAME);

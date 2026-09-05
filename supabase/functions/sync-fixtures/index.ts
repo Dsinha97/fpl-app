@@ -21,6 +21,7 @@
 import { getFixtures } from "../_shared/fpl.ts";
 import { currentSeason, jsonResponse, preflight, serviceClient, SyncRun } from "../_shared/sync.ts";
 import { bool, chunk, int, ts } from "../_shared/coerce.ts";
+import { verifyCron } from "../_shared/cron-auth.ts";
 
 const FUNCTION_NAME = "sync-fixtures";
 
@@ -33,6 +34,12 @@ const FORCE_INTERVAL_MINUTES = 55;
 Deno.serve(async (req) => {
   const cors = preflight(req);
   if (cors) return cors;
+
+  // Sprint 32 — cron-only: nothing in a browser has any business calling
+  // this. Checked before any work at all, which is also what closes the
+  // `?force=1` escape hatch rather than merely guarding it.
+  const denied = verifyCron(req);
+  if (denied) return denied;
 
   const db = serviceClient();
   const url = new URL(req.url);

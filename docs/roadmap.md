@@ -53,6 +53,7 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 29 | Price sampling, mini-league EO, transfer tracking, layout/feed fixes | **Built** 2026-08-30 — price-change prediction steps 1–2 (bounded ~2h ownership watchlist, `lib/price-watch.ts`'s progress-to-threshold tool on `/players`/`/transfers`); new `/leagues` wires up Sprint 10's already-shipped `lib/ownership.ts` engine and `sync-league-picks` pipeline (never previously called from the app) into a real EO table; re-importing an FPL squad now overwrites the existing draft instead of minting a new one (`resolveImportTarget`), and `manager_transfers` (already written, previously empty) is rendered as a season transfer ledger on `/team` with a snapshot-diff reconciliation check; `/deadline`'s countdown inlined and its watch cards moved below the Live section via a generalised `sectionOrder`; `/review` moved from Live to Strategy nav; `change_feed` no longer double-reports one FPL update as both a status and a news row, and both `/news`/`/deadline` dedupe the FFS RSS triplication. Also fixed, found mid-sprint: `/fixtures`' league table was reading FPL's own `teams[].played/win/...` fields, which the live API never populates in-season — now derived from finished `fixtures` instead (`deriveStandingsFromFixtures`). | [sprints/sprint-29.md](sprints/sprint-29.md) |
 | 30 | xP comparison form-blend (attempt 2) + a real-money accounting bug chain | **Built** 2026-08-30/09-02 — `/compare`'s `COMPARISON_WEIGHTS` restored to the plan's full five-term weighting once `form` data is present (see "Next up" below); a per-position bias-correction sweep added to `scripts/backtest-walkforward.ts` found no weight clears the gate, not shipped; `findReplacements`/`replacementLegality` and `/builder`'s picker sort column fixed. What looked like a settled "squad value already correct" turned out to be one level too shallow: chased into a real bug chain (Bank/affordability mixing sell-value and purchase-price bases, FPL's own `transfers.value` disagreeing with real per-player selling prices, `validateSquad`'s over-budget false positive, `freeTransfers` reading `limit` instead of `limit − made`) ending in `TeamState.bank` becoming the stored primitive instead of a residual derived from a frozen total | [sprints/sprint-30.md](sprints/sprint-30.md) |
 | 31 | Chip awareness end to end, display-only custom FDR, public-repo pre-flight | **Built** 2026-09-03 — the owner played Triple Captain, pasted the JSON, and nothing acknowledged it. The parse was fine; three things downstream were not: nothing rendered `activeChip` anywhere, `chipAt` (the fact-beats-plan reconciler) had **zero callers** so the projection scored the squad as if the captain were merely doubled, and the chip had no gameweek of its own so a stale draft would claim it live in the *next* gameweek. Fixed with `TeamState.activeChipEvent` (from `played_by_entry`), a `multiplier`-based cross-check that proves 3xc/bboost from the payload's own arithmetic rather than an unverified `status_for_entry` enum, `fplActiveChipAt`/`chipEntriesInForce`, a status pill on `/deadline`, a Chip field in the ContextBar, and `chipLabel` replacing the raw `3xc` slug on `/transfers`/`/review`. Also: a strength-derived FDR on `/fixtures`, **display-only** because `teams` carries no strength history and so it cannot be backtested at all; and the three public-repo blockers settled | [sprints/sprint-31.md](sprints/sprint-31.md) |
+| 32 | Edge Function lockdown | **Built (code only) 2026-09-05, not deployed** — every `/functions/v1/` endpoint was callable by anyone holding the publishable key, which is public by design. Split by caller: eight cron-only functions now require an `x-cron-secret` header minted by `invoke_sync` from Vault (`_shared/cron-auth.ts` — the inverse of Sprint 31's verdict on the publishable key, for the inverse reason: this secret has no public copy, so hiding it *is* the mechanism), and the two browser-invoked ones get `verifyUser` plus a per-user rate limit off a new `sync_runs.invoked_by`, with the limit a `game_settings` input derived from the busiest 10-minute window ever observed (27 calls) rather than a tuned constant. The scope doc named one `?force=1` self-gate bypass; grepping found **five**. `sync_runs`' public-read policy meant `invoked_by` would have published user ids, fixed with a column-level grant. CORS tightened off `*` for the browser-facing pair only and correctly labelled defence-in-depth; `verify_jwt` made explicit per function in `config.toml`. **Nothing deployed** — the Vault secret, migrations and function deploys are an owner action in a fixed order, because deploying the functions before the migration silently 401s every cron job | [sprints/sprint-32.md](sprints/sprint-32.md) |
 
 Non-sprint work items, also in `sprints/`: [cold-start-patch.md](sprints/cold-start-patch.md)
 (empirical-Bayes rate priors — phase 1 built, phase 2 deferred/gated) and
@@ -62,20 +63,17 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
-- **Sprint 32 — lock down the Edge Function surface. Scoped 2026-09-03, not started, and the
-  repo flip waits on it.** Fell out of Sprint 31's pre-flight. `/functions/v1/sync-*` is callable
-  by anyone holding the publishable key, which today means anyone who opens devtools on
-  fpldecision.com; publishing the repo does not create that exposure but changes who finds it,
-  since public repos are scraped mechanically for keys and endpoints in a way minified bundles
-  are not. Bounded blast radius (idempotent, public data, public tables) — the cost is Supabase
-  invocations and FPL traffic on this project's bill. The surface splits by caller: **cron-only**
-  functions get a shared secret header minted by `invoke_sync` from a Vault secret (the inverse of
-  Sprint 31's verdict on the publishable key, and for the inverse reason — this secret has no
-  public copy, so hiding it *is* the mechanism), and the two **browser-invoked** ones
-  (`sync-manager`, `sync-league-picks`) get the already-existing `verifyUser` plus a per-user rate
-  limit off `sync_runs`. Found while scoping: `sync-fixtures?force=1` bypasses its own self-gate,
-  which turns the cheapest case into a full 380-fixture pull on demand. Full scope, the
-  deployment ordering that can silently 401 every cron job, and the verification plan:
+- **Sprint 32 — the Edge Function lockdown is written but NOT deployed. Built 2026-09-05,
+  code only; the repo flip waits on the deploy, not on more code.** Every function is now gated:
+  the eight cron-only ones require an `x-cron-secret` header (`_shared/cron-auth.ts`), and the two
+  browser-invoked ones (`sync-manager`, `sync-league-picks`) require `verifyUser` plus a per-user
+  rate limit counted off `sync_runs.invoked_by`, with the limit an input in `game_settings`
+  derived from the busiest 10-minute window ever observed (27 calls) rather than picked. The scope
+  doc named one `?force=1` bypass; there were **five**. Also tightened CORS off `*` for the
+  browser-facing pair only, and made `verify_jwt` explicit per function in `config.toml`.
+  **What remains is an owner action in a fixed order** — Vault secret, then the `invoke_sync`
+  migration, then the function deploys, then verify `sync_runs` — because deploying the functions
+  first silently 401s every scheduled sync. Runbook, curl matrix and the post-deploy gate:
   [sprints/sprint-32.md](sprints/sprint-32.md).
 - **A results-derived custom FDR — scoped 2026-09-03, not started.** Sprint 31 built the
   strength-derived one and proved it can never be model-grade (no strength history to backtest
