@@ -51,10 +51,23 @@ parameter that changes behaviour (`sync-manager`'s `entry_id` and
 `sync-news`, `sync-claimed-managers`, `generate-predictions`,
 `ingest-fpl-archive`.
 
-`verifyCron(req)` requires an `x-cron-secret` header matching a Vault-backed
-secret, compared in constant time, checked immediately after `preflight`. That
-takes these endpoints from "anyone holding the publishable key" to "the
-database's own cron, and nothing else".
+`verifyCron(req, db)` requires an `x-cron-secret` header matching a
+Vault-backed secret, compared in constant time, checked before the URL is even
+parsed. That takes these endpoints from "anyone holding the publishable key" to
+"the database's own cron, and nothing else".
+
+**The secret is never known outside Postgres, and that is a change from this
+doc's original scope.** The scope assumed a `CRON_SECRET` function env var.
+That works, but it needs the plaintext to exist in a third place — a shell
+command, a dashboard field, a clipboard — on the way to matching the Vault copy
+`invoke_sync` reads, and CLAUDE.md's rule is that secrets are referenced by
+name only and never pasted anywhere. Two copies that must match by hand is also
+a silent 401 waiting on a typo. So the value is generated *inside* Postgres
+(`gen_random_bytes`) and read from Vault at both ends: `invoke_sync` to send
+the header, `cron-auth.ts` to check it. `service_role` already has select on
+`vault.decrypted_secrets` — verified against the live project, not assumed —
+and these functions hold service_role regardless, so this grants them nothing
+new. The read is cached per isolate, so it costs one query per cold start.
 
 **Deliberate contrast with Sprint 31, because the same tool gets the opposite
 verdict.** Vault was *rejected* there for the publishable key: an identical
@@ -65,7 +78,7 @@ new secret has no public copy anywhere, so hiding it is the entire mechanism
 rather than theatre. Tool identical, verdict opposite, and the difference is
 the reasoning rather than the tool.
 
-**Fails closed when `CRON_SECRET` is unset.** That is the right security
+**Fails closed when the Vault secret is missing.** That is the right security
 default and also the failure mode §6 exists to prevent. It logs loudly to the
 function console and says nothing useful in the response body.
 
@@ -201,20 +214,18 @@ silently, into `sync_runs` rows nobody is watching.
 
 Run in this order. Do not reorder 2 and 3.
 
-**1. Create the Vault secret.** Supabase dashboard → Project Settings → Vault →
-new secret named exactly `cron_secret`. Generate the value locally and never
-paste it into chat or a commit:
+**1. Create the Vault secret**, generated in place so no one ever holds it:
 
-```bash
-openssl rand -base64 48
+```sql
+select vault.create_secret(
+  encode(extensions.gen_random_bytes(36), 'base64'),
+  'cron_secret',
+  'Sprint 32 — shared secret for cron-only Edge Functions'
+);
 ```
 
-Then set the same value as a function secret, so `Deno.env.get("CRON_SECRET")`
-resolves inside the functions:
-
-```bash
-npx supabase secrets set CRON_SECRET="<the value from step 1>"
-```
+There is no second copy to set. Both `invoke_sync` and `cron-auth.ts` read
+this row.
 
 **2. Apply the migrations.** In this order — the second is the one that matters:
 
@@ -266,13 +277,16 @@ threat model is about, so run it rather than reason about it:
 curl -i -X POST "https://fyxyqxpscmqjyjxsyhms.supabase.co/functions/v1/sync-fixtures" -H "Authorization: Bearer $SB_PUBLISHABLE_KEY"
 ```
 
-Expect `401 {"error":"unauthorized"}`. Then with the secret:
+Expect `401 {"error":"unauthorized"}`.
 
-```bash
-curl -i -X POST "https://fyxyqxpscmqjyjxsyhms.supabase.co/functions/v1/sync-fixtures" -H "Authorization: Bearer $SB_PUBLISHABLE_KEY" -H "x-cron-secret: $CRON_SECRET"
-```
+**The positive case is not a curl.** Nobody holds the secret, by design, so
+there is no value to put in a header — which means the proof that cron still
+works is the cron tick itself: a `success` row in `sync_runs` from a real
+scheduled run, after the functions were deployed. That is the stronger
+evidence anyway; a curl with a hand-copied header would only prove that the
+comparison works, not that `invoke_sync` is sending what the function expects.
 
-Expect `200`. Then the bypass that started this sprint, unauthenticated:
+Then the bypass that started this sprint, unauthenticated:
 
 ```bash
 curl -i -X POST "https://fyxyqxpscmqjyjxsyhms.supabase.co/functions/v1/sync-fixtures?force=1" -H "Authorization: Bearer $SB_PUBLISHABLE_KEY"

@@ -12,9 +12,11 @@ project_id = "fyxyqxpscmqjyjxsyhms"
 # does it itself and can return a useful error instead of an opaque gateway
 # 401:
 #
-#   - Class A (cron-only) checks `x-cron-secret` via _shared/cron-auth.ts.
-#     The gateway's JWT check would not help: the publishable key satisfies
-#     it, and the publishable key is public by design.
+#   - Class A (cron-only) checks `x-cron-secret` via _shared/cron-auth.ts,
+#     against a Vault secret read with the function's own service role (no
+#     CRON_SECRET env var — the value never leaves Postgres). The gateway's
+#     JWT check would not help: the publishable key satisfies it, and the
+#     publishable key is public by design.
 #   - Class B and the fpl-* pair call `verifyUser` (_shared/auth.ts), which
 #     validates the JWT's signature against Supabase Auth rather than
 #     trusting it, and lets the function distinguish "signed out" (401) from

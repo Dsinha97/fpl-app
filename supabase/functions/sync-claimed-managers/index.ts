@@ -52,13 +52,15 @@ Deno.serve(async (req) => {
   const cors = preflight(req);
   if (cors) return cors;
 
+  const db = serviceClient();
+
   // Sprint 32 — cron-only: nothing in a browser has any business calling
-  // this. Checked before any work at all, which is also what closes the
-  // `?force=1` escape hatch rather than merely guarding it.
-  const denied = verifyCron(req);
+  // this. Checked before any work at all, which is what closes the
+  // `?force=1` escape hatch rather than merely guarding it — the URL below
+  // is not even parsed until this passes.
+  const denied = await verifyCron(req, db);
   if (denied) return denied;
 
-  const db = serviceClient();
   const url = new URL(req.url);
   const force = url.searchParams.get("force") === "1";
 

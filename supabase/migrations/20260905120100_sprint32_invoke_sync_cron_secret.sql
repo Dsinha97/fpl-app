@@ -3,7 +3,8 @@
 -- ============================ DEPLOYMENT ORDER ============================
 -- This is STEP 2 of 4, and the order is not advisory. From sprint-32.md:
 --
---   1. Create the Vault secret `cron_secret`.
+--   1. Create the Vault secret `cron_secret`, generated inside Postgres so
+--      the value never exists anywhere else (see step 1's migration).
 --   2. Apply THIS migration. Cron now sends a header the deployed functions
 --      still ignore. Harmless — that is the point of doing it second.
 --   3. Deploy the Class A functions, which then require the header.
@@ -23,6 +24,12 @@
 -- hiding the repo's copy changed nothing about who could call the endpoint.
 -- This secret has no public copy anywhere, so hiding it *is* the mechanism.
 -- Same tool, opposite verdict, and the difference is the reasoning.
+--
+-- Both ends read Vault: this function to send the header, and
+-- _shared/cron-auth.ts to check it. There is deliberately no CRON_SECRET
+-- function env var — that would need the plaintext to exist in a third place
+-- on the way to matching this one, and two copies that must match by hand is
+-- a silent 401 waiting on a typo.
 --
 -- The publishable-key Authorization header stays. It is what satisfies the
 -- platform's own gateway; the cron secret is what the function checks.
