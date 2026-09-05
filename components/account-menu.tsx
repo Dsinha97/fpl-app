@@ -112,11 +112,12 @@ export function AccountMenu() {
             Import squad →
           </Link>
 
-          {/* Moved out of the main nav (Sprint 22) — a data-freshness page
-              belongs beside account settings, not competing with the 10
-              primary destinations for a nav slot. */}
+          {/* Moved out of the main nav in Sprint 22 — a data-freshness page
+              belongs beside account settings, not competing with the primary
+              destinations for a nav slot. Sprint 33 finished the move: it is
+              a tab *of* Settings now, not a route of its own. */}
           <Link
-            href="/status/"
+            href="/settings/?tab=status"
             onClick={() => setOpen(false)}
             role="menuitem"
             className="block rounded-md px-2 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-purple-950/40"

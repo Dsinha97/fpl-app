@@ -39,8 +39,9 @@ export const NAV_GROUPS = [
       { href: "/scenarios", label: "Scenarios" },
       { href: "/transfers", label: "Transfers" },
       // Sprint 33 — Chips merged into Transfers as its "Chip timing" tab
-      // (same draft, same engine). /chips survives as a redirect stub.
-      { href: "/review", label: "Review" },
+      // (same draft, same engine), and Review into My Team, under the
+      // gameweek selector that was already a past-gameweek view. Both
+      // survive as redirect stubs.
     ],
   },
   {
