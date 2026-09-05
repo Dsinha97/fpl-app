@@ -44,11 +44,31 @@ alter table public.sync_runs add constraint sync_runs_status_check
 -- column and must not be allowed to hand out user ids: RLS is row-level, so
 -- the column-level grant is what scopes this one.
 --
--- /status selects an explicit column list that does not include invoked_by
--- (app/status/page.tsx), so nothing in the frontend breaks. A `select *` as
--- anon now fails, which is the intended and visible consequence.
+-- The obvious form of this does not work, and it fails *open*:
+--
+--   revoke select (invoked_by) on public.sync_runs from anon, authenticated;
+--
+-- anon and authenticated hold table-level SELECT here, and a column-level
+-- REVOKE cannot subtract from a table-level grant — Postgres keeps the
+-- broader privilege and the column stays readable. Checked against the live
+-- database in a rolled-back transaction rather than reasoned about:
+-- has_column_privilege('anon', ..., 'invoked_by', 'select') was still true
+-- afterwards. The version of this that looks right defeats the whole point of
+-- the column, silently.
+--
+-- So: drop the table-level grant and re-grant every column except the new
+-- one. RLS still governs which *rows* come back; this governs which columns
+-- exist at all for those roles.
+--
+-- /status (app/status/page.tsx, now the Pipeline tab on /settings) selects an
+-- explicit column list matching this grant, so nothing in the frontend
+-- breaks. A `select *` as anon now fails, which is the intended and visible
+-- consequence.
 
-revoke select (invoked_by) on public.sync_runs from anon, authenticated;
+revoke select on public.sync_runs from anon, authenticated;
+grant select (id, function_name, season, started_at, finished_at, status,
+              rows_written, http_status, cursor, error, details)
+  on public.sync_runs to anon, authenticated;
 
 -- ------------------------------------------------------------- the limit
 --
