@@ -64,8 +64,14 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
-- **Sprint 32 — the Edge Function lockdown is written but NOT deployed. Built 2026-09-05,
-  code only; the repo flip waits on the deploy, not on more code.** Every function is now gated:
+- **Sprint 32 — built and PARTIALLY deployed 2026-09-05. The repo flip waits on one CLI
+  command, not on more code.** Live now: the Vault secret, both migrations, and 2 of 10 Edge
+  Functions (`sync-fixtures`, `sync-live-gameweek`), verified over a full cron cycle — every
+  scheduled function still succeeding, and the gated pair returning 401 to the publishable key
+  including `?force=1`. The remaining eight are unchanged and still callable by anyone holding
+  that key; the partial state is safe and monotonic, not half-broken. Finishing it is
+  `npx supabase functions deploy …` after a login — see sprint-32.md §5b for why the last eight
+  were not hand-uploaded.** Every function is now gated:
   the eight cron-only ones require an `x-cron-secret` header (`_shared/cron-auth.ts`), and the two
   browser-invoked ones (`sync-manager`, `sync-league-picks`) require `verifyUser` plus a per-user
   rate limit counted off `sync_runs.invoked_by`, with the limit an input in `game_settings`
