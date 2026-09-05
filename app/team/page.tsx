@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
@@ -34,6 +34,7 @@ import { freeTransfersDisplay, MAX_FREE_TRANSFERS } from "@/lib/transfers";
 import {
   layoutFromPicks,
   loadEventPoints,
+  loadManagerPicks,
   MANAGER_PICKS_NOTE,
   squadPointsFor,
   type ActualPoints,
@@ -148,8 +149,6 @@ interface TeamData {
   /** Which of those gameweeks FPL has finished — an unfinished one is provisional. */
   finishedEvents: Set<number>;
   players: Map<number, PlayerRow>;
-  /** player_id -> next gameweek's xP, for the current-squad pitch. */
-  xp1: Map<number, number>;
   teamNames: Map<number, string>;
   teamMeta: Map<number, { code: number | null; short: string }>;
   /** Each picked gameweek's own opponent per team — keyed by event, not
@@ -493,33 +492,28 @@ export default function TeamPage() {
       }
 
       // 3. Every entered gameweek's picks, if any exist yet. All events are
-      // kept now — the per-gameweek squad view reads them, and they were
-      // already on the wire before being filtered down to the latest.
-      const { data: allPicks } = await supabase
-        .from("manager_picks")
-        .select("event, position, element, multiplier, is_captain, is_vice_captain")
-        .eq("entry_id", entryId)
-        .order("event", { ascending: false })
-        .order("position");
+      // kept — the per-gameweek squad view reads them.
+      //
+      // Through lib/manager-picks' loadManagerPicks rather than an inline
+      // query, which is what every other page uses: it scopes to the season
+      // (an unscoped read collides across seasons on rollover, since `event`
+      // restarts at 1) and it pages, which the inline version did not — the
+      // API caps every response at 1000 rows however big `.limit()` asks, so
+      // a long enough career would have silently lost its oldest gameweeks.
+      // Season-gated on nextGw, like the rest of this loader already is.
+      const picksByEvent = nextGw ? await loadManagerPicks(nextGw.season, entryId) : new Map<number, ManagerPick[]>();
 
-      const latestEvent = allPicks?.[0]?.event;
-      const picks = (allPicks ?? []).filter((p) => p.event === latestEvent);
-
-      const picksByEvent = new Map<number, ManagerPick[]>();
-      for (const r of allPicks ?? []) {
-        const pick: ManagerPick = {
-          event: r.event as number,
-          position: r.position as number,
-          element: r.element as number,
-          multiplier: r.multiplier as number,
-          isCaptain: r.is_captain as boolean,
-          isViceCaptain: r.is_vice_captain as boolean,
-        };
-        const list = picksByEvent.get(pick.event);
-        if (list) list.push(pick);
-        else picksByEvent.set(pick.event, [pick]);
-      }
-      for (const list of picksByEvent.values()) list.sort((a, b) => a.position - b.position);
+      // The latest gameweek's picks in the row shape the import flow and the
+      // squad list still take (teamStateFromPicks wants FPL's own snake_case).
+      const latestEvent = [...picksByEvent.keys()].sort((a, b) => b - a)[0];
+      const picks: PickRow[] = (picksByEvent.get(latestEvent) ?? []).map((p) => ({
+        event: p.event,
+        position: p.position,
+        element: p.element,
+        multiplier: p.multiplier,
+        is_captain: p.isCaptain,
+        is_vice_captain: p.isViceCaptain,
+      }));
 
       // 4. Resolve player and team names for every player ever picked (not
       // just this gameweek's — the GW selector reaches back through the
@@ -528,7 +522,6 @@ export default function TeamPage() {
       const teamNames = new Map<number, string>();
       const teamMeta = new Map<number, { code: number | null; short: string }>();
       const fixturesByEvent = new Map<number, Map<number, NextFixture>>();
-      const xp1 = new Map<number, number>();
       const finishedEvents = new Set<number>();
       let rules = DEFAULT_RULES;
 
@@ -549,19 +542,6 @@ export default function TeamPage() {
             .range(from, from + PAGE_ROWS - 1);
           for (const p of playerRows ?? []) players.set(p.id, p as PlayerRow);
           if ((playerRows?.length ?? 0) < PAGE_ROWS) break;
-        }
-
-        for (let from = 0; ; from += PAGE_ROWS) {
-          const { data: xpRows } = await supabase
-            .from("player_xp_horizons")
-            .select("player_id, xp_1")
-            .eq("season", nextGw.season)
-            .order("player_id")
-            .range(from, from + PAGE_ROWS - 1);
-          for (const r of xpRows ?? []) {
-            if (r.xp_1 !== null) xp1.set(r.player_id as number, r.xp_1 as number);
-          }
-          if ((xpRows?.length ?? 0) < PAGE_ROWS) break;
         }
 
         const [teamsRes, gwsRes, ctxRes, fixturesRes] = await Promise.all([
@@ -626,7 +606,6 @@ export default function TeamPage() {
         picksByEvent,
         finishedEvents,
         players,
-        xp1,
         teamNames,
         teamMeta,
         fixturesByEvent,
@@ -825,6 +804,26 @@ export default function TeamPage() {
     if (selectedEvent === null && pickedEvents.length > 0) setSelectedEvent(pickedEvents[0]);
   }, [pickedEvents, selectedEvent]);
 
+  /**
+   * The selected gameweek's own `manager_gameweek_history` row — the source
+   * for every number that describes *that* gameweek rather than "now".
+   *
+   * `managers` only ever holds FPL's current snapshot
+   * (`summary_event_points`, `last_deadline_value`, …), so driving the stat
+   * tiles off it meant selecting a past gameweek left the live gameweek's
+   * score sitting under a "GW Points" label. The history rows were already
+   * fetched and were only being read by the gameweek summary card.
+   */
+  const gwRow = useMemo(
+    () => data?.gwHistory.find((g) => g.event === selectedEvent) ?? null,
+    [data, selectedEvent],
+  );
+
+  /** On the newest gameweek with picks — the one case where the `managers`
+   *  snapshot and the history row describe the same thing. */
+  const viewingLatestEvent =
+    selectedEvent !== null && pickedEvents.length > 0 && selectedEvent === pickedEvents[0];
+
   // Points are fetched for the gameweek being looked at, not for the whole
   // season up front — a season's worth of per-fixture rows for every player
   // ever picked is a few thousand, and most of them are never displayed.
@@ -834,6 +833,9 @@ export default function TeamPage() {
   // matches are being played. A finished gameweek never re-fetches: nothing
   // there changes, and there's no point polling settled history.
   const [livePointsTick, setLivePointsTick] = useState(0);
+  /** Which event the points currently in state were fetched for — see the
+   *  `isPoll` comment below for why the tick count can't answer that. */
+  const lastPointsEvent = useRef<number | null>(null);
   const eventIsLive = selectedEvent !== null && data ? !data.finishedEvents.has(selectedEvent) : false;
   useEffect(() => {
     if (!eventIsLive) return;
@@ -848,11 +850,28 @@ export default function TeamPage() {
 
     // Only the first fetch for a given event shows the loading state — a
     // background poll refresh shouldn't flash the pitch back to empty.
-    const isPoll = livePointsTick > 0;
+    //
+    // "Is this a poll" is a question about the *event*, not about the tick
+    // count: `livePointsTick > 0` was true for every fetch after the first
+    // 60s tick, so changing gameweek was misread as a refresh. The loading
+    // state was skipped, and the new gameweek's picks rendered against the
+    // old gameweek's points until the fetch resolved — or indefinitely, if
+    // it failed.
+    const isPoll = lastPointsEvent.current === selectedEvent;
+    lastPointsEvent.current = selectedEvent;
 
     let cancelled = false;
     (async () => {
-      if (!isPoll) setPointsLoading(true);
+      if (!isPoll) {
+        setPointsLoading(true);
+        // Nothing already in these maps belongs to the gameweek being
+        // switched to. Clearing up front is what keeps a slow — or failed —
+        // fetch from leaving the previous gameweek's numbers on the pitch.
+        setEventPoints(new Map());
+        setExplainByElement(new Map());
+        setMatchStatusByElement(new Map());
+        setEventProvisional(false);
+      }
       setPointsError(null);
       try {
         const elements = picks.map((p) => p.element);
@@ -1285,24 +1304,58 @@ export default function TeamPage() {
                   {!pointsLoading && gwLayout && (
                     <PitchView squad={gwCards} quota={data.rules.positionQuota} layout={gwLayout} />
                   )}
+                  {/* The points are that gameweek's; the rest of the card
+                      isn't, and can't be — `players` holds one current row
+                      per player, and FPL publishes no history for status,
+                      ownership or news. Disclose rather than imply. */}
+                  {!pointsLoading && gwLayout && !viewingLatestEvent && selectedEvent !== null && (
+                    <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                      Points are GW{selectedEvent}&apos;s. Prices, ownership and availability on
+                      these cards are today&apos;s — FPL doesn&apos;t publish what they were then.
+                    </p>
+                  )}
                 </section>
               )}
             </div>
 
             <div className="min-w-0 space-y-4">
+              {/* Every tile except the deadline describes the gameweek the
+                  selector is on, so say which one rather than leaving five
+                  unlabelled numbers to be read as "now". */}
+              {!viewingLatestEvent && selectedEvent !== null && (
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Showing GW{selectedEvent} — totals below are as they stood after that
+                  gameweek.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 {[
                   {
                     label: "Team Value",
-                    value: fmtMoney(m.last_deadline_value, seasonStarted ? "—" : "£100.0m"),
+                    value: fmtMoney(
+                      gwRow ? gwRow.value : m.last_deadline_value,
+                      seasonStarted ? "—" : "£100.0m",
+                    ),
                   },
                   {
                     label: "In the Bank",
-                    value: fmtMoney(m.last_deadline_bank, seasonStarted ? "—" : "£0.0m"),
+                    value: fmtMoney(
+                      gwRow ? gwRow.bank : m.last_deadline_bank,
+                      seasonStarted ? "—" : "£0.0m",
+                    ),
                   },
-                  { label: "Overall Points", value: fmtNum(m.summary_overall_points) },
-                  { label: "Overall Rank", value: fmtNum(m.summary_overall_rank) },
-                  { label: "GW Points", value: fmtNum(m.summary_event_points) },
+                  {
+                    label: "Overall Points",
+                    value: fmtNum(gwRow ? gwRow.total_points : m.summary_overall_points),
+                  },
+                  {
+                    label: "Overall Rank",
+                    value: fmtNum(gwRow ? gwRow.overall_rank : m.summary_overall_rank),
+                  },
+                  {
+                    label: selectedEvent !== null ? `GW${selectedEvent} Points` : "GW Points",
+                    value: fmtNum(gwRow ? gwRow.points : m.summary_event_points),
+                  },
                   {
                     label: data?.nextGw ? `${data.nextGw.name} Deadline` : "Next Deadline",
                     value: data?.nextGw ? fmtCountdown(data.nextGw.deadline_time) : "—",
@@ -1382,7 +1435,7 @@ export default function TeamPage() {
                 <GameweekSummary
                   event={selectedEvent}
                   score={gwScore}
-                  history={data.gwHistory.find((g) => g.event === selectedEvent) ?? null}
+                  history={gwRow}
                   captainName={
                     gwScore.captain
                       ? (data.players.get(gwScore.captain.element)?.web_name ?? "Captain")
