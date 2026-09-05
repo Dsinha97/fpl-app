@@ -64,10 +64,18 @@ command, a dashboard field, a clipboard — on the way to matching the Vault cop
 name only and never pasted anywhere. Two copies that must match by hand is also
 a silent 401 waiting on a typo. So the value is generated *inside* Postgres
 (`gen_random_bytes`) and read from Vault at both ends: `invoke_sync` to send
-the header, `cron-auth.ts` to check it. `service_role` already has select on
-`vault.decrypted_secrets` — verified against the live project, not assumed —
-and these functions hold service_role regardless, so this grants them nothing
-new. The read is cached per isolate, so it costs one query per cold start.
+the header, `cron-auth.ts` to check it. The function does not read Vault itself, and cannot: PostgREST only serves
+the schemas it is configured to expose (`public`, `graphql_public`) and `vault`
+is not one of them, so `db.schema("vault")` fails at the API layer whatever
+the service role's table privileges say — checked before relying on it, not
+after. Exposing `vault` to PostgREST to avoid that would widen the REST surface
+to the secret store. Instead a `security definer` RPC, `public.verify_cron_secret`,
+takes the supplied header and returns a boolean, so the secret is never sent
+even to the thing checking it. It compares sha256 digests rather than the raw
+values, because `=` on text short-circuits at the first differing byte and
+leaks the length of a correct prefix to anyone willing to measure. Execute is
+granted to `service_role` only, so it is not an oracle reachable with the
+publishable key.
 
 **Deliberate contrast with Sprint 31, because the same tool gets the opposite
 verdict.** Vault was *rejected* there for the publishable key: an identical

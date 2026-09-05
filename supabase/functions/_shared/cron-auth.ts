@@ -24,97 +24,64 @@
 // see _shared/auth.ts and _shared/rate-limit.ts.
 //
 // ---------------------------------------------------------------------------
-// Where the secret lives, and why it is not a function env var
+// Where the secret lives, and why this is an RPC
 //
 // The scope doc assumed `CRON_SECRET` as a deployed function secret. That
 // works, but it requires the plaintext to exist in a third place — a shell
 // command, a dashboard field, someone's clipboard — on the way to matching
-// the Vault copy that `invoke_sync` reads. CLAUDE.md's rule is that secrets
-// are referenced by name only and never pasted anywhere, and a value that has
-// to be typed into two places to match is also a silent-401 waiting on a
-// typo.
+// the Vault copy `invoke_sync` reads. CLAUDE.md's rule is that secrets are
+// referenced by name only and never pasted anywhere, and a value that has to
+// be typed into two places to match is also a silent 401 waiting on a typo.
 //
-// So the secret is generated *inside* Postgres and read from Vault at both
-// ends: `invoke_sync` (security definer) reads it to send the header, and
-// this reads it to check the header. It is never known outside the database —
-// not by the deployer, not by this repo, not by a CI variable. `service_role`
-// already has select on `vault.decrypted_secrets` (verified, not assumed),
-// and these functions hold service_role regardless, so this grants the
-// function nothing it did not already have.
+// So the secret is generated *inside* Postgres and never leaves it. Nobody
+// holds it: not the deployer, not this repo, not a CI variable.
+// `invoke_sync` (security definer) reads it to send the header; this asks
+// `public.verify_cron_secret` whether the header matches and gets a boolean.
+//
+// The indirection is not optional. Reading Vault straight from here does not
+// work: PostgREST only serves the schemas it is configured to expose
+// (`public`, `graphql_public`), and `vault` is not one of them, so
+// `db.schema("vault")` fails at the API layer whatever the service role's
+// table privileges say — checked before relying on it. Exposing `vault` to
+// PostgREST to avoid one RPC would widen the REST surface to the secret store,
+// which is a bad trade. It is the better shape regardless: a yes/no question
+// gets a yes/no answer, and the secret is never sent to the thing checking it.
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
 const HEADER = "x-cron-secret";
-const SECRET_NAME = "cron_secret";
-
-/**
- * Cached for the life of the isolate. Deno reuses an isolate across
- * invocations, so this is one read per cold start rather than one per
- * request. Only ever holds a value this process could read anyway.
- */
-let cached: string | null = null;
-
-/**
- * Constant-time comparison. A naive `===` on a secret leaks its prefix
- * through response timing; the cost of doing it properly here is nil.
- */
-function timingSafeEqual(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const x = enc.encode(a);
-  const y = enc.encode(b);
-  // Length is not itself secret, but fold it in and still walk the full
-  // width so the loop's cost does not depend on where the first difference
-  // falls.
-  let diff = x.length ^ y.length;
-  const n = Math.max(x.length, y.length);
-  for (let i = 0; i < n; i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
-  return diff === 0;
-}
-
-async function loadSecret(db: SupabaseClient): Promise<string | null> {
-  if (cached !== null) return cached;
-  const { data, error } = await db
-    .schema("vault")
-    .from("decrypted_secrets")
-    .select("decrypted_secret")
-    .eq("name", SECRET_NAME)
-    .maybeSingle();
-  if (error) {
-    console.error(`vault read failed: ${error.message}`);
-    return null;
-  }
-  const secret = (data?.decrypted_secret as string | undefined) ?? null;
-  if (secret) cached = secret;
-  return secret;
-}
 
 /**
  * Returns a 401 `Response` when the caller is not cron, or null to proceed.
  * Call it immediately after `serviceClient()`, before any work — before the
  * URL is parsed, so `?force=1` is closed rather than merely guarded.
  *
- * **Fails closed when the Vault secret is missing.** That is the deliberate
- * choice and it is also the failure mode to respect: deploy a function that
- * requires the header before `invoke_sync` sends it and every scheduled sync
- * 401s, silently, into `sync_runs` rows nobody is watching. The ordering in
- * docs/sprints/sprint-32.md exists for exactly this reason — secret, then
- * migration, then functions, then verify against `sync_runs`.
+ * **Fails closed on anything unexpected**, including the RPC being absent or
+ * erroring. That is the deliberate choice, and it is also the failure mode to
+ * respect: deploy a function that requires the header before `invoke_sync`
+ * sends it and every scheduled sync 401s, silently, into `sync_runs` rows
+ * nobody is watching. The ordering in docs/sprints/sprint-32.md exists for
+ * exactly this reason — secret, then migrations, then functions, then verify
+ * against `sync_runs`.
+ *
+ * Not cached. One RPC per invocation is the honest cost of never holding the
+ * secret in this process, and the busiest of these functions runs every two
+ * minutes — not a rate worth trading a cached copy of a secret for.
  */
 export async function verifyCron(req: Request, db: SupabaseClient): Promise<Response | null> {
   const supplied = req.headers.get(HEADER);
-  const expected = await loadSecret(db);
+  if (!supplied) return unauthorized();
 
-  if (!expected) {
+  const { data, error } = await db.rpc("verify_cron_secret", { p_secret: supplied });
+
+  if (error) {
     // Loud in the function logs, silent in the response — an attacker learns
     // nothing about why they were turned away.
-    console.error(
-      `vault secret "${SECRET_NAME}" is not set; rejecting every caller. See sprint-32.md step 1.`,
-    );
+    console.error(`verify_cron_secret failed: ${error.message}`);
     return unauthorized();
   }
 
-  if (!supplied || !timingSafeEqual(supplied, expected)) return unauthorized();
-  return null;
+  return data === true ? null : unauthorized();
 }
 
 function unauthorized(): Response {

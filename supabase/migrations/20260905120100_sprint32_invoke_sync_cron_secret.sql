@@ -71,3 +71,51 @@ end;
 $$;
 
 revoke all on function public.invoke_sync(text) from public, anon, authenticated;
+
+-- ------------------------------------------------- the checking half
+--
+-- The Edge Functions cannot read Vault directly. PostgREST only serves the
+-- schemas it is configured to expose (public, graphql_public by default) and
+-- vault is not among them, so a db.schema("vault").from("decrypted_secrets")
+-- from a function fails at the API layer whatever the service role's table
+-- privileges say. Checked before relying on it rather than after.
+--
+-- Exposing vault to PostgREST to work around that would widen the REST
+-- surface to the secret store for the sake of one lookup. This shape is
+-- better anyway: the function asks a yes/no question and gets a yes/no
+-- answer, so the secret never leaves Postgres even to the caller checking it.
+
+create or replace function public.verify_cron_secret(p_secret text)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_secret text;
+begin
+  if p_secret is null or length(p_secret) = 0 then
+    return false;
+  end if;
+
+  select decrypted_secret into v_secret
+  from vault.decrypted_secrets
+  where name = 'cron_secret';
+
+  if v_secret is null then
+    return false;
+  end if;
+
+  -- Compare digests, not the raw values. Postgres has no timing-safe
+  -- comparison primitive, and = on text short-circuits at the first differing
+  -- byte, which leaks the length of a correct prefix to anyone willing to
+  -- measure. Two sha256 digests differ from byte 0 for any wrong input.
+  return extensions.digest(v_secret, 'sha256') = extensions.digest(p_secret, 'sha256');
+end;
+$$;
+
+-- Only the service role (the Edge Functions) may ask. Nothing reachable with
+-- the publishable key can call this, so it is not an oracle for guessing the
+-- secret from the open internet.
+revoke all on function public.verify_cron_secret(text) from public, anon, authenticated;
+grant execute on function public.verify_cron_secret(text) to service_role;
