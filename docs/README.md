@@ -54,6 +54,7 @@ file, not separate files.
 | [sprints/sprint-30.md](sprints/sprint-30.md) | live | xP comparison form-blend attempt 2 (bias-correction sweep still doesn't clear the gate) plus a real bug chain in imported-squad money tracking, ending in `TeamState.bank` becoming the stored primitive instead of a residual derived from a frozen total. |
 | [sprints/sprint-31.md](sprints/sprint-31.md) | live | Chip awareness end to end — an active chip is now recorded with its own gameweek, corroborated by the picks' own multipliers, shown on `/deadline` and in the ContextBar, and (the real bug) actually reaches the projection via `chipEntriesInForce`. Plus a strength-derived FDR that is deliberately display-only, and the public-repo pre-flight settled. |
 | [sprints/sprint-32.md](sprints/sprint-32.md) | scoped, not started | Lock down the `/functions/v1/sync-*` surface before the repo goes public: a Vault-backed cron secret for the cron-only functions, `verifyUser` + a per-user rate limit for the two the browser calls. Includes the deployment ordering that can silently 401 every scheduled sync, and a `?force=1` self-gate bypass found while scoping. |
+| [sprints/sprint-33.md](sprints/sprint-33.md) | live | Four page merges — /compare into /players as a slide-over, /chips into /transfers as a tab, /review under /team's gameweek selector, /status into /settings. Records the survey of all seventeen routes, including the three merges that were considered and rejected, and the sign-in wall that nearly took /status private. |
 
 ## Source specs
 

@@ -6,6 +6,7 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/auth-provider";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { PipelineStatus } from "@/components/pipeline-status";
 import { listDrafts, saveDraft, uniqueDraftName } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
 import {
@@ -25,10 +26,12 @@ import {
 // which would need a Suspense boundary this static export has no precedent
 // for.
 
-type Tab = "account" | "import";
+type Tab = "account" | "import" | "status";
 
 function readRequestedTab(search: string): Tab {
-  return new URLSearchParams(search).get("tab") === "import" ? "import" : "account";
+  const tab = new URLSearchParams(search).get("tab");
+  // Sprint 33 — /status merged in here as a third tab (see PipelineStatus).
+  return tab === "import" || tab === "status" ? tab : "account";
 }
 
 // ------------------------------------------------------------ account tab
@@ -373,11 +376,21 @@ export default function SettingsPage() {
     setTab(readRequestedTab(window.location.search));
   }, []);
 
+  // Sprint 33 — the Pipeline tab is the exception to this page's sign-in
+  // wall, and it has to be. /status was readable signed-out (sync_runs and
+  // the row counts are public-read under RLS), so folding it in behind the
+  // gate would have quietly taken a public page private. Read the tab from
+  // the URL here rather than from `tab` state: this effect and the one above
+  // both run on mount, and `tab` is still its "account" default when a
+  // signed-out visitor arrives on ?tab=status.
   useEffect(() => {
-    if (!loading && !user) router.replace("/signin/");
+    if (loading || user) return;
+    if (readRequestedTab(window.location.search) === "status") return;
+    router.replace("/signin/");
   }, [loading, user, router]);
 
-  if (!loading && !user) return null;
+  const signedOut = !loading && !user;
+  if (signedOut && tab !== "status") return null;
 
   const tabButton = (id: Tab, label: string) => (
     <button
@@ -394,17 +407,27 @@ export default function SettingsPage() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-xl flex-1 px-4 py-10">
+    <main className={`mx-auto w-full flex-1 px-4 py-10 ${tab === "status" ? "max-w-5xl" : "max-w-xl"}`}>
       <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
-        Account
+        {signedOut ? "Pipeline" : "Account"}
       </h1>
 
-      <div className="mt-4 flex gap-1 rounded-lg border border-zinc-200 p-1 dark:border-purple-900/40">
-        {tabButton("account", "Account details")}
-        {tabButton("import", "Import squad")}
-      </div>
+      {/* Signed out, the other two tabs are not reachable, so offering them
+          would be a dead end rather than a choice. */}
+      {!signedOut && (
+        <div className="mt-4 flex gap-1 rounded-lg border border-zinc-200 p-1 dark:border-purple-900/40">
+          {tabButton("account", "Account details")}
+          {tabButton("import", "Import squad")}
+          {tabButton("status", "Pipeline")}
+        </div>
+      )}
 
-      {tab === "account" ? <AccountTab /> : <ImportTab />}
+      {/* Each tab mounts only while showing — PipelineStatus issues a count
+          query per table, and someone changing their Manager ID should not
+          pay for that. */}
+      {tab === "account" && <AccountTab />}
+      {tab === "import" && <ImportTab />}
+      {tab === "status" && <PipelineStatus />}
     </main>
   );
 }

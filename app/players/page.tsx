@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { FixtureCell } from "@/components/fdr-badge";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
@@ -9,6 +8,8 @@ import { ConfidenceBadge, RateBand } from "@/components/confidence-badge";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { GemBadge } from "@/components/gem-badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SlideOver } from "@/components/ui/slide-over";
+import { ComparePanel, type CompareFixture } from "@/components/compare-panel";
 import { fullName } from "@/lib/player-search";
 import { shortSeason } from "@/lib/utils";
 import {
@@ -63,6 +64,12 @@ interface PlayerRow {
   // `PredictionRow`'s forward-looking per-fixture expected_minutes.
   expected_goals: number | null;
   expected_assists: number | null;
+  // Read only by the compare panel (Sprint 33). points_per_game is last
+  // completed season's; form is FPL's own 30-day rolling figure.
+  points_per_game: number | null;
+  bonus: number | null;
+  form: number | null;
+  defensive_contribution: number | null;
 }
 
 /** One row of `player_predictions` for the upcoming gameweek only — the
@@ -217,7 +224,15 @@ export default function PlayersPage() {
   const [horizon, setHorizon] = useState<Horizon>(5);
   const [sortKey, setSortKey] = useState<SortKey>("price");
   const [sortDesc, setSortDesc] = useState(true);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  /**
+   * Ordered, not a Set: the compare panel's columns are laid out in
+   * selection order, and a Set has no order to lay them out in. This was a
+   * `Set<number>` while the only thing it did was build a `?ids=` query
+   * string for a page that kept its own ordered list.
+   */
+  const [selected, setSelected] = useState<number[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const compareTrigger = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -238,7 +253,10 @@ export default function PlayersPage() {
               .select(
                 // Single string literal: supabase-js parses this at the type level,
                 // so concatenation would collapse the row type to an error type.
-                "id, code, web_name, first_name, second_name, known_name, team_id, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, total_points, goals_scored, assists, minutes, expected_goals, expected_assists",
+                // Superset of what the grid and the compare panel each need — Sprint 33
+                // merged /compare in here, and one select beats two pages
+                // issuing near-identical ones a click apart.
+                "id, code, web_name, first_name, second_name, known_name, team_id, element_type, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, total_points, goals_scored, assists, minutes, expected_goals, expected_assists, points_per_game, bonus, form, defensive_contribution",
               )
               .eq("season", gw.season)
               .limit(1000),
@@ -343,6 +361,25 @@ export default function PlayersPage() {
           .then(setPriceProgress)
           .catch(() => setPriceProgress(new Map()));
 
+        // Seed the comparison from ?ids= — what /compare used to do, so its
+        // redirect stub and the builder's replacement-finder deep link both
+        // still land somewhere useful. ?panel=compare opens it; ?ids= alone
+        // just ticks the boxes, which is what a shared link usually wants.
+        // window.location.search rather than useSearchParams: the static
+        // export has no Suspense-boundary precedent, and /settings and
+        // /fixtures already read their own query state this way.
+        const params = new URLSearchParams(window.location.search);
+        const byId = new Set(playerRows.map((r) => r.id));
+        const seeded = (params.get("ids") ?? "")
+          .split(",")
+          .map(Number)
+          .filter((n) => Number.isInteger(n) && byId.has(n))
+          .slice(0, MAX_COMPARE);
+        if (seeded.length > 0) {
+          setSelected(seeded);
+          if (params.get("panel") === "compare") setCompareOpen(true);
+        }
+
         // first_event/last_event are constant across every row for one
         // season/model_version — any row gives the real prediction window.
         const first = xpList[0];
@@ -383,7 +420,11 @@ export default function PlayersPage() {
     teamShort: teamShort.get(p.team_id) ?? null,
     price: p.now_cost ?? 0,
     ownership: p.selected_by_percent,
-    pointsPerGame: null,
+    // Both fetched since Sprint 33, when the compare panel — which scores on
+    // them — moved onto this page. `pointsPerGame` was null only because the
+    // column wasn't in the select.
+    pointsPerGame: p.points_per_game,
+    form: p.form,
     xp: {
       1: x?.xp_1 ?? null,
       3: x?.xp_3 ?? null,
@@ -523,13 +564,76 @@ export default function PlayersPage() {
   const teamOptions = [...teamShort.entries()].sort((a, b) => a[1].localeCompare(b[1]));
 
   const toggleSelected = (id: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else if (next.size < MAX_COMPARE) next.add(id);
-      return next;
-    });
+    setSelected((prev) =>
+      prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : prev.length >= MAX_COMPARE
+          ? prev
+          : [...prev, id],
+    );
   };
+
+  const removeSelected = useCallback(
+    (id: number) => setSelected((prev) => prev.filter((x) => x !== id)),
+    [],
+  );
+
+  // ------------------------------------------------------- compare panel
+  //
+  // Sprint 33 folded /compare in here. Everything below is a re-shape of
+  // state this page already held: the panel needs no fetch of its own, which
+  // is the point — the two pages were issuing near-identical queries for the
+  // same gameweek one click apart, and the horizon you had just set was
+  // thrown away crossing between them.
+
+  const playerById = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
+
+  /** The selected rows as ScoredPlayers, in selection order. */
+  const chosen = useMemo(
+    () =>
+      selected.flatMap((id) => {
+        const row = playerById.get(id);
+        return row ? [toScoredPlayer(row, xp.get(id))] : [];
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selected, playerById, xp, predictions, runs, teamShort],
+  );
+
+  /** Per-horizon xDefcon, the one number the panel needs that isn't on
+   *  ScoredPlayer (see XDC_MODEL_NOTE — only this table and the grid use it). */
+  const xdcById = useMemo(() => {
+    const m = new Map<number, Record<Horizon, number | null>>();
+    for (const id of selected) {
+      const x = xp.get(id);
+      m.set(id, {
+        1: x?.xdc_1 ?? null,
+        3: x?.xdc_3 ?? null,
+        5: x?.xdc_5 ?? null,
+        8: x?.xdc_8 ?? null,
+        19: x?.xdc_19 ?? null,
+        season: x?.xdc_total ?? null,
+      });
+    }
+    return m;
+  }, [selected, xp]);
+
+  /** `runs` keyed and named the way the panel wants it — the same cells, not
+   *  a second fetch. */
+  const upcomingByTeam = useMemo(() => {
+    const m = new Map<number, CompareFixture[]>();
+    for (const [teamId, cells] of runs) {
+      m.set(
+        teamId,
+        cells.map((c) => ({
+          event: c.gw,
+          opponent_short_name: c.opp,
+          is_home: c.home,
+          fdr: c.fdr,
+        })),
+      );
+    }
+    return m;
+  }, [runs]);
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 pb-24">
@@ -684,8 +788,8 @@ export default function PlayersPage() {
                 const x = xp.get(p.id);
                 const run = (runs.get(p.team_id) ?? []).slice(0, horizonLength(horizon, seasonWindow));
                 const [bandLower, bandUpper] = xpBandForHorizon(x, horizon);
-                const isSelected = selected.has(p.id);
-                const disableCheckbox = !isSelected && selected.size >= MAX_COMPARE;
+                const isSelected = selected.includes(p.id);
+                const disableCheckbox = !isSelected && selected.length >= MAX_COMPARE;
                 return (
                   <tr
                     key={p.id}
@@ -841,29 +945,83 @@ export default function PlayersPage() {
         </div>
       )}
 
-      {selected.size >= 2 && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-[#1E0234]/95">
+      {/* The bar that used to link to /compare now opens it in place. It
+          shows from one selection rather than two, because "Compare" that
+          appears only after a second checkbox reads as an unexplained
+          state change; with one player the panel is a single-player
+          profile, which is a legitimate thing to want. */}
+      {selected.length >= 1 && (
+        <div
+          ref={compareTrigger}
+          className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-[#1E0234]/95"
+        >
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
-              {selected.size} of {MAX_COMPARE} players selected
+              {selected.length} of {MAX_COMPARE} players selected
             </span>
             <span className="flex items-center gap-3">
               <button
-                onClick={() => setSelected(new Set())}
+                onClick={() => setSelected([])}
                 className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87]"
               >
                 Clear
               </button>
-              <Link
-                href={`/compare?ids=${[...selected].join(",")}`}
-                className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e078]"
+              <button
+                onClick={() => setCompareOpen((v) => !v)}
+                aria-expanded={compareOpen}
+                className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e078]"
               >
-                Compare {selected.size} players →
-              </Link>
+                {compareOpen ? "Hide comparison" : `Compare ${selected.length}`}
+              </button>
             </span>
           </div>
         </div>
       )}
+
+      <SlideOver
+        open={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        side="right"
+        label="Player comparison"
+        width="min(52rem, 96vw)"
+        triggerRef={compareTrigger}
+      >
+        <div className="p-2">
+          <div className="flex items-start justify-between gap-3 pb-3">
+            <div>
+              <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+                Comparison
+              </h2>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                Best value per row is highlighted. Horizon follows the page — {horizonLabel(horizon)}.
+              </p>
+            </div>
+            <button
+              onClick={() => setCompareOpen(false)}
+              aria-label="Close comparison"
+              className="shrink-0 rounded-md px-2 py-1 text-xl leading-none text-zinc-500 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-purple-950/60"
+            >
+              ×
+            </button>
+          </div>
+
+          {chosen.length === 0 ? (
+            <p className="py-12 text-center text-sm text-zinc-500">
+              Tick players in the table to compare them. Nothing is selected.
+            </p>
+          ) : (
+            <ComparePanel
+              chosen={chosen}
+              horizon={horizon}
+              seasonWindow={seasonWindow}
+              xdcById={xdcById}
+              rowById={playerById}
+              upcoming={upcomingByTeam}
+              onRemove={removeSelected}
+            />
+          )}
+        </div>
+      </SlideOver>
     </main>
   );
 }

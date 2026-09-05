@@ -77,7 +77,7 @@ export function TransferPath({
           <p className="mt-0.5 text-xs text-zinc-500">
             {hasChipPlan
               ? "What to do between now and your last planned chip — not just this deadline."
-              : "No chips planned, so this only covers a couple of gameweeks. Pin a chip on /chips or above to see a real path."}
+              : "No chips planned, so this only covers a couple of gameweeks. Pin a chip on the Chip timing tab or above to see a real path."}
             {horizon ? ` This deadline is searched over ${horizonLabel(horizon)}; later gameweeks are valued one at a time.` : ""}
           </p>
         </div>

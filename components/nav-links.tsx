@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { ChevronDown } from "lucide-react";
-import { useDismissablePopover } from "@/components/ui/use-anchored-panel";
+import { SlideOver } from "@/components/ui/slide-over";
 import { Monogram, Wordmark } from "@/components/brand";
 
 /**
@@ -38,15 +38,19 @@ export const NAV_GROUPS = [
       { href: "/builder", label: "Builder" },
       { href: "/scenarios", label: "Scenarios" },
       { href: "/transfers", label: "Transfers" },
-      { href: "/chips", label: "Chips" },
-      { href: "/review", label: "Review" },
+      // Sprint 33 — Chips merged into Transfers as its "Chip timing" tab
+      // (same draft, same engine), and Review into My Team, under the
+      // gameweek selector that was already a past-gameweek view. Both
+      // survive as redirect stubs.
     ],
   },
   {
     label: "Statistics",
     items: [
       { href: "/players", label: "Players" },
-      { href: "/compare", label: "Compare" },
+      // Sprint 33 — Compare merged into Players as a slide-over panel, so it
+      // is no longer a destination of its own. /compare survives only as a
+      // redirect stub for old links.
       { href: "/fixtures", label: "Fixtures" },
     ],
   },
@@ -241,23 +245,13 @@ export function MobileNav() {
   const pathname = normalize(usePathname() ?? "/");
   const [open, setOpen] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
-  const drawer = useRef<HTMLDivElement>(null);
 
-  // Same click-toggle + outside-click + Escape convention as everywhere else
-  // in the app (`useDismissablePopover`), plus the drawer/backdrop's own
-  // body-scroll lock — a background scroll behind an open drawer is
-  // disorienting, and on a phone it's very easy to catch page content
-  // instead of the drawer.
-  useDismissablePopover(open, () => setOpen(false), [wrapper, drawer]);
-
-  useEffect(() => {
-    if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [open]);
+  // Sprint 33: the backdrop, dialog semantics, body-scroll lock and
+  // dismissal that used to be inlined here now live in `SlideOver`
+  // (components/ui/slide-over.tsx) — `/players`' compare panel needed the
+  // same thing on the other edge, and two copies of a focus-trapping
+  // overlay is a bug with a delay on it. `wrapper` is passed as the trigger
+  // so tapping the hamburger to close isn't first read as a click outside.
 
   // Close the drawer after following a link rather than leaving it open
   // behind the new page.
@@ -284,55 +278,42 @@ export function MobileNav() {
         <span aria-hidden="true">{open ? "×" : "☰"}</span>
       </button>
 
-      {open && (
-        <>
-          {/* Backdrop: clicking it is a click "outside" the drawer's
-              content but still inside `wrapper`'s DOM subtree, so the
-              mousedown listener in `useDismissablePopover` wouldn't close
-              it on its own — needs its own handler. */}
-          <div
-            aria-hidden="true"
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-40 bg-black/40"
-          />
-          {/* A trigger at the header's left edge is one tap; docking the
-              drawer to the same edge it opened from (rather than the
-              bottom, as an earlier version did) keeps the tap and its
-              result at the same side of the screen instead of opposite
-              ends of the viewport. */}
-          <div
-            ref={drawer}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Navigation"
-            className="fixed inset-y-0 left-0 z-50 w-[min(20rem,85vw)] overflow-y-auto border-r border-zinc-200 bg-white p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-2xl dark:border-purple-800/50 dark:bg-[#2A0A45]"
-          >
-            {/* Sprint 25: the app's own wordmark, Gmail-sidebar style,
-                rather than a plain "Navigation" label — and no dedicated
-                close button, since a backdrop tap, Escape, or the hamburger
-                itself (which is already an "×" while open) all close this
-                drawer; a fourth affordance was redundant. */}
-            <Link
-              href="/"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 border-b border-zinc-200 px-2 py-3 dark:border-purple-800/50"
-            >
-              <Monogram size={24} />
-              <Wordmark />
-            </Link>
-            <div className="space-y-0.5 pt-1">
-              {NAV_GROUPS.map((group) => (
-                <MobileNavGroup
-                  key={group.label}
-                  group={group}
-                  pathname={pathname}
-                  onNavigate={() => setOpen(false)}
-                />
-              ))}
-            </div>
-          </div>
-        </>
-      )}
+      {/* A trigger at the header's left edge is one tap; docking the drawer
+          to the same edge it opened from (rather than the bottom, as an
+          earlier version did) keeps the tap and its result at the same side
+          of the screen instead of opposite ends of the viewport. */}
+      <SlideOver
+        open={open}
+        onClose={() => setOpen(false)}
+        side="left"
+        label="Navigation"
+        width="min(20rem, 85vw)"
+        triggerRef={wrapper}
+      >
+        {/* Sprint 25: the app's own wordmark, Gmail-sidebar style, rather
+            than a plain "Navigation" label — and no dedicated close button,
+            since a backdrop tap, Escape, or the hamburger itself (which is
+            already an "×" while open) all close this drawer; a fourth
+            affordance was redundant. */}
+        <Link
+          href="/"
+          onClick={() => setOpen(false)}
+          className="flex items-center gap-2.5 border-b border-zinc-200 px-2 py-3 dark:border-purple-800/50"
+        >
+          <Monogram size={24} />
+          <Wordmark />
+        </Link>
+        <div className="space-y-0.5 pt-1">
+          {NAV_GROUPS.map((group) => (
+            <MobileNavGroup
+              key={group.label}
+              group={group}
+              pathname={pathname}
+              onNavigate={() => setOpen(false)}
+            />
+          ))}
+        </div>
+      </SlideOver>
     </div>
   );
 }
