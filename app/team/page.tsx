@@ -51,6 +51,7 @@ import {
 } from "@/lib/gameweek-state";
 import { DEFAULT_RULES, type SquadRules, type TeamState } from "@/lib/team-state";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { GameweekReviewPanel } from "@/components/gameweek-review-panel";
 import { useAuth } from "@/components/auth-provider";
 
 /** Separator between identity badges in the profile line. */
@@ -847,9 +848,15 @@ export default function TeamPage() {
   );
 
   useEffect(() => {
-    // Default to the most recent gameweek that has picks.
+    // Default to the most recent gameweek that has picks — unless ?event=
+    // names one, which is how /review's redirect stub keeps its deep links
+    // pointing at the gameweek they named. window.location.search rather
+    // than useSearchParams, the convention every query-reading page here
+    // already follows (no Suspense-boundary precedent in a static export).
+    if (selectedEvent !== null || pickedEvents.length === 0) return;
+    const requested = Number(new URLSearchParams(window.location.search).get("event"));
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (selectedEvent === null && pickedEvents.length > 0) setSelectedEvent(pickedEvents[0]);
+    setSelectedEvent(pickedEvents.includes(requested) ? requested : pickedEvents[0]);
   }, [pickedEvents, selectedEvent]);
 
   /**
@@ -1374,6 +1381,28 @@ export default function TeamPage() {
                       these cards are today&apos;s — FPL doesn&apos;t publish what they were then.
                     </p>
                   )}
+
+                  {/* Sprint 33 — what /review was. Only for a *finished*
+                      gameweek: the whole panel is a post-mortem, and a
+                      post-mortem on a match still being played is a
+                      different, wrong claim. `finishedEvents` is this
+                      page's one source for that, so there is no second
+                      event list to disagree with the selector above.
+                      `data.players` is passed in rather than re-read —
+                      /review used to fetch its own 1000-row copy of a map
+                      this page already holds. */}
+                  {selectedEvent !== null &&
+                    data.finishedEvents.has(selectedEvent) &&
+                    data.nextGw && (
+                      <div className="mt-6 border-t border-zinc-200 pt-5 dark:border-purple-900/40">
+                        <GameweekReviewPanel
+                          season={data.nextGw.season}
+                          entryId={data.manager.entry_id}
+                          event={selectedEvent}
+                          players={data.players}
+                        />
+                      </div>
+                    )}
                 </section>
               )}
             </div>

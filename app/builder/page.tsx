@@ -1839,7 +1839,7 @@ export default function BuilderPage() {
                   <p>{cheapChips.threeXC.explanation.join(" ")}</p>
                 </TapToReveal>
                 <Link
-                  href={`/chips?draft=${team.draftId}`}
+                  href={`/transfers?tab=chips&draft=${team.draftId}`}
                   className="ml-auto text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
                 >
                   Free Hit &amp; Wildcard schedule →
@@ -2088,7 +2088,7 @@ export default function BuilderPage() {
                 <div className="flex shrink-0 items-center gap-2">
                   {replacements.length > 0 && (
                     <Link
-                      href={`/compare?ids=${[replaceFor, ...replacements.slice(0, 3).map((r) => r.player.id)].join(",")}`}
+                      href={`/players?panel=compare&ids=${[replaceFor, ...replacements.slice(0, 3).map((r) => r.player.id)].join(",")}`}
                       className="rounded text-xs font-medium text-purple-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-primary"
                     >
                       Compare all
