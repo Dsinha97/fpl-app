@@ -290,7 +290,14 @@ starters less — is a different algorithm, not a parameter, and is recorded as 
   walk-forward: at event *E* the synthetic row is built only from that target season's events
   strictly before *E*, both arms run through the real `deriveRatesWithPrior`) against the gate
   above — MAE and Pearson r vs. prior-only, in all three seasons, without the *magnitude* of bias
-  growing (a signed-only comparison would wrongly pass a bias moving from −0.33 to −0.39):
+  growing (a signed-only comparison would wrongly pass a bias moving from −0.33 to −0.39).
+
+  **Sign convention, because this document previously stated it both ways.** Every bias figure from
+  here down is `accuracyStats`' (`lib/stats.ts`), which is `mean(actual − predicted)` — so a
+  **negative bias means the model predicts more points than are scored**. The §2 calibration table
+  above predates that helper and reports the opposite sign (`predicted − actual`), which is why
+  −0.485 is described there as under-predicting. Two sentences in the bias-correction section below
+  read the walk-forward sign backwards until this was corrected; the code was always unambiguous.
 
   | Season | Prior-only MAE / r / bias | Blended (w=0.6) MAE / r / bias | Clears? |
   |---|---|---|---|
@@ -327,9 +334,9 @@ starters less — is a different algorithm, not a parameter, and is recorded as 
   (each held-out season's correction comes only from the *other* two seasons' blended residuals,
   never its own — Pearson r is invariant to an additive shift, so this can only move bias/MAE and
   never touches r). Verdict: **no weight clears the gate in all three seasons.** The correction
-  learned from 2024-25 and 2025-26 (both blend arms under-predict, bias strongly negative) is itself
-  strongly negative per position; applied to 2023-24 — whose blend arm was already *slightly
-  over-predicting* (bias +0.015 to +0.079 depending on weight) — it overshoots into a large positive
+  learned from 2024-25 and 2025-26 (both blend arms **over**-predict, bias strongly negative) is
+  itself strongly negative per position; applied to 2023-24 — whose blend arm was already *slightly
+  under-predicting* (bias +0.015 to +0.079 depending on weight) — it overshoots into a large positive
   bias (e.g. +0.51 at w=0.3) instead of correcting it:
 
   | wCur | 2023-24 (bias before → after) | 2024-25 (before → after) | 2025-26 (before → after) |
@@ -345,6 +352,102 @@ starters less — is a different algorithm, not a parameter, and is recorded as 
   CLAUDE.md, this null result stands as-is rather than narrowing the gate (e.g. two-of-three) to let
   it through. Reproduce with `npx tsx scripts/backtest-walkforward.ts`, which now sweeps and reports
   this correction permanently, alongside the existing blend sweep.
+
+  **Attempt 3, four seasons and a narrow scope — swept 2026-09-06, does not clear the gate, not
+  shipped. Read the harness section below first: the first version of this sweep ran on corrupted
+  input and its conclusions were wrong.** Two changes, both prompted by GW3 finishing:
+
+  1. **2026-27 is now a fourth walk-forward target** (`targets` in `backtest-walkforward.ts`). It is
+     a deliberately weak season and is reported as such rather than quietly averaged in: three
+     gameweeks played means the last-5 baseline cannot fire at all (it needs six, so it now prints
+     `n=0 — not enough played gameweeks yet` instead of a line of `NaN`), the blend arm only has
+     events 2 and 3 to contribute (n=468 against 703 prior-only), and the `games === 3` mpg sanity
+     check never triggers. It is still inside the gate: a season the model has genuinely never seen
+     is the only evidence that matters here, and dropping it because it is inconvenient would be
+     choosing the gate to fit the answer.
+  2. **A narrow blend scope** — `ShrinkInput.currentSeasonScope` (`"all" | "minutes"`, default
+     `"all"`, so every existing caller and the earlier sweeps are unaffected). `"minutes"` lets the
+     current season move `mpg`/`start_share` and holds the per-90 scoring rates at prior-only. The
+     hypothesis: the full blend improves MAE and r everywhere and fails on *bias*, which is a level
+     error, and the level is set far more by expected minutes than by a per-90 rate — while playing
+     time is also the quantity a prior season genuinely cannot know. Implementation note: under
+     `"minutes"` the prior-only `wMinutes` is kept too, since `wMinutes` sets `nEff` and therefore
+     shrinkage strength — letting the current season raise it would buy extra confidence in rates
+     the current season was not allowed to inform.
+
+  **Results, on the corrected harness** (deterministic — two consecutive full runs are byte-identical):
+
+  | Season | prior-only n / bias / MAE / r | scope=all, w=1 | scope=minutes, w=1 |
+  |---|---|---|---|
+  | 2023-24 | 4515 / +0.086 / 2.184 / 0.245 | **2.140 / 0.338 / −0.009** clears | 2.113 / 0.321 / +0.106 **fails** |
+  | 2024-25 | 5925 / −0.295 / 2.286 / 0.204 | 2.229 / 0.303 / −0.361 **fails** | 2.221 / 0.287 / −0.309 **fails** |
+  | 2025-26 | 7013 / −0.539 / 2.491 / 0.153 | **2.361 / 0.277 / −0.503** clears | **2.350 / 0.264 / −0.442** clears |
+  | 2026-27 | 703 / −0.717 / 2.560 / 0.211 | 2.499 / 0.283 / −0.826 **fails** | 2.499 / 0.277 / −0.815 **fails** |
+
+  **Verdict: `scope=all` clears 2 of 4 seasons; `scope=minutes` clears 2 of 4 at w=0.3 and 1 of 4
+  at higher weights. Neither ships.** `MODEL_VERSION` stays `v1.5.0`, nothing is wired into
+  `generate-predictions`, and `currentSeasonScope` joins `currentSeasonRow`/`SeasonRow.games` as
+  reviewed, dormant infrastructure.
+
+  **The narrow scope is not better than the full blend, and an earlier version of this section said
+  it was.** On the corrupted input it appeared to clear 3 of 4 seasons against the full blend's 2,
+  which read as support for the minutes-only hypothesis. On corrected input that advantage
+  disappears: the full blend now clears 2023-24 (which the corrupted run had it failing) and the
+  narrow scope fails it. The hypothesis is neither confirmed nor refuted by this sweep — it is
+  untested, because the run that appeared to test it was measuring noise. Re-run at 8-10 scored
+  2026-27 gameweeks.
+
+  **Also unchanged and worth restating: 2024-25 still fails on bias for the full blend**
+  (−0.295 → −0.361), which is the original finding this whole line of work started from.
+
+  ### The harness was corrupting its own inputs
+
+  The tables published on 2026-08-30 could not be reproduced on 2026-09-06, and chasing that
+  turned out to matter more than the sweep it was blocking.
+
+  **Cause: `fetchAll` paged with `limit`/`offset` and no `ORDER BY`.** Postgres guarantees no row
+  order without one, so successive offset pages over `player_gameweek_stats` (10-17 pages per
+  season) could skip or repeat rows. It was repeating them: 2023-24's prior-only arm read **n=5710**
+  unordered against **n=4515** ordered — roughly 26% duplicated rows, silently corrupting every
+  statistic downstream. This is the same defect CLAUDE.md already records for `lib/player-pool.ts`'s
+  concurrent `.range()` reads, which is why that rule exists; the harness simply predated it.
+
+  Fixed by making `order` a **required** argument of `fetchAll`, with a unique key at all six call
+  sites. Verification: two consecutive full runs now produce byte-identical JSON, and the corrected
+  figures land essentially on top of the originally published ones — 2025-26 prior-only reads
+  2.491 / 0.153 / −0.539 today against 2.491 / 0.152 / −0.536 as published. **The published tables
+  were right; the drift was the harness corrupting itself between runs.**
+
+  **A second, independent defect found on the way: position was resolved from today's roster.**
+  `positionByCode` came from `players`, which only ever holds the current season's squad list, so a
+  historical season was scored using each player's *present* position. Position selects the entire
+  scoring rule set (a defender scores 6 a goal and takes clean sheets; a midfielder scores 5 and
+  barely does), so this is not cosmetic. Measured: **10-13 players per season** held a different
+  position then than now. Fixed with `positionsForSeason`, which reads that season's own archived
+  `player_gameweek_stats.raw.position` and falls back to today's roster — the fallback is
+  load-bearing for 2026-27, whose rows come from `sync-player-history` and carry no archived
+  position at all (0 of 1,891).
+
+  **What was ruled out, and is worth recording so nobody re-investigates it.** An earlier version of
+  this section named the roster join as the *drift* mechanism — that a player who left the league
+  would be dropped from seasons he played. **That was wrong.** Measured across all four seasons:
+  **zero** codes in `player_gameweek_stats` are missing from today's `players`, because
+  `ingest-fpl-archive` only ever ingested codes that were in the roster when it ran. Also ruled out:
+  historical truth data (frozen since 2026-08-19, no rows created or updated since), `scoring_rules`
+  (values unchanged since 2026-08-03; only `updated_at` moves, on sync-bootstrap's idempotent
+  re-upsert), the Sprint 30 script change (diff is purely additive — it added the bias-correction
+  sweep without touching either arm), and `player_season_history` churn (rebuilding its 2026-08-27
+  state moves 2023-24's bias by 0.006, not the 0.119 that needed explaining).
+
+  **A run now prints an input fingerprint** — row counts for every reference table it reads, plus
+  per-season truth counts and cohort size — so a future divergence is attributable to a named input
+  instead of guessable. The reason this took a day to find is that the earlier runs recorded their
+  outputs and none of their inputs.
+
+  - **Historical fixtures do not exist in `fixtures`.** That table holds 2026-27 only, which is why
+    the results-derived FDR must reconstruct scorelines from `player_gameweek_stats`
+    (`team_h_score`/`team_a_score`/`opponent_team`/`was_home`) rather than from
+    `deriveStandingsFromFixtures`.
 - **`dc90` (defensive contribution) applies one aggregate count to two different FPL rules.** FPL
   scores defenders on clearances + blocks + interceptions + tackles, and midfielders/forwards on the
   same four plus recoveries — but the API exposes only the combined `defensive_contribution` total,

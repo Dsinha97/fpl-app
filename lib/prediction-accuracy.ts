@@ -99,14 +99,69 @@ export async function loadArchivedPredictions(
   }));
 }
 
-/** Which gameweeks the archive actually covers, for gating a UI on "enough n yet". */
+/**
+ * Which gameweeks the archive actually covers, for gating a UI on "enough n yet".
+ *
+ * Walks the distinct events one at a time — `.gt(event, last).order(event).limit(1)`
+ * — rather than selecting the `event` column and de-duplicating client-side. The
+ * archive holds roughly one row per player per fixture (~640 per gameweek), so a
+ * single unpaged select hits the API's 1000-row cap during the *second* archived
+ * gameweek and silently reports only the first (CLAUDE.md: "the API caps every
+ * response at 1000 rows whatever `.limit()` asks for"). Paging the whole column
+ * would also be correct but reads ~24,000 rows by the end of a season to learn 38
+ * integers; this costs one single-row round trip per distinct event plus one to
+ * terminate.
+ */
 export async function loadArchivedEvents(season: string): Promise<number[]> {
-  const { data, error } = await supabase
-    .from("player_prediction_archive")
-    .select("event")
-    .eq("season", season);
-  if (error) throw new Error(error.message);
-  return [...new Set((data ?? []).map((r) => r.event as number))].sort((a, b) => a - b);
+  const events: number[] = [];
+  let last = -1;
+  for (;;) {
+    const { data, error } = await supabase
+      .from("player_prediction_archive")
+      .select("event")
+      .eq("season", season)
+      .gt("event", last)
+      .order("event", { ascending: true })
+      .limit(1);
+    if (error) throw new Error(error.message);
+    const next = (data ?? [])[0]?.event as number | undefined;
+    if (next === undefined) break;
+    events.push(next);
+    last = next;
+  }
+  return events;
+}
+
+/**
+ * `players.code` -> position short code, the join key `scoreEvent` needs.
+ *
+ * Lives here rather than in the panel so the 1000-row cap is handled in one
+ * place: the player table sits just under the cap today (~700 rows) and would
+ * silently truncate the moment it crossed it, dropping those players' position
+ * from the per-position split without dropping them from the overall figure.
+ */
+export async function loadPositionByCode(season: string): Promise<Map<number, string>> {
+  const [players, types] = await Promise.all([
+    fetchAllPages<Record<string, unknown>>((from, to) =>
+      supabase
+        .from("players")
+        .select("code, element_type")
+        .eq("season", season)
+        .range(from, to),
+    ),
+    supabase.from("element_types").select("id, singular_name_short").eq("season", season),
+  ]);
+  if (types.error) throw new Error(types.error.message);
+
+  const nameById = new Map(
+    (types.data ?? []).map((t) => [t.id as number, t.singular_name_short as string]),
+  );
+  const byCode = new Map<number, string>();
+  for (const p of players) {
+    const name = nameById.get(p.element_type as number);
+    if (name) byCode.set(p.code as number, name);
+  }
+  return byCode;
 }
 
 interface ActualRow {

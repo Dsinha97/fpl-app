@@ -213,7 +213,13 @@ Nothing was deployed and no migration was applied. `/status` gained no view of
 natural place for that, and adding a second half-panel first would be worse
 than adding neither.
 
-## 5b. Deployment status — partial, deliberately, as of 2026-09-05
+## 5b. Deployment status — **COMPLETE as of 2026-09-06.** See §5c for the finish.
+
+The section below is kept as written on 2026-09-05, because its reasoning about
+*why* it stopped at two functions is still correct and worth reading. What it
+got wrong is only the size of the remaining owner action — see §5c.
+
+## 5b (as of 2026-09-05) — partial, deliberately
 
 Steps 1, 2 and 4 are **done and verified against the live project**. Step 3 is
 **2 of 10 functions**.
@@ -250,6 +256,58 @@ npx supabase functions deploy sync-bootstrap sync-player-history sync-news sync-
 Then re-run the `sync_runs` check in step 4. Until that lands, the eight remain
 callable by anyone holding the publishable key, so **the repo flip still
 waits** — on this command, not on more code.
+
+## 5c. Finished 2026-09-06 (Sprint 34)
+
+All ten functions are deployed and gated. The remaining eight went out in the
+§6 order — Class A, then Class B — and the verification section below was run
+for the first time.
+
+**The owner action was one command, not the deploy.** §5b concluded the deploy
+itself was the owner's to run. It is smaller than that: the Supabase CLI is
+installed locally, and only `supabase login` needs a human — everything after
+it is non-interactive. Two wrinkles found doing it:
+
+- `npx supabase login` fails from PowerShell with a `PSSecurityException` on the
+  `npx.ps1` shim (execution policy). `npx.cmd supabase login` bypasses it, as
+  does Git Bash.
+- The automatic flow refuses to run in a non-TTY environment at all
+  (`LegacyLoginMissingTokenError`), so it must be a real terminal regardless of
+  shell.
+
+**Verification results** (the matrix in the Verification section, run for real):
+
+| Check | Result |
+|---|---|
+| Class A × 8, publishable key, no secret | `401 {"error":"unauthorized"}` on all eight |
+| The five `?force=1` hatches | 401, and closed rather than guarded — `verifyCron` runs before `new URL(req.url)` |
+| `sync-league-picks`, unauthenticated | 401, "sign in to sync a league" |
+| Cron still healthy post-deploy | `sync-claimed-managers` success at 20:44, one minute after the 20:43 deploy; `sync-fixtures`/`sync-live-gameweek` likewise |
+| `anon` reads the Pipeline tab's columns | works |
+| `anon` reads `sync_runs.invoked_by` | refused — `permission denied for table sync_runs` |
+
+**One real regression, found by the gate and fixed the same pass.**
+`sync-manager` came up `503 BOOT_ERROR`: `index.ts` imported `int` from
+`_shared/fpl.ts`, which does not export it — it lives in `_shared/coerce.ts`.
+This is a latent repo bug `tsc` structurally cannot catch, because
+`supabase/functions/**` is excluded from tsconfig and eslint (CLAUDE.md says so
+and requires it). It only surfaced now because the previously-deployed copy
+predated the `manager-sync.ts` split. `/team`'s Refresh was broken for the
+window between deploy and fix. Every other function/shared import was swept for
+the same class of error; `sync-manager` was the only one.
+
+**Still not exercised**, and recorded as open rather than claimed: the
+31-calls-in-10-minutes `429`, the `rejected` row with the right `invoked_by`,
+and second-user rate-limit isolation. All three need real signed-in JWTs.
+
+**`verify_jwt` deliberately left as found.** `config.toml` records `false` for
+`sync-news` and `generate-predictions`, `true` for the other eight, and its own
+header flags that as a record rather than a decision. A CLI deploy *applies* the
+file, so deploying as-found changed nothing about the gateway posture — which
+kept that open question out of an ordered deploy whose failure mode is silent
+401s on every cron job. It remains open. So does `scratch-path-test`, the
+leftover debug function with `verify_jwt = false` that §5b's config comment
+already names — still deployed, still not in this repo.
 
 ## 6. The deployment ordering, which can break everything silently
 

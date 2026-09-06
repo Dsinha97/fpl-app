@@ -12,7 +12,8 @@
 // function is now just the HTTP wrapper: parse the request, call the shared
 // sync, and report the result via SyncRun — unchanged from before the split.
 
-import { FplHttpError, int } from "../_shared/fpl.ts";
+import { FplHttpError } from "../_shared/fpl.ts";
+import { int } from "../_shared/coerce.ts";
 import {
   currentSeason,
   jsonResponse,
