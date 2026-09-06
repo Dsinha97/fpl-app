@@ -66,6 +66,48 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
+### Data-blocked, not work-blocked — a GW5 check-in and a GW10 batch
+
+Three separate model questions are all waiting on the same thing: more scored 2026-27 gameweeks.
+None of them needs code written first; each has its harness built and its gate already agreed. They
+are grouped here so nobody re-derives them one at a time.
+
+**GW5 check-in — after GW5 is scored, ~2026-09-21** (deadline 2026-09-18). Cheap, ~20 minutes, and
+it is a *look*, not a decision:
+
+- **The accuracy scoreboard reaches n=4** (GW2-5 archived and scored). Read the sign, not the
+  magnitude: the shipped model over-predicted by 0.248 pts/player-fixture across GW2+GW3
+  ([sprints/sprint-34.md](sprints/sprint-34.md) §1). If that has held across four gameweeks it is
+  probably a real calibration offset rather than noise, and `positionCalibration` becomes worth
+  refitting on schedule. If it has flipped sign, GW2+GW3 was noise and the GW10 refit needs
+  rethinking rather than running.
+- **Nothing else is worth touching yet.** The last-5 baseline needs six *played* gameweeks and
+  cannot fire before GW6, which is **2026-10-10** — a three-week international break sits between
+  GW5 and GW6, so the gap here is longer than the numbering suggests. Do not read a GW5 blend or FDR
+  re-run as informative.
+
+**GW10 batch — after GW10 is scored, ~2026-11-09** (deadline 2026-11-07). This is where the three
+open questions actually become answerable, and they share one harness run:
+
+1. **Re-run the current-season blend sweep.** `scope=all` clears 2 of 4 seasons and `scope=minutes`
+   2 of 4; both fail on 2026-27, which had two gameweeks of blend evidence. At GW10 it has ~9, and
+   the last-5 baseline finally produces rows for it too. The narrow minutes-only hypothesis is
+   currently **untested, not refuted** — see [phase-4-model.md](phase-4-model.md#honest-limitations)
+   "Attempt 3".
+2. **Run the results-derived FDR's real gate: derived vs *official*.** Sprint 35 measured derived vs
+   *neutral* and it cleared, with a shuffled control proving the signal is real — but production
+   `fdrRun` uses FPL's official FDR, and official-vs-derived is what would justify replacing it.
+   Official FDR *is* available for the current season in `fixtures`
+   (`team_h_difficulty`/`team_a_difficulty`), so this only ever needed enough scored gameweeks.
+   n=471 at GW3 was far too thin. See [sprints/sprint-35.md](sprints/sprint-35.md) §5.
+3. **Refit `positionCalibration`**, if the GW5 check-in showed the bias direction holding. Three
+   gameweeks was far too thin — the shipped factors were fitted on a 209-player full-season cohort,
+   and refitting on ~1,200 player-fixtures would bake this season's noise into a permanent constant.
+
+**Do not narrow any gate to let these through.** All three already have a standing gate, and the
+project's record on this is that null results were the finding three times over (the blend twice,
+the bias correction once). The GW10 run should be reported the same way whether or not it passes.
+
 - **Sprint 32 — DONE. Built 2026-09-05, fully deployed and verified 2026-09-06.** All ten
   `/functions/v1/` endpoints are gated and the verification gate has been run for the first
   time: the eight cron-only functions all return `401 {"error":"unauthorized"}` to the
