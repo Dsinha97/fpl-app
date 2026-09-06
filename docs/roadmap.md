@@ -251,16 +251,24 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   scoring rates at prior-only — on the reasoning that the blend fails on *bias*, bias is a level
   error, level is driven far more by expected minutes than by a per-90 rate, and playing time is the
   one thing a prior season genuinely cannot know. **`scope=all` clears 2 of 4 seasons;
-  `scope=minutes` clears 3 of 4; neither ships.** The narrow scope fixes exactly the season the full
-  blend breaks (2023-24) and fails only on 2026-27, where prior-only already over-predicts by 0.719
-  and every arm makes it worse. Re-run at 8-10 scored gameweeks.
-  **Separately, and more important than the sweep: the published walk-forward tables are no longer
-  reproducible, and the harness is why.** `scripts/backtest-walkforward.ts:133` loads `players` with
-  no season filter, against a table holding only the current season's roster — so every historical
-  season's cohort is filtered through today's PL squad list and a player who has since left is
-  dropped from seasons he played. One season's verdict has already flipped because of it. The
-  unmodified HEAD script reproduces the refactor digit for digit, so this is data drift, not a code
-  break. Fix is its own task.
+  `scope=minutes` clears 2 of 4 at w=0.3 and 1 of 4 above it; neither ships.** The narrow-scope
+  hypothesis is **untested rather than supported** — its apparent 3-of-4 advantage came from the
+  corrupted input below and does not survive the fix. Re-run at 8-10 scored gameweeks.
+  **Separately, and more important than the sweep: the harness was corrupting its own inputs, and
+  fixing it restored the published numbers.** `fetchAll` paged with `limit`/`offset` and no
+  `ORDER BY`, so offset pages over `player_gameweek_stats` (10-17 a season) repeated rows —
+  2023-24's prior-only arm read n=5710 unordered against n=4515 ordered, ~26% duplicates corrupting
+  every statistic. Same defect CLAUDE.md records for `lib/player-pool.ts`; the harness predated the
+  rule. `order` is now required at all six call sites and two consecutive full runs are
+  byte-identical. The corrected figures land on the originally published ones (2025-26 prior-only
+  2.491 / 0.153 / −0.539 vs 2.491 / 0.152 / −0.536 published) — **the published tables were right;
+  the harness was drifting against itself.** A second, independent defect: position was resolved
+  from today's roster, so historical seasons were scored with each player's *present* position,
+  affecting 10-13 players a season — now read from that season's archived `raw.position` with a
+  roster fallback that is load-bearing for 2026-27. Runs print an input fingerprint so a future
+  divergence is attributable. Note an earlier version of this entry blamed departed players being
+  dropped by the roster join: measured, that is **zero** players in all four seasons and was not the
+  cause.
 - **Archive pre-deadline predictions — built 2026-08-27.** `generate-predictions` deletes and
   replaces `player_predictions` wholesale every run, so there was never a record of what the
   model said *before* a gameweek was played — GW1's predictions were gone within the first cron

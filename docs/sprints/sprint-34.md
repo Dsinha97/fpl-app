@@ -81,11 +81,15 @@ tables and reasoning: [phase-4-model.md](../phase-4-model.md#honest-limitations)
   than by a per-90 rate, while playing time is also the one thing a prior season genuinely cannot
   know.
 
-**Verdict: `scope=all` clears 2 of 4 seasons; `scope=minutes` clears 3 of 4. Neither ships.** The
-narrow hypothesis survives — it fixes exactly the season the full blend breaks (2023-24, bias
-−0.040 → −0.114 blending rates, → +0.002 blending minutes only) — and fails only on 2026-27, where
-prior-only already over-predicts by 0.719 and every blend arm makes it worse. Re-run once 2026-27
-has 8–10 scored gameweeks, which is also when the last-5 baseline starts producing rows for it.
+**Verdict: `scope=all` clears 2 of 4 seasons; `scope=minutes` clears 2 of 4 at w=0.3 and 1 of 4
+above it. Neither ships.** Re-run once 2026-27 has 8-10 scored gameweeks, which is also when the
+last-5 baseline starts producing rows for it.
+
+**The narrow-scope hypothesis is untested, not supported.** The first version of this sweep had it
+clearing 3 of 4 against the full blend's 2, which read as real support. That result came from
+corrupted input (below) and does not survive the fix: corrected, the full blend clears 2023-24 and
+the narrow scope fails it. Nothing here confirms or refutes the minutes-only idea — the run that
+appeared to test it was measuring noise.
 
 **Not done, deliberately: the `positionCalibration` refit.** Three gameweeks is far too thin — the
 shipped factors were fitted on a 209-player full-season cohort, and refitting on ~1,200
@@ -93,20 +97,37 @@ player-fixtures would bake this season's noise into a permanent constant. The +0
 over-prediction measured in §1 is partly those factors being wrong for 2026-27; worth recording,
 not worth acting on before ~GW10-12.
 
-### The harness finding that matters more than the sweep
+### The harness was corrupting its own inputs — the real finding of this sprint
 
-**`phase-4-model.md`'s published walk-forward tables are no longer reproducible, and the cause is
-the harness, not the model.** A copy of the *unmodified* HEAD script run on today's data
-reproduces this pass's `scope=all` and prior-only arms **digit for digit** — so the refactor is
-equivalent — but both differ from what was published on 2026-08-30 (2023-24 prior-only bias +0.079
-then, −0.040 now; 2024-25 −0.329 then, −0.488 now; 2025-26 barely moved). 2023-24's *verdict*
-flipped with it: the full blend was recorded as clearing that season and now does not.
+Chasing why `phase-4-model.md`'s published tables would not reproduce turned out to matter more
+than the sweep it was blocking. Full write-up in
+[phase-4-model.md](../phase-4-model.md#honest-limitations); in short:
 
-The mechanism is `fetchAll("players", "id,code,element_type")` (line 133) — **no season filter**,
-against a table that only ever holds the current season's roster. Every historical season's cohort
-is filtered through today's Premier League squad list, so a player who has since left the league
-is dropped from seasons he actually played. Recorded and spun out rather than patched inside the
-pass that found it.
+- **`fetchAll` paged with `limit`/`offset` and no `ORDER BY`.** Postgres guarantees no row order
+  without one, so offset pages over `player_gameweek_stats` (10-17 pages a season) skipped and
+  repeated rows. It was repeating: 2023-24's prior-only arm read **n=5710** unordered against
+  **n=4515** ordered — ~26% duplicated rows corrupting every statistic downstream. Same defect
+  CLAUDE.md already records for `lib/player-pool.ts`; the harness predated the rule. `order` is now
+  a required argument at all six call sites, and **two consecutive full runs are byte-identical.**
+  The corrected numbers land on top of the originally published ones (2025-26 prior-only
+  2.491 / 0.153 / −0.539 today vs 2.491 / 0.152 / −0.536 published) — **the published tables were
+  right all along; the harness was drifting against itself.**
+- **Position was resolved from today's roster.** `players` holds only the current squad list, so
+  historical seasons were scored with each player's *present* position — and position selects the
+  whole scoring rule set. **10-13 players per season** were affected. Fixed with
+  `positionsForSeason`, reading that season's archived `raw.position` with a roster fallback that is
+  load-bearing for 2026-27 (0 of 1,891 rows carry an archived position).
+- **The mechanism this sprint originally reported was wrong.** An earlier version of this file said
+  departed players were being dropped by the roster join. Measured: **zero** across all four
+  seasons, because `ingest-fpl-archive` only ingested codes that were in the roster when it ran.
+  Also ruled out: truth data (frozen since 2026-08-19), `scoring_rules` (unchanged since
+  2026-08-03), the Sprint 30 script change (purely additive), and `player_season_history` churn
+  (worth 0.006 of bias, against the 0.119 needing explanation).
+- **Runs now print an input fingerprint** — the row counts behind every reference table, plus
+  per-season truth and cohort counts — so a future divergence is attributable rather than guessable.
+  The reason this took so long to find is that earlier runs recorded their outputs and none of their
+  inputs.
+
 
 ## 3. Sprint 32's remaining deploys — the blocker was smaller than recorded
 

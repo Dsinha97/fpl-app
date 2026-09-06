@@ -70,12 +70,34 @@ const CURRENT_SEASON_WEIGHTS = [0.3, 0.6, 1.0] as const;
 const BLEND_SCOPES = ["all", "minutes"] as const;
 type BlendScope = (typeof BLEND_SCOPES)[number]; // matches the existing in-sample backtest's cohort
 
-async function fetchAll<T>(table: string, select: string, extra = ""): Promise<T[]> {
+/**
+ * Pages a table past the API's 1000-row cap.
+ *
+ * `order` is REQUIRED, and must be a unique key. Postgres guarantees no row
+ * order without an ORDER BY, so `limit`/`offset` paging over an unordered
+ * query can silently skip or repeat rows between pages — the same defect
+ * CLAUDE.md records for `lib/player-pool.ts`'s concurrent `.range()` reads,
+ * which is why that rule exists. This harness reads 10-17 pages of
+ * `player_gameweek_stats` per season, so an unordered read made every run a
+ * slightly different sample: measured 2026-09-06, one 2023-24 player out of
+ * 285 went missing on a single run. That is enough to move a bias figure in
+ * the third decimal and is the leading explanation for why the tables in
+ * docs/phase-4-model.md could not be reproduced from any recoverable input
+ * state.
+ */
+async function fetchAll<T>(
+  table: string,
+  select: string,
+  extra = "",
+  order = "",
+): Promise<T[]> {
+  if (!order) throw new Error(`fetchAll(${table}): an explicit unique 'order' is required`);
   const out: T[] = [];
   let from = 0;
   for (;;) {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}${extra}&limit=1000&offset=${from}`,
+      `${SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}${extra}` +
+        `&order=${encodeURIComponent(order)}&limit=1000&offset=${from}`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } },
     );
     if (!res.ok) throw new Error(`${table}: HTTP ${res.status} ${await res.text()}`);
@@ -127,22 +149,102 @@ function tierOf(minutes: number, points: number): "Zeros" | "Blanks" | "Tickers"
 // reason.
 const stats = accuracyStats;
 
+/**
+ * FPL's archive position strings -> `element_types.id`.
+ *
+ * `player_gameweek_stats.raw->>'position'` (written by `ingest-fpl-archive`)
+ * uses `GK`, while `element_types.singular_name_short` uses `GKP`; the other
+ * three match. Verified against `element_types` (1=GKP, 2=DEF, 3=MID, 4=FWD)
+ * rather than assumed.
+ */
+const ARCHIVE_POSITION_TO_ELEMENT_TYPE: Record<string, number> = {
+  GK: 1, GKP: 1, DEF: 2, MID: 3, FWD: 4,
+};
+
+/**
+ * Position per player *for one season*, rather than per player forever.
+ *
+ * Why this is not just `players.element_type`: `players` (and `element_types`,
+ * and `fixtures`) only ever hold the CURRENT season's roster. Resolving a
+ * historical season's positions through it means every past cohort is filtered
+ * through today's Premier League squad list, and a player who has since left
+ * the league would be dropped from seasons he actually played.
+ *
+ * Measured 2026-09-06: that filter currently drops **zero** players — every
+ * code in `player_gameweek_stats` for 2022-23..2025-26 is still in today's
+ * `players`, because `ingest-fpl-archive` only ever ingested codes that were
+ * in the roster when it ran. So this is a latent fragility being closed, not
+ * an active bug being fixed, and it is deliberately NOT offered as the
+ * explanation for the reproducibility gap in docs/phase-4-model.md.
+ *
+ * Source order: the season's own archived `raw.position` first, then today's
+ * roster. The fallback is load-bearing for 2026-27, whose rows come from
+ * `sync-player-history` rather than the archive ingest and carry no
+ * `raw.position` at all (0 of 1,891 rows).
+ */
+async function positionsForSeason(
+  season: string,
+  fallback: Map<number, number>,
+): Promise<Map<number, number>> {
+  const rows = await fetchAll<{ player_code: number; position: string | null }>(
+    "player_gameweek_stats",
+    "player_code,position:raw->>position",
+    `&season=eq.${season}`,
+    "player_code,fixture",
+  );
+
+  const byCode = new Map<number, number>();
+  for (const r of rows) {
+    const id = r.position ? ARCHIVE_POSITION_TO_ELEMENT_TYPE[r.position] : undefined;
+    if (id !== undefined) byCode.set(r.player_code, id);
+  }
+  const fromArchive = byCode.size;
+
+  // Fall back to today's roster for any code this season's rows don't place.
+  for (const r of rows) {
+    if (byCode.has(r.player_code)) continue;
+    const id = fallback.get(r.player_code);
+    if (id !== undefined) byCode.set(r.player_code, id);
+  }
+  console.error(
+    `  positions: ${fromArchive} from this season's archive, ${byCode.size - fromArchive} from today's roster, ${byCode.size} total`,
+  );
+  return byCode;
+}
+
 async function main() {
   console.error("Loading reference tables...");
   const [players, elementTypes, scoringRows, seasonHistory] = await Promise.all([
-    fetchAll<PlayerRow>("players", "id,code,element_type"),
-    fetchAll<ElementType>("element_types", "id,singular_name_short"),
-    fetchAll<ScoringRow>("scoring_rules", "stat,position,value", "&season=eq.2026-27"),
+    fetchAll<PlayerRow>("players", "id,code,element_type", "", "id"),
+    fetchAll<ElementType>("element_types", "id,singular_name_short", "", "id"),
+    fetchAll<ScoringRow>("scoring_rules", "stat,position,value", "&season=eq.2026-27", "stat,position"),
     fetchAll<SeasonRow & { player_code: number; start_cost: number | null }>(
       "player_season_history",
       "player_code,season_name,minutes,starts,expected_goals,expected_assists,expected_goals_conceded,clean_sheets,bonus,saves,defensive_contribution,yellow_cards,start_cost",
+      "",
+      "player_code,season_name",
     ),
   ]);
 
-  const positionByCode = new Map(players.map((p) => [p.code, p.element_type]));
+  // Today's roster, used as the FALLBACK position source only — see
+  // `positionsForSeason`.
+  const positionByCodeToday = new Map(players.map((p) => [p.code, p.element_type]));
   const positionCode = new Map(elementTypes.map((t) => [t.id, t.singular_name_short]));
   const scoring = buildScoring(scoringRows);
   const dcEligibleSeasons = deriveDcEligibleSeasons(seasonHistory);
+
+  // Input fingerprint. The published tables in docs/phase-4-model.md could not
+  // be reproduced from any recoverable input state (see that file's "Attempt 3"
+  // section), and the reason nobody could tell why is that a run recorded its
+  // *outputs* and none of its inputs. Printing the row counts each run reads
+  // makes a future divergence attributable to a specific input instead of
+  // guessable. `player_gameweek_stats` truth counts and the cohort size are
+  // printed per season below, and are part of the same fingerprint.
+  console.error(
+    `Input fingerprint @ ${new Date().toISOString()}: players=${players.length} ` +
+      `elementTypes=${elementTypes.length} scoringRules=${scoringRows.length} ` +
+      `seasonHistory=${seasonHistory.length} modelVersion=${MODEL_VERSION}`,
+  );
 
   const historyByCode = new Map<number, (SeasonRow & { player_code: number })[]>();
   for (const row of seasonHistory) {
@@ -192,12 +294,17 @@ async function main() {
   for (const { archiveSeason, slashSeason } of targets) {
     console.error(`\n=== ${archiveSeason} (walk-forward, trained on seasons < ${slashSeason}) ===`);
 
+    // Positions as of THIS season, not as of today's roster — see
+    // `positionsForSeason`.
+    const positionByCode = await positionsForSeason(archiveSeason, positionByCodeToday);
+
     const truth = await fetchAll<GwTruthRow>(
       "player_gameweek_stats",
       "season,player_code,event,fixture,opponent_team,was_home,minutes,total_points," +
         "starts,expected_goals,expected_assists,expected_goals_conceded,clean_sheets,bonus,saves," +
         "defensive_contribution,yellow_cards",
       `&season=eq.${archiveSeason}`,
+      "player_code,fixture",
     );
     console.error(`  truth rows: ${truth.length}`);
 
