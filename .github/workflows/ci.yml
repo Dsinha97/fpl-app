@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege for GITHUB_TOKEN: this workflow only ever reads the repo.
+# Without an explicit block the token inherits the repository default, which
+# CodeQL's actions/missing-workflow-permissions flags — it matters more now the
+# repo is public, as a backstop behind the "require approval for all outside
+# collaborators" setting on fork PRs.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
