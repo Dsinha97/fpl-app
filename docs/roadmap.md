@@ -75,8 +75,15 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
   `sync_runs.invoked_by`. The gate caught one real regression — `sync-manager` failed to boot on
   an import of `int` from `_shared/fpl.ts` (it lives in `_shared/coerce.ts`), a bug `tsc`
   structurally cannot catch since `supabase/functions/**` is excluded from tsconfig; fixed and
-  redeployed. **Still open, deliberately:** the rate-limit checks that need real signed-in JWTs
-  (31-calls-in-10-minutes `429`, second-user isolation); the `verify_jwt = false` posture on
+  redeployed. **Rate limiting closed 2026-09-06** — two real accounts each pressed `/team`'s
+  Refresh, both returned 200 and populated `invoked_by` for the first time (every earlier row
+  predates the migration), proving per-user attribution over the live HTTP path; a rolled-back SQL
+  simulation with two real `auth.users` ids confirmed the count blocks at exactly 30, stays
+  independent per user, ignores runs outside the 600s window, and does not pool across functions.
+  The **429 itself is a deliberate gap** — 31 Refresh presses and 31 real FPL round trips to prove
+  a string renders, on a path that already fails closed. Note `checkRateLimit` allows the call if
+  its count query errors, by design, so the limit is best-effort rather than a hard guarantee.
+  **Still open, deliberately:** the `verify_jwt = false` posture on
   `sync-news`/`generate-predictions`, left exactly as found so an ordered deploy would not also
   change the gateway; and `scratch-path-test`, a leftover debug function not in this repo. Full
   results: [sprints/sprint-32.md](sprints/sprint-32.md) §5c.

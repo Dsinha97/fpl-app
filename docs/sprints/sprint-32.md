@@ -296,9 +296,57 @@ predated the `manager-sync.ts` split. `/team`'s Refresh was broken for the
 window between deploy and fix. Every other function/shared import was swept for
 the same class of error; `sync-manager` was the only one.
 
-**Still not exercised**, and recorded as open rather than claimed: the
-31-calls-in-10-minutes `429`, the `rejected` row with the right `invoked_by`,
-and second-user rate-limit isolation. All three need real signed-in JWTs.
+### Class B rate limiting — closed 2026-09-06, except the 429 itself
+
+The three checks §5c originally left open needed real signed-in sessions. Two
+are now closed against production, and the third is closed by construction with
+the gap stated rather than papered over.
+
+**Verified end to end, with real JWTs over the real HTTP path.** Two accounts
+signed in and each pressed `/team`'s Refresh:
+
+| When | User | Status | Rows | Duration |
+|---|---|---|---|---|
+| 22:26:34Z | `eb2905e2` | success | 66 | 2.30s |
+| 22:26:15Z | `faff6892` | success | 75 | 4.16s |
+
+That gives three things at once: signed-in callers get a 200; **`invoked_by`
+populates for real** (these are the first non-NULL values the column has ever
+held — every earlier row predates the migration); and **two distinct users are
+attributed correctly**, which is the end-to-end half of the isolation check.
+
+**Verified in SQL, inside a rolled-back transaction**, using two real
+`auth.users` ids and the exact query `checkRateLimit` runs. Four properties,
+two of which were not on the original checklist:
+
+| Property | Result |
+|---|---|
+| User A with 30 runs in the window | `used=30` -> `allowed=false` — blocks at exactly the limit |
+| User B with 1 run | `used=1` -> `allowed=true` — independent of A |
+| A's run 900s ago, outside the 600s window | not counted (30, not 31) — the window bound holds |
+| A's `sync-manager` runs counted against `sync-league-picks` | 0 — the limit is per-function, not pooled |
+
+The last two matter: a per-user count that was correct on identity could still
+have leaked across the time window or across functions, and nothing in the
+original checklist would have caught either.
+
+**Deliberately not exercised: the 429 response itself**, and with it the
+`rejected` row and `rateLimitMessage`'s text rendering in the UI. It needs 31
+Refresh presses inside ten minutes, each a real FPL API round trip. Everything
+the 429 depends on is verified above — the counting query, per-user scoping, the
+window bound, per-function scoping, and real `invoked_by` attribution through
+the live HTTP path — so what remains untested is whether the *message* renders
+correctly on a path that already fails closed. Recorded as a known gap rather
+than claimed, and cheap to close opportunistically if anyone is on `/team`
+anyway.
+
+**One design decision worth surfacing, found while reading the implementation
+to write this.** `checkRateLimit` returns `allowed: true` when its count query
+errors, and says so in its own comment: the limit exists to bound cost, not to
+guard data, and a database hiccup should not take the Refresh button down for a
+legitimate signed-in user. That is the right call, and it does mean the limit is
+**best-effort by design, not a hard guarantee** — worth knowing before anyone
+treats it as one.
 
 **`verify_jwt` deliberately left as found.** `config.toml` records `false` for
 `sync-news` and `generate-predictions`, `true` for the other eight, and its own
