@@ -416,6 +416,48 @@ Class B, against `sync-manager`:
 And the regression test that matters most, because its failure is silent:
 `sync_runs` after a full cron cycle, every scheduled function still succeeding.
 
+## 5d. Error messages in responses — a CodeQL alert, deliberately left open
+
+CodeQL default setup (enabled 2026-09-06, Sprint 34) raises
+`js/stack-trace-exposure` at `_shared/sync.ts:194`, the shared `jsonResponse`
+helper, for the `{ ok: false, error: message }` shape every function's 500
+branch returns. **Left open rather than dismissed, and deliberately not
+"fixed".** The reasoning, so nobody re-litigates it from the alert alone:
+
+**It is not actually a stack trace.** `grep` for `.stack` across
+`supabase/functions/` returns nothing. Every path is
+`err instanceof Error ? err.message : String(err)`. CodeQL models
+`Error.message` as stack-derived; here it is a message string.
+
+**The residual concern is real but small.** A raw `err.message` can leak
+internals — a Postgres error naming a table, say. Post-Sprint 32 that is
+reachable only by an authenticated user on the two Class B functions, or by
+cron; unauthenticated callers get a 401 before any work happens.
+
+**Sanitising the response would be theatre, because the same text is already
+public by design.** `sync_runs.error` is public-read (verified: `set local role
+anon` can select it), and `components/pipeline-status.tsx:203` renders it on the
+Pipeline tab — which Sprint 33 made the deliberate signed-out-visible exception
+to `/settings`' auth wall. So these strings are already served to anyone loading
+the site, by a *less* restricted path than the Edge Function the alert points
+at. Hiding them in the HTTP 500 while leaving them on a public page would lock
+the front door and leave the window open.
+
+**Doing it properly would cost something real.** The fix would have to sanitise
+what goes *into* `sync_runs.error`, not the response — and that panel's whole
+purpose is saying why a sync broke. It is how the GW1 `sync-fixtures` kickoff
+lag was diagnosed, and how FPL's matchday 403s on `sync-live-gameweek` were read
+as third-party rate limiting rather than a bug here. The strings in practice
+name a public third-party API, not this schema.
+
+**What would change the answer**, either of:
+
+- A `sync_runs.error` observed carrying a Postgres error that names this
+  schema. That is a genuine leak, and the fix belongs at the `SyncRun` write,
+  not at the HTTP response.
+- The Pipeline tab moving behind the sign-in wall, at which point sanitising
+  the Edge Function responses becomes coherent rather than cosmetic.
+
 ## Out of scope
 
 Making the repo public (a separate, deliberate owner action, unblocked once this
