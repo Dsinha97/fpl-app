@@ -232,8 +232,17 @@ starters less — is a different algorithm, not a parameter, and is recorded as 
   established players' histories to simulate 90/180/270 minutes, the shrunk estimate beat both the
   raw thin-sample rate (MAE 0.048 vs 0.061) and the pure prior (0.054) on `xg90`. That validates the
   blend, not the underlying xP model.
-- **Fixture difficulty is the official FDR.** Team attack/defence strength values are still zero
-  pre-season, so the custom analytical FDR of Phase 5 cannot be built yet.
+- **Fixture difficulty is the official FDR**, and the walk-forward harness has never exercised that
+  layer: it pins `fdr = 3`, so `fdrDelta = 0` and only the home/away factor applies. A
+  results-derived alternative was built and measured 2026-09-06 (`lib/fdr-derived.ts`, Sprint 35).
+  It improves MAE and Pearson r against that neutral baseline in all four target seasons, and a
+  shuffled control — identical rating values, team-to-rating mapping destroyed — comes out *worse*
+  than neutral everywhere, so the signal is real rather than an artifact of feeding `predict` a
+  spread of values. **It is not shipped**: the measured baseline is neutral, while production
+  `ScoredPlayer.fdrRun` uses FPL's official FDR, so derived-beats-official is untested (past-season
+  official FDR is not obtainable, which is why the harness pins 3). The gate that would justify
+  shipping is derived-vs-official on 2026-27 from ~GW10. See
+  [sprints/sprint-35.md](sprints/sprint-35.md).
 - **The calibration factors are fitted, not derived.** They should be refitted from real gameweek
   data and will likely shrink as the component model improves.
 - **No current-season form — and no path exists for it to reach the model at all (checked

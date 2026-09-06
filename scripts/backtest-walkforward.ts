@@ -44,6 +44,11 @@ import {
   type ScoringRules,
 } from "../supabase/functions/_shared/xp-model.ts";
 import { accuracyStats, mean } from "../lib/stats.ts";
+import {
+  fdrForEvent,
+  resultsFromGameweekStats,
+  DEFAULT_PRIOR_GAMES,
+} from "../lib/fdr-derived.ts";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -68,6 +73,13 @@ const CURRENT_SEASON_WEIGHTS = [0.3, 0.6, 1.0] as const;
  * ShrinkInput.currentSeasonScope in _shared/xp-model.ts.
  */
 const BLEND_SCOPES = ["all", "minutes"] as const;
+
+/**
+ * Prior-games settings to sweep for the results-derived FDR. Swept rather than
+ * picked, so `DEFAULT_PRIOR_GAMES` is a disclosed input with measured
+ * sensitivity rather than a constant somebody liked the look of.
+ */
+const FDR_PRIOR_GAMES = [2, DEFAULT_PRIOR_GAMES, 8] as const;
 type BlendScope = (typeof BLEND_SCOPES)[number]; // matches the existing in-sample backtest's cohort
 
 /**
@@ -127,6 +139,10 @@ interface GwTruthRow {
   saves: number | null;
   defensive_contribution: number | null;
   yellow_cards: number | null;
+  // Scorelines, for the results-derived FDR arm. `fixtures` holds only the
+  // current season, so this table is the only source of historical results.
+  team_h_score: number | null;
+  team_a_score: number | null;
 }
 
 function buildScoring(rows: ScoringRow[]): ScoringRules {
@@ -290,6 +306,7 @@ async function main() {
     ),
   );
   const priorOnlyStatsBySeason = new Map<string, ReturnType<typeof accuracyStats>>();
+  const fdrResultsBySeason = new Map<string, Record<string, unknown>[]>();
 
   for (const { archiveSeason, slashSeason } of targets) {
     console.error(`\n=== ${archiveSeason} (walk-forward, trained on seasons < ${slashSeason}) ===`);
@@ -302,11 +319,65 @@ async function main() {
       "player_gameweek_stats",
       "season,player_code,event,fixture,opponent_team,was_home,minutes,total_points," +
         "starts,expected_goals,expected_assists,expected_goals_conceded,clean_sheets,bonus,saves," +
-        "defensive_contribution,yellow_cards",
+        "defensive_contribution,yellow_cards,team_h_score,team_a_score",
       `&season=eq.${archiveSeason}`,
       "player_code,fixture",
     );
     console.error(`  truth rows: ${truth.length}`);
+
+    // ---- results-derived FDR (its own arm, below) ----
+    // Both sides of every played fixture this season, reconstructed from the
+    // player rows. Ratings are recomputed per (event, priorGames) and cached:
+    // each one reads only results strictly before its event, so nothing here
+    // sees the gameweek it is rating.
+    const seasonResults = resultsFromGameweekStats(truth);
+    const fdrCache = new Map<string, Map<string, number>>();
+    const fdrTableFor = (event: number, priorGames: number): Map<string, number> => {
+      const k = `${event}:${priorGames}`;
+      let t = fdrCache.get(k);
+      if (!t) {
+        t = fdrForEvent(seasonResults, event, priorGames);
+        fdrCache.set(k, t);
+      }
+      return t;
+    };
+    // Control arm. Same rating VALUES, shuffled across teams within each event,
+    // so the distribution of fdr numbers the model sees is identical and only
+    // the team-to-rating mapping is destroyed. If the shuffled arm improves on
+    // neutral as much as the real one does, the gain is an artifact of feeding
+    // predict() a spread of fdr values rather than of the ratings carrying
+    // information about opponents — which is the difference between a result
+    // and a coincidence. Seeded so a run stays reproducible.
+    let seed = 12345;
+    const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const shuffledCache = new Map<string, Map<string, number>>();
+    const shuffledTableFor = (event: number, priorGames: number): Map<string, number> => {
+      const k = `${event}:${priorGames}`;
+      let t = shuffledCache.get(k);
+      if (!t) {
+        const real = fdrTableFor(event, priorGames);
+        const keys = [...real.keys()];
+        const values = [...real.values()];
+        for (let i = values.length - 1; i > 0; i--) {
+          const j = Math.floor(rand() * (i + 1));
+          [values[i], values[j]] = [values[j], values[i]];
+        }
+        t = new Map(keys.map((key, i) => [key, values[i]]));
+        shuffledCache.set(k, t);
+      }
+      return t;
+    };
+
+    const fdrResiduals = new Map<number, { pred: number; actual: number; positionCode: string; minutes: number }[]>(
+      FDR_PRIOR_GAMES.map((pg) => [pg, []]),
+    );
+    const fdrShuffled = new Map<number, { pred: number; actual: number; positionCode: string; minutes: number }[]>(
+      FDR_PRIOR_GAMES.map((pg) => [pg, []]),
+    );
+    const fdrNeutralMatched = new Map<number, { pred: number; actual: number; positionCode: string; minutes: number }[]>(
+      FDR_PRIOR_GAMES.map((pg) => [pg, []]),
+    );
+    console.error(`  fixture results reconstructed: ${seasonResults.length} (2 per fixture)`);
 
     // Rates per player, trained on strictly-prior season_history rows only.
     const ratesByCode = new Map<number, ReturnType<typeof deriveRates>>();
@@ -361,6 +432,44 @@ async function main() {
         const entry = { pred: prediction.xp, actual, positionCode: posCode, minutes: row.minutes ?? 0 };
         residuals.push(entry);
 
+        // Results-derived FDR arm. Identical in every respect to the line
+        // above except the `fdr` passed to predict(), so the comparison
+        // isolates the fixture layer — which the harness has otherwise never
+        // exercised at all, since it pins fdr=3 (fdrDelta=0) throughout.
+        //
+        // The baseline is neutral rather than FPL's own FDR because past-season
+        // official FDR is not obtainable (see this file's header). So this
+        // measures whether a derived rating carries signal, not whether it
+        // beats FPL's.
+        if (row.event !== null && row.opponent_team !== null) {
+          for (const pg of FDR_PRIOR_GAMES) {
+            const table = fdrTableFor(row.event, pg);
+            // The opponent is at home exactly when the player's team is not.
+            const key = `${row.opponent_team}:${row.was_home ? "A" : "H"}`;
+            const derived = table.get(key);
+            if (derived === undefined) continue;
+            const p = predict(
+              playerInput,
+              rates,
+              { fdr: derived, isHome: row.was_home ?? true },
+              scoring,
+            );
+            fdrResiduals.get(pg)!.push({ pred: p.xp, actual, positionCode: posCode, minutes: row.minutes ?? 0 });
+            fdrNeutralMatched.get(pg)!.push(entry);
+
+            const shuffled = shuffledTableFor(row.event, pg).get(key);
+            if (shuffled !== undefined) {
+              const ps = predict(
+                playerInput,
+                rates,
+                { fdr: shuffled, isHome: row.was_home ?? true },
+                scoring,
+              );
+              fdrShuffled.get(pg)!.push({ pred: ps.xp, actual, positionCode: posCode, minutes: row.minutes ?? 0 });
+            }
+          }
+        }
+
         if (pointsHistory.length >= 5) {
           const last5 = mean(pointsHistory.slice(-5));
           const list = last5ResidualsByCode.get(code) ?? [];
@@ -403,7 +512,35 @@ async function main() {
     for (const p of byPosition) console.error(`    ${p.position}: n=${p.n} mae=${isNaN(p.mae) ? "n/a" : p.mae.toFixed(3)} r=${isNaN(p.r) ? "n/a" : p.r.toFixed(3)}`);
     for (const t of byTier) console.error(`    ${t.tier}: n=${t.n} mae=${isNaN(t.mae) ? "n/a" : t.mae.toFixed(3)} r=${isNaN(t.r) ? "n/a" : t.r.toFixed(3)}`);
 
-    results.push({ season: archiveSeason, modelVersion: MODEL_VERSION, overall, modelMatchedToBaseline: matchedStats, last5Baseline: last5Stats, byPosition, byTier });
+    // ---- results-derived FDR arm ----------------------------------------
+    // Scored against the neutral (fdr=3) arm restricted to exactly the same
+    // rows, so the two differ only in the fixture rating. Same gate as every
+    // other model change: MAE down, r up, |bias| not growing.
+    console.error(`
+  -- results-derived FDR (vs neutral fdr=3, same rows) --`);
+    const fdrResults: Record<string, unknown>[] = [];
+    for (const pg of FDR_PRIOR_GAMES) {
+      const derivedStats = stats(fdrResiduals.get(pg)!);
+      const neutralStats = stats(fdrNeutralMatched.get(pg)!);
+      if (derivedStats.n === 0) {
+        console.error(`  priorGames=${pg}: no rated fixtures`);
+        continue;
+      }
+      const clears = derivedStats.mae < neutralStats.mae && derivedStats.r > neutralStats.r &&
+        Math.abs(derivedStats.bias) <= Math.abs(neutralStats.bias) + 0.01;
+      const shuffledStats = stats(fdrShuffled.get(pg)!);
+      console.error(
+        `  priorGames=${pg}  neutral  n=${neutralStats.n} bias=${neutralStats.bias.toFixed(3)} mae=${neutralStats.mae.toFixed(3)} r=${neutralStats.r.toFixed(3)}
+` +
+        `                 derived  n=${derivedStats.n} bias=${derivedStats.bias.toFixed(3)} mae=${derivedStats.mae.toFixed(3)} r=${derivedStats.r.toFixed(3)}  ${clears ? "CLEARS gate" : "does not clear"}
+` +
+        `                 shuffled n=${shuffledStats.n} bias=${shuffledStats.bias.toFixed(3)} mae=${shuffledStats.mae.toFixed(3)} r=${shuffledStats.r.toFixed(3)}  (control)`,
+      );
+      fdrResults.push({ priorGames: pg, neutral: neutralStats, derived: derivedStats, shuffledControl: shuffledStats, clearsGate: clears });
+    }
+    fdrResultsBySeason.set(archiveSeason, fdrResults);
+
+    results.push({ season: archiveSeason, modelVersion: MODEL_VERSION, overall, modelMatchedToBaseline: matchedStats, last5Baseline: last5Stats, byPosition, byTier, derivedFdr: fdrResults });
 
     // ---------------------------------------------------------------------
     // Current-season blend sweep (docs/phase-4-model.md's "current season
@@ -690,7 +827,22 @@ async function main() {
     );
   }
 
-  results.push({ biasCorrectionSweep: correctionResults, allClear, blendVerdict });
+  // ---- results-derived FDR verdict, across every target season -----------
+  console.error(`
+=== results-derived FDR verdict, ${seasonCount} target seasons ===`);
+  const fdrVerdict = FDR_PRIOR_GAMES.map((pg) => {
+    const rows = [...fdrResultsBySeason.values()]
+      .map((rs) => rs.find((r) => r.priorGames === pg))
+      .filter((r): r is Record<string, unknown> => r !== undefined);
+    const clear = rows.filter((r) => r.clearsGate === true).length;
+    const every = rows.length === seasonCount && clear === rows.length;
+    console.error(
+      `  priorGames=${pg}  clears ${clear}/${rows.length} seasons${every ? "  <- SHIPPABLE" : ""}`,
+    );
+    return { priorGames: pg, seasonsClear: clear, seasons: rows.length, clearsEverySeason: every };
+  });
+
+  results.push({ biasCorrectionSweep: correctionResults, allClear, blendVerdict, fdrVerdict });
 
   console.log(JSON.stringify(results, null, 2));
 }
