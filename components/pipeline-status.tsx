@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { AccuracyScoreboard } from "@/components/accuracy-scoreboard";
 
 interface RunRow {
   function_name: string;
@@ -249,6 +250,8 @@ export function PipelineStatus() {
           </div>
         </section>
       )}
+
+      <AccuracyScoreboard />
 
       <p className="mt-8 text-xs text-zinc-400">
         Bootstrap every 30 min · fixtures hourly · player history every 10 min (self-gating, one

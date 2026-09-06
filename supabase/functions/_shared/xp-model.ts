@@ -740,6 +740,26 @@ export interface ShrinkInput {
   currentSeasonRow?: SeasonRow;
   /** Weight for `currentSeasonRow` in the blend — swept in the backtest, not tuned by feel. */
   currentSeasonWeight?: number;
+  /**
+   * Which quantities `currentSeasonRow` is allowed to move.
+   *
+   * `"all"` (the default, and what every earlier sweep measured) blends it
+   * into every own-rate. `"minutes"` blends it into `mpg`/`start_share`
+   * only, leaving the per-90 scoring rates prior-only.
+   *
+   * The narrow scope exists because of what the full blend's sweep actually
+   * found: MAE and Pearson r improve in every season at every weight, and it
+   * fails on bias alone (docs/phase-4-model.md). Bias is a level error, and
+   * the level is set far more by expected minutes than by a per-90 rate —
+   * while playing time is also the quantity a prior season genuinely cannot
+   * know (a transfer, a new manager, a role change), where three seasons of
+   * evidence estimate xG90 well. So this separates "use this season to learn
+   * who is playing" from "use this season to re-estimate how good they are".
+   *
+   * Not shipped on the strength of that reasoning — gated on the same
+   * unchanged backtest gate as every other attempt.
+   */
+  currentSeasonScope?: "all" | "minutes";
 }
 
 /**
@@ -759,6 +779,7 @@ export function deriveRatesWithPrior(input: ShrinkInput): ShrunkRates | null {
     externalRates,
     currentSeasonRow,
     currentSeasonWeight,
+    currentSeasonScope = "all",
   } = input;
   const P = MODEL_PARAMS;
 
@@ -798,9 +819,23 @@ export function deriveRatesWithPrior(input: ShrinkInput): ShrunkRates | null {
   // appending so the current-season weight lands at the right index rather
   // than relying on the two arrays happening to be the same length.
   if (currentSeasonRow) {
+    const priorOnly = { wMinutes, own };
     used = [...used, currentSeasonRow];
     weights = [...weights.slice(0, used.length - 1), currentSeasonWeight ?? 0];
     ({ wMinutes, own } = weightedOwnRates(used, weights, dcEligibleSeasons));
+
+    if (currentSeasonScope === "minutes") {
+      // Keep the prior-only per-90 rates and, deliberately, the prior-only
+      // `wMinutes` with them: `wMinutes` is what sets `nEff` and therefore how
+      // hard every metric is shrunk toward the fitted prior. Letting the
+      // current season raise it here would buy extra confidence in rates the
+      // current season was not allowed to inform — the shrinkage would loosen
+      // on evidence that, under this scope, does not exist. So the current
+      // season moves `mpg`/`start_share`'s point estimate and nothing else;
+      // their shrinkage strength is unchanged.
+      own = { ...priorOnly.own, mpg: own.mpg, start_share: own.start_share };
+      wMinutes = priorOnly.wMinutes;
+    }
   }
 
   const hasEvidence = wMinutes > 0;

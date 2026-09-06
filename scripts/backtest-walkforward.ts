@@ -51,7 +51,24 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
   throw new Error("NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY not set - load .env.local");
 }
 
-const MIN_WEIGHTED_MINUTES_COHORT = 1200; // matches the existing in-sample backtest's cohort
+const MIN_WEIGHTED_MINUTES_COHORT = 1200;
+
+/**
+ * Current-season blend weights to sweep. One constant: this list used to be
+ * written out three times (the residual-map init, the per-season sweep, and
+ * the bias-correction loop), so adding a weight meant editing three places
+ * and silently produced an empty map entry if you missed one.
+ */
+const CURRENT_SEASON_WEIGHTS = [0.3, 0.6, 1.0] as const;
+
+/**
+ * Which quantities the current season is allowed to move. "all" is the
+ * original blend; "minutes" holds the per-90 scoring rates at prior-only and
+ * lets the current season move mpg/start_share alone — see
+ * ShrinkInput.currentSeasonScope in _shared/xp-model.ts.
+ */
+const BLEND_SCOPES = ["all", "minutes"] as const;
+type BlendScope = (typeof BLEND_SCOPES)[number]; // matches the existing in-sample backtest's cohort
 
 async function fetchAll<T>(table: string, select: string, extra = ""): Promise<T[]> {
   const out: T[] = [];
@@ -140,6 +157,15 @@ async function main() {
     { archiveSeason: "2023-24", slashSeason: "2023/24" },
     { archiveSeason: "2024-25", slashSeason: "2024/25" },
     { archiveSeason: "2025-26", slashSeason: "2025/26" },
+    // 2026-27 is the live season, added once GW3 was scored. It is a
+    // deliberately weak target and is reported as such rather than quietly
+    // averaged in: with three gameweeks played the last-5 baseline cannot
+    // fire at all (it needs six), the blend arm only has events 2 and 3 to
+    // contribute, and the mpg sanity check never triggers. It still belongs
+    // in the gate — a season the model has genuinely never seen is the only
+    // kind of evidence that matters here, and excluding it because it is
+    // inconvenient would be choosing the gate to fit the answer.
+    { archiveSeason: "2026-27", slashSeason: "2026/27" },
   ];
 
   const results: Record<string, unknown>[] = [];
@@ -151,8 +177,15 @@ async function main() {
   // by currentSeasonWeight, then archiveSeason, holding that season's own
   // blended residuals (with position) for that weight.
   type BlendResidual = { pred: number; actual: number; positionCode: string };
-  const blendResidualsByWeightAndSeason = new Map<number, Map<string, BlendResidual[]>>(
-    [0.3, 0.6, 1.0].map((w) => [w, new Map<string, BlendResidual[]>()]),
+  // Keyed `scope:weight` so the two blend scopes accumulate side by side and
+  // the bias-correction sweep below can be run over either.
+  const blendKey = (scope: BlendScope, w: number) => `${scope}:${w}`;
+  const blendResidualsByWeightAndSeason = new Map<string, Map<string, BlendResidual[]>>(
+    BLEND_SCOPES.flatMap((scope) =>
+      CURRENT_SEASON_WEIGHTS.map(
+        (w) => [blendKey(scope, w), new Map<string, BlendResidual[]>()] as const,
+      ),
+    ),
   );
   const priorOnlyStatsBySeason = new Map<string, ReturnType<typeof accuracyStats>>();
 
@@ -247,9 +280,19 @@ async function main() {
       ...stats(residuals.filter((r) => tierOf(r.minutes, r.actual) === tier)),
     }));
 
-    console.error(`  model            n=${overall.n} bias=${overall.bias.toFixed(3)} mae=${overall.mae.toFixed(3)} rmse=${overall.rmse.toFixed(3)} r=${overall.r.toFixed(3)}`);
-    console.error(`  model (matched)  n=${matchedStats.n} bias=${matchedStats.bias.toFixed(3)} mae=${matchedStats.mae.toFixed(3)} rmse=${matchedStats.rmse.toFixed(3)} r=${matchedStats.r.toFixed(3)}  <- same rows as last5 baseline`);
-    console.error(`  last5 baseline   n=${last5Stats.n} bias=${last5Stats.bias.toFixed(3)} mae=${last5Stats.mae.toFixed(3)} rmse=${last5Stats.rmse.toFixed(3)} r=${last5Stats.r.toFixed(3)}`);
+    // accuracyStats returns NaN for every figure when n === 0 (deliberately,
+    // so an empty set reads as "no data" rather than "zero error"). The last-5
+    // baseline needs six played gameweeks before it produces a single row, so
+    // early in a live season these are genuinely empty — print that, rather
+    // than a line of NaN that looks like a broken harness.
+    const line = (label: string, x: ReturnType<typeof stats>, suffix = "") =>
+      x.n === 0
+        ? `  ${label} n=0 — not enough played gameweeks yet (the last-5 baseline needs 6)`
+        : `  ${label} n=${x.n} bias=${x.bias.toFixed(3)} mae=${x.mae.toFixed(3)} rmse=${x.rmse.toFixed(3)} r=${x.r.toFixed(3)}${suffix}`;
+
+    console.error(line("model           ", overall));
+    console.error(line("model (matched) ", matchedStats, "  <- same rows as last5 baseline"));
+    console.error(line("last5 baseline  ", last5Stats));
     for (const p of byPosition) console.error(`    ${p.position}: n=${p.n} mae=${isNaN(p.mae) ? "n/a" : p.mae.toFixed(3)} r=${isNaN(p.r) ? "n/a" : p.r.toFixed(3)}`);
     for (const t of byTier) console.error(`    ${t.tier}: n=${t.n} mae=${isNaN(t.mae) ? "n/a" : t.mae.toFixed(3)} r=${isNaN(t.r) ? "n/a" : t.r.toFixed(3)}`);
 
@@ -306,10 +349,11 @@ async function main() {
         if (prior.length > 0) priceBandByCode.set(code, priceBandOf(prior[0].start_cost ?? 0));
       }
 
-      const CURRENT_SEASON_WEIGHTS = [0.3, 0.6, 1.0];
       const priorOnlyResiduals: BlendResidual[] = [];
-      const blendedResidualsByWeight = new Map<number, BlendResidual[]>(
-        CURRENT_SEASON_WEIGHTS.map((w) => [w, []]),
+      const blendedResidualsByWeight = new Map<string, BlendResidual[]>(
+        BLEND_SCOPES.flatMap((scope) =>
+          CURRENT_SEASON_WEIGHTS.map((w) => [blendKey(scope, w), [] as BlendResidual[]] as const),
+        ),
       );
 
       // mpg sanity check (the 79->33 collapse this fix guards against) — the
@@ -357,22 +401,24 @@ async function main() {
               expected_goals_conceded: xgc, clean_sheets: cs, bonus, saves,
               defensive_contribution: dc, yellow_cards: yellow, games,
             };
-            for (const w of CURRENT_SEASON_WEIGHTS) {
-              const blended = deriveRatesWithPrior({
-                rows: priorRows, positionId, priceBand, priors,
-                dcEligibleSeasons: blendDcEligibleSeasons,
-                currentSeasonRow, currentSeasonWeight: w,
-              });
-              if (!blended) continue;
-              const pred = predict(playerInput, blended.rates, { fdr: 3, isHome: row.was_home ?? true }, scoring);
-              blendedResidualsByWeight.get(w)!.push({ pred: pred.xp, actual: row.total_points ?? 0, positionCode: posCode });
-
-              if (w === 0.6 && games === 3 && topByPriorMinutes.includes(code)) {
-                mpgCheck.push({
-                  code, event: row.event!,
-                  mpgBefore: priorOnly?.rates.minutesPerGame ?? -1,
-                  mpgAfterByWeight: { [w]: blended.rates.minutesPerGame },
+            for (const scope of BLEND_SCOPES) {
+              for (const w of CURRENT_SEASON_WEIGHTS) {
+                const blended = deriveRatesWithPrior({
+                  rows: priorRows, positionId, priceBand, priors,
+                  dcEligibleSeasons: blendDcEligibleSeasons,
+                  currentSeasonRow, currentSeasonWeight: w, currentSeasonScope: scope,
                 });
+                if (!blended) continue;
+                const pred = predict(playerInput, blended.rates, { fdr: 3, isHome: row.was_home ?? true }, scoring);
+                blendedResidualsByWeight.get(blendKey(scope, w))!.push({ pred: pred.xp, actual: row.total_points ?? 0, positionCode: posCode });
+
+                if (scope === "all" && w === 0.6 && games === 3 && topByPriorMinutes.includes(code)) {
+                  mpgCheck.push({
+                    code, event: row.event!,
+                    mpgBefore: priorOnly?.rates.minutesPerGame ?? -1,
+                    mpgAfterByWeight: { [w]: blended.rates.minutesPerGame },
+                  });
+                }
               }
             }
           }
@@ -394,14 +440,19 @@ async function main() {
 
       const priorOnlyStats = stats(priorOnlyResiduals);
       priorOnlyStatsBySeason.set(archiveSeason, priorOnlyStats);
-      for (const w of CURRENT_SEASON_WEIGHTS) {
-        blendResidualsByWeightAndSeason.get(w)!.set(archiveSeason, blendedResidualsByWeight.get(w)!);
+      for (const scope of BLEND_SCOPES) {
+        for (const w of CURRENT_SEASON_WEIGHTS) {
+          blendResidualsByWeightAndSeason
+            .get(blendKey(scope, w))!
+            .set(archiveSeason, blendedResidualsByWeight.get(blendKey(scope, w))!);
+        }
       }
       console.error(`\n  -- current-season blend sweep (deriveRatesWithPrior, both arms) --`);
       console.error(`  prior-only (no blend)  n=${priorOnlyStats.n} bias=${priorOnlyStats.bias.toFixed(3)} mae=${priorOnlyStats.mae.toFixed(3)} r=${priorOnlyStats.r.toFixed(3)}`);
       const blendResults: Record<string, unknown>[] = [];
+      for (const scope of BLEND_SCOPES) {
       for (const w of CURRENT_SEASON_WEIGHTS) {
-        const s = stats(blendedResidualsByWeight.get(w)!);
+        const s = stats(blendedResidualsByWeight.get(blendKey(scope, w))!);
         // "Without worsening bias" means |bias| shouldn't grow, in either
         // direction — comparing raw signed bias would call a more-negative
         // bias a "pass" whenever the prior-only bias was already negative,
@@ -409,8 +460,9 @@ async function main() {
         // not "not increasing").
         const clears = s.n > 0 && s.mae < priorOnlyStats.mae && s.r > priorOnlyStats.r &&
           Math.abs(s.bias) <= Math.abs(priorOnlyStats.bias) + 0.01;
-        console.error(`  blended wCur=${w}          n=${s.n} bias=${s.bias.toFixed(3)} mae=${s.mae.toFixed(3)} r=${s.r.toFixed(3)}  ${clears ? "CLEARS gate" : "does not clear"}`);
-        blendResults.push({ currentSeasonWeight: w, ...s, clearsGate: clears });
+        console.error(`  blended scope=${scope.padEnd(7)} wCur=${w}  n=${s.n} bias=${s.bias.toFixed(3)} mae=${s.mae.toFixed(3)} r=${s.r.toFixed(3)}  ${clears ? "CLEARS gate" : "does not clear"}`);
+        blendResults.push({ scope, currentSeasonWeight: w, ...s, clearsGate: clears });
+      }
       }
       for (const check of mpgCheck) {
         console.error(`    mpg check code=${check.code} event=${check.event}: before=${check.mpgBefore.toFixed(1)} after(w=0.6)=${check.mpgAfterByWeight[0.6]?.toFixed(1)}`);
@@ -439,9 +491,10 @@ async function main() {
   const POSITIONS = ["GKP", "DEF", "MID", "FWD"] as const;
   const correctionResults: Record<string, unknown>[] = [];
 
-  for (const w of [0.3, 0.6, 1.0]) {
-    const bySeason = blendResidualsByWeightAndSeason.get(w)!;
-    console.error(`\n=== bias correction, wCur=${w} (leave-one-season-out) ===`);
+  for (const scope of BLEND_SCOPES) {
+  for (const w of CURRENT_SEASON_WEIGHTS) {
+    const bySeason = blendResidualsByWeightAndSeason.get(blendKey(scope, w))!;
+    console.error(`\n=== bias correction, scope=${scope} wCur=${w} (leave-one-season-out) ===`);
     for (const heldOutSeason of targets.map((t) => t.archiveSeason)) {
       const trainSeasons = targets.map((t) => t.archiveSeason).filter((s) => s !== heldOutSeason);
       const trainResiduals = trainSeasons.flatMap((s) => bySeason.get(s) ?? []);
@@ -472,6 +525,7 @@ async function main() {
       );
 
       correctionResults.push({
+        scope,
         currentSeasonWeight: w,
         heldOutSeason,
         correctionByPosition: Object.fromEntries(correctionByPosition),
@@ -482,15 +536,54 @@ async function main() {
       });
     }
   }
+  }
 
-  const allClear = [0.3, 0.6, 1.0].some((w) =>
-    correctionResults.filter((r) => r.currentSeasonWeight === w).every((r) => r.clearsGate === true),
+  const seasonCount = targets.length;
+  const allClear = BLEND_SCOPES.some((scope) =>
+    CURRENT_SEASON_WEIGHTS.some((w) => {
+      const rows = correctionResults.filter(
+        (r) => r.scope === scope && r.currentSeasonWeight === w,
+      );
+      return rows.length === seasonCount && rows.every((r) => r.clearsGate === true);
+    }),
   );
   console.error(
-    `\n=== bias-correction verdict: ${allClear ? "at least one weight clears the gate in all three seasons" : "no weight clears the gate in all three seasons — do not ship"} ===`,
+    `\n=== bias-correction verdict: ${allClear ? `at least one scope/weight clears the gate in all ${seasonCount} seasons` : `no scope/weight clears the gate in all ${seasonCount} seasons — do not ship`} ===`,
   );
 
-  results.push({ biasCorrectionSweep: correctionResults, allClear });
+  // The blend sweep's own verdict, independent of the bias correction: does
+  // any scope/weight clear the unchanged gate in every target season on its
+  // own? That is the question the narrow-scope arm actually asks, and it was
+  // previously only readable by eye off the per-season lines.
+  const blendSweepRows = results.flatMap((r) => {
+    const row = r as { season?: string; blendSweep?: { byWeight: Record<string, unknown>[] } };
+    return row.blendSweep
+      ? row.blendSweep.byWeight.map((b) => ({ season: row.season as string, ...b }))
+      : [];
+  });
+  const blendVerdict = BLEND_SCOPES.flatMap((scope) =>
+    CURRENT_SEASON_WEIGHTS.map((w) => {
+      const rows = blendSweepRows.filter(
+        (b) => b.scope === scope && b.currentSeasonWeight === w,
+      );
+      return {
+        scope,
+        currentSeasonWeight: w,
+        seasonsClear: rows.filter((b) => b.clearsGate === true).length,
+        seasons: rows.length,
+        clearsEverySeason: rows.length === seasonCount && rows.every((b) => b.clearsGate === true),
+      };
+    }),
+  );
+  console.error(`
+=== blend sweep verdict (no bias correction), ${seasonCount} target seasons ===`);
+  for (const v of blendVerdict) {
+    console.error(
+      `  scope=${v.scope.padEnd(7)} wCur=${v.currentSeasonWeight}  clears ${v.seasonsClear}/${v.seasons} seasons${v.clearsEverySeason ? "  <- SHIPPABLE" : ""}`,
+    );
+  }
+
+  results.push({ biasCorrectionSweep: correctionResults, allClear, blendVerdict });
 
   console.log(JSON.stringify(results, null, 2));
 }
