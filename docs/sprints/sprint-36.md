@@ -158,6 +158,36 @@ and never a silent partial success.
 build was exercised signed out, which is exactly the asymmetry CLAUDE.md warns about — an
 auth-gated path tested from the other side proves nothing about it.
 
+### A real bug, found by verifying phase 2
+
+Adding a rival worked. Looking at the older ones did not — three of them showed with no current-season
+data at all. The cause is not in this sprint's code:
+
+`sync-claimed-managers` re-syncs **claimed** entries (`user_profiles.entry_id`) and nothing else.
+`addRival` syncs a candidate once, at the moment it is added, so a rival has never been refreshed
+after that first call. Three rivals added on **2026-08-20 — the day before GW1's deadline** — were
+frozen at a moment when the season had no gameweek history to fetch, and still had
+`current_event = null` and zero `manager_gameweek_history` rows three gameweeks later.
+
+| Rival | Added | Last synced | GW rows |
+|---|---|---|---|
+| `iturntitdown fc` | 2026-08-20 | 2026-08-20 | 0 |
+| `Galacticos` | 2026-08-20 | 2026-08-20 | 0 |
+| `Fady` | 2026-08-20 | 2026-08-20 | 0 |
+| `Sabam's Team` | 2026-08-20 | **2026-09-10** | 3 |
+
+The last row is the tell. It looked healthy purely by coincidence — it is *also* a claimed entry, so
+the cron had been syncing it all along. Without that accident the pattern would have read as "some
+rivals are broken" rather than "rivals are never refreshed".
+
+**Why it stayed invisible:** a frozen rival renders as a rival with no data, not as an error. There
+was nothing to see until someone compared two of them.
+
+Fixed by making the cron's tracked set `claimed ∪ rivals`. That changes the traffic shape — the set
+now grows with every rival anyone adds, and on matchday every tracked manager syncs every two
+minutes — so the function header says so, and says what the honest fix would be if it ever gets
+large (a cap or a longer rival interval, not silently dropping some).
+
 ## 3. DSI-65 — Telegram, both directions — **built and deployed 2026-09-10**
 
 Written and applied where it is safe to: `supabase/migrations/20260910190000_sprint36_notifications.sql`
