@@ -102,6 +102,9 @@ interface ManagerRow {
   last_deadline_bank: number | null;
   last_deadline_value: number | null;
   synced_at: string;
+  /** Last *fully successful* sync. Null until one completes — see the
+   *  managers.last_success_at migration for why synced_at can't say this. */
+  last_success_at: string | null;
 }
 
 interface SeasonRow {
@@ -2001,7 +2004,14 @@ export default function TeamPage() {
           )}
 
           <p className="mt-8 text-xs text-zinc-400">
-            Last synced {new Date(m.synced_at).toLocaleString()} · read-only via the official FPL
+            {/* last_success_at, not synced_at: the latter is stamped when the
+                managers row is written, which happens before the rest of the
+                sync can fail, so it would claim a completeness it can't. */}
+            Last synced{" "}
+            {m.last_success_at
+              ? new Date(m.last_success_at).toLocaleString()
+              : "never completed"}{" "}
+            · read-only via the official FPL
             API · Manager ID {m.entry_id}
           </p>
         </>

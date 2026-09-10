@@ -33,13 +33,16 @@
 //   - Matchday (a fixture is started and not finished): every tracked
 //     manager is due every tick — the 2-minute cron schedule IS "every
 //     switch", the same way sync-live-gameweek treats its own schedule.
-//   - Non-matchday: a manager is due only once managers.updated_at (the
-//     last successful sync — sync-manager's upsert is the only writer to
-//     that table, so its trigger-maintained updated_at is a clean "last
-//     synced" signal, no new column needed) is more than 24h old.
-//   - Never synced (no `managers` row yet for a tracked entry_id): always
-//     due, regardless of matchday, so a fresh claim or rival doesn't wait up
-//     to a day for its first real data.
+//   - Non-matchday: a manager is due only once `managers.last_success_at` is
+//     more than 24h old. That column was added 2026-09-10 and replaces
+//     `updated_at` here, which was the wrong signal: it is trigger-maintained
+//     and means "row touched", and syncManagerData has to write the managers
+//     row *before* the six tables that reference it — so a sync that failed at
+//     step two marked itself fresh and blocked its own retry for a day.
+//   - Never *completed* (no `managers` row, or a row whose last_success_at is
+//     null): always due, regardless of matchday. A half-finished sync is now
+//     indistinguishable from one that never ran, which is the correct reading
+//     of both.
 //
 // The actual per-manager sync is _shared/manager-sync.ts's syncManagerData
 // — the same implementation sync-manager itself calls — so a manager synced
@@ -123,20 +126,22 @@ Deno.serve(async (req) => {
 
     const { data: managerRows, error: managersError } = await db
       .from("managers")
-      .select("entry_id, updated_at")
+      .select("entry_id, last_success_at")
       .in("entry_id", tracked);
     if (managersError) throw new Error(`managers: ${managersError.message}`);
 
-    const lastSyncedAt = new Map(
-      (managerRows ?? []).map((r) => [r.entry_id as number, r.updated_at as string]),
+    const lastSuccessAt = new Map(
+      (managerRows ?? [])
+        .filter((r) => r.last_success_at)
+        .map((r) => [r.entry_id as number, r.last_success_at as string]),
     );
 
     const staleBefore = new Date(Date.now() - STALE_AFTER_MS).toISOString();
     const due = tracked.filter((entryId) => {
-      const updatedAt = lastSyncedAt.get(entryId);
-      if (!updatedAt) return true; // never synced — always due
+      const succeededAt = lastSuccessAt.get(entryId);
+      if (!succeededAt) return true; // never completed — always due
       if (matchday) return true; // every tracked manager, every live tick
-      return updatedAt < staleBefore;
+      return succeededAt < staleBefore;
     });
 
     if (due.length === 0) {

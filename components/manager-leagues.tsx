@@ -4,6 +4,13 @@
 // and broadcaster tie-ins, and 'x' = invitational, a private code-joined
 // league). No finer split is invented — see docs/sprints/sprint-21.md for
 // why a hardcoded "broadcaster" id list was rejected.
+//
+// 2026-09-10: FPL turned out to have at least a third value — one `c` league
+// was found on a live entry. This used to filter to the two known types and
+// drop anything else on the floor, so such a league would simply not appear,
+// with nothing to say it had been hidden. Unknown types now get their own
+// group. A league in a vaguely-named bucket is a much smaller problem than a
+// league the reader has no way of knowing exists.
 
 import { ChevronRight } from "lucide-react";
 
@@ -20,6 +27,15 @@ const GROUPS: { type: string; title: string }[] = [
   { type: "x", title: "Invitational leagues" },
   { type: "s", title: "General & broadcaster leagues" },
 ];
+
+const KNOWN_TYPES = new Set(GROUPS.map((g) => g.type));
+const OTHER_TYPE = "__other";
+
+/** The two known groups, plus a catch-all only when something needs it. */
+function groupsFor(leagues: ManagerLeagueRow[]): { type: string; title: string }[] {
+  const hasUnknown = leagues.some((l) => !KNOWN_TYPES.has(l.league_type));
+  return hasUnknown ? [...GROUPS, { type: OTHER_TYPE, title: "Other leagues" }] : GROUPS;
+}
 
 function rankLabel(l: ManagerLeagueRow): string {
   // FPL zeroes entry_rank pre-season (verified 2026-08-21) — a "#0" reads as
@@ -57,8 +73,10 @@ export function ManagerLeagues({ leagues, onSelect, selectedLeagueId }: ManagerL
         </p>
       )}
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
-        {GROUPS.map(({ type, title }) => {
-          const rows = leagues.filter((l) => l.league_type === type);
+        {groupsFor(leagues).map(({ type, title }) => {
+          const rows = type === OTHER_TYPE
+            ? leagues.filter((l) => !KNOWN_TYPES.has(l.league_type))
+            : leagues.filter((l) => l.league_type === type);
           if (rows.length === 0) return null;
           return (
             <div key={type}>

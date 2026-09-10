@@ -183,7 +183,39 @@ rivals are broken" rather than "rivals are never refreshed".
 **Why it stayed invisible:** a frozen rival renders as a rival with no data, not as an error. There
 was nothing to see until someone compared two of them.
 
-Fixed by making the cron's tracked set `claimed ∪ rivals`. That changes the traffic shape — the set
+Fixed by making the cron's tracked set `claimed ∪ rivals`. Deploying that fix immediately exposed
+two more, both pre-existing, both in the same family.
+
+**A CHECK constraint on somebody else's enum.** `manager_leagues.league_type` was
+`check (league_type in ('s','x'))`. Probed against the live API rather than guessed at: entry
+6804945 holds 35 classic leagues — 28 `x`, 6 `s`, and one **`c`** (league 1508153). The damage was
+wildly out of proportion to the cause: `manager_leagues` is upserted early in `syncManagerData`, so
+one unrecognised value in one cosmetic field aborted that manager's **entire** sync — history,
+chips, transfers and picks included.
+
+Dropped rather than widened to `('s','x','c')`. Widening re-arms the identical trap for the fourth
+value, and this codebase already set the precedent: `TeamState.activeChip` is a deliberately untyped
+string *because FPL owns the value*. The UI was also filtering unknown types out of both groups, so
+a `c` league was invisible with nothing to say it had been hidden — there is now an "Other leagues"
+group that appears only when something lands in it.
+
+**A failed sync marking itself fresh.** The cron decided due-ness from `managers.updated_at`, which
+is trigger-maintained and means "row touched". `syncManagerData` must write the `managers` row
+*first* — six tables carry a foreign key to it — so a sync that died at step two left a row reading
+"just synced" beside a manager with no data, and the 24-hour staleness check then refused to retry
+it for a day. It could not even be corrected by hand: `managers_set_updated_at` overwrites any
+attempt to backdate the row, so the trigger had to be disabled inside a transaction to force the
+retry.
+
+`synced_at` could not carry the meaning either — `NOT NULL DEFAULT now()`, so a new row from a
+failed sync still reads fresh, and it is already displayed on `/team` as "Last synced". So success
+got its own **nullable** column, `managers.last_success_at`, written once at the very end of
+`syncManagerData` and only if everything above it worked. Null means "never completed" — a state
+the old design could not represent — and the due-check reads it as always due. `/team`'s "Last
+synced" line now reads that column too, since it was making the same claim.
+
+Proved by setting `last_success_at = null` with `updated_at = now()` and re-running: the manager
+came back **due** and synced. Under the old logic that was "nothing due". That changes the traffic shape — the set
 now grows with every rival anyone adds, and on matchday every tracked manager syncs every two
 minutes — so the function header says so, and says what the honest fix would be if it ever gets
 large (a cap or a longer rival interval, not silently dropping some).
