@@ -96,7 +96,8 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | DSI-63 | Cloudflare Access gating | M8 | Weigh against `/settings` → Pipeline being deliberately public |
 | DSI-64 | Sprint 15 — Action Layer | M8 | Shaped by the FPL-login finding; read it before scoping |
 | DSI-65 | Sprint 16 — Notifications & Automation | M8 | None; the signals already exist unused |
-| DSI-66 | Sprint 17 — Historical Analytics & ML | M8 | Prerequisite: DSI-53 |
+| DSI-66 | Sprint 17 part 1 — historical decision analytics | M8 | None. Descriptive only; reuses `/review`'s primitives |
+| DSI-73 | Sprint 17 part 2 — predictive models | M8 | Blocked by DSI-53. Accuracy claims inherit an in-sample calibration |
 | DSI-67 | Blocked — `TeamAttackStrength` | M8 | `strength_*` is 0 for all 20 clubs in-season too (checked 2026-09-02) |
 | DSI-68 | Blocked — cold-start phase 2 remainder | M8 | 66 overseas/academy players and `dc90` have no fittable source |
 | DSI-69 | Blocked — new-manager discount | M8 | `pl_managers` has no tenure/start-date field |
