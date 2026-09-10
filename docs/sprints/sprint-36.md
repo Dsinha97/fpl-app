@@ -395,25 +395,60 @@ Verified, in the sprint:
 - `/ship-check` throughout: `tsc`, lint (0 errors), `next build`, plus `deno check` on both new
   functions.
 
-**Not verified, and all for the same reason** — it needs a signed-in session, which the dev preview
-does not have:
+### Closed out 2026-09-10, after the owner signed in
 
-1. Phase 2's rival controls (`/team` is behind auth).
-2. Phase 3 end to end: `/link` with a good, a reused and an expired code; the four read commands
-   against what the site shows; one alert through the outbox, with a **second detection pass writing
-   zero new rows**, which is the dedupe claim.
-3. DSI-59c's 429 *render*.
-4. DSI-60's sync.
+- **DSI-60 — done.** `league_entries` for league 314: **2,000 rows, 30,795 picks** (was 0). The
+  sample is kept this time, which is the whole of what the issue asked for.
+- **DSI-59b — done.** `scratch-path-test` returns `404 NOT_FOUND`. Deleted.
+- **Linking works.** One chat linked, one code minted and one used — `/link` succeeded first
+  attempt, no retries.
+- **The four read commands** were exercised by the owner against the live bot and all returned.
+  Content needs a formatting pass (noted for follow-up); correctness was not in question.
+
+- **The dedupe claim is proven, against the real detector.** A live run detected nothing (2
+  `change_feed` rows in the window, neither in the squad; no fixture changes; deadline 41h out
+  against a 4h threshold), so the window was temporarily widened to 48h to give the detector a real
+  fact — and restored to 4 afterwards.
+
+  | Pass | Result |
+  |---|---|
+  | 1 | `detected 1, sent 1, failed 0` — outbox row `deadline:4`, `sent_at` stamped, message delivered |
+  | 2 | **`detected 0, sent 0`** — still exactly one outbox row |
+
+  Body: `⏰ Gameweek 4 deadline in 41.1h (Sat, 12 Sep 2026 12:30:00 GMT).` The second pass re-read
+  the same fact, composed the same key, and the unique index turned the insert into a no-op. That
+  is the mechanism working, not an absence of input.
+
+**One real fault observed, and it is not the dedupe.** The **first scheduled** run — 19:15:02, the
+first time pg_cron drove the new function rather than a manual `invoke_sync` — failed:
+`user_notification_prefs: Gateway Timeout`, after 5.2s. Every run before and after succeeded in
+~1-2s. It looks like a cold-start/transient PostgREST timeout rather than a defect in the query,
+which is a one-row read on a table with one row. Recorded rather than dismissed: **if it recurs on
+the :15/:30/:45 boundaries it is a pattern, not noise**, and the honest answer today is one
+observation and no explanation. Note also that the prefs read is deliberately fatal — a run that
+cannot tell who is subscribed should not proceed — so this failed loudly rather than silently
+sending nothing.
+
+**Still not verified:**
+
+1. Phase 2's rival controls (`/team` is behind auth; not exercised).
+2. `/link` with a **reused** and an **expired** code — the happy path is proven, the two refusal
+   paths are not.
+3. DSI-59c's 429 *render* (the counting half is proved; see §4).
 
 ## 7. Owner actions outstanding
 
 | # | Action | Why it can't be done from here |
 |---|---|---|
 | 1 | `supabase functions deploy sync-news generate-predictions notify telegram-webhook` from a linked CLI | Flips DSI-59a's two flags **and** reconciles §3's deployed-vs-repo divergence in one command |
-| 2 | Delete `scratch-path-test` in the dashboard | Irreversible; no delete in the integration |
-| 3 | Sign in, sync league 314 on `/leagues`, keep the rows | Class B function, needs a user JWT |
-| 4 | Sign in, link a Telegram chat | Same |
+| ~~2~~ | ~~Delete `scratch-path-test`~~ | **Done 2026-09-10** — endpoint 404s |
+| ~~3~~ | ~~Sync league 314~~ | **Done 2026-09-10** — 2,000 entries kept |
+| ~~4~~ | ~~Link a Telegram chat~~ | **Done 2026-09-10** — linked, commands answered, dedupe proven |
 | 5 | Configure custom SMTP under Auth | Dashboard-only setting |
 
-Actions 3 and 4 unblock most of §6's unverified list; say the word once they're done and the rest
-can be run.
+Only two remain: the CLI deploy (optional; better bundled with DSI-55, since the invocation cost it
+saves only becomes real once the repo is public) and custom SMTP.
+
+Follow-up raised by the owner while testing: **the bot's command output needs a formatting pass.**
+Correctness was not in question — the numbers matched the site — so this is presentation, and it is
+its own small piece of work rather than a defect in this sprint.
