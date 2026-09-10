@@ -55,6 +55,11 @@ export interface ActualsSource {
   latestEvent: number | null;
   /** event -> playerId -> points. */
   pointsByEvent: Map<number, Map<number, number>>;
+  /** event -> playerId -> minutes, from the same reconciled source as `pointsByEvent`.
+   *  Scenarios don't use it; lib/decision-analytics.ts does, to resolve the
+   *  vice-captain handover for a finished gameweek without a second pass over
+   *  the same rows. Carried here rather than duplicated there. */
+  minutesByEvent: Map<number, Map<number, number>>;
   /** True when any figure drew on the live snapshot rather than a finalised row. */
   provisional: boolean;
 }
@@ -63,6 +68,7 @@ const EMPTY_SOURCE: ActualsSource = {
   events: [],
   latestEvent: null,
   pointsByEvent: new Map(),
+  minutesByEvent: new Map(),
   provisional: false,
 };
 
@@ -140,25 +146,34 @@ export async function loadScenarioActuals(
 
   let provisional = false;
   const pointsByEvent = new Map<number, Map<number, number>>();
+  const minutesByEvent = new Map<number, Map<number, number>>();
   for (const ev of events) {
     const src = finalised.get(ev) ?? new Map<number, { points: number; minutes: number }>();
     const out = new Map<number, number>();
+    const mins = new Map<number, number>();
     for (const id of ids) {
       const fin = src.get(id);
       const liv = ev === latestEvent ? live.get(id) : undefined;
+      // One winner per player, chosen once — points and minutes must come from
+      // the same row or a captain could be scored from one source and judged
+      // to have blanked from the other.
       if (liv && (!fin || liv.minutes > fin.minutes)) {
         out.set(id, liv.points);
+        mins.set(id, liv.minutes);
         provisional = true;
       } else if (fin) {
         out.set(id, fin.points);
+        mins.set(id, fin.minutes);
       } else {
         out.set(id, 0);
+        mins.set(id, 0);
       }
     }
     pointsByEvent.set(ev, out);
+    minutesByEvent.set(ev, mins);
   }
 
-  return { events, latestEvent, pointsByEvent, provisional };
+  return { events, latestEvent, pointsByEvent, minutesByEvent, provisional };
 }
 
 /**

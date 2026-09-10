@@ -76,6 +76,15 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | 34 Post-GW3 scoreboard + harness fixes | DSI-48 | M5 | [sprints/sprint-34.md](sprints/sprint-34.md) |
 | 35 Results-derived FDR (not shipped) | DSI-49 | M5 | [sprints/sprint-35.md](sprints/sprint-35.md) |
 
+## In flight
+
+| Issue | Item | Milestone | Doc |
+|---|---|---|---|
+| DSI-74 | **Sprint 36** — decision analytics, a two-way Telegram bot, the Todo sweep | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) |
+
+Sprint 36 took the whole Todo column, so DSI-66, DSI-65, DSI-61, DSI-60, DSI-59 and DSI-58 are all
+In Progress under it and stay in the Open table below until they close.
+
 ## Open
 
 | Issue | Item | Milestone | Gate / blocker |
@@ -109,6 +118,11 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 
 - **New work starts as a Linear issue**, not as a line in `roadmap.md`. The dashboard is where
   priority and order are set.
+- **A sprint starts from the Todo column.** `/start-sprint` reads it, reads each candidate's
+  comments *and* its gate, and on approval writes the sprint into existence — parent issue,
+  statuses, sprint doc, roadmap row. `/linear-sync` reconciles; `/start-sprint` starts. An issue's
+  **comments can outrank its description** — that is where DSI-65 turned from a notifier into a
+  two-way bot.
 - **A shipped sprint closes its issue** and gains a row in the Shipped table above, alongside its
   entry in `roadmap.md`.
 - **An issue with no row here, and a doc item with no issue, are both drift.** `/linear-sync`

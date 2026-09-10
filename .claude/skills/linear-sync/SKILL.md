@@ -37,6 +37,10 @@ Report "no drift" plainly when there is none. Do not pad it.
 
 ## 4. When asked to plan
 
+**If the ask is "start a sprint", that is `/start-sprint`, not this skill.** This one reconciles and
+proposes; that one reads the Todo column, reads each candidate's comments and gate, and on approval
+writes the sprint into existence. Don't do its job here.
+
 Propose the next sprint from the **Linear backlog's own priority and milestone order**, not from
 `roadmap.md`'s narrative order. For each candidate, name the gate its doc states and say plainly
 when that gate is not yet met — a data-blocked item stays blocked; do not plan around it or
