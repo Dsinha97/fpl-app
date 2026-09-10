@@ -449,6 +449,49 @@ sending nothing.
 Only two remain: the CLI deploy (optional; better bundled with DSI-55, since the invocation cost it
 saves only becomes real once the repo is public) and custom SMTP.
 
-Follow-up raised by the owner while testing: **the bot's command output needs a formatting pass.**
-Correctness was not in question — the numbers matched the site — so this is presentation, and it is
-its own small piece of work rather than a defect in this sprint.
+### Follow-up, done the same day: the output pass
+
+The owner ran all four commands, confirmed the numbers, and asked for presentation work. What
+changed, and the two judgement calls inside it:
+
+- **A titled header on every message**, carrying the team name — `⚽ Your Team — DS United (FPL)`.
+- **Club and position emoji**, in `_shared/telegram-format.ts` so they have one home. Nicknames
+  rather than kit colours wherever one exists: Arsenal are the Gunners and Liverpool the Liver bird,
+  because two red circles are indistinguishable at emoji size. A club with no entry renders with no
+  emoji rather than a wrong one, and the map needs the same once-a-season update on promotion that
+  `entities.ts`'s CLUB_ALIASES does.
+- **Ranks abbreviated** — `1029798` → `1M`, `63223` → `63.2k`. Below 1,000 the exact number stays,
+  because that is the range where it matters: `1 of 5` in a mini-league is the whole point.
+- **Leagues split by size**, not by `league_type`. FPL's own `x`/`s` split does not answer the
+  question — `x` covers both a two-person league between friends and a 66,000-entry YouTube league,
+  and calling the latter "mini" is wrong in the way that matters. The threshold is stated in the
+  message rather than hidden in the code.
+- **Fixtures grouped by day**, with only the kickoff time on each line, in UK time.
+- **`/points` shows direction only** — 🔼🔽🟰, no magnitude. `/leagues` keeps the magnitude, and the
+  difference is deliberate: a mini-league move of two places is a real event, where an overall-rank
+  swing of 100k mostly measures the size of the field rather than how the manager played.
+- **`/team` now reads the current squad**, not the last scored one. `manager_picks` only holds
+  gameweeks FPL has already started, so the old command was answering a question about last week;
+  the imported draft is the only record of the team standing for the upcoming deadline. It is
+  matched against the **user's own** drafts and then filtered on entry id, because two accounts can
+  hold a draft for the same entry and "any draft claiming this id" is not a question a bot should
+  ask on someone's behalf.
+
+**The substitution suggestion, and the line it does not cross.** What `/team` reports is
+*availability*: a starter whose `players.status` is not `a`, and the bench player FPL's own auto-sub
+rule would bring on — first in bench order whose arrival still leaves a legal formation, with
+formation limits read from `element_types` rather than hardcoded. It is a deliberate second copy of
+the rule `projectAutoSubs` owns in `lib/gameweek-state.ts`, for the same reason `_shared/entities.ts`
+keeps its own `fold()`, and carries the same keep-in-sync note.
+
+It is **not** the xP-optimal starting XI. That is `optimiseLineup`, it is modelled, and putting it
+in the bot would fork the engine — so the message says "availability only — who to start on merit is
+on the site". All fifteen were available on the day, so the honest output was
+"✅ All eleven are available".
+
+**Deep link.** `t.me/fpl_decision_bot?start=<code>` opens the chat with the code attached, which
+means `/start CODE` had to become a link attempt rather than a greeting — and be handled *before*
+the linked-chat check, since the entire point is that the chat is not linked yet. The manual
+`/link CODE` stays visible next to it, because a deep link fails silently with no Telegram installed
+and opens the wrong account for anyone signed into two. The button now sits beside **Import as
+draft** in `/team`'s header, and renders nothing at all when signed out.
