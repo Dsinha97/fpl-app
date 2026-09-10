@@ -105,6 +105,9 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | DSI-70 | Blocked — Sprint 12.5 phases 3–6 | M8 | Manager-side thresholds are transcribed opinion, not measured data |
 | DSI-71 | Blocked — manager behavioural history | M8 | The FPL API exposes none for past seasons |
 | DSI-72 | Blocked — automated FPL login | M8 | Superseded, not pending. PingOne offers no password grant |
+| DSI-75 | One CLI functions deploy reconciles four drifts | M8 | Blocked by DSI-55 by choice — the `verify_jwt` flip, `sync-manager`'s `last_success_at`, and two hand-inlined bundles. The cost it saves is near-zero while the repo is private |
+| DSI-76 | Gateway Timeouts cluster on cron boundaries | M8 | None — a hypothesis with six data points. Self-correcting since `last_success_at` landed, so watch rather than chase |
+| DSI-77 | Two dead eslint-disable directives, and the lint check that hid an error | M8 | None. The reading habit matters more than the directives |
 
 ## How to keep it true
 
