@@ -10,6 +10,16 @@
 // Pre-season the picks endpoint 404s and transfers are empty; both are
 // handled as "nothing to write yet", not errors, so the same logic works
 // unchanged all season.
+//
+// WHY THE `managers` ROW IS WRITTEN FIRST AND STAMPED LAST. Six tables carry a
+// foreign key to `managers (entry_id)`, so the row has to exist before any of
+// them can be written — the order is not a preference. But that means a sync
+// which dies at step two leaves a `managers` row behind, and until 2026-09-10
+// the cron read that row's `updated_at` as "last synced" and refused to retry
+// the manager for 24 hours. So success now has its own stamp,
+// `last_success_at`, written once at the very end and only if everything above
+// it worked. Null means never completed, which the due-check treats as always
+// due.
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import {
@@ -269,6 +279,18 @@ export async function syncManagerData(
       }
     }
     counts.picks = picksWritten;
+
+    // Everything above succeeded, so — and only so — record it. This is the
+    // one write in this function whose absence is meaningful: a manager with a
+    // row but no `last_success_at` is one whose sync started and did not
+    // finish, and the cron treats it as due rather than fresh.
+    {
+      const { error } = await db
+        .from("managers")
+        .update({ last_success_at: new Date().toISOString() })
+        .eq("entry_id", entryId);
+      if (error) throw new Error(`managers (last_success_at): ${error.message}`);
+    }
 
     return counts;
   } catch (err) {
