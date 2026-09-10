@@ -313,7 +313,14 @@ that with `false`, an unauthenticated request *costs an invocation* before being
 argument for flipping is cost and consistency, not security — which is a smaller claim than
 "hardening", and worth saying in those terms.
 
-Owner chose to flip. **Not done through the MCP integration, deliberately:** that path requires
+Owner chose to flip. `supabase/config.toml` now says `true` for both, with the measurement above
+recorded next to them — **but the file is only a claim until a deploy applies it.** `verify_jwt` is
+read by `supabase functions deploy`, so until that runs the repo asserts a posture the project does
+not have, which is the exact failure this file was written to prevent. The deploy is deliberately
+bundled with DSI-55: the invocation cost the flip saves is near-zero while the repo is private and
+nobody knows the function URLs, and it becomes real the moment the repo is public.
+
+**Not done through the MCP integration, deliberately:** that path requires
 re-uploading the whole function source inline, and these two are cron-driven — `generate-predictions`
 writes the xP tables. Retyping ~40KB of working production source to change one boolean is a
 transcription risk with no upside. `supabase functions deploy sync-news generate-predictions` from a
