@@ -40,20 +40,35 @@ verify_jwt = true
 [functions.sync-live-gameweek]
 verify_jwt = true
 
-# sync-news and generate-predictions are the two deployed with the gateway
-# check off. Left as found: the cron secret is what actually gates them now,
-# and flipping a gateway setting on two functions mid-deploy is a change with
-# its own blast radius that belongs in its own commit. Recorded rather than
-# quietly normalised — they are the odd ones out, and someone should decide
-# deliberately whether to bring them in line.
+# sync-news and generate-predictions were the two deployed with the gateway
+# check off. Sprint 32 left them as found and recorded the gap as a decision
+# someone should make deliberately; DSI-59 made it, on measurement rather than
+# tidiness. Probed live 2026-09-10:
+#
+#   verify_jwt = true,  no auth header -> 401 at the gateway, function never runs
+#   verify_jwt = false, no auth header -> function runs, then cron-auth 401s
+#   either setting, publishable key    -> function runs, then cron-auth 401s
+#
+# So the posture buys NO access control. The publishable key is public by
+# design, so anyone can satisfy the gateway and land at the same cron-secret
+# check either way. The one real difference is that `false` spends an
+# invocation before rejecting — which is a cost argument, not a security one,
+# and worth stating in those terms rather than calling it hardening.
+#
+# Flipped for that reason and for consistency: all ten cron functions now share
+# one posture. It changes nothing about who can call them.
+#
+# NOTE: this file is what `supabase functions deploy` applies. Changing it here
+# without redeploying leaves the repo claiming a posture the project does not
+# have, which is the exact failure Sprint 32 wrote this file to prevent.
 [functions.sync-news]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sync-claimed-managers]
 verify_jwt = true
 
 [functions.generate-predictions]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-fpl-archive]
 verify_jwt = true
@@ -81,9 +96,10 @@ verify_jwt = true
 #
 # A third caller class, and the first function here that legitimately runs
 # without a JWT — Telegram has none to send, so the gateway check must be off
-# or every delivery 401s before the function is reached. This is `false` on
-# purpose, which is a different thing from the two Class A functions above
-# that are `false` by inheritance (see DSI-59).
+# or every delivery 401s before the function is reached. It is now the ONLY
+# `false` in this file, and it is false on purpose: the two Class A functions
+# that used to share the value were false by inheritance, and DSI-59 flipped
+# them once it was measured rather than assumed.
 #
 # What gates it instead: the `setWebhook` secret token, arriving as
 # `X-Telegram-Bot-Api-Secret-Token` and compared by digest inside Postgres, and
@@ -92,9 +108,11 @@ verify_jwt = true
 [functions.telegram-webhook]
 verify_jwt = false
 
-# Not declared here, and deliberately: `scratch-path-test`, a leftover debug
-# function deployed 2026-08-25 with verify_jwt = false. Found while reading the
-# deployed function list during this sprint. It is not in this repo, nothing
-# calls it, and it is the same class of problem as the `?force=1` hatches —
-# left for the owner to delete rather than removed here, because deleting a
-# deployed function is not reversible from the repo.
+# `scratch-path-test` — a leftover debug function deployed 2026-08-25 with
+# verify_jwt = false, found while reading the deployed function list during
+# Sprint 32. Probed on 2026-09-10: it answered `200` / `hi` to a completely
+# unauthenticated request, so it leaked nothing, but it was an open endpoint on
+# this project's bill that nothing called and no source controlled. **Deleted
+# by the owner 2026-09-10** — the endpoint now 404s. Recorded here rather than
+# silently dropped, because "there is no longer an undeclared function" is the
+# useful fact for the next person reading this file.
