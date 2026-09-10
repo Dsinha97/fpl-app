@@ -163,13 +163,14 @@ export function GameweekReviewPanel({
               <div className="mt-2 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
                 <p>
                   Picked: <span className="font-medium">{nameOf(players, review.captain.pickedElement)}</span>{" "}
-                  ({review.captain.pickedRaw} pts × 2)
+                  ({review.captain.pickedRaw} pts × {review.captain.multiplier})
                 </p>
                 {review.captain.handedOver && (
                   <p>
                     Handed to vice-captain:{" "}
                     <span className="font-medium">{nameOf(players, review.captain.effectiveElement)}</span>{" "}
-                    ({review.captain.effectiveRaw} pts × 2) — the picked captain didn&apos;t feature
+                    ({review.captain.effectiveRaw} pts × {review.captain.multiplier}) — the picked
+                    captain didn&apos;t feature
                   </p>
                 )}
                 <p>
@@ -178,9 +179,9 @@ export function GameweekReviewPanel({
                   ({review.captain.bestRaw} pts)
                 </p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {review.captain.gap === 0
+                  {review.captain.wasBest
                     ? "The best possible captain call, in hindsight."
-                    : `−${review.captain.gap} pts vs the best available captain — not an achievable call in the moment.`}
+                    : `−${review.captain.gapEffective} pts vs the best available captain (${review.captain.gapRaw} raw × ${review.captain.multiplier - 1}) — not an achievable call in the moment.`}
                 </p>
               </div>
             ) : (

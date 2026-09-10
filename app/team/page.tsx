@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import { CountryFlag, flagCode, SeasonsBadge, TeamCrest } from "@/components/identity";
 import { ManagerProfileCard, RivalTable } from "@/components/manager-profile-card";
 import type { ManagerLeagueRow } from "@/components/manager-leagues";
+import { loadLeagueStandings, type LeagueStandingRow } from "@/lib/leagues";
 import { ChevronRight } from "lucide-react";
 import { groupByEvent, hitCost, loadTransfers, type TransferRow } from "@/lib/manager-transfers";
 import { diffSquads } from "@/lib/squad-diff";
@@ -52,7 +53,21 @@ import {
 import { DEFAULT_RULES, type SquadRules, type TeamState } from "@/lib/team-state";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { GameweekReviewPanel } from "@/components/gameweek-review-panel";
+import { DecisionAnalyticsPanel } from "@/components/decision-analytics-panel";
+import { TelegramLink } from "@/components/telegram-link";
 import { useAuth } from "@/components/auth-provider";
+
+/**
+ * How many rivals one "add from league" press will take on.
+ *
+ * Deliberately small, and the constraint is real rather than cosmetic: every
+ * rival needs a `sync-manager` call before it can be written (see addRivalById),
+ * and that endpoint carries Sprint 32's per-user rate limit off
+ * `sync_runs.invoked_by`. Adding a whole league in one press would spend the
+ * budget and 429 partway through, so the batch is capped here instead of the
+ * limit being raised there.
+ */
+const RIVAL_BATCH_MAX = 5;
 
 /** Separator between identity badges in the profile line. */
 const Dot = () => <span className="text-zinc-300 dark:text-purple-700">•</span>;
@@ -1112,6 +1127,51 @@ export default function TeamPage() {
   // an entry with zero completed seasons (a brand-new manager): it writes
   // `managers` unconditionally and only skips manager_season_history when
   // `past` is empty, so a first-season rival still resolves here.
+  /**
+   * Sync one candidate, then write it. The single "Add" button and the
+   * add-from-league batch both go through here — two callers, one rule about
+   * what it takes to become a rival.
+   *
+   * A rate-limited response is returned as its own outcome rather than a
+   * generic failure: the batch has to stop on it (every later call would fail
+   * the same way) where it can carry on past an ordinary error.
+   */
+  const addRivalById = useCallback(
+    async (id: number): Promise<{ ok: true } | { ok: false; rateLimited: boolean; message: string }> => {
+      if (!user) return { ok: false, rateLimited: false, message: "Sign in to add rivals." };
+      try {
+        const { error: fnError } = await supabase.functions.invoke("sync-manager", {
+          body: { entry_id: id },
+        });
+        if (fnError) {
+          if (fnError instanceof FunctionsHttpError) {
+            const status = fnError.context.status;
+            const body = await fnError.context.json().catch(() => null);
+            return {
+              ok: false,
+              rateLimited: status === 429,
+              message: body?.error ?? "sync failed",
+            };
+          }
+          return { ok: false, rateLimited: false, message: fnError.message };
+        }
+
+        const { error: writeError } = await supabase
+          .from("manager_rivals")
+          .upsert({ user_id: user.id, entry_id: id }, { onConflict: "user_id,entry_id" });
+        if (writeError) return { ok: false, rateLimited: false, message: writeError.message };
+        return { ok: true };
+      } catch (err) {
+        return {
+          ok: false,
+          rateLimited: false,
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+    [user],
+  );
+
   const addRival = useCallback(async () => {
     const id = Number(rivalInput.trim());
     if (!Number.isInteger(id) || id <= 0) {
@@ -1121,29 +1181,103 @@ export default function TeamPage() {
     if (!user || !savedId) return;
     setRivalBusy(true);
     setRivalError(null);
-    try {
-      const { error: fnError } = await supabase.functions.invoke("sync-manager", {
-        body: { entry_id: id },
-      });
-      if (fnError) {
-        if (fnError instanceof FunctionsHttpError) {
-          const body = await fnError.context.json().catch(() => null);
-          throw new Error(body?.error ?? "sync failed");
-        }
-        throw fnError;
-      }
-
-      await supabase
-        .from("manager_rivals")
-        .upsert({ user_id: user.id, entry_id: id }, { onConflict: "user_id,entry_id" });
+    const result = await addRivalById(id);
+    if (result.ok) {
       setRivalInput("");
       await connect(savedId);
-    } catch (err) {
-      setRivalError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setRivalBusy(false);
+    } else {
+      setRivalError(result.message);
     }
-  }, [user, savedId, rivalInput, connect]);
+    setRivalBusy(false);
+  }, [user, savedId, rivalInput, connect, addRivalById]);
+
+  // ------------------------------------------- rivals from a league's table
+  //
+  // DSI-61. `/leagues` has held real standings off `league_entries` since
+  // Sprint 29 while this list stayed hand-typed, which is the whole gap: the
+  // rival pipeline consumes entry ids and `loadLeagueStandings` produces them
+  // in rank order. What it does NOT produce is `managers` rows, which is why
+  // this is a bounded, sequential batch rather than a single write.
+  const [rivalLeagueId, setRivalLeagueId] = useState<number | null>(null);
+  const [rivalStandings, setRivalStandings] = useState<LeagueStandingRow[] | null>(null);
+  const [rivalStandingsLoading, setRivalStandingsLoading] = useState(false);
+  const [rivalBatchStatus, setRivalBatchStatus] = useState<string | null>(null);
+
+  const rivalSeason = data?.nextGw?.season ?? null;
+  useEffect(() => {
+    // No setState on this branch: the select's own onChange already clears the
+    // previous league's rows, and clearing them here as well is a synchronous
+    // setState in an effect body — a cascading render React lints against.
+    if (rivalLeagueId === null || !rivalSeason) return;
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRivalStandingsLoading(true);
+    (async () => {
+      try {
+        const rows = await loadLeagueStandings(rivalSeason, rivalLeagueId);
+        if (!cancelled) setRivalStandings(rows);
+      } catch (err) {
+        if (!cancelled) {
+          setRivalStandings([]);
+          setRivalError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setRivalStandingsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [rivalLeagueId, rivalSeason]);
+
+  /** The top of the table, minus yourself and anyone already on the list. */
+  const rivalCandidates = useMemo(() => {
+    if (!rivalStandings || !data) return [];
+    const already = new Set(data.rivalEntryIds);
+    const self = data.manager.entry_id;
+    return rivalStandings
+      .filter((r) => r.entryId !== self && !already.has(r.entryId))
+      .slice(0, RIVAL_BATCH_MAX);
+  }, [rivalStandings, data]);
+
+  const addFromLeague = useCallback(async () => {
+    if (!user || !savedId || rivalCandidates.length === 0) return;
+    setRivalBusy(true);
+    setRivalError(null);
+
+    let added = 0;
+    const failed: string[] = [];
+    let stoppedAt: string | null = null;
+
+    // Sequential on purpose. These are rate-limited calls, and firing them in
+    // parallel would turn one 429 into several while making it impossible to
+    // say which rivals actually landed.
+    for (const [i, candidate] of rivalCandidates.entries()) {
+      setRivalBatchStatus(`Adding ${candidate.playerName} (${i + 1} of ${rivalCandidates.length})…`);
+      const result = await addRivalById(candidate.entryId);
+      if (result.ok) {
+        added += 1;
+      } else if (result.rateLimited) {
+        stoppedAt = candidate.playerName;
+        break;
+      } else {
+        failed.push(candidate.playerName);
+      }
+    }
+
+    // Every term named, none of them netted away.
+    const parts = [`Added ${added} of ${rivalCandidates.length}`];
+    if (failed.length > 0) parts.push(`${failed.length} failed (${failed.join(", ")})`);
+    if (stoppedAt) {
+      parts.push(
+        `stopped at ${stoppedAt} — the sync rate limit was reached, so the rest were not attempted`,
+      );
+    }
+    setRivalBatchStatus(`${parts.join(" · ")}.`);
+
+    if (added > 0) await connect(savedId);
+    setRivalBusy(false);
+  }, [user, savedId, rivalCandidates, addRivalById, connect]);
 
   const removeRival = useCallback(
     async (entryId: number) => {
@@ -1582,6 +1716,19 @@ export default function TeamPage() {
             </div>
           </div>
 
+          {/* ------------------------------------- decisions this season */}
+          {/* Season-scoped, so deliberately outside the gameweek selector
+              above — and directly above the table it complements, since the
+              rank arc and that table's Overall Rank column are the same
+              series read two ways. */}
+          {seasonStarted && data && data.manager && data.nextGw && (
+            <DecisionAnalyticsPanel
+              season={data.nextGw.season}
+              entryId={data.manager.entry_id}
+              players={data.players}
+            />
+          )}
+
           {/* ---------------------------------------- gameweek history */}
           {seasonStarted && data && (
             <section className="mt-8">
@@ -1677,6 +1824,26 @@ export default function TeamPage() {
           )}
 
 
+          {/* --------------------------------------------- telegram link */}
+          {/* Here as well as in /settings, and one component either way:
+              /team is where the owner actually is, and a linking control
+              buried in a settings tab is one nobody finds. */}
+          {data?.manager && (
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-card p-3 dark:border-purple-900/40">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                Get deadline, injury and price alerts on Telegram — and ask the bot for your team,
+                points, fixtures or league standings.{" "}
+                <a
+                  href="/settings/?tab=notifications"
+                  className="underline hover:text-zinc-800 dark:hover:text-zinc-200"
+                >
+                  Choose which alerts
+                </a>
+              </p>
+              <TelegramLink variant="compact" />
+            </div>
+          )}
+
           {/* ------------------------------------- manager intelligence */}
           {/* Always shown once a manager is connected — previously gated on
               having a career profile, which hid the add-rival box entirely
@@ -1725,6 +1892,93 @@ export default function TeamPage() {
                       </div>
                       {rivalError && (
                         <p className="mt-1.5 text-xs text-red-700 dark:text-red-400">{rivalError}</p>
+                      )}
+
+                      {/* --- or take them from a league's own table (DSI-61) --- */}
+                      {leagues.length > 0 && (
+                        <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-purple-900/40">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label htmlFor="rival-league" className="sr-only">
+                              Add rivals from a league
+                            </label>
+                            <select
+                              id="rival-league"
+                              value={rivalLeagueId ?? ""}
+                              onChange={(e) => {
+                                setRivalLeagueId(e.target.value ? Number(e.target.value) : null);
+                                setRivalStandings(null);
+                                setRivalBatchStatus(null);
+                                if (rivalError) setRivalError(null);
+                              }}
+                              className="max-w-[13rem] rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-input dark:text-zinc-100"
+                            >
+                              <option value="">Add from a league…</option>
+                              {leagues.map((l) => (
+                                <option key={l.league_id} value={l.league_id}>
+                                  {l.name}
+                                </option>
+                              ))}
+                            </select>
+                            {rivalCandidates.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => void addFromLeague()}
+                                disabled={rivalBusy}
+                                className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+                              >
+                                Add top {rivalCandidates.length}
+                              </button>
+                            )}
+                          </div>
+
+                          {rivalStandingsLoading && (
+                            <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                              Loading standings…
+                            </p>
+                          )}
+
+                          {/* An unsynced league is a real, fixable state — say
+                              which one it is rather than showing an empty list
+                              that looks like "no rivals available". */}
+                          {!rivalStandingsLoading &&
+                            rivalStandings !== null &&
+                            rivalStandings.length === 0 && (
+                              <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                                No standings stored for this league yet — sync it once on{" "}
+                                <a
+                                  href="/leagues/"
+                                  className="underline hover:text-zinc-700 dark:hover:text-zinc-200"
+                                >
+                                  Leagues
+                                </a>
+                                , then come back.
+                              </p>
+                            )}
+
+                          {!rivalStandingsLoading &&
+                            rivalStandings !== null &&
+                            rivalStandings.length > 0 &&
+                            rivalCandidates.length === 0 && (
+                              <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                                Everyone at the top of this league is already a rival.
+                              </p>
+                            )}
+
+                          {rivalCandidates.length > 0 && !rivalBusy && !rivalBatchStatus && (
+                            <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                              Will add: {rivalCandidates.map((c) => c.playerName).join(", ")}
+                              {rivalStandings && rivalStandings.length > RIVAL_BATCH_MAX && (
+                                <> · top {RIVAL_BATCH_MAX} only, one sync each</>
+                              )}
+                            </p>
+                          )}
+
+                          {rivalBatchStatus && (
+                            <p className="mt-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+                              {rivalBatchStatus}
+                            </p>
+                          )}
+                        </div>
                       )}
                       {data.rivalEntryIds.length > 0 && (
                         <ul className="mt-2 flex flex-wrap gap-1.5">

@@ -58,6 +58,9 @@ verify_jwt = false
 [functions.ingest-fpl-archive]
 verify_jwt = true
 
+[functions.notify]
+verify_jwt = true
+
 # --- Class B: browser-invoked. verifyUser + per-user rate limit. ------------
 [functions.sync-manager]
 verify_jwt = true
@@ -73,6 +76,21 @@ verify_jwt = true
 
 [functions.fpl-my-team]
 verify_jwt = true
+
+# --- Class C: called by Telegram. Sprint 36. -------------------------------
+#
+# A third caller class, and the first function here that legitimately runs
+# without a JWT — Telegram has none to send, so the gateway check must be off
+# or every delivery 401s before the function is reached. This is `false` on
+# purpose, which is a different thing from the two Class A functions above
+# that are `false` by inheritance (see DSI-59).
+#
+# What gates it instead: the `setWebhook` secret token, arriving as
+# `X-Telegram-Bot-Api-Secret-Token` and compared by digest inside Postgres, and
+# then a chat-id allowlist before any squad data is read. Both in
+# _shared/telegram.ts.
+[functions.telegram-webhook]
+verify_jwt = false
 
 # Not declared here, and deliberately: `scratch-path-test`, a leftover debug
 # function deployed 2026-08-25 with verify_jwt = false. Found while reading the

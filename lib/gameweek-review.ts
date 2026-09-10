@@ -9,7 +9,8 @@
 // as a live one, just with every fixture already `finished`.
 
 import { supabase } from "./supabase/client";
-import { loadManagerPicks, startersOf } from "./manager-picks";
+import { loadManagerPicks } from "./manager-picks";
+import { captainChoiceAt, type CaptainChoice } from "./decision-analytics";
 import { loadGameweekState, type GameweekState } from "./gameweek-state";
 import { loadTransfers, type TransferRow } from "./manager-transfers";
 
@@ -90,20 +91,16 @@ export async function loadFinishedEvents(season: string): Promise<number[]> {
   return (data ?? []).map((r) => r.id as number);
 }
 
-export interface CaptainReview {
-  /** Element captained as picked, and their raw (undoubled) points. */
-  pickedElement: number;
-  pickedRaw: number;
-  /** After the vice-captain handover rule, if it fired. */
-  effectiveElement: number;
-  effectiveRaw: number;
-  handedOver: boolean;
-  /** Best raw points among players who actually started — the hindsight benchmark. */
-  bestElement: number;
-  bestRaw: number;
-  /** bestRaw - effectiveRaw, always >= 0 by construction. */
-  gap: number;
-}
+/**
+ * One gameweek's captain comparison.
+ *
+ * Sprint 36: this used to be computed inline below, and the season-wide panel
+ * needed the same quantity. Rather than a second scorer, the computation moved
+ * to lib/decision-analytics.ts and this is an alias of its result — the two
+ * surfaces cannot disagree because there is only one of them
+ * (CLAUDE.md: "one quantity, one implementation").
+ */
+export type CaptainReview = CaptainChoice;
 
 export interface BenchReview {
   /** Points bench players scored that were recovered by a projected auto-sub. */
@@ -151,31 +148,23 @@ export async function loadGameweekReview(
     loadTransfers(season, entryId, event),
   ]);
 
-  const starters = startersOf(picks);
-  let best: { element: number; raw: number } | null = null;
-  for (const p of starters) {
-    const raw = state.detailByElement.get(p.element)?.points ?? 0;
-    if (best === null || raw > best.raw) best = { element: p.element, raw };
+  // Points and minutes for this event's squad, out of the state already
+  // loaded — `captainChoiceAt` takes plain maps precisely so it can be fed
+  // from either a live GameweekState or the season-wide actuals pass.
+  const points = new Map<number, number>();
+  const minutes = new Map<number, number>();
+  for (const p of picks) {
+    const detail = state.detailByElement.get(p.element);
+    points.set(p.element, detail?.points ?? 0);
+    minutes.set(p.element, detail?.minutes ?? 0);
   }
-
-  const pickedCaptain = starters.find((p) => p.isCaptain);
-  const captain: CaptainReview | null =
-    pickedCaptain && best
-      ? (() => {
-          const pickedRaw = state.detailByElement.get(pickedCaptain.element)?.points ?? 0;
-          const effectiveRaw = state.detailByElement.get(state.captaincy.effectiveElement)?.points ?? 0;
-          return {
-            pickedElement: pickedCaptain.element,
-            pickedRaw,
-            effectiveElement: state.captaincy.effectiveElement,
-            effectiveRaw,
-            handedOver: state.captaincy.handedOver,
-            bestElement: best!.element,
-            bestRaw: best!.raw,
-            gap: Math.max(0, best!.raw - effectiveRaw),
-          };
-        })()
-      : null;
+  // `state.captaincy` is the fixture-status-aware resolution, which matters
+  // for a gameweek still in play — this panel is event-agnostic like the state
+  // it reads.
+  const captain = captainChoiceAt(event, picks, points, minutes, {
+    element: state.captaincy.effectiveElement,
+    handedOver: state.captaincy.handedOver,
+  });
 
   const recovered = state.autoSubs.reduce(
     (sum, s) => sum + (state.detailByElement.get(s.inElement)?.points ?? 0),
