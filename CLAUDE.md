@@ -58,10 +58,6 @@ deployed — don't remove them. Real purchase prices come from the owner pasting
 JSON they fetch themselves, parsed by `teamStateFromMyTeamJson` (`lib/fpl-squad.ts`). Full
 probe evidence: [docs/sprints/sprint-14.md](docs/sprints/sprint-14.md).
 
-**Magic-link testing shares one project-wide, rolling-hourly email quota.** Send at most
-one real OTP per testing session; prefer the Google button on `/signin` for anything
-repeated.
-
 **Row Level Security is a real access boundary — verify it, don't just enable it.** Before
 trusting a new policy, simulate a second user with `set_config('request.jwt.claims', ...)`
 inside a rolled-back `execute_sql` transaction and confirm zero rows/writes leak. New

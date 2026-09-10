@@ -373,13 +373,23 @@ phase 2, where 8 of the owner's 13 leagues came back with no stored standings, 3
 here or from cron: it needs the owner signed in on `/leagues`. The check afterwards is that
 `league_entries` for 314 is non-zero — the assertion the last run failed to leave behind.
 
-### DSI-58 — custom SMTP. **Owner action, and unrelated to §3.**
+### DSI-58 — custom SMTP. **Done 2026-09-10.**
 
-A Supabase dashboard setting under Auth, unblocked since 2026-08-23 by owning `fpldecision.com`. It
-is **not** touched by this sprint's Telegram work — different system, different purpose — and this
-sentence exists so the next reader does not assume one covered the other. Google OAuth stays the
-primary sign-in path either way, so until it lands the standing rule holds: at most one real OTP per
-testing session, project-wide rolling-hourly quota.
+Resend over `smtp.resend.com:465`, sending as `noreply@fpldecision.com` from the verified
+`fpldecision.com` domain, configured in the Supabase dashboard by the owner. Verified by a real
+magic link arriving.
+
+**Not touched by this sprint's Telegram work** — different system, different purpose. Recorded here
+so the next reader does not assume one covered the other.
+
+**What this actually unblocks:** Supabase's built-in sender is capped at **2 emails per hour**,
+project-wide and rolling. That cap is what made magic-link testing a rationed activity, and it is
+why CLAUDE.md carried a standing rule — one real OTP per testing session, Google OAuth for anything
+repeated. Custom SMTP makes the cap configurable, so **the rule is removed in this commit**. It was
+a workaround for a constraint that no longer exists, and a stale rule in CLAUDE.md costs more than
+it saves: it shapes how every future session tests sign-in.
+
+Google OAuth stays the primary path regardless. This only makes the fallback usable.
 
 ## 5. Tooling shipped alongside
 
@@ -451,10 +461,11 @@ sending nothing.
 | ~~2~~ | ~~Delete `scratch-path-test`~~ | **Done 2026-09-10** — endpoint 404s |
 | ~~3~~ | ~~Sync league 314~~ | **Done 2026-09-10** — 2,000 entries kept |
 | ~~4~~ | ~~Link a Telegram chat~~ | **Done 2026-09-10** — linked, commands answered, dedupe proven |
-| 5 | Configure custom SMTP under Auth | Dashboard-only setting |
+| ~~5~~ | ~~Configure custom SMTP~~ | **Done 2026-09-10** — Resend, verified by a real magic link |
 
-Only two remain: the CLI deploy (optional; better bundled with DSI-55, since the invocation cost it
-saves only becomes real once the repo is public) and custom SMTP.
+Only one remains: the CLI deploy — optional, and better bundled with DSI-55, since the invocation
+cost it saves only becomes real once the repo is public. `config.toml` is already flipped and
+waiting for it.
 
 ### Follow-up, done the same day: the output pass
 
