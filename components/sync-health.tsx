@@ -61,6 +61,10 @@ export function SyncHealthPanel() {
 
   useEffect(() => {
     if (authLoading) return;
+    // On-mount fetch. This is a static export, so there is no server component
+    // to load from and an effect is the only place this can happen — the same
+    // disable PipelineStatus above it carries, for the same reason.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [authLoading, load]);
 
