@@ -54,6 +54,7 @@ import { DEFAULT_RULES, type SquadRules, type TeamState } from "@/lib/team-state
 import { InfoTooltip } from "@/components/info-tooltip";
 import { GameweekReviewPanel } from "@/components/gameweek-review-panel";
 import { DecisionAnalyticsPanel } from "@/components/decision-analytics-panel";
+import { TelegramLink } from "@/components/telegram-link";
 import { useAuth } from "@/components/auth-provider";
 
 /**
@@ -1822,6 +1823,26 @@ export default function TeamPage() {
             </section>
           )}
 
+
+          {/* --------------------------------------------- telegram link */}
+          {/* Here as well as in /settings, and one component either way:
+              /team is where the owner actually is, and a linking control
+              buried in a settings tab is one nobody finds. */}
+          {data?.manager && (
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-card p-3 dark:border-purple-900/40">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                Get deadline, injury and price alerts on Telegram — and ask the bot for your team,
+                points, fixtures or league standings.{" "}
+                <a
+                  href="/settings/?tab=notifications"
+                  className="underline hover:text-zinc-800 dark:hover:text-zinc-200"
+                >
+                  Choose which alerts
+                </a>
+              </p>
+              <TelegramLink variant="compact" />
+            </div>
+          )}
 
           {/* ------------------------------------- manager intelligence */}
           {/* Always shown once a manager is connected — previously gated on

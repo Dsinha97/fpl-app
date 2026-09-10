@@ -5,7 +5,7 @@ Scoped from the Linear Todo column — six issues the owner promoted out of Back
 which under this project's own ground rule outranks any "Next up" line in `roadmap.md`. The sprint
 clears all six.
 
-Status: **Phases 1-2 built; phases 3-4 not started.** Nothing below is a claim about a result until
+Status: **Phases 1-3 built (3 awaiting an owner deploy); phase 4 not started.** Nothing below is a claim about a result until
 its section says so.
 
 | Phase | Issue | Item |
@@ -157,7 +157,18 @@ and never a silent partial success.
 build was exercised signed out, which is exactly the asymmetry CLAUDE.md warns about — an
 auth-gated path tested from the other side proves nothing about it.
 
-## 3. DSI-65 — Telegram, both directions
+## 3. DSI-65 — Telegram, both directions — **built and deployed 2026-09-10**
+
+Written and applied where it is safe to: `supabase/migrations/20260910190000_sprint36_notifications.sql`
+(applied — three tables, two Vault accessors, RLS verified), `supabase/functions/notify/`,
+`supabase/functions/telegram-webhook/`, `supabase/functions/_shared/telegram.ts`,
+`lib/notifications.ts`, `components/telegram-link.tsx`, a Notifications tab on `/settings`, and a
+compact link button on `/team`. `tsc`, lint (0 errors), `next build` and `deno check` on both
+functions all pass.
+
+Deployed and verified live the same day: `@fpl_decision_bot`, both functions ACTIVE, the webhook
+registered, and `notify` running on a 15-minute schedule. See "Deployed, and what proved it" below.
+
 
 ### 3a · push out
 
@@ -178,7 +189,11 @@ worse than sending one twice.
 would put the plaintext in a second place that has to match the first by hand.
 
 Deployment order is Sprint 32's, and it is not advisory: Vault secret → migration → function →
-verify against `sync_runs`.
+verify against `sync_runs`. The cron schedule is therefore its own migration
+(`20260910190100_sprint36_notify_schedule.sql`), **not applied**, carrying that order in its own
+header — scheduling `notify` before the function exists points pg_cron at a 404 it retries into a
+`sync_runs` gap nobody is watching. It was applied last, after the deploy, and the first run
+through `invoke_sync` came back `success`.
 
 ### 3b · ask in
 
@@ -206,6 +221,74 @@ handler is restricted to **reads of already-computed rows**: `/points` from
 `/leagues` from `league_entries`. **Anything modelled — xP, recommendations, chip advice, EO — is
 out of scope for the bot** and answered with a link into the site. Adding xP to the bot's `/team`
 reply is the obvious next request and it is the one that would fork the engine.
+
+### RLS, verified rather than assumed
+
+Twelve checks inside a rolled-back transaction, simulating two authenticated users **and** `anon`:
+
+| Check | Result |
+|---|---|
+| A sees only their own prefs / outbox / link codes | 1 row each |
+| A reads B's chat id by any route | 0 rows |
+| A inserts an outbox row for themselves | blocked (select-only policy) |
+| A mints a link code for B | blocked |
+| **A repoints their own row at B's chat id** | **blocked by the unique index** |
+| `anon` reads prefs / outbox / link codes | 0 rows each |
+| `anon` calls `telegram_secret` or the webhook verifier | blocked, both |
+
+The chat-id row is the one worth singling out. It is the inbound allowlist, so "two users claim one
+chat" is not a data-integrity nicety — it is the case where a stranger's `/team` returns someone
+else's squad. The unique index is what makes that unrepresentable, and it is now tested rather than
+argued.
+
+`get_advisors` reports no new findings; the only security lint on the project is the pre-existing
+leaked-password-protection warning, unrelated to this work.
+
+### Deployed, and what proved it
+
+The order was the one Sprint 32 insists on — secrets, then functions, then the webhook, then the
+schedule — and each step was checked before the next.
+
+**Neither secret was ever handled outside Postgres.** The bot token came from BotFather into Vault
+directly. The webhook secret was *generated inside Postgres*
+(`encode(extensions.gen_random_bytes(32),'hex')` straight into `vault.create_secret`), so no one
+has ever seen it — not the owner, not this repo, not a shell history. `setWebhook` is therefore
+also a database function, `public.telegram_set_webhook()`, which reads both out of Vault and makes
+the call itself. Calling setWebhook from a terminal would have put both values in a shell history
+for no gain.
+
+| Check | Result |
+|---|---|
+| `getMe` with the stored token (called from Postgres) | `ok: true` — "FPL Decision", `@fpl_decision_bot` |
+| `telegram_secret` asked for `cron_secret` | blocked — not a permitted name |
+| Webhook verifier: correct / wrong / null secret | `true` / `false` / `false` |
+| `setWebhook` | `"Webhook was set"` |
+| `getWebhookInfo` | `pending_update_count: 0`, `allowed_updates: [message, edited_message]` |
+| **POST to the webhook with no secret header** | **401 `{"error":"unauthorized"}`** |
+| **POST with a wrong secret header** | **401 `{"error":"unauthorized"}`** |
+| Correctly-signed POST from an **unlinked** chat | 200, not-linked branch, no squad data read |
+| `notify` called with only the publishable key | **401** — the cron gate holds |
+| `notify` via `invoke_sync` (cron's own path) | `success`, `detected 0 / sent 0`, 0.7s |
+
+`allowed_updates` is narrowed to `message`/`edited_message` at registration, so Telegram never
+delivers anything else — the function's ignore-branch is a second line of defence rather than the
+only one. `drop_pending_updates` was set on registration so nothing queued before the deploy gets
+replayed.
+
+**One divergence worth recording.** The deployed bundles were uploaded through the Supabase
+integration with their `_shared/` dependencies inlined, and those copies carry trimmed comments —
+`telegram-webhook`'s bundled `sync.ts` contains only the three helpers it uses. Behaviour is
+identical and the repo is the source of truth, but the deployed source is not byte-identical to
+this repo. A `supabase functions deploy notify telegram-webhook` from a linked CLI would make them
+match, and should be done next time either function is touched.
+
+### What is left
+
+Nothing on the infrastructure. The remaining work is a real end-to-end pass once a chat is linked:
+`/link` with a good code, a reused code and an expired code; each of the four read commands against
+what the site shows; and one real alert through the outbox, with a second detection pass writing
+**zero** new rows. That needs a signed-in session, which is the same gap phase 2's rival controls
+have.
 
 ## 4. Console and decision items
 

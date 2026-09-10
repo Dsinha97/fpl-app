@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
+import { TelegramLink } from "@/components/telegram-link";
 import { useAuth } from "@/components/auth-provider";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { PipelineStatus } from "@/components/pipeline-status";
@@ -26,12 +27,12 @@ import {
 // which would need a Suspense boundary this static export has no precedent
 // for.
 
-type Tab = "account" | "import" | "status";
+type Tab = "account" | "import" | "notifications" | "status";
 
 function readRequestedTab(search: string): Tab {
   const tab = new URLSearchParams(search).get("tab");
   // Sprint 33 — /status merged in here as a third tab (see PipelineStatus).
-  return tab === "import" || tab === "status" ? tab : "account";
+  return tab === "import" || tab === "status" || tab === "notifications" ? tab : "account";
 }
 
 // ------------------------------------------------------------ account tab
@@ -364,6 +365,22 @@ function ImportTab() {
   );
 }
 
+// ------------------------------------------------------ notifications tab
+
+function NotificationsTab() {
+  return (
+    <div className="mt-6 rounded-lg border border-zinc-200 bg-card p-4 dark:border-purple-900/40">
+      <h2 className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">Telegram</h2>
+      <p className="mt-1 mb-4 text-xs text-zinc-500 dark:text-zinc-400">
+        One channel, both directions: alerts come to you, and the bot answers questions about
+        your team. Linking is done from the chat&apos;s side — the app gives you a code, you send
+        it to the bot.
+      </p>
+      <TelegramLink variant="full" />
+    </div>
+  );
+}
+
 // ------------------------------------------------------------------- page
 
 export default function SettingsPage() {
@@ -418,6 +435,7 @@ export default function SettingsPage() {
         <div className="mt-4 flex gap-1 rounded-lg border border-zinc-200 p-1 dark:border-purple-900/40">
           {tabButton("account", "Account details")}
           {tabButton("import", "Import squad")}
+          {tabButton("notifications", "Notifications")}
           {tabButton("status", "Pipeline")}
         </div>
       )}
@@ -427,6 +445,7 @@ export default function SettingsPage() {
           pay for that. */}
       {tab === "account" && <AccountTab />}
       {tab === "import" && <ImportTab />}
+      {tab === "notifications" && <NotificationsTab />}
       {tab === "status" && <PipelineStatus />}
     </main>
   );
