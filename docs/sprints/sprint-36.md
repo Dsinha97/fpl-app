@@ -5,7 +5,8 @@ Scoped from the Linear Todo column — six issues the owner promoted out of Back
 which under this project's own ground rule outranks any "Next up" line in `roadmap.md`. The sprint
 clears all six.
 
-Status: **Phases 1-3 built (3 awaiting an owner deploy); phase 4 not started.** Nothing below is a claim about a result until
+Status: **All four phases built.** Five owner actions remain, listed per phase and
+collected at the end. Nothing below is a claim about a result until
 its section says so.
 
 | Phase | Issue | Item |
@@ -290,21 +291,88 @@ what the site shows; and one real alert through the outbox, with a second detect
 **zero** new rows. That needs a signed-in session, which is the same gap phase 2's rival controls
 have.
 
-## 4. Console and decision items
+## 4. Console and decision items — **measured 2026-09-10; three owner actions left**
 
-- **DSI-60 — league 314.** The pipeline was proven at full scale on 2026-08-30 (2000 entries,
-  30,000 picks, 0 failures, 47s) and the rows were then deleted because it was verification. Run it
-  for real, **keep the rows**, and assert `league_entries` for `league_id = 314` is non-zero
-  afterwards — the check the last run did not leave behind.
-- **DSI-58 — custom SMTP.** A Supabase dashboard setting on Auth. **Unrelated to the Telegram work
-  in Phase 3** — different system, different purpose. Recorded here so the next reader does not
-  assume one covered the other. Google OAuth stays the primary sign-in path.
-- **DSI-59 — Sprint 32's three deliberate gaps.** The `verify_jwt = false` posture on `sync-news`
-  and `generate-predictions`; the orphan `scratch-path-test`; and the unverified 429. On the last:
-  it was left unproven because a real test looked like 31 Refresh presses and 31 FPL round trips —
-  but **the limit is a `game_settings` input, not a constant**, so lowering it to 2 makes the proof
-  three presses. Restore the value afterwards, and record that `checkRateLimit` allows the call when
-  its own count query errors, by design: best-effort, not a guarantee.
+The point of this phase was to turn three inherited notes into measured verdicts. All three now have
+one, and two of the three turned out differently from what the note implied.
+
+### DSI-59a — the `verify_jwt` posture. **Decided: flip both, by CLI.**
+
+Sprint 32 left `verify_jwt = false` on `sync-news` and `generate-predictions` "as found", recording
+it as a thing someone should decide deliberately. Probed live, all three states:
+
+| Request | Result |
+|---|---|
+| `sync-bootstrap` (`verify_jwt = true`), no auth header | `401 UNAUTHORIZED_NO_AUTH_HEADER` — **gateway**, function never runs |
+| `sync-news` (`verify_jwt = false`), no auth header | `401 {"error":"unauthorized"}` — **function ran**, then cron-auth refused |
+| `sync-news`, with the publishable key | `401 {"error":"unauthorized"}` — same, cron-auth refused |
+
+**The posture buys no access control.** The publishable key is public by design, so anyone can
+satisfy the gateway and reach the same cron-secret check either way. The only real difference is
+that with `false`, an unauthenticated request *costs an invocation* before being rejected. So the
+argument for flipping is cost and consistency, not security — which is a smaller claim than
+"hardening", and worth saying in those terms.
+
+Owner chose to flip. **Not done through the MCP integration, deliberately:** that path requires
+re-uploading the whole function source inline, and these two are cron-driven — `generate-predictions`
+writes the xP tables. Retyping ~40KB of working production source to change one boolean is a
+transcription risk with no upside. `supabase functions deploy sync-news generate-predictions` from a
+linked CLI reads the repo files and changes only the flag, and the same command would fix §3's
+trimmed-comment divergence on `notify`/`telegram-webhook`. One command, both problems.
+
+### DSI-59b — `scratch-path-test`. **Confirmed still live; delete it.**
+
+Still deployed, ACTIVE v1, `verify_jwt = false`, not in this repo. Probed: it returns `200` and the
+body `hi` to a completely unauthenticated request.
+
+So it leaks nothing — the finding is that it is an open, unauthenticated endpoint on the project's
+bill that nothing calls and no source controls. Deleting a deployed function is not reversible from
+the repo, and there is no delete in the Supabase integration, so it stays an owner action in the
+dashboard, exactly as Sprint 32 concluded. Nothing has changed except that it is now measured
+rather than assumed harmless.
+
+### DSI-59c — the 429. **Counting half proved; the HTTP render still needs a browser.**
+
+Sprint 32 left this unverified because a real test looked like 31 Refresh presses. Half of it turns
+out to be provable in SQL: `checkRateLimit`'s query is a plain count over `sync_runs` by
+`(function_name, invoked_by, started_at)`, so the same query can be run against synthetic rows in a
+rolled-back transaction.
+
+| Check | Result |
+|---|---|
+| Limit in `game_settings` | 30 calls / 600s |
+| At 29 used | allowed |
+| **At 30 used** | **refused → 429** |
+| 50 extra rows *outside* the window | still 30 counted |
+| Same user, different function | 0 counted |
+
+The threshold, the window and the per-function scoping are all correct. What remains unproven is
+only that the refusal *renders* as a 429 with `rateLimitMessage` in the browser — and the cheap way
+to get that is still the one this sprint identified: the limit is a `game_settings` row, not a
+constant, so temporarily setting `max_calls` to 2 makes it three clicks instead of thirty-one.
+Restore the row afterwards.
+
+Also confirmed, and still true: `checkRateLimit` **allows** the call when its own count query
+errors. Best-effort by design — the limit bounds cost, it does not guard data — but that means it is
+not a hard guarantee and should never be described as one.
+
+### DSI-60 — league 314. **Confirmed empty; needs one signed-in click.**
+
+`league_entries` holds 6,007 rows across 5 leagues, and **0 for league 314**. The 2026-08-30
+load-test rows really were deleted and nothing has re-sampled since — independently corroborated in
+phase 2, where 8 of the owner's 13 leagues came back with no stored standings, 314 among them.
+
+`sync-league-picks` is Class B (`verifyUser` + the per-user rate limit), so it cannot be driven from
+here or from cron: it needs the owner signed in on `/leagues`. The check afterwards is that
+`league_entries` for 314 is non-zero — the assertion the last run failed to leave behind.
+
+### DSI-58 — custom SMTP. **Owner action, and unrelated to §3.**
+
+A Supabase dashboard setting under Auth, unblocked since 2026-08-23 by owning `fpldecision.com`. It
+is **not** touched by this sprint's Telegram work — different system, different purpose — and this
+sentence exists so the next reader does not assume one covered the other. Google OAuth stays the
+primary sign-in path either way, so until it lands the standing rule holds: at most one real OTP per
+testing session, project-wide rolling-hourly quota.
 
 ## 5. Tooling shipped alongside
 
@@ -313,21 +381,39 @@ have.
 approval writes both halves (Linear and the docs). It pairs with `/linear-sync`, which reconciles;
 this one starts.
 
-## 6. Verification (planned; unrun until each phase lands)
+## 6. What is verified, and what is not
 
-1. `/engine-verify` — `lib/decision-analytics.ts` against live data for entry 274486 in a throwaway
-   `npx tsx` harness, checked by hand against a known gameweek. Harness stays out of the commit.
-2. `loadGameweekReview` for one event must return the same captain gap as the season module's row
-   for that event — the proof no second scorer was reintroduced.
-3. `/verify-rls` on every new table, simulating a second authenticated user **and** `anon`.
-4. Push out: one detection pass writes outbox rows with distinct keys; a **second pass writes zero**;
-   a message arrives; `sent_at` is set. Then the browser Send-test path, which exercises CORS
-   preflight.
-5. Ask in: link from both surfaces; a good code links, a reused code fails, an expired code fails;
-   each command returns data agreeing with the site. Then the two negative tests — wrong secret
-   token returns 401 and reads nothing, unlinked chat gets the not-linked reply and no squad data.
-   `getWebhookInfo` shows no pending-update backlog.
-6. DSI-60's row count; DSI-59's 429 with the limit temporarily at 2, then restored.
-7. `/responsive-check` over the breakpoint × theme matrix for the new `/team` section and
-   `/settings` tab.
-8. `/ship-check` (tsc, lint, build) before commit and before push.
+Verified, in the sprint:
+
+- **Phase 1** against live data for entry 274486 before any UI existed — GW3 reconstructs FPL's own
+  `points` (52) and `points_on_bench` (18) exactly, and the season table's captain row is identical
+  to a direct `captainChoiceAt` call, which is the proof the moved computation left no second scorer.
+- **Phase 2**'s data half against all 13 of the owner's leagues.
+- **Phase 3**'s RLS (12 checks, two authenticated users and `anon`), its Vault accessors, both
+  negative auth tests on the webhook, `notify`'s cron gate, and one real `invoke_sync` run.
+- **Phase 4**'s three measurements above.
+- `/ship-check` throughout: `tsc`, lint (0 errors), `next build`, plus `deno check` on both new
+  functions.
+
+**Not verified, and all for the same reason** — it needs a signed-in session, which the dev preview
+does not have:
+
+1. Phase 2's rival controls (`/team` is behind auth).
+2. Phase 3 end to end: `/link` with a good, a reused and an expired code; the four read commands
+   against what the site shows; one alert through the outbox, with a **second detection pass writing
+   zero new rows**, which is the dedupe claim.
+3. DSI-59c's 429 *render*.
+4. DSI-60's sync.
+
+## 7. Owner actions outstanding
+
+| # | Action | Why it can't be done from here |
+|---|---|---|
+| 1 | `supabase functions deploy sync-news generate-predictions notify telegram-webhook` from a linked CLI | Flips DSI-59a's two flags **and** reconciles §3's deployed-vs-repo divergence in one command |
+| 2 | Delete `scratch-path-test` in the dashboard | Irreversible; no delete in the integration |
+| 3 | Sign in, sync league 314 on `/leagues`, keep the rows | Class B function, needs a user JWT |
+| 4 | Sign in, link a Telegram chat | Same |
+| 5 | Configure custom SMTP under Auth | Dashboard-only setting |
+
+Actions 3 and 4 unblock most of §6's unverified list; say the word once they're done and the rest
+can be run.
