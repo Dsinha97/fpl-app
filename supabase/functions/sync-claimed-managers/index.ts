@@ -1,6 +1,7 @@
 // sync-claimed-managers
 //
-// Keeps every claimed FPL manager's data fresh in the background, so /team
+// Keeps every FPL manager this app tracks for somebody fresh in the
+// background, so /team
 // can read it straight from Supabase instead of blocking on a live FPL
 // re-fetch on every page load (that blocking call — sync-manager, invoked
 // synchronously from app/team/page.tsx's auto-connect effect — measured at
@@ -10,16 +11,35 @@
 // the same way: self-gating on whether a match is live right now
 // (hasLiveFixture, _shared/sync.ts) rather than on a fixed clock.
 //
-//   - Matchday (a fixture is started and not finished): every claimed
+// WHICH MANAGERS. Claimed entries (`user_profiles.entry_id`) **and** rivals
+// (`manager_rivals.entry_id`). The rival half was missing until 2026-09-10,
+// and the bug it caused is worth recording because it was invisible rather
+// than loud: `addRival` syncs a candidate once, at the moment it is added, and
+// nothing re-synced it afterwards. Three rivals added on 2026-08-20 — the day
+// *before* GW1's deadline — were therefore frozen at a point when the season
+// had no gameweek history at all, and still had `current_event = null` and
+// zero `manager_gameweek_history` rows three gameweeks later. They rendered as
+// a rival with no data rather than as an error, which is why nobody noticed.
+//
+// The one rival that looked fine was fine by coincidence: it is also a
+// *claimed* entry, so this cron had been syncing it all along.
+//
+// Note the traffic shape this implies: the tracked set now grows with every
+// rival anyone adds, and on matchday every tracked manager is synced every two
+// minutes. MANAGER_CONCURRENCY bounds the burst but not the total. If the set
+// ever gets large, the honest fix is a cap or a longer matchday interval for
+// rivals specifically — not silently dropping some of them.
+//
+//   - Matchday (a fixture is started and not finished): every tracked
 //     manager is due every tick — the 2-minute cron schedule IS "every
 //     switch", the same way sync-live-gameweek treats its own schedule.
 //   - Non-matchday: a manager is due only once managers.updated_at (the
 //     last successful sync — sync-manager's upsert is the only writer to
 //     that table, so its trigger-maintained updated_at is a clean "last
 //     synced" signal, no new column needed) is more than 24h old.
-//   - Never synced (no `managers` row yet for a claimed entry_id): always
-//     due, regardless of matchday, so a fresh claim doesn't wait up to a
-//     day for its first real data.
+//   - Never synced (no `managers` row yet for a tracked entry_id): always
+//     due, regardless of matchday, so a fresh claim or rival doesn't wait up
+//     to a day for its first real data.
 //
 // The actual per-manager sync is _shared/manager-sync.ts's syncManagerData
 // — the same implementation sync-manager itself calls — so a manager synced
@@ -79,23 +99,32 @@ Deno.serve(async (req) => {
 
     const matchday = force ? true : gw ? await hasLiveFixture(db, season, gw.id) : false;
 
-    const { data: profileRows, error: profileError } = await db
-      .from("user_profiles")
-      .select("entry_id")
-      .not("entry_id", "is", null);
+    // Both halves of "tracked": the entries users have claimed as their own,
+    // and the rivals they compare against. A rival is displayed with exactly
+    // the same freshness expectation as a claim, so it earns the same refresh.
+    const [
+      { data: profileRows, error: profileError },
+      { data: rivalRows, error: rivalError },
+    ] = await Promise.all([
+      db.from("user_profiles").select("entry_id").not("entry_id", "is", null),
+      db.from("manager_rivals").select("entry_id"),
+    ]);
     if (profileError) throw new Error(`user_profiles: ${profileError.message}`);
+    if (rivalError) throw new Error(`manager_rivals: ${rivalError.message}`);
 
     const claimed = [...new Set((profileRows ?? []).map((r) => r.entry_id as number))];
+    const rivals = [...new Set((rivalRows ?? []).map((r) => r.entry_id as number))];
+    const tracked = [...new Set([...claimed, ...rivals])];
 
-    if (claimed.length === 0) {
-      await run.finish("skipped", { season, details: { reason: "no claimed managers" } });
-      return jsonResponse({ ok: true, season, skipped: "no claimed managers" });
+    if (tracked.length === 0) {
+      await run.finish("skipped", { season, details: { reason: "no tracked managers" } });
+      return jsonResponse({ ok: true, season, skipped: "no tracked managers" });
     }
 
     const { data: managerRows, error: managersError } = await db
       .from("managers")
       .select("entry_id, updated_at")
-      .in("entry_id", claimed);
+      .in("entry_id", tracked);
     if (managersError) throw new Error(`managers: ${managersError.message}`);
 
     const lastSyncedAt = new Map(
@@ -103,17 +132,23 @@ Deno.serve(async (req) => {
     );
 
     const staleBefore = new Date(Date.now() - STALE_AFTER_MS).toISOString();
-    const due = claimed.filter((entryId) => {
+    const due = tracked.filter((entryId) => {
       const updatedAt = lastSyncedAt.get(entryId);
       if (!updatedAt) return true; // never synced — always due
-      if (matchday) return true; // every claimed manager, every live tick
+      if (matchday) return true; // every tracked manager, every live tick
       return updatedAt < staleBefore;
     });
 
     if (due.length === 0) {
       await run.finish("skipped", {
         season,
-        details: { reason: "nothing due", matchday, claimed: claimed.length },
+        details: {
+          reason: "nothing due",
+          matchday,
+          tracked: tracked.length,
+          claimed: claimed.length,
+          rivals: rivals.length,
+        },
       });
       return jsonResponse({ ok: true, season, matchday, due: 0, skipped: "nothing due" });
     }
@@ -146,7 +181,9 @@ Deno.serve(async (req) => {
       rowsWritten: results.length - failed.length,
       details: {
         matchday,
+        tracked: tracked.length,
         claimed: claimed.length,
+        rivals: rivals.length,
         due: due.length,
         synced: results.filter((r) => r.ok).map((r) => r.entryId),
         failed: failed.map((r) => ({ entryId: r.entryId, error: r.error })),
