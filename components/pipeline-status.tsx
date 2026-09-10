@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { AccuracyScoreboard } from "@/components/accuracy-scoreboard";
+import { SyncHealthPanel } from "@/components/sync-health";
 
 interface RunRow {
   function_name: string;
@@ -250,6 +251,11 @@ export function PipelineStatus() {
           </div>
         </section>
       )}
+
+      {/* Before the model's accuracy, whether the data behind it actually
+          arrived. Three bugs in one session were work that silently did not
+          happen — see lib/sync-health.ts. */}
+      <SyncHealthPanel />
 
       <AccuracyScoreboard />
 
