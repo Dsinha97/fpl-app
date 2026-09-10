@@ -15,6 +15,7 @@ runbook before assuming the behaviour it describes is live).
 | [roadmap.md](roadmap.md) | live | **Authoritative sprint plan.** Sprint index, next up, blocked items, live cross-cutting decisions. Start here for "what's next" or "what shipped when". |
 | [architecture.md](architecture.md) | live | Data flow, schema, Edge Functions, routes table, `lib/` module map. |
 | [phase-4-model.md](phase-4-model.md) | live | The xP model's method, calibration and backtest. |
+| [linear.md](linear.md) | live | **Linear ↔ docs.** The issue-to-doc mapping for the `FPL-App` Linear project, which owns what is planned and what its status is. Start there for "what's the next thing to pick up". |
 | [wiki/index.md](wiki/index.md) | live | **Topic map.** One page per engine/feature/platform concern, cross-linked and source-attributed — organised by *what*, not *when*. Start here for "how does X work" or "why is X blocked". |
 
 ## Sprint history
