@@ -24,7 +24,7 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | M5 · Platform hardening & model validation | 2026-09-06 | 32, 34, 35 |
 | M6 · GW5 check-in | 2026-09-21 | One cheap look after GW5 is scored |
 | M7 · GW10 model batch | 2026-11-09 | The three model questions that share one harness run |
-| M8 · Beyond this season | — | Sprints 15–17, platform follow-ups, blocked-on-data items |
+| M8 · Beyond this season | — | Sprint 36 (shipped 2026-09-10), Sprint 15, platform follow-ups, blocked-on-data items |
 
 ## Shipped
 
@@ -75,15 +75,12 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | 32 Edge Function lockdown | DSI-47 | M5 | [sprints/sprint-32.md](sprints/sprint-32.md) |
 | 34 Post-GW3 scoreboard + harness fixes | DSI-48 | M5 | [sprints/sprint-34.md](sprints/sprint-34.md) |
 | 35 Results-derived FDR (not shipped) | DSI-49 | M5 | [sprints/sprint-35.md](sprints/sprint-35.md) |
-
-## In flight
-
-| Issue | Item | Milestone | Doc |
-|---|---|---|---|
-| DSI-74 | **Sprint 36** — decision analytics, a two-way Telegram bot, the Todo sweep | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) |
-
-Sprint 36 took the whole Todo column, so DSI-66, DSI-65, DSI-61, DSI-60, DSI-59 and DSI-58 are all
-In Progress under it and stay in the Open table below until they close.
+| 36 Decision analytics, Telegram bot, Todo sweep | DSI-74 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) |
+| 17 part 1 Historical decision analytics | DSI-66 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §1 |
+| Rivals from a league's standings | DSI-61 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §2 |
+| 16 Notifications — the Telegram bot | DSI-65 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §3 |
+| Top-1k ownership sample, kept | DSI-60 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §4 |
+| Custom SMTP for Supabase Auth | DSI-58 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §4 |
 
 ## Open
 
@@ -97,15 +94,10 @@ In Progress under it and stay in the Open table below until they close.
 | DSI-55 | Flip the repo public + post-flip hardening | M8 | Owner decision. Steps 3–4 are impossible while private (GitHub 422s both) |
 | DSI-56 | Latency — route-level code splitting | M8 | None. `next/dynamic` is unused; every route ships ~1.1 MB JS |
 | DSI-57 | Latency — serial-waterfall page reads | M8 | None. `/players`, `/transfers`, `/team` |
-| DSI-58 | Custom SMTP for Supabase Auth | M8 | Unblocked by owning the domain; Google OAuth stays primary, so not urgent |
-| DSI-59 | Sprint 32 leftovers | M8 | Deliberate gaps: `verify_jwt` posture, `scratch-path-test`, the unproven 429 |
-| DSI-60 | Top-1k ownership sample, kept for real | M8 | None — pipeline proven at full scale 2026-08-30; nobody has run and kept it |
-| DSI-61 | Rivals auto-populated from standings | M8 | None |
+| DSI-59 | Sprint 32 leftovers — **two of three settled** | M8 | Residue only: the `verify_jwt` flip is prepped in `config.toml` but **not deployed** (bundled with DSI-55), and the 429's HTTP render is unproven. `scratch-path-test` deleted; the 429's counting half proved |
 | DSI-62 | Sprint 6 gap — EO column on `/players` | M8 | None — Sprint 10's engine exists. Opportunistic |
 | DSI-63 | Cloudflare Access gating | M8 | Weigh against `/settings` → Pipeline being deliberately public |
 | DSI-64 | Sprint 15 — Action Layer | M8 | Shaped by the FPL-login finding; read it before scoping |
-| DSI-65 | Sprint 16 — Notifications & Automation | M8 | None; the signals already exist unused |
-| DSI-66 | Sprint 17 part 1 — historical decision analytics | M8 | None. Descriptive only; reuses `/review`'s primitives |
 | DSI-73 | Sprint 17 part 2 — predictive models | M8 | Blocked by DSI-53. Accuracy claims inherit an in-sample calibration |
 | DSI-67 | Blocked — `TeamAttackStrength` | M8 | `strength_*` is 0 for all 20 clubs in-season too (checked 2026-09-02) |
 | DSI-68 | Blocked — cold-start phase 2 remainder | M8 | 66 overseas/academy players and `dc90` have no fittable source |
