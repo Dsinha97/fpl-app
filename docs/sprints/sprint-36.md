@@ -220,6 +220,36 @@ now grows with every rival anyone adds, and on matchday every tracked manager sy
 minutes — so the function header says so, and says what the honest fix would be if it ever gets
 large (a cap or a longer rival interval, not silently dropping some).
 
+### The surface those three bugs earned
+
+All three were the same shape: **work that silently does not happen, and renders as absence rather
+than as an error.** A rival with no gameweek history looks exactly like a rival whose history is
+legitimately empty. Nothing on any screen distinguished them, which is why three separate faults
+survived for three weeks.
+
+`managers.last_success_at` made the difference queryable, so `lib/sync-health.ts` +
+`components/sync-health.tsx` now ask the question on `/settings` → Pipeline: tracked managers
+classified never-completed / overdue / ok, and failed or partial `sync_runs` from the last 24h —
+rows that were written all along and read by nothing.
+
+**The rule it encodes: it never renders empty.** Every branch says something. Signed out reports
+"nothing to show" rather than looking healthy, because both source tables are owner-scoped and a
+signed-out visitor genuinely cannot be told. A blank panel is indistinguishable from a broken one,
+which is the failure being fixed.
+
+It paid for itself on first render, surfacing two things nobody had looked at:
+
+- **Gateway Timeout on six different functions in 24h**, on six different tables — so
+  project-wide infrastructure noise at roughly 0.4% of runs, not a bug in any one of them. This
+  also corrects the guess recorded above, that the `notify` timeout might be `notify`-specific.
+  Worth noting for whoever chases it: five of the six landed within two seconds of a clock
+  boundary, which points at cron pile-up rather than random flakiness. Six data points is a
+  hypothesis, not a finding.
+- **A `sync-bootstrap` run that took a 403 from the FPL API**, a different failure entirely.
+
+Both self-correct and neither needs action today. The point is that they sat unread until
+something looked.
+
 ## 3. DSI-65 — Telegram, both directions — **built and deployed 2026-09-10**
 
 Written and applied where it is safe to: `supabase/migrations/20260910190000_sprint36_notifications.sql`
