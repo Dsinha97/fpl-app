@@ -395,25 +395,103 @@ Verified, in the sprint:
 - `/ship-check` throughout: `tsc`, lint (0 errors), `next build`, plus `deno check` on both new
   functions.
 
-**Not verified, and all for the same reason** — it needs a signed-in session, which the dev preview
-does not have:
+### Closed out 2026-09-10, after the owner signed in
 
-1. Phase 2's rival controls (`/team` is behind auth).
-2. Phase 3 end to end: `/link` with a good, a reused and an expired code; the four read commands
-   against what the site shows; one alert through the outbox, with a **second detection pass writing
-   zero new rows**, which is the dedupe claim.
-3. DSI-59c's 429 *render*.
-4. DSI-60's sync.
+- **DSI-60 — done.** `league_entries` for league 314: **2,000 rows, 30,795 picks** (was 0). The
+  sample is kept this time, which is the whole of what the issue asked for.
+- **DSI-59b — done.** `scratch-path-test` returns `404 NOT_FOUND`. Deleted.
+- **Linking works.** One chat linked, one code minted and one used — `/link` succeeded first
+  attempt, no retries.
+- **The four read commands** were exercised by the owner against the live bot and all returned.
+  Content needs a formatting pass (noted for follow-up); correctness was not in question.
+
+- **The dedupe claim is proven, against the real detector.** A live run detected nothing (2
+  `change_feed` rows in the window, neither in the squad; no fixture changes; deadline 41h out
+  against a 4h threshold), so the window was temporarily widened to 48h to give the detector a real
+  fact — and restored to 4 afterwards.
+
+  | Pass | Result |
+  |---|---|
+  | 1 | `detected 1, sent 1, failed 0` — outbox row `deadline:4`, `sent_at` stamped, message delivered |
+  | 2 | **`detected 0, sent 0`** — still exactly one outbox row |
+
+  Body: `⏰ Gameweek 4 deadline in 41.1h (Sat, 12 Sep 2026 12:30:00 GMT).` The second pass re-read
+  the same fact, composed the same key, and the unique index turned the insert into a no-op. That
+  is the mechanism working, not an absence of input.
+
+**One real fault observed, and it is not the dedupe.** The **first scheduled** run — 19:15:02, the
+first time pg_cron drove the new function rather than a manual `invoke_sync` — failed:
+`user_notification_prefs: Gateway Timeout`, after 5.2s. Every run before and after succeeded in
+~1-2s. It looks like a cold-start/transient PostgREST timeout rather than a defect in the query,
+which is a one-row read on a table with one row. Recorded rather than dismissed: **if it recurs on
+the :15/:30/:45 boundaries it is a pattern, not noise**, and the honest answer today is one
+observation and no explanation. Note also that the prefs read is deliberately fatal — a run that
+cannot tell who is subscribed should not proceed — so this failed loudly rather than silently
+sending nothing.
+
+**Still not verified:**
+
+1. Phase 2's rival controls (`/team` is behind auth; not exercised).
+2. `/link` with a **reused** and an **expired** code — the happy path is proven, the two refusal
+   paths are not.
+3. DSI-59c's 429 *render* (the counting half is proved; see §4).
 
 ## 7. Owner actions outstanding
 
 | # | Action | Why it can't be done from here |
 |---|---|---|
 | 1 | `supabase functions deploy sync-news generate-predictions notify telegram-webhook` from a linked CLI | Flips DSI-59a's two flags **and** reconciles §3's deployed-vs-repo divergence in one command |
-| 2 | Delete `scratch-path-test` in the dashboard | Irreversible; no delete in the integration |
-| 3 | Sign in, sync league 314 on `/leagues`, keep the rows | Class B function, needs a user JWT |
-| 4 | Sign in, link a Telegram chat | Same |
+| ~~2~~ | ~~Delete `scratch-path-test`~~ | **Done 2026-09-10** — endpoint 404s |
+| ~~3~~ | ~~Sync league 314~~ | **Done 2026-09-10** — 2,000 entries kept |
+| ~~4~~ | ~~Link a Telegram chat~~ | **Done 2026-09-10** — linked, commands answered, dedupe proven |
 | 5 | Configure custom SMTP under Auth | Dashboard-only setting |
 
-Actions 3 and 4 unblock most of §6's unverified list; say the word once they're done and the rest
-can be run.
+Only two remain: the CLI deploy (optional; better bundled with DSI-55, since the invocation cost it
+saves only becomes real once the repo is public) and custom SMTP.
+
+### Follow-up, done the same day: the output pass
+
+The owner ran all four commands, confirmed the numbers, and asked for presentation work. What
+changed, and the two judgement calls inside it:
+
+- **A titled header on every message**, carrying the team name — `⚽ Your Team — DS United (FPL)`.
+- **Club and position emoji**, in `_shared/telegram-format.ts` so they have one home. Nicknames
+  rather than kit colours wherever one exists: Arsenal are the Gunners and Liverpool the Liver bird,
+  because two red circles are indistinguishable at emoji size. A club with no entry renders with no
+  emoji rather than a wrong one, and the map needs the same once-a-season update on promotion that
+  `entities.ts`'s CLUB_ALIASES does.
+- **Ranks abbreviated** — `1029798` → `1M`, `63223` → `63.2k`. Below 1,000 the exact number stays,
+  because that is the range where it matters: `1 of 5` in a mini-league is the whole point.
+- **Leagues split by size**, not by `league_type`. FPL's own `x`/`s` split does not answer the
+  question — `x` covers both a two-person league between friends and a 66,000-entry YouTube league,
+  and calling the latter "mini" is wrong in the way that matters. The threshold is stated in the
+  message rather than hidden in the code.
+- **Fixtures grouped by day**, with only the kickoff time on each line, in UK time.
+- **`/points` shows direction only** — 🔼🔽🟰, no magnitude. `/leagues` keeps the magnitude, and the
+  difference is deliberate: a mini-league move of two places is a real event, where an overall-rank
+  swing of 100k mostly measures the size of the field rather than how the manager played.
+- **`/team` now reads the current squad**, not the last scored one. `manager_picks` only holds
+  gameweeks FPL has already started, so the old command was answering a question about last week;
+  the imported draft is the only record of the team standing for the upcoming deadline. It is
+  matched against the **user's own** drafts and then filtered on entry id, because two accounts can
+  hold a draft for the same entry and "any draft claiming this id" is not a question a bot should
+  ask on someone's behalf.
+
+**The substitution suggestion, and the line it does not cross.** What `/team` reports is
+*availability*: a starter whose `players.status` is not `a`, and the bench player FPL's own auto-sub
+rule would bring on — first in bench order whose arrival still leaves a legal formation, with
+formation limits read from `element_types` rather than hardcoded. It is a deliberate second copy of
+the rule `projectAutoSubs` owns in `lib/gameweek-state.ts`, for the same reason `_shared/entities.ts`
+keeps its own `fold()`, and carries the same keep-in-sync note.
+
+It is **not** the xP-optimal starting XI. That is `optimiseLineup`, it is modelled, and putting it
+in the bot would fork the engine — so the message says "availability only — who to start on merit is
+on the site". All fifteen were available on the day, so the honest output was
+"✅ All eleven are available".
+
+**Deep link.** `t.me/fpl_decision_bot?start=<code>` opens the chat with the code attached, which
+means `/start CODE` had to become a link attempt rather than a greeting — and be handled *before*
+the linked-chat check, since the entire point is that the chat is not linked yet. The manual
+`/link CODE` stays visible next to it, because a deep link fails silently with no Telegram installed
+and opens the wrong account for anyone signed into two. The button now sits beside **Import as
+draft** in `/team`'s header, and renders nothing at all when signed out.

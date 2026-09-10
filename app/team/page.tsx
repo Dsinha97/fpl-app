@@ -1356,20 +1356,24 @@ export default function TeamPage() {
               <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
                 {m.team_name ?? `Entry ${m.entry_id}`}
               </h1>
-              {/* The highest-value action on this page, moved out of the
-                  "Free transfers" card it used to be buried in (a casual
-                  tester never found it there) and next to the header
-                  instead, where "import my squad" is actually decided. */}
-              {data && data.picks.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => void handleImport()}
-                  disabled={importing}
-                  className="shrink-0 rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
-                >
-                  {importing ? "Importing…" : "Import as draft →"}
-                </button>
-              )}
+              {/* The two highest-value actions on this page, side by side.
+                  Import was moved out of the "Free transfers" card it used to
+                  be buried in (a casual tester never found it there); the
+                  Telegram link sits beside it for the same reason — a linking
+                  control tucked into a settings tab is one nobody finds. */}
+              <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
+                {data && data.picks.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => void handleImport()}
+                    disabled={importing}
+                    className="shrink-0 rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                  >
+                    {importing ? "Importing…" : "Import as draft →"}
+                  </button>
+                )}
+                <TelegramLink variant="compact" />
+              </div>
             </div>
             {data && data.picks.length > 0 && (
               <p className="mt-1.5 flex items-start gap-1 text-xs text-zinc-500">
@@ -1823,26 +1827,6 @@ export default function TeamPage() {
             </section>
           )}
 
-
-          {/* --------------------------------------------- telegram link */}
-          {/* Here as well as in /settings, and one component either way:
-              /team is where the owner actually is, and a linking control
-              buried in a settings tab is one nobody finds. */}
-          {data?.manager && (
-            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-card p-3 dark:border-purple-900/40">
-              <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                Get deadline, injury and price alerts on Telegram — and ask the bot for your team,
-                points, fixtures or league standings.{" "}
-                <a
-                  href="/settings/?tab=notifications"
-                  className="underline hover:text-zinc-800 dark:hover:text-zinc-200"
-                >
-                  Choose which alerts
-                </a>
-              </p>
-              <TelegramLink variant="compact" />
-            </div>
-          )}
 
           {/* ------------------------------------- manager intelligence */}
           {/* Always shown once a manager is connected — previously gated on

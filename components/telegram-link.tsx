@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  botLinkUrl,
   DEFAULT_PREFS,
   LINK_CODE_TTL_MINUTES,
   NOTIFY_KINDS,
@@ -102,7 +103,12 @@ export function TelegramLink({ variant = "full" }: { variant?: "compact" | "full
     [userId, prefs],
   );
 
+  // Signed out, the compact variant renders nothing at all. It sits in /team's
+  // header row next to Import, and a sentence about signing in is not a header
+  // action — it would be a paragraph wedged between two buttons. The full
+  // variant is inside a settings panel, where the prompt reads correctly.
   if (!userId) {
+    if (variant === "compact") return null;
     return (
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
         Sign in to send FPL alerts to Telegram.
@@ -136,15 +142,28 @@ export function TelegramLink({ variant = "full" }: { variant?: "compact" | "full
             disabled={busy}
             className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
           >
-            {busy ? "Generating…" : code ? "New code" : "Link Telegram"}
+            {busy ? "Generating…" : code ? "New code" : "Link Telegram →"}
           </button>
         )}
       </div>
 
       {!linked && code && (
-        <div className="mt-2 rounded-md border border-zinc-200 bg-zinc-50 p-2.5 text-xs dark:border-purple-900/40 dark:bg-purple-950/40">
-          <p className="text-zinc-700 dark:text-zinc-300">
-            Send this to the bot on Telegram:{" "}
+        <div className="mt-2 max-w-xs rounded-md border border-zinc-200 bg-zinc-50 p-2.5 text-xs dark:border-purple-900/40 dark:bg-purple-950/40">
+          {/* One tap on the phone, and the code travels with the link — Telegram
+              turns ?start=CODE into a /start CODE message the bot treats as a
+              link attempt. The manual form stays visible underneath because a
+              deep link fails silently with no Telegram installed, and opens the
+              wrong account for anyone signed into two. */}
+          <a
+            href={botLinkUrl(code.code)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md bg-purple-950 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-emerald-950/60 dark:text-primary dark:ring-1 dark:ring-primary/40 dark:hover:bg-emerald-950"
+          >
+            Open Telegram and link →
+          </a>
+          <p className="mt-2 text-zinc-700 dark:text-zinc-300">
+            Or send it by hand:{" "}
             <code className="rounded bg-white px-1.5 py-0.5 font-mono text-zinc-900 dark:bg-input dark:text-zinc-100">
               /link {code.code}
             </code>

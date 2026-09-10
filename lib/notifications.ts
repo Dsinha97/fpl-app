@@ -15,6 +15,31 @@
 
 import { supabase } from "./supabase/client";
 
+/**
+ * The bot's Telegram username.
+ *
+ * Public by definition — it is in every `t.me` URL — so it is a constant here
+ * rather than a secret. `supabase/functions/telegram-webhook` has no copy: it
+ * learns the chat from the update it receives, and only this side needs to
+ * build a link *to* the bot.
+ */
+export const BOT_USERNAME = "fpl_decision_bot";
+
+/**
+ * A one-tap link that opens the chat with the code already attached.
+ *
+ * Telegram turns `?start=<payload>` into a `/start <payload>` message when the
+ * user taps Start, so the webhook treats `/start CODE` as a link attempt —
+ * which it must do *before* its own linked-chat check, since the entire point
+ * of this link is that the chat is not linked yet.
+ *
+ * The code is still shown next to it. A deep link fails silently when Telegram
+ * is not installed, or opens the wrong account when someone is signed into two,
+ * and in both cases the manual `/link CODE` is the way out.
+ */
+export const botLinkUrl = (code: string): string =>
+  `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(code)}`;
+
 /** How long a minted code stays good. Short: it is a bearer token for the
  *  chat-link, and the flow it serves takes seconds. */
 export const LINK_CODE_TTL_MINUTES = 10;
