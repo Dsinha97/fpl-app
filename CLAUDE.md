@@ -10,6 +10,7 @@ front end on Cloudflare, Supabase Postgres + Edge Functions behind it.
 - Supabase project `FPL-App`, ref `fyxyqxpscmqjyjxsyhms`
 - Owner's FPL manager ID **274486**; season being ingested 2026-27 (GW1 deadline 2026-08-21)
 - Full documentation index, including status: [docs/README.md](docs/README.md). Start there.
+  Planned work and its status live in Linear — mapping: [docs/linear.md](docs/linear.md).
   Sprint plan: [docs/roadmap.md](docs/roadmap.md). Architecture/schema: [docs/architecture.md](docs/architecture.md).
   xP model method + backtest: [docs/phase-4-model.md](docs/phase-4-model.md). Topic wiki (how/why,
   cross-linked, source-attributed): [docs/wiki/index.md](docs/wiki/index.md).
@@ -35,6 +36,13 @@ here — that's what went stale last time (this line named Sprint 13/15 long aft
 either shipped or blocked). Full plan: [docs/roadmap.md](docs/roadmap.md).
 
 ## Ground rules
+
+**Linear is the planning interface.** The [FPL-App](https://linear.app/dsinha-org/project/fpl-app-83aaf6f4e868)
+project (team `DSI`) holds what is planned and what its status is; `docs/` holds what happened and
+why. Read the Linear backlog before proposing new work — an item changed or added in the dashboard
+outranks a stale "Next up" line in roadmap.md. When a sprint ships, close its issue and add its row
+to [docs/linear.md](docs/linear.md). Don't restate a gate in Linear that `docs/roadmap.md` already
+states — link it. `/linear-sync` reconciles the two and reports drift in both directions.
 
 **Secrets.** Never ask for, store, or accept the Supabase DB password or an FPL password.
 Migrations and function deploys go through the Supabase MCP OAuth integration; secrets are

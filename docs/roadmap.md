@@ -6,6 +6,12 @@ feature set, kept unedited) and reconciled against what is actually in the repo.
 is superseded by this file. Full per-sprint history moved to [sprints/](sprints/) — see
 [docs/README.md](README.md) for the complete documentation index.
 
+**Planning happens in Linear.** This file stays the authoritative record of what happened and
+why; the [FPL-App](https://linear.app/dsinha-org/project/fpl-app-83aaf6f4e868) project owns what
+is *planned* and what its status is. [linear.md](linear.md) maps every issue to its section here —
+read it before proposing work, since an item re-prioritised in the dashboard outranks a stale
+"Next up" line below.
+
 `update-aug3.md` lists Sprint 4 as "Squad Optimizer"; in this repo that shipped as Sprint 2, and
 Sprint 4 delivered the comparison engine and replacement finder, numbered 6 and 7 below. Full
 reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.md).
