@@ -140,7 +140,43 @@ term, distinct from this page's exact per-league EO) as blocked because `league_
 rewritten for scale") proved the *pipeline itself* handles league 314 at full scale — 2000 entries,
 rank-ordered, zero failures — so the blocker was never really "can this be synced," it was "has
 anyone kept the result." That test's rows were deleted afterward (it was verification, not a
-production sync), so `league_entries` for 314 is back to 0 rows as of this writing — the honest
-current state is: **provably unblocked as an engineering matter, still not sampled**, one click on
-`/leagues` away from being real. [blocked-and-data-gaps.md](blocked-and-data-gaps.md)'s row is
-updated to match.
+production sync), so `league_entries` for 314 was back to 0 rows.
+
+**Resolved 2026-09-10.** The owner signed in and ran it: `league_entries` for league 314 now holds
+**2,000 rows and 30,795 picks**, and the sample is **kept** this time — which was the whole of what
+the issue asked for. The check the previous run had failed to leave behind (a non-zero count
+afterwards) is the one that was run. Before that, the emptiness was independently corroborated
+twice: directly, and by the rival-from-a-league work below finding 8 of the owner's 13 leagues with
+no stored standings, 314 among them. [blocked-and-data-gaps.md](blocked-and-data-gaps.md)'s row is
+updated to match. Consuming the sample — the risk formula's field-wide EO term — is now unbuilt
+rather than blocked.
+
+## Rivals from a league's standings (2026-09-10)
+
+Both halves already existed: `loadLeagueStandings` returns rank-ordered entry ids, and `/team`'s
+rival pipeline consumes entry ids. An "Add from a league…" control beside the manual add joins them.
+
+**The cost is the syncs, not the join.** Each rival must exist in `managers` first, which is one
+`sync-manager` call each — and `sync-manager` is Class B, carrying `verifyUser` plus a per-user rate
+limit ([edge-function-security.md](edge-function-security.md#class-b--browser-invoked-verifyuser--a-per-user-rate-limit)).
+So the batch is capped and sequential, progress is visible, and a **429 is a first-class outcome**
+that names which rivals did land. The rate limit was not raised to make this fit.
+
+`addRivalById` is the single path to becoming a rival — the manual Add button and the batch both call
+it, so there is one rule about what a rival needs. It returns a rate-limited outcome as its own
+case, because the batch has to *stop* on a 429 where it can carry on past an ordinary failure. The
+batch reports every term separately: `Added 3 of 5 · 1 failed (name) · stopped at <name> — the sync
+rate limit was reached, so the rest were not attempted.` No netting, and never a silent partial
+success.
+
+What the live data looked like, checked with a throwaway harness over the owner's 13 leagues:
+**8 of 13 have zero stored standings**, so "this league has never been synced" is the *common* case
+rather than an edge one — it gets its own message naming the fix rather than an empty list that
+reads as "no rivals available". Self-exclusion works where it matters (the owner is rank 1 in two
+leagues and rank 1086 in a third, filtered out of all three), and small leagues yield fewer than the
+cap, so the button is labelled from the **candidate count**, not from the cap.
+
+Verifying this is what uncovered that rivals had never been re-synced at all — three separate
+pipeline faults, all of them invisible because they rendered as absence:
+[data-pipeline.md](data-pipeline.md#rivals-were-never-re-synced-found-and-fixed-2026-09-10).
+— [sprints/sprint-36.md](../sprints/sprint-36.md)

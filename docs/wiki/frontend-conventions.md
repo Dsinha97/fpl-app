@@ -251,3 +251,43 @@ See [design-system.md](design-system.md#ui-defect-sweep-sprint-25-2026-08-23).
 
 See also: [deployment.md](deployment.md) (why static export forecloses these patterns),
 [methodology.md](methodology.md) (the same "verify, don't assume" discipline applied to model code).
+## Four routes became panels and tabs (Sprint 33, 2026-09-05)
+
+Seventeen routes, four of which turned out to be halves of a task the other half already owned. **The
+through-line is not tidiness** — each merge removed a duplicated loader, a duplicated control, or a
+second source of truth that could disagree with the first, and two of them exposed a real defect that
+existed only because the halves were apart. Each merged route keeps a 20-30 line **redirect stub**,
+so external links stay alive.
+
+- **`/compare` → a panel on `/players`.** The two pages fetched the same six tables for the same
+  gameweek, imported the same libs, derived `seasonWindow` with the same `FALLBACK_SEASON_WINDOW = 8`
+  and the same comment, and rendered a byte-identical horizon button row — and the link between them
+  carried a list of ids and nothing else, so **the horizon you had just set was discarded crossing
+  over and set again on arrival.** One horizon control, not two that cannot agree. `selected` had to
+  become an ordered `number[]` (compare columns lay out in selection order; a `Set` has none), and
+  widening the `players` select to the superset fixed a real gap rather than just feeding the panel —
+  `toScoredPlayer` had been passing `pointsPerGame: null` purely because the column was not fetched.
+- **`/chips` → the "Chip timing" tab on `/transfers`.** Both plan the same draft with the same
+  engine; chip timing is an *input* to the transfer path, not a separate question. The real decision
+  was the draft: `ChipTiming` no longer resolves its own, and `/transfers`' selector moved up beside
+  the tabs to govern both, because two draft selectors on one page that can disagree is worse than
+  one that cannot. The tab **mounts lazily** — someone only planning transfers should not pay for the
+  chip engine's player, prediction, fixture and chip-definition loads.
+- **`/review` → under `/team`'s gameweek selector.** See
+  [deadline-and-matchday.md](deadline-and-matchday.md#review-review-built-2026-08-27).
+- **`/status` → the "Pipeline" tab on `/settings`.** The smallest, and the one with the trap:
+  **`/settings` redirects signed-out visitors to `/signin` and `/status` did not.** `sync_runs` and
+  the row counts are public-read, so folding the page in behind the gate would have quietly taken a
+  public page private — the kind of change that gets noticed a month later. Caught by opening
+  `/status/` signed-out in the browser rather than by reasoning about it. The auth gate is now
+  scoped: Pipeline is exempt, the other two tabs are not, and signed-out the page renders with no
+  dead-end tab strip. **The gate reads the tab from `window.location.search`, not from `tab` state**,
+  because both mount effects run after the first render and `tab` is still its `"account"` default
+  when a signed-out visitor arrives on `?tab=status`.
+
+Three merges were surveyed and **rejected**, which is the useful half of the survey: `/scenarios`
+into `/builder` (two genuinely different tasks — build one squad, compare several; *shared state is
+not shared purpose*), `/news` into `/deadline` (the hub already embeds the feed; the standalone page
+is the archive view), and `/leagues` into `/team` (manager-scoped in common and nothing else — two
+lib imports, no draft, `TeamState` or horizon coupling).
+— [sprints/sprint-33.md](../sprints/sprint-33.md)

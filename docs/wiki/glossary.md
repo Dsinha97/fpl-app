@@ -26,13 +26,14 @@ transfer optimiser's roll-vs-spend decision. See [transfer-engine.md](transfer-e
 
 **EO** — effective ownership (captain 2×, triple captain 3×, bench 0×). Exact for a mini-league since
 the GW1 deadline made picks public — see [ownership-and-leagues.md](ownership-and-leagues.md). The
-field-wide top-1k version the risk formula needs is still blocked on league 314 being rank-ordered;
-see [blocked-and-data-gaps.md](blocked-and-data-gaps.md).
+field-wide top-1k version the risk formula needs **stopped being blocked on 2026-09-10**: league
+314's top 2,000 entries and their picks are now stored and kept. Consuming them is unbuilt, not
+blocked; see [blocked-and-data-gaps.md](blocked-and-data-gaps.md).
 
-**FDR** — fixture difficulty rating. Currently the official FPL rating. A custom analytical version
-was blocked on team strength being zero pre-season; as of 2026-09-02 it isn't — `strength_overall_home`/
-`_away` are populated for all 20 clubs, though the attack/defence split still isn't. See
-[fpl-api-constraints.md](fpl-api-constraints.md).
+**FDR** — fixture difficulty rating. What production consumes (`ScoredPlayer.fdrRun`) is the
+**official** FPL rating. Two custom ones exist and neither is wired in: a strength-derived rating
+that is display-only permanently, and a results-derived rating that is measured and unshipped
+pending a derived-vs-official comparison. See [fixture-difficulty.md](fixture-difficulty.md).
 
 **DC / `dc90`** — defensive contribution, an FPL scoring category since 2024/25 (2 points for
 clearing a per-match action threshold). See [xp-model.md](xp-model.md).

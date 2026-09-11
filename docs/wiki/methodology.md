@@ -125,3 +125,84 @@ deficiency) ΔE validation with a 12.3 protan adjacent-pair separation, which th
 literal palette has no equivalent check for. (`design-system.md` used to cite `risk-scoring.md` for
 this validation, which contained no such content — a broken cross-link flagged in this pass's tidy
 note and corrected in the same pass to cite `lib/fdr.ts`'s own header comment directly.)
+## A scrambling control is what separates a result from a coincidence
+
+When a new signal improves a metric, run the same arm with the *mapping* destroyed and the
+distribution intact. Sprint 35's results-derived FDR fed `predict` the identical spread of `fdr`
+values with the team-to-rating assignment shuffled; that arm came out **worse than neutral** in
+every season at every setting while the real ratings came out better. Without it, "a spread of fdr
+values happens to help the model" would have been indistinguishable from "these ratings know
+something". The improvement was small (MAE ~0.5%) and the control is the entire reason it counts as
+real. See [fixture-difficulty.md](fixture-difficulty.md#the-result-and-the-control-arm-that-makes-it-one).
+
+## A backtest proves the comparison it ran, not the one you want
+
+The same sprint measured *derived FDR beats **no** fixture adjustment* and then did not ship,
+because production uses FPL's **official** FDR and derived-vs-official was never tested — official
+FDR for past seasons is not obtainable. Shipping on that evidence would have claimed something the
+harness never measured. Name the baseline out loud whenever a result is quoted.
+
+## A harness that records its outputs and not its inputs cannot be debugged
+
+Sprint 34 spent longer on why published backtest tables would not reproduce than on the sweep it was
+blocking, and found two input-corruption bugs rather than a model problem:
+
+- **`fetchAll` paged with `limit`/`offset` and no `ORDER BY`.** Postgres guarantees no row order
+  without one, so offset pages over a 10-17-page table skipped and repeated rows — 2023-24's arm
+  read n=5710 unordered against n=4515 ordered, ~26% duplicates corrupting every statistic
+  downstream. `order` is now a required argument at all six call sites, and two consecutive full
+  runs are byte-identical. (The same defect CLAUDE.md already recorded for `lib/player-pool.ts`; the
+  harness predated the rule.)
+- **Position was resolved from today's roster**, and position selects the whole scoring rule set —
+  10-13 players per season scored under the wrong rules. Fixed with `positionsForSeason`.
+
+Runs now print an **input fingerprint** — row counts behind every reference table, plus per-season
+truth and cohort counts — so a future divergence is attributable rather than guessable. The
+corrected numbers landed on top of the originally published ones: the published tables were right
+all along, and the harness had been drifting against itself.
+
+## Work that silently does not happen renders as absence
+
+The hardest class of bug in this project is not a wrong number, it is a job that never ran. Three
+separate faults in Sprint 36 shared that shape and survived three weeks between them, because a
+rival with no gameweek history looks exactly like a rival whose history is legitimately empty, and
+nothing anywhere said "this did not finish".
+
+Two rules came out of it:
+
+- **A "last touched" timestamp cannot mean "last succeeded".** `managers.updated_at` is
+  trigger-maintained, so a sync that died at step two marked itself fresh and blocked its own retry
+  for 24 hours. Success needs its own **nullable** column, where null is a representable
+  "never completed" state.
+- **A status panel must never render empty.** Every branch says something — healthy, unknown, or
+  broken — because a blank panel is indistinguishable from a broken one, which is the failure being
+  fixed. Signed out reports "nothing to show", explicitly not "healthy".
+
+See [data-pipeline.md](data-pipeline.md#sync-health-what-has-quietly-not-happened).
+
+## Don't constrain a value somebody else owns
+
+`manager_leagues.league_type` carried `check (league_type in ('s','x'))`. FPL emits `c` too, and
+because that column is upserted early in the manager sync, one unrecognised value in one **cosmetic**
+field aborted an entire manager's sync — history, chips, transfers and picks included. The
+constraint was **dropped rather than widened** to `('s','x','c')`: widening re-arms the identical
+trap for the fourth value. The precedent already existed — `TeamState.activeChip` is a deliberately
+untyped string because FPL owns the value. Validate what this app means; accept what the upstream
+API says.
+
+## Read the comments, not just the issue
+
+Linear is the planning interface, and a requirement added after an issue was written lives in its
+**comment thread**, not its description. DSI-65's description said "email / push / Telegram /
+Discord"; its comment turned it into a *two-way bot on one channel*, which is a different and larger
+thing. Reading the description alone would have built the wrong feature. Where a comment and a
+description disagree, the comment wins — now a standing step in
+`.claude/skills/start-sprint/SKILL.md`. See
+[notifications-and-bot.md](notifications-and-bot.md#why-a-two-way-bot-and-how-that-requirement-was-nearly-missed).
+
+## Read the line that says what you asked for
+
+`npm run lint`'s **last** line counts problems that are *fixable with `--fix`*, not errors. Reading
+it instead of the `✖ N problems (1 error, 167 warnings)` summary immediately above let a real lint
+error reach CI. A check is only a check if you read the part of the output that answers the
+question.

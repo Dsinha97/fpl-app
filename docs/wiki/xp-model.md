@@ -130,11 +130,81 @@ r to 0.830. Full detail: [phase-4-model.md §3](../phase-4-model.md#3-squad-reco
   — [sprints/sprint-30.md](../sprints/sprint-30.md#1-current-season-blend-attempt-2-per-position-bias-correction)
 - **Out-of-sample accuracy is currently worse than a naive baseline** — see the walk-forward
   validation section above. (The current-season-form gap just above is the leading suspect why.)
-- **Fixture difficulty is the official FDR**, not a custom model. The stated reason changed on
-  2026-09-02: team *attack/defence* strength is still zero for every club in-season, so a calibrated
-  attack/defence fixture model (Phase 5, unbuilt) stays blocked — but `strength_overall_home`/`_away`
-  are now populated for all 20 clubs, so a coarser custom FDR is no longer data-blocked, just
-  unbuilt. See [fpl-api-constraints.md](fpl-api-constraints.md).
+- **Fixture difficulty is the official FDR**, not a custom model — and two custom ones have now been
+  built without either reaching `fdrRun`. A *strength*-derived rating (Sprint 31) is display-only
+  **permanently**, because `teams` holds one season with no history and so it can never be walked
+  over by the backtest at all. A *results*-derived rating (Sprint 35) is backtestable, beats a
+  neutral baseline in all four seasons with a scrambling control to prove it, and still does not
+  ship — because the baseline it beat is *no fixture adjustment*, not the official FDR production
+  actually uses. Full story, including the GW10 gate that would settle it:
+  [fixture-difficulty.md](fixture-difficulty.md). The calibrated attack/defence fixture model
+  (Phase 5, unbuilt) remains separately blocked on `strength_attack_*`/`strength_defence_*` still
+  being zero for every club in-season — see [fpl-api-constraints.md](fpl-api-constraints.md).
+
+## The accuracy scoreboard (shipped 2026-09-06)
+
+`lib/prediction-accuracy.ts` shipped in Sprint 27 with **zero callers**, deliberately — a panel
+built on one gameweek's residuals invites being read as a verdict. GW3 finishing took the usable
+intersection of *archived* and *scored* gameweeks from n=1 to n=2, which is exactly the bar
+`roadmap.md`'s Blocked table had named, so it unblocked on its own stated condition with no
+judgement call. `components/accuracy-scoreboard.tsx` renders under "Warehouse contents" on
+`/settings` → Pipeline — the deliberate exception to that page's sign-in wall.
+
+What it reported on first render, cross-checked against an independent SQL computation of the same
+join, every per-position row matching:
+
+| Cohort | n | bias | MAE | RMSE | r |
+|---|---|---|---|---|---|
+| All players | 1,272 | −0.248 | 1.392 | 2.190 | 0.460 |
+| GKP | 139 | −0.541 | 1.210 | 1.798 | 0.515 |
+| DEF | 420 | −0.185 | 1.631 | 2.426 | 0.368 |
+| MID | 562 | −0.213 | 1.309 | 2.143 | 0.500 |
+| FWD | 151 | −0.282 | 1.208 | 1.987 | 0.532 |
+
+The panel states the scored gameweeks, the residual count, and the bias **direction in words** next
+to every signed figure; carries `ACCURACY_MODEL_NOTE` through `InfoTooltip`; names GW3's bonus as
+*provisional* (all ten fixtures were `finished_provisional` but not `finished` at build time); and
+says GW1 is permanently absent because the archive did not exist before its deadline. It is framed
+as a running count, not a verdict. The 1000-row cap bug fixed on the way in is recorded in
+[data-pipeline.md](data-pipeline.md#player_predictions-and-the-row-cap).
+
+**The bias sign convention, stated once.** `accuracyStats` (`lib/stats.ts`) is
+`mean(actual − predicted)`, so **negative bias means the model over-predicts**. `phase-4-model.md`
+had it both ways — §2 predates the shared helper and uses `predicted − actual`, while the
+walk-forward section called −0.375 "over-generous" and then three paragraphs later said the same
+negative biases meant the arms "under-predict". The code was never ambiguous; the docs were, and
+were corrected with the convention now stated once where the walk-forward tables begin.
+
+### Attempt 3 at the current-season blend (Sprint 34, 2026-09-06) — also does not ship
+
+2026-27 was added as a **fourth walk-forward target**, and reported as the weak season it is rather
+than averaged in silently: the last-5 baseline cannot fire below six played gameweeks, so it prints
+`n=0 — not enough played gameweeks yet` instead of a line of `NaN`, and the blend arm has events 2
+and 3 only (n=468 vs 703 prior-only).
+
+`ShrinkInput.currentSeasonScope` (`"all" | "minutes"`, defaulting to `"all"` so every existing
+caller and earlier sweep is untouched) lets the current season move `mpg`/`start_share` while
+holding per-90 scoring rates at prior-only — on the reasoning that the blend fails on *bias*, bias
+is a level error, and level is set far more by expected minutes than by a per-90 rate, while
+playing time is also the one thing a prior season genuinely cannot know.
+
+**Verdict: `scope=all` clears 2 of 4 seasons; `scope=minutes` clears 2 of 4 at w=0.3 and 1 of 4
+above. Neither ships.** Re-run once 2026-27 has 8-10 scored gameweeks, which is also when the
+last-5 baseline starts producing rows for it.
+
+**And the narrow-scope hypothesis is untested, not supported.** The first version of this sweep had
+it clearing 3 of 4 against the full blend's 2, which read as real support. That result came from the
+corrupted harness inputs described in
+[methodology.md](methodology.md#a-harness-that-records-its-outputs-and-not-its-inputs-cannot-be-debugged)
+and does not survive the fix — corrected, the full blend clears 2023-24 and the narrow scope fails
+it. Nothing here confirms or refutes the idea; the run that appeared to test it was measuring noise.
+
+**The `positionCalibration` refit stays not-done, deliberately.** Three gameweeks is far too thin —
+the shipped factors were fitted on a 209-player full-season cohort, and refitting on ~1,200
+player-fixtures would bake this season's noise into a permanent constant. The +0.248 production
+over-prediction measured above is partly those factors being wrong for 2026-27; worth recording, not
+worth acting on before ~GW10-12.
+— [sprints/sprint-34.md](../sprints/sprint-34.md)
 
 See also: [cold-start-priors.md](cold-start-priors.md) (what happens for players with thin or no PL
 evidence), [methodology.md](methodology.md) (the "drop, renormalise, disclose" and "verify with a

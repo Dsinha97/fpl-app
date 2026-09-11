@@ -15,6 +15,31 @@ transfers, from `manager_transfers` (already written by `sync-manager`; genuinel
 owner's first real transfer, not a broken read — the first one landed 2026-08-25, see
 "Transfer ledger" below).
 
+### `/review` moved under `/team`'s gameweek selector (Sprint 33, 2026-09-05)
+
+`/review` was the post-mortem on a finished gameweek. `/team`'s gameweek selector **already was** a
+past-gameweek view — so this was the same question asked on a second page, with a second event
+picker that could disagree with the first (`loadFinishedEvents` there, `picksByEvent` here).
+
+Now there is one picker. `GameweekReviewPanel` renders beneath the pitch, gated on
+`data.finishedEvents.has(selectedEvent)` — this page's single source for "finished", so no second
+list exists to disagree. **A live gameweek shows nothing rather than a provisional review**, because
+a post-mortem on a match still being played is a different and wrong claim. `players` is passed in
+rather than re-read: `/review` had been fetching its own 1000-row copy of a map `/team` already
+held. `?event=` is honoured on `/team`, so the redirect stub keeps deep links pointing at the
+gameweek they named.
+
+**This merge depended on the `/team` past-gameweek fix landing first** (a separate commit, merged
+before the branch): without it the tiles above the review showed the *current* gameweek's points
+while the review below showed the selected one's — two numbers for one gameweek, on one screen,
+disagreeing.
+
+The season-wide counterpart to this panel — captain success, transfer success, chip ROI and rank
+progression across the whole season rather than one gameweek — is
+[decision-analytics.md](decision-analytics.md), mounted on the same page above the "This Season"
+table. It now **owns** the captain computation this panel used to do inline.
+— [sprints/sprint-33.md](../sprints/sprint-33.md)
+
 ### Transfer ledger (Sprint 29.2, 2026-08-30)
 
 `lib/gameweek-review.ts`'s own single-event `loadTransfers` was folded into a new shared
