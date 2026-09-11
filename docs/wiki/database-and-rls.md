@@ -25,6 +25,18 @@ authenticated. Verified live, not just read from the policy text: two throwaway 
 a rolled-back transaction, user B's `select count(*)` against all three tables returned 0, and B's
 `update … where draft_id = <A's id>` affected 0 rows.
 
+Sprint 36 added three more in the same shape — `user_notification_prefs`, `notification_outbox` and
+`telegram_link_codes` — verified with twelve checks in a rolled-back transaction across two
+authenticated users and `anon`. One of them is worth singling out because it is not an RLS check at
+all:
+
+**A unique index can be the security boundary.** `user_notification_prefs.telegram_chat_id` is the
+inbound allowlist for the Telegram bot, so "two users claim one chat" is not a data-integrity
+nicety — it is the case where a stranger's `/team` command returns someone else's squad. A user
+repointing their own row at another user's chat id is blocked by the unique index, which makes the
+state unrepresentable rather than merely unauthorised. Tested rather than argued. See
+[notifications-and-bot.md](notifications-and-bot.md#rls-the-row-that-is-actually-a-security-boundary).
+
 `fpl_sessions` goes further: RLS enabled, **zero policies at all** — not even the row's own owner can
 read it through the anon/authenticated client, only the service-role client inside an Edge Function.
 This is deliberate, since the table holds an encrypted FPL session — see
@@ -37,6 +49,35 @@ simulate a second role with `set_config('request.jwt.claims', ...)` inside a rol
 `execute_sql` transaction and confirm zero rows/writes leak, before trusting it. A page tested only
 signed-out can hide a policy gap that only affects `authenticated` — the `health_check` bug above is
 the concrete example.
+
+## RLS is row-level — a column needs a column grant
+
+`sync_runs` is public-read because the Pipeline tab renders the log signed-out. Sprint 32's
+`invoked_by` column would therefore have published Supabase user ids to anonymous readers, and no
+policy could have stopped it: **RLS grants or denies rows, not columns.** The fix is a column-level
+grant, `revoke select (invoked_by) on public.sync_runs from anon, authenticated`. Consumers select
+an explicit column list, so a `select *` as anon now fails — the intended and visible consequence.
+Verified after deploy: the Pipeline tab's own columns read fine, `invoked_by` returns
+`permission denied for table sync_runs`. See
+[edge-function-security.md](edge-function-security.md#the-privacy-consequence-the-scope-doc-did-not-anticipate).
+
+## Don't put a CHECK constraint on somebody else's enum
+
+`manager_leagues.league_type` carried `check (league_type in ('s','x'))` and FPL also emits `c`.
+Because that column is upserted early in the manager sync, one unrecognised value in one cosmetic
+field aborted an entire manager's sync — history, chips, transfers and picks included. The
+constraint was **dropped rather than widened**, because widening re-arms the same trap for the
+fourth value. Full account:
+[data-pipeline.md](data-pipeline.md#a-check-constraint-on-somebody-elses-enum).
+
+## A trigger-maintained timestamp cannot mean "last succeeded"
+
+`managers.updated_at` is maintained by `managers_set_updated_at` and means "row touched". Since
+`syncManagerData` must write the `managers` row first (six tables FK to it), a sync that died at
+step two marked itself fresh and blocked its own retry for 24 hours — and could not be corrected by
+hand, because the trigger overwrites any attempt to backdate the row. `managers.last_success_at` is
+a **nullable** column written last and only on full success, so null is a representable "never
+completed". Same page as above.
 
 ## `team_drafts.players` is `jsonb`, not a normalised child table
 
@@ -53,4 +94,6 @@ unbuilt — see [manager-profile.md](manager-profile.md) and
 [blocked-and-data-gaps.md](blocked-and-data-gaps.md).
 
 See also: [data-pipeline.md](data-pipeline.md) (what writes these tables and when),
-[fpl-authentication.md](fpl-authentication.md) (`fpl_sessions`' zero-policy design in full).
+[fpl-authentication.md](fpl-authentication.md) (`fpl_sessions`' zero-policy design in full),
+[edge-function-security.md](edge-function-security.md) (the other half of the access boundary — who
+may invoke the functions that hold the service role).

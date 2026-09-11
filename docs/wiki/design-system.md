@@ -542,3 +542,20 @@ desktop width: expanding one card leaves the other at its own natural height.
 `cursor-pointer` — the same markup previously rendered identically for a clickable and a
 non-clickable row (`/team`'s now-removed inline table used the latter), leaving only a hover
 background to distinguish them, which never shows at rest. — [sprint-29.md](../sprints/sprint-29.md)
+## `SlideOver` — the primitive that already existed, once (Sprint 33, 2026-09-05)
+
+`components/ui/` had no drawer, sheet, dialog or modal. The only real slide-over in the app was
+**inlined inside `MobileNav`** (`components/nav-links.tsx`): backdrop, `role="dialog"`/`aria-modal`,
+a body-scroll-lock effect, and `useDismissablePopover`.
+
+When `/players` needed the same thing on the opposite edge, copying forty lines of
+focus-and-scroll-trapping overlay would have been a bug with a delay on it — so it was lifted into
+`components/ui/slide-over.tsx` **first**, and `MobileNav` re-expressed through it.
+
+It takes `side`, `label`, `width` and a **`triggerRef`**. The last one is not incidental: without
+it, clicking the trigger to *close* the panel is first read as an outside-click that closes it and
+then as a toggle that reopens it. Any dismissable overlay driven by a button that stays on screen
+needs this.
+
+This is the third variant of the same underlying idea in the codebase — after the bottom sheet and
+the left drawer above — and the first one extracted as a primitive rather than written in place.

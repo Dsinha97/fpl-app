@@ -126,10 +126,13 @@ const fixturesFor = (horizon: Horizon, seasonWindow?: number) => horizonLength(h
 //   0.30 x Rotation + 0.25 x Injury + 0.20 x Minutes + 0.15 x FixtureVariance
 //   - 0.10 x EffectiveOwnership
 //
-// Effective ownership needs the top-1k template pipeline, which cannot run until
-// a gameweek has been scored — league 314 returns an empty standings array
-// pre-season. So the EO term is dropped and the four remaining weights are
-// renormalised over 0.90, the same treatment Form gets in ComparisonScore.
+// Effective ownership needs the top-1k template pipeline. That was blocked
+// pre-season (league 314 returned an empty standings array until a gameweek had
+// been scored) and is not any more: 2,000 rank-ordered entries and their picks
+// were sampled and kept on 2026-09-10. The term stays dropped because nothing
+// consumes that sample yet — unbuilt, not blocked — and the four remaining
+// weights are renormalised over 0.90, the same treatment Form gets in
+// ComparisonScore.
 //
 // Reported 0-100, lower is better.
 
@@ -159,8 +162,9 @@ export const RISK_WEIGHTS = {
 } as const;
 
 export const RISK_MODEL_NOTE =
-  "Effective ownership is omitted — the field-wide top-1k sample this term needs is still blocked " +
-  "(league 314's standings tie until it is rank-ordered by real results). League-scoped EO is now " +
+  "Effective ownership is omitted — nothing reads the field-wide top-1k sample this term needs yet. " +
+  "(The sample itself is no longer missing: league 314's top 2,000 entries were synced and kept on " +
+  "2026-09-10, after being unavailable for the whole pre-season.) League-scoped EO is now " +
   "computable from real picks (see lib/ownership.ts) but is deliberately not used here: a small " +
   "league answers a different question than 'how much of the field owns him', and mixing the two " +
   "into one risk figure would mean the number two ways at once. The remaining weights are " +

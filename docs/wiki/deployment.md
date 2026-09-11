@@ -81,3 +81,69 @@ gating too, since they get their own public URLs.
 - **Actions minutes are metered** on a private repo (unlike public repos, which were unlimited) —
   `deploy.yml` was deleted since Cloudflare's own Git integration handles deploys, roughly halving
   per-push consumption.
+## Supabase Edge Functions: a second deploy surface with its own rules
+
+Cloudflare serves the static front end; the functions deploy separately, and that half has bitten
+harder.
+
+### Deployment ordering is not advisory
+
+The Class A cron gate has one real failure mode: **if a function starts requiring a header before
+`invoke_sync` sends it, every scheduled sync 401s — silently, into `sync_runs` rows nobody is
+watching.** So the order is fixed, and step 2 before step 3 is the part that matters:
+
+1. Create the Vault secret, generated in place so nobody ever holds it.
+2. Apply the migrations — after this, cron sends a header the deployed functions still ignore.
+   **That harmless middle state is the whole point of doing it second.**
+3. Deploy the functions, Class A first then Class B.
+4. **Verify against `sync_runs` before walking away.** `sync-live-gameweek` runs every 2 minutes and
+   is the fastest signal; a wall of `error` rows carrying a 401 means step 3 landed before step 2.
+
+Rollback reverses 3 then 2, for the same reason. The same ordering governed Sprint 36's `notify`
+rollout, where the cron schedule was deliberately split into its own migration applied *after* the
+function existed — scheduling first points pg_cron at a 404 it retries into a gap nobody reads.
+
+**The positive case is not a curl.** Nobody holds the cron secret by design, so the proof that cron
+still works is the cron tick itself — a `success` row from a real scheduled run. That is stronger
+evidence anyway: a curl with a hand-copied header proves only that the comparison works, not that
+`invoke_sync` sends what the function expects.
+
+### The CLI, and why the MCP path is not equivalent
+
+Deploys through the Supabase MCP integration take file **contents** as arguments, so every byte of a
+function plus its shared dependencies is retyped on the way in — ~35 KB per function, and
+`generate-predictions` alone carries 70 KB of model code where one silently-mistyped coefficient
+would corrupt predictions in a way nothing here would catch. That is why Sprint 32's deploy stalled
+at 2 of 10 functions.
+
+The blocker turned out to be smaller than recorded: the CLI is installed locally and **only
+`supabase login` needs a human**. Two wrinkles worth not rediscovering:
+
+- `npx supabase login` fails from PowerShell with a `PSSecurityException` on the `npx.ps1` shim
+  (execution policy). `npx.cmd supabase login` bypasses it, as does Git Bash.
+- The automatic flow refuses to run in a non-TTY environment at all
+  (`LegacyLoginMissingTokenError`), so it must be a real terminal regardless of shell.
+
+**One real regression was caught by the gate and fixed the same pass**, and it is a structural blind
+spot rather than an accident: `sync-manager` came up `503 BOOT_ERROR` because `index.ts` imported
+`int` from `_shared/fpl.ts`, which does not export it. `tsc` cannot catch this —
+`supabase/functions/**` is excluded from tsconfig and eslint by necessity. Every other
+function/shared import was swept for the same class of error; this was the only one.
+
+### One CLI deploy reconciles four drifts
+
+As of 2026-09-10 the repo and the deployed project disagree in four places, all fixed by one
+command (`supabase functions deploy sync-news generate-predictions notify telegram-webhook` from a
+linked CLI):
+
+- `config.toml` claims `verify_jwt = true` for `sync-news` and `generate-predictions`; the project
+  still has `false`. **A config file is only a claim until a deploy applies it** — the exact failure
+  that file was written to prevent.
+- `notify` and `telegram-webhook` were uploaded through the integration with their `_shared/`
+  dependencies **inlined and comments trimmed**, so behaviour is identical but the deployed source
+  is not byte-identical to this repo.
+
+It is deliberately deferred rather than forgotten: the invocation cost the `verify_jwt` flip saves
+is near-zero while the repo is private and nobody knows the function URLs, and becomes real the
+moment it is public. See
+[edge-function-security.md](edge-function-security.md#verify_jwt-measured-rather-than-assumed).

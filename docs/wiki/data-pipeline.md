@@ -24,15 +24,19 @@ running with the service role — nothing in the front end can mutate league dat
 | `sync-player-history` | `*/10 * * * *` | `player_gameweek_stats`, `player_season_history` — cursor-batched, so ~700 `element-summary` calls spread across runs instead of one timing out |
 | `sync-live-gameweek` | `*/2 * * * *`, self-gated | `player_live_stats` — took its no-op branch every day until GW1's first kickoff (2026-08-21), then wrote 600 real rows; see [deadline-and-matchday.md](deadline-and-matchday.md) |
 | `sync-manager` | manual, plus every claim via `sync-claimed-managers` below | `managers`, `manager_*` — `invoke_sync` POSTs an empty body so it has no `entry_id` to schedule with itself; `/team`'s **Refresh** button and rival mutations still call it directly for a forced real-time sync |
-| `sync-claimed-managers` | `*/2 * * * *` (fixed 2026-08-27) | Nothing directly — calls the fetch-and-write logic `sync-manager` was refactored to share (`_shared/manager-sync.ts`), once per claimed manager (`user_profiles.entry_id`) that's due. See "`/team` no longer syncs on every load" below |
+| `sync-claimed-managers` | `*/2 * * * *` (fixed 2026-08-27) | Nothing directly — calls the fetch-and-write logic `sync-manager` was refactored to share (`_shared/manager-sync.ts`), once per tracked manager that's due. The tracked set was claimed entries only until 2026-09-10, when it became **claimed ∪ rivals** — see "Rivals were never re-synced" below |
 | `sync-league-picks` | manual only, on-demand — first real caller is `/leagues` (2026-08-30) | `league_entries`, `league_entry_picks` — same reason as `sync-manager`: no `entry_id`/`league_id` to schedule with. See [ownership-and-leagues.md](ownership-and-leagues.md) |
 | `generate-predictions` | `5,35 * * * *` | `player_predictions`, plus a pre-deadline snapshot into `player_prediction_archive` — see [xp-model.md](xp-model.md) and "`player_prediction_archive`" below |
 | `fpl-session` / `fpl-my-team` | manual | see [fpl-authentication.md](fpl-authentication.md) — the two functions that verify a Supabase JWT before touching anything |
 | `ingest-fpl-archive` | manual, one-off backfill | `player_gameweek_stats` for past seasons (2022-23 through 2025-26) — see below |
+| `notify` | `*/15 * * * *` (Sprint 36, 2026-09-10) | `notification_outbox` — detects from `change_feed`/`fixture_changes`/`gameweeks.deadline_time`, then sends via Telegram. See [notifications-and-bot.md](notifications-and-bot.md) |
 
 `public.invoke_sync(text)` is the single pg_cron entry point (revoked from `anon`/`authenticated`).
-Every run writes a `sync_runs` row (`success | partial | error | skipped`), which is what `/status`
-renders.
+Every run writes a `sync_runs` row (`success | partial | error | skipped | rejected`), which is what
+the Pipeline tab renders — `/status` became `/settings` → Pipeline in Sprint 33.
+
+**Who is allowed to call any of these** is its own topic as of Sprint 32 — three caller classes and
+three mechanisms: [edge-function-security.md](edge-function-security.md).
 
 ### `sync-fixtures` self-gated cadence (fixed 2026-08-21)
 
@@ -162,8 +166,123 @@ stops once that gameweek's deadline passes, freezing the last pre-deadline numbe
 service-write like `player_predictions`, but keyed **without** `model_version` — it's one archived
 historical fact per gameweek, not a live replaceable projection, so a mid-season `MODEL_VERSION`
 bump only ever overwrites the still-open gameweek's row. `lib/prediction-accuracy.ts` joins it to
-`player_gameweek_stats` once a gameweek scores; see [blocked-and-data-gaps.md](blocked-and-data-gaps.md)
-for why the `/status` accuracy panel itself isn't built yet.
+`player_gameweek_stats` once a gameweek scores. **The accuracy scoreboard built on that join
+unblocked and shipped 2026-09-06**, once GW3 finished and the intersection reached two scored
+gameweeks — see [xp-model.md](xp-model.md#the-accuracy-scoreboard-shipped-2026-09-06).
+
+A real bug was fixed on the way in, which would have made the panel wrong from its first render:
+`loadArchivedEvents` did a single unpaged `.select("event")` on a table holding ~640 rows *per
+gameweek* and already standing at 1,285 — past the 1000-row cap above, so it would have reported
+GW2 alone and quietly **halved the sample while looking healthy**. Replaced with a distinct-event
+walk (`.gt("event", last).order("event").limit(1)`), one single-row round trip per event rather
+than reading ~24,000 rows by season's end to learn 38 integers. That `events` renders as `[2, 3]` is
+itself the proof the fix works.
+
+## Rivals were never re-synced (found and fixed 2026-09-10)
+
+`sync-claimed-managers` re-synced **claimed** entries (`user_profiles.entry_id`) and nothing else.
+`addRival` syncs a candidate once, at the moment it is added — so a rival had **never** been
+refreshed after that first call.
+
+Three rivals added on **2026-08-20, the day before GW1's deadline**, were frozen at a moment when
+the season had no gameweek history to fetch, and still had `current_event = null` and zero
+`manager_gameweek_history` rows three gameweeks later.
+
+| Rival | Added | Last synced | GW rows |
+|---|---|---|---|
+| `iturntitdown fc` | 2026-08-20 | 2026-08-20 | 0 |
+| `Galacticos` | 2026-08-20 | 2026-08-20 | 0 |
+| `Fady` | 2026-08-20 | 2026-08-20 | 0 |
+| `Sabam's Team` | 2026-08-20 | **2026-09-10** | 3 |
+
+**The last row is the tell.** It looked healthy purely by coincidence — it is *also* a claimed
+entry, so the cron had been syncing it all along. Without that accident the pattern would have read
+as "some rivals are broken" rather than "rivals are never refreshed".
+
+Fixed by making the tracked set `claimed ∪ rivals`. **That changes the traffic shape** — the set now
+grows with every rival anyone adds, and on matchday every tracked manager syncs every two minutes —
+so the function header says so, and says what the honest fix would be if it ever gets large (a cap
+or a longer rival interval, not silently dropping some).
+
+Deploying the fix immediately exposed two more faults, both pre-existing, both in the same family.
+
+### A CHECK constraint on somebody else's enum
+
+`manager_leagues.league_type` was `check (league_type in ('s','x'))`. Probed against the live API
+rather than guessed at: entry 6804945 holds 35 classic leagues — 28 `x`, 6 `s`, and one **`c`**.
+
+The damage was wildly out of proportion to the cause: `manager_leagues` is upserted early in
+`syncManagerData`, so one unrecognised value in one **cosmetic** field aborted that manager's
+*entire* sync — history, chips, transfers and picks included.
+
+**Dropped rather than widened** to `('s','x','c')`. Widening re-arms the identical trap for the
+fourth value, and this codebase already set the precedent: `TeamState.activeChip` is a deliberately
+untyped string *because FPL owns the value*. The UI was also filtering unknown types out of both
+groups, so a `c` league was invisible with nothing to say it had been hidden — there is now an
+"Other leagues" group that appears only when something lands in it.
+
+### A failed sync marking itself fresh
+
+The cron decided due-ness from `managers.updated_at`, which is trigger-maintained and means "row
+touched". `syncManagerData` must write the `managers` row **first** — six tables carry a foreign key
+to it — so a sync that died at step two left a row reading "just synced" beside a manager with no
+data, and the 24-hour staleness check then refused to retry it for a day.
+
+It could not even be corrected by hand: `managers_set_updated_at` overwrites any attempt to backdate
+the row, so the trigger had to be disabled inside a transaction to force the retry.
+
+`synced_at` could not carry the meaning either — `NOT NULL DEFAULT now()`, so a new row from a failed
+sync still reads fresh, and it is already displayed on `/team` as "Last synced". So success got its
+own **nullable** column, `managers.last_success_at`, written once at the very end of
+`syncManagerData` and only if everything above it worked. **Null means "never completed"** — a state
+the old design could not represent — and the due-check reads it as always due. `/team`'s "Last
+synced" line reads that column too, since it was making the same claim.
+
+Proved by setting `last_success_at = null` with `updated_at = now()` and re-running: the manager came
+back due and synced. Under the old logic that was "nothing due".
+
+## Sync health: what has quietly not happened
+
+All three faults above were the same shape — **work that silently does not happen, and renders as
+absence rather than as an error.** A rival with no gameweek history looks exactly like a rival whose
+history is legitimately empty. Nothing on any screen distinguished them, which is why three separate
+faults survived three weeks. See
+[methodology.md](methodology.md#work-that-silently-does-not-happen-renders-as-absence).
+
+`managers.last_success_at` made the difference queryable, so `lib/sync-health.ts` +
+`components/sync-health.tsx` ask the question on `/settings` → Pipeline, **above** the accuracy
+scoreboard — whether the data arrived comes before whether the model was any good:
+
+- **Tracked managers** (claimed ∪ rivals, both owner-scoped by RLS so the list is private per
+  account) classified *never completed* / *overdue* / *ok*.
+- **Failed and partial `sync_runs`** from the last 24h — rows that had been written all along and
+  read by nothing.
+
+**The rule it encodes: it never renders empty.** Every branch says something — healthy, unknown, or
+broken. Signed out reports "nothing to show" and explicitly *not* "healthy", because both source
+tables are owner-scoped and a signed-out visitor genuinely cannot be told. A blank panel is
+indistinguishable from a broken one, which is the exact failure being fixed — which is also why it
+reads verbose for a status panel.
+
+`STALE_AFTER_HOURS` mirrors `STALE_AFTER_MS` in `sync-claimed-managers` and is deliberately
+duplicated: `supabase/functions/**` is Deno and cannot import from `lib/`. Same trade
+`_shared/rate-limit.ts` makes with its `FALLBACK`, and it carries the same obligation to change both
+together.
+
+**It paid for itself on first render**, surfacing two things nobody had looked at:
+
+- **Gateway Timeout on six different functions in 24h** — `sync-bootstrap`, `sync-news`,
+  `sync-live-gameweek`, `sync-claimed-managers`, `sync-manager`, `notify` — on six different tables.
+  So it is project-wide infrastructure noise at roughly **0.4% of runs**, not a bug in any one of
+  them, which corrects an earlier guess that the `notify` timeout might be `notify`-specific. Worth
+  recording for whoever chases it: **five of the six landed within two seconds of a clock boundary**,
+  pointing at cron pile-up rather than random flakiness. Six data points is a hypothesis, not a
+  finding.
+- **A `sync-bootstrap` run that took a 403 from the FPL API**, a different failure entirely.
+
+Both self-correct and neither needed action. The point is that they sat in `sync_runs` unread until
+something looked.
 
 See also: [fpl-api-constraints.md](fpl-api-constraints.md) (the FPL-side API quirks this pipeline
-absorbs), [database-and-rls.md](database-and-rls.md) (the schema and access rules on the other end).
+absorbs), [database-and-rls.md](database-and-rls.md) (the schema and access rules on the other end),
+[edge-function-security.md](edge-function-security.md) (who may call these functions at all).

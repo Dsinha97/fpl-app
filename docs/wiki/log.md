@@ -2,6 +2,50 @@
 
 One line per entry, most recent first.
 
+- 2026-09-10 — Ingested the whole Sprint 32-36 backlog (the pending-ingest marker had accumulated
+  five sprints plus `roadmap.md`, `phase-4-model.md` and `CLAUDE.md` since the 2026-09-03 pass).
+  **Four new pages**, each a topic with no existing home: `edge-function-security.md` (Sprint 32/36 —
+  three caller classes, the in-Postgres cron secret and why Vault got the opposite verdict here from
+  Sprint 31, the rate limit as a `game_settings` input, the column-level grant on `invoked_by`, the
+  CodeQL alert left deliberately open, `verify_jwt` measured); `fixture-difficulty.md` (Sprint 31's
+  display-only strength FDR and Sprint 35's results-derived one, together because the interesting
+  part is that they are unshipped for *different* reasons); `notifications-and-bot.md` (Sprint 36's
+  Telegram bot both ways — the composed dedupe key, the chat-id allowlist as the real access
+  boundary, the line the Deno boundary draws around modelled numbers); `decision-analytics.md`
+  (Sprint 36 phase 1). All four added to `index.md`, with `timeline.md` gaining rows for Sprints
+  31-36 — it had stopped at 2026-09-02.
+
+  **Updated**: `data-pipeline.md` (the `notify` cadence row; `/status` → `/settings`; the
+  rivals-never-re-synced fault chain and the sync-health panel it earned; the unpaged
+  `loadArchivedEvents` cap bug); `xp-model.md` (the accuracy scoreboard shipping with its production
+  figures, the bias **sign convention** stated once — negative means over-predicts — and Attempt 3 at
+  the current-season blend, including that the narrow-scope result which looked supportive was
+  measuring corrupted inputs); `methodology.md` (seven new rules, the load-bearing ones being the
+  scrambling control, "a backtest proves the comparison it ran", the harness input fingerprint, and
+  "work that silently does not happen renders as absence"); `database-and-rls.md` (RLS is row-level
+  so a column needs a column grant; a unique index as a security boundary; don't CHECK somebody
+  else's enum; a trigger-maintained timestamp cannot mean "last succeeded"); `deployment.md` (the
+  functions deploy surface — the non-negotiable ordering, the CLI login wrinkles, and the four
+  repo-vs-project drifts one deploy would reconcile); `frontend-conventions.md` (Sprint 33's four
+  route merges and the three rejected ones); `design-system.md` (`SlideOver`);
+  `deadline-and-matchday.md` (`/review` under `/team`'s selector); `ownership-and-leagues.md`
+  (league 314 sampled and kept; rivals from a league's standings).
+
+  **Stale claims followed out of the wiki**, per Folder conventions: three rows in
+  `blocked-and-data-gaps.md` were wrong rather than merely dated — the accuracy scoreboard shipped
+  2026-09-06, league 314 is no longer empty (2,000 entries and 30,795 picks, kept), and the custom
+  FDR row said "not started" when two had been built. `positionCalibration`'s row gained the dated
+  ~GW10-12 gate. `glossary.md`'s EO and FDR entries both still described the old state and were
+  corrected. **`roadmap.md` carried five of its own**, fixed in the same pass: "Sprint 36 is in
+  flight" in Next up against a **Shipped** index row; the Sprint 34 index row still quoting the
+  narrow-scope blend's pre-correction "3 of 4 seasons" where the body text 250 lines below already
+  had the corrected 2 of 4; "the scoreboard panel on `/status` is deliberately not built yet" in a
+  section whose own Blocked table says it shipped; and two league-314 entries still reading "back to
+  0 rows". Plus one **shipped string**: `RISK_MODEL_NOTE` (`lib/scoring.ts`) told users the EO term
+  was omitted because the top-1k sample "is still blocked", which stopped being true on 2026-09-10.
+  The term is still omitted — but because nothing *consumes* the sample yet, which is a different
+  statement, and the one a reader can act on. `tsc`, lint (0 errors) and `next build` pass.
+
 - 2026-09-03 — Ingested Sprint 31 (`docs/sprints/sprint-31.md`): updated `chip-plan.md` (new "The
   fact half, and how it reaches the numbers" — `fplActiveChipAt`, `activeChipEvent`,
   `chipEntriesInForce`, `chipLabel`, and the fact that `chipAt` had zero callers until now) and
