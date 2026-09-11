@@ -51,6 +51,13 @@ yarn-error.log*
 # how to start this project's dev server — repo content, not machine state
 !.claude/launch.json
 
+# a 2026-09-07 port of five skills for a different agent runner, rewritten to
+# reference a .Codex/ path that does not exist here and already missing the two
+# newest skills. Ignored rather than deleted, deliberately — if it is ever
+# revived it should be a tracked port kept in step with .claude/skills/, not a
+# silent second copy that drifts.
+.agents/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
