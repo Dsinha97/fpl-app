@@ -109,3 +109,8 @@ next-env.d.ts
 
 # Supabase CLI scratch (version check cache)
 supabase/.temp/
+
+# Design-review inspiration/assets and current-app screenshots — working
+# material for a later design-review phase, not repo content.
+/References/
+/Screens/
