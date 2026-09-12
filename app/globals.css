@@ -272,3 +272,11 @@
     @apply font-sans;
   }
 }
+/* Drift for the landing hero's line field (components/ui/background-paths).
+   pathLength={1} normalises every path to a unit length, so one dash pattern
+   and one offset sweep read identically on curves of very different real
+   lengths. */
+@keyframes bg-path-drift {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -1; }
+}

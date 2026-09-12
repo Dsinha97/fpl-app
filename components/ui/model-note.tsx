@@ -37,7 +37,7 @@ export function ModelNote({
   return (
     <span className={cn("inline-flex align-middle", className)}>
       <InfoTooltip label={label} align={align}>
-        <div className="space-y-1.5 text-xs leading-relaxed">{children}</div>
+        <span className="block space-y-1.5 text-xs leading-relaxed">{children}</span>
       </InfoTooltip>
     </span>
   );
@@ -76,7 +76,7 @@ export function AnnotatedLabel({
       )}
       trigger={children}
     >
-      <div className="space-y-1.5 text-xs leading-relaxed">{note}</div>
+      <span className="block space-y-1.5 text-xs leading-relaxed">{note}</span>
     </TapToReveal>
   );
 }
