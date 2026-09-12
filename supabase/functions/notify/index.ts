@@ -107,6 +107,27 @@ async function squadCodesFor(db: Db, season: string, entryId: number): Promise<S
   return new Set((players ?? []).map((p: { code: number }) => p.code as number));
 }
 
+/** `12th Jan 10:00 am` — UTC, since that's what `kickoff_time` is stored in
+ *  and every other timestamp this function renders (the deadline reminder)
+ *  already uses `toUTCString()` rather than converting to a guessed zone. */
+function formatKickoff(iso: string): string {
+  const d = new Date(iso);
+  const day = d.getUTCDate();
+  const suffix =
+    day % 10 === 1 && day !== 11
+      ? "st"
+      : day % 10 === 2 && day !== 12
+        ? "nd"
+        : day % 10 === 3 && day !== 13
+          ? "rd"
+          : "th";
+  const month = d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" });
+  const time = d
+    .toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "UTC" })
+    .toLowerCase();
+  return `${day}${suffix} ${month} ${time}`;
+}
+
 /** A change_feed row rendered for a human. Terms named, nothing netted. */
 function renderChange(row: Record<string, unknown>): string | null {
   const name = (row.web_name as string | null) ?? "A player";
@@ -120,10 +141,10 @@ function renderChange(row: Record<string, unknown>): string | null {
       return `⚠️ ${name}${club}: ${detail.old_status ?? "?"} → ${detail.new_status ?? "?"}${chanceText}`;
     }
     case "news":
-      return `📰 ${name}${club}: ${detail.new_news ?? ""}`.trim();
+      return `📰 ${name}${club}: ${detail.new ?? ""}`.trim();
     case "price": {
-      const oldP = Number(detail.old_price ?? 0) / 10;
-      const newP = Number(detail.new_price ?? 0) / 10;
+      const oldP = Number(detail.old ?? 0) / 10;
+      const newP = Number(detail.new ?? 0) / 10;
       const arrow = newP > oldP ? "📈" : "📉";
       return `${arrow} ${name}${club}: £${oldP.toFixed(1)}m → £${newP.toFixed(1)}m`;
     }
@@ -161,6 +182,33 @@ async function detect(db: Db, season: string, prefs: Prefs[], lookbackMinutes: n
     .select("id, fixture_id, field, old_value, new_value, observed_at")
     .eq("season", season)
     .gte("observed_at", since);
+
+  // Which match a reschedule belongs to — a bare fixture id says nothing on
+  // its own. Same two-step join squadCodesFor uses: fixtures for the two team
+  // ids, then teams for their short names, rather than a nested embed whose
+  // FK constraint name would have to be guessed.
+  const fixtureLabelOf = new Map<number, string>();
+  const fixtureIds = [...new Set((fixtureChanges ?? []).map((f: { fixture_id: number }) => f.fixture_id))];
+  if (fixtureIds.length > 0) {
+    const { data: fxRows } = await db
+      .from("fixtures")
+      .select("id, team_h, team_a")
+      .eq("season", season)
+      .in("id", fixtureIds);
+    const teamIds = [...new Set((fxRows ?? []).flatMap((r: { team_h: number; team_a: number }) => [r.team_h, r.team_a]))];
+    const { data: teamRows } = await db
+      .from("teams")
+      .select("id, short_name")
+      .eq("season", season)
+      .in("id", teamIds);
+    const shortOf = new Map<number, string>(
+      (teamRows ?? []).map((t: { id: number; short_name: string }) => [t.id, t.short_name]),
+    );
+    for (const r of fxRows ?? []) {
+      const row = r as { id: number; team_h: number; team_a: number };
+      fixtureLabelOf.set(row.id, `${shortOf.get(row.team_h) ?? "?"} vs ${shortOf.get(row.team_a) ?? "?"}`);
+    }
+  }
 
   for (const p of prefs) {
     // Deadline. The key is the event, so the reminder fires once per gameweek
@@ -201,10 +249,15 @@ async function detect(db: Db, season: string, prefs: Prefs[], lookbackMinutes: n
         : new Set<number>();
 
       for (const c of changes ?? []) {
-        const kind = c.kind as string;
+        // change_feed reports price moves as 'price_rise'/'price_fall' (the
+        // direction is the fact), but prefs and the outbox's own check
+        // constraint only know a single 'price' kind — normalise before
+        // either lookup, or every price change is silently unwanted.
+        const rawKind = c.kind as string;
+        const kind = rawKind === "price_rise" || rawKind === "price_fall" ? "price" : rawKind;
         if (!wants[kind]) continue;
         if (c.player_code === null || !codes.has(c.player_code as number)) continue;
-        const body = renderChange(c);
+        const body = renderChange({ ...c, kind });
         if (!body) continue;
         rows.push({
           user_id: p.user_id,
@@ -218,11 +271,20 @@ async function detect(db: Db, season: string, prefs: Prefs[], lookbackMinutes: n
 
     if (p.notify_fixture) {
       for (const f of fixtureChanges ?? []) {
+        const match = fixtureLabelOf.get(f.fixture_id as number) ?? "?";
+        // Only two `field` values are ever written (sync-fixtures.ts's
+        // TRACKED): 'kickoff_time' (an ISO timestamp) and 'event' (a
+        // gameweek number). Report the one that actually changed rather than
+        // a generic old→new that means nothing without knowing which field it is.
+        const changeText =
+          f.field === "kickoff_time"
+            ? `New kickoff time/match date: ${formatKickoff(f.new_value as string)}.`
+            : `Moved to Gameweek ${f.new_value}.`;
         rows.push({
           user_id: p.user_id,
           kind: "fixture",
           dedupe_key: `fixture:${f.id}`,
-          body: `🗓️ Fixture ${f.fixture_id} rescheduled: ${f.field} ${f.old_value ?? "?"} → ${f.new_value ?? "?"}`,
+          body: `🗓️ Fixture ${f.fixture_id} (${match}) Changed. ${changeText}`,
           payload: { fixture_id: f.fixture_id, field: f.field },
         });
       }
