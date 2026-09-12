@@ -21,7 +21,9 @@ import {
   chipEntriesInForce,
   fplActiveChipAt,
   validateChipPlan,
+  CHIP_KINDS,
   type ChipDefinitionRow,
+  type PlayedChip,
 } from "@/lib/chip-plan";
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
 import { fmtCountdown } from "@/lib/countdown";
@@ -41,6 +43,7 @@ import {
   horizonLength,
   seasonHorizonNote,
   validateSquad,
+  type ChipKind,
   type ChipPlan,
   type Horizon,
   type HorizonXp,
@@ -143,6 +146,8 @@ export default function DeadlinePage() {
   const [ctx, setCtx] = useState<SeasonContext | null>(null);
   /** Every chip's windows, both halves — /transfers loads the same way, for the chip plan editor. */
   const [chipDefinitions, setChipDefinitions] = useState<ChipDefinitionRow[]>([]);
+  /** Chips FPL's own history already reports played this season — /transfers loads the same way. */
+  const [playedChips, setPlayedChips] = useState<PlayedChip[]>([]);
   const [rowById, setRowById] = useState<Map<number, PlayerRow>>(new Map());
   const [xpById, setXpById] = useState<Map<number, XpRow>>(new Map());
   // Each team's run of upcoming FDRs — published alongside rowById/xpById
@@ -549,6 +554,28 @@ export default function DeadlinePage() {
   const resolvedEntryId = entryId ?? team?.entryId ?? null;
 
   useEffect(() => {
+    if (!ctx?.season || !resolvedEntryId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPlayedChips([]);
+      return;
+    }
+    (async () => {
+      const { data, error: chipsError } = await supabase
+        .from("manager_chips")
+        .select("event, name")
+        .eq("season", ctx.season)
+        .eq("entry_id", resolvedEntryId)
+        .order("event");
+      if (chipsError) return;
+      setPlayedChips(
+        (data ?? [])
+          .filter((r) => CHIP_KINDS.includes(r.name as ChipKind))
+          .map((r) => ({ chip: r.name as ChipKind, event: r.event as number })),
+      );
+    })();
+  }, [ctx?.season, resolvedEntryId]);
+
+  useEffect(() => {
     if (!liveEvent || !liveStarted || !resolvedEntryId || rowById.size === 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setGwState(null);
@@ -908,13 +935,14 @@ export default function DeadlinePage() {
       ctx.nextEvent,
       ctx.windowEnd,
       team.activeChip,
+      playedChips,
     ).usable;
     // A chip FPL already has in play is a term in this gameweek's points even
     // though it is no longer a choice — merged here so the projection, the
     // optimiser and the forward path all see it. `chipEntriesInForce` is the
     // single place that reconciles FPL's fact with the owner's plan.
     return chipEntriesInForce(team, usable, ctx.nextEvent);
-  }, [team, chipDefinitions, ctx]);
+  }, [team, chipDefinitions, ctx, playedChips]);
 
   /** The chip FPL reports as live for the deadline gameweek, if any — fact, never a plan. */
   const activeChip = useMemo(
@@ -1717,6 +1745,7 @@ export default function DeadlinePage() {
                   nextEvent={ctx.nextEvent}
                   lastEvent={ctx.windowEnd}
                   activeChip={team.activeChip}
+                  playedChips={playedChips}
                   onChange={(next: ChipPlan) => {
                     saveDraft({ ...team, chipPlan: next });
                     setDrafts(listDrafts());

@@ -39,8 +39,11 @@ import {
   chipContextFor,
   chipLabel,
   validateChipPlan,
+  CHIP_KINDS,
   type ChipDefinitionRow,
+  type ChipKind,
   type EventPrediction,
+  type PlayedChip,
   type PredAt,
 } from "@/lib/chip-plan";
 import {
@@ -122,6 +125,11 @@ export default function TransfersPage() {
   /** Per-gameweek xP, which is what lets the plan price rolling a transfer. */
   const [seriesById, setSeriesById] = useState<Map<number, XpByEvent>>(new Map());
   const [nextEvent, setNextEvent] = useState<number | null>(null);
+  const [season, setSeason] = useState<string | null>(null);
+  /** Chips FPL's own history already reports played this season, for the
+   *  currently selected draft's entry — the chip plan editor can't offer to
+   *  plan a chip that no longer exists to play. */
+  const [playedChips, setPlayedChips] = useState<PlayedChip[]>([]);
   const [wildcard, setWildcard] = useState<{ available: boolean; reason: string | null }>({
     available: false,
     reason: null,
@@ -180,6 +188,7 @@ export default function TransfersPage() {
         if (gwError) throw new Error(gwError.message);
         if (!gw) throw new Error("No upcoming gameweek found.");
         setNextEvent(gw.id);
+        setSeason(gw.season);
 
         const [
           playersRes,
@@ -377,6 +386,28 @@ export default function TransfersPage() {
   );
 
   useEffect(() => {
+    if (!season || !team?.entryId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPlayedChips([]);
+      return;
+    }
+    (async () => {
+      const { data, error: chipsError } = await supabase
+        .from("manager_chips")
+        .select("event, name")
+        .eq("season", season)
+        .eq("entry_id", team.entryId as number)
+        .order("event");
+      if (chipsError) return;
+      setPlayedChips(
+        (data ?? [])
+          .filter((r) => CHIP_KINDS.includes(r.name as ChipKind))
+          .map((r) => ({ chip: r.name as ChipKind, event: r.event as number })),
+      );
+    })();
+  }, [season, team?.entryId]);
+
+  useEffect(() => {
     // A different squad invalidates the basket.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMoves([]);
@@ -444,8 +475,9 @@ export default function TransfersPage() {
   /** The chip plan's legal entries — computed once, shared by the deadline optimiser (window-bounded below) and the forward path (which resolves its own window per gameweek). */
   const chipPlanUsable = useMemo(() => {
     if (!team || nextEvent === null || lastEvent === null) return [];
-    return validateChipPlan(team.chipPlan, chipDefinitions, nextEvent, lastEvent, team.activeChip).usable;
-  }, [team, chipDefinitions, nextEvent, lastEvent]);
+    return validateChipPlan(team.chipPlan, chipDefinitions, nextEvent, lastEvent, team.activeChip, playedChips)
+      .usable;
+  }, [team, chipDefinitions, nextEvent, lastEvent, playedChips]);
 
   /** The chip plan's usable entries, resolved into the two things the simulator can act on within this horizon window. */
   const chipContext = useMemo(() => {
@@ -967,6 +999,7 @@ export default function TransfersPage() {
           nextEvent={nextEvent}
           lastEvent={lastEvent}
           activeChip={team.activeChip}
+          playedChips={playedChips}
           onChange={handleChipPlanChange}
         />
       )}

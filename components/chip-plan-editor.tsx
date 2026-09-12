@@ -12,6 +12,7 @@ import {
   setChipPlanEntry,
   validateChipPlan,
   type ChipDefinitionRow,
+  type PlayedChip,
 } from "@/lib/chip-plan";
 import { EMPTY_CHIP_PLAN, type ChipKind, type ChipPlan } from "@/lib/team-state";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
@@ -24,6 +25,9 @@ export interface ChipPlanEditorProps {
   nextEvent: number;
   lastEvent: number;
   activeChip: string | null;
+  /** Chips FPL's own history (`manager_chips`) already reports played this
+   *  season — a half that shows up here has nothing left to plan. */
+  playedChips?: PlayedChip[];
   /** Called with the next plan; the page decides how to persist it (saveDraft). */
   onChange: (next: ChipPlan) => void;
   className?: string;
@@ -54,10 +58,15 @@ export function ChipPlanEditor({
   nextEvent,
   lastEvent,
   activeChip,
+  playedChips = [],
   onChange,
   className = "mt-4",
 }: ChipPlanEditorProps) {
-  const validation = validateChipPlan(plan, chipDefinitions, nextEvent, lastEvent, activeChip);
+  const validation = validateChipPlan(plan, chipDefinitions, nextEvent, lastEvent, activeChip, playedChips);
+  const isPlayed = (chip: ChipKind, def: ChipDefinitionRow) => {
+    const stop = resolveStopEvent(def, lastEvent);
+    return playedChips.some((p) => p.chip === chip && p.event >= def.startEvent && p.event <= stop);
+  };
   const entries = (plan ?? EMPTY_CHIP_PLAN).entries;
   const problemsFor = (chip: ChipKind, event: number) =>
     validation.problems.filter((p) => p.chip === chip && p.event === event);
@@ -113,6 +122,7 @@ export function ChipPlanEditor({
                   const current = entries.find(
                     (e) => e.chip === chip && e.event >= def.startEvent && e.event <= stop,
                   );
+                  const played = isPlayed(chip, def);
                   const selectableFrom = Math.max(def.startEvent, nextEvent);
                   const options: number[] = [];
                   for (let e = selectableFrom; e <= stop; e++) options.push(e);
@@ -123,21 +133,24 @@ export function ChipPlanEditor({
                       <label className="flex min-h-9 items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
                         GW{def.startEvent}-{stop}
                         <select
-                          value={current?.event ?? ""}
+                          value={played ? "" : (current?.event ?? "")}
+                          disabled={played}
                           onChange={(ev) => {
                             const v = ev.target.value;
                             onChange(pinInHalf(plan, chip, def, lastEvent, v === "" ? null : Number(v)));
                           }}
-                          className="min-h-9 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                          title={played ? `${CHIP_LABELS[chip]} was already played this half.` : undefined}
+                          className="min-h-9 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
                         >
-                          <option value="">Not planned</option>
-                          {options.map((e) => (
-                            <option key={e} value={e}>
-                              GW{e}
-                            </option>
-                          ))}
+                          <option value="">{played ? "Already played" : "Not planned"}</option>
+                          {!played &&
+                            options.map((e) => (
+                              <option key={e} value={e}>
+                                GW{e}
+                              </option>
+                            ))}
                         </select>
-                        {current && (
+                        {current && !played && (
                           <button
                             type="button"
                             onClick={() => onChange(clearChipPlanEntry(plan, current.event))}
