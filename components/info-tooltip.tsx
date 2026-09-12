@@ -120,10 +120,11 @@ export function FdrLegendContent() {
         (easiest) through yellow to dark red (hardest).
       </p>
       <p className="mt-1.5">
-        <span className="font-medium">The ring</span> is the venue — a fixture with a ring around
-        it is at <span className="font-semibold">home</span>, a plain one is{" "}
-        <span className="font-semibold">away</span>. Presence rather than colour, so it stays
-        readable with any form of colour blindness and in greyscale.
+        <span className="font-medium">The ring</span> is the venue — a pale ring means{" "}
+        <span className="font-semibold">home</span>, a{" "}
+        <span className="font-semibold text-purple-600 dark:text-purple-400">purple ring</span>{" "}
+        means <span className="font-semibold">away</span>. Purple rather than red, so the two stay
+        apart under every form of colour blindness and never blend into the fixture colour beneath.
       </p>
       <p className="mt-1.5">
         The text is the opponent&apos;s three-letter code. Hover any fixture for the gameweek,

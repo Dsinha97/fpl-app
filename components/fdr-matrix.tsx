@@ -122,7 +122,7 @@ export function FdrMatrix({
           {sort === "hardest" && `Sorted hardest ${horizon === 38 ? "season" : `${horizon}-GW`} run first`}
           {sort === "az" && "Sorted A–Z"}
           {sort === "position" && "Sorted by table position"}
-          {" · ringed = home, plain = away"}
+          {" · pale ring = home, purple ring = away"}
         </p>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-zinc-500">Window</span>

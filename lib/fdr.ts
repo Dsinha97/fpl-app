@@ -83,11 +83,24 @@ export const fdrLabel = (n: number | null | undefined): string => fdrConfig(n).l
 // normal vision, 0.579 under protanopia and 0.204 under deuteranopia. An 80%
 // collapse, i.e. roughly 1 in 12 men could not read home from away at all.
 //
-// Presence-vs-absence is a shape channel, so it survives every CVD condition
-// and greyscale print intact. The ring is neutral (near-black on light,
-// near-white on dark) rather than any hue, so it also stops competing with the
-// difficulty fill underneath it — the 1px surface-coloured offset still
-// separates the two.
+// Both venues now carry a ring, because presence-vs-absence alone made an away
+// fixture look like an unstyled one. Home is neutral (near-black on light,
+// near-white on dark); away is purple-400.
+//
+// purple-400 is not a taste call. Re-measured across five candidates against
+// two constraints — separation from the home ring, and separation from all
+// five difficulty fills the ring is drawn on top of — under all three CVD
+// conditions. It is the only candidate clearing 0.35 on both axes in both
+// themes (worst vs home 0.676 light / 0.903 dark; worst vs any fill 0.505).
+// purple-600 and violet-500 both collapse against the dark-red 5 fill (0.155,
+// 0.287).
+//
+// Red was checked first and rejected on the numbers: against a dark home ring
+// it falls to 0.058 under protanopia, and against the orange 4 fill it reaches
+// 0.029 — an away ring that disappears into the very cells it sits on. Purple
+// survives red-green CVD because it keeps the blue channel those conditions
+// leave intact, and it is already the brand hue, so it reads as chrome rather
+// than as a fourth status colour competing with the ramp.
 //
 // The ramp itself was measured at the same time and KEPT: adjacent steps stay
 // >= 0.32 apart under all three conditions, sometimes wider than at normal
@@ -96,7 +109,7 @@ export const fdrLabel = (n: number | null | undefined): string => fdrConfig(n).l
 export const venueRing = (home: boolean): string =>
   home
     ? "ring-2 ring-offset-1 ring-zinc-900/80 ring-offset-white dark:ring-white/80 dark:ring-offset-card"
-    : "";
+    : "ring-2 ring-offset-1 ring-purple-400 ring-offset-white dark:ring-offset-card";
 
 // ------------------------------------------------------- fixture windows
 //
