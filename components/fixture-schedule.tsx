@@ -5,6 +5,7 @@ import { TeamCrest } from "./identity";
 import { FixtureStatBreakdown, matchStatus, type LiveFixturePlayer } from "./live-fixtures";
 import { hasFixtureStats, parseFixtureStats } from "@/lib/fixture-stats";
 import { ExpandToggle } from "@/components/ui/expand-toggle";
+import { formatDay, formatTime, localZone } from "@/lib/utils";
 
 export interface ScheduleFixture {
   id: number;
@@ -41,31 +42,14 @@ export interface ScheduleGameweek {
 }
 
 /**
- * The viewer's timezone, printed once next to the times.
- *
- * Kickoffs are stored as timestamptz and rendered in local time. Without saying
- * which zone that is, a 07:30 Saturday kickoff reads as a data bug.
+ * Re-exported so `app/fixtures/page.tsx` keeps importing it from here, where
+ * it reads as belonging to the schedule. The implementation moved to
+ * `lib/utils.ts` when `lib/change-feed.ts` turned out to need the same
+ * formatters and had been slicing raw ISO strings instead (DSI-122).
  */
-export function localZone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? "local time";
-  } catch {
-    return "local time";
-  }
-}
+export { localZone };
 
 const dayKey = (iso: string) => new Date(iso).toDateString();
-
-const formatDay = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, {
-    weekday: "short",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-
-const formatTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
 const formatDeadline = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {

@@ -12,6 +12,7 @@ import type { PlayerData } from "@/components/player-card";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { ChipPlanEditor } from "@/components/chip-plan-editor";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
+import { FeedRowItem } from "@/components/feed-row";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { TransferPath } from "@/components/transfer-path";
@@ -73,7 +74,7 @@ import {
   type XpByEvent,
 } from "@/lib/transfer-optimizer";
 import { freeTransfersDisplay, MAX_FREE_TRANSFERS, TRANSFER_MODEL_NOTE } from "@/lib/transfers";
-import { ago, describe, type FeedRow } from "@/lib/change-feed";
+import { ago, type FeedRow } from "@/lib/change-feed";
 import { confidentEntities, dedupeByUrl, sourceBadge, type NewsRow } from "@/lib/news-feed";
 import { loadPastResults, type PastResult } from "@/lib/player-history";
 
@@ -1395,18 +1396,9 @@ export default function DeadlinePage() {
                 >
                   {!feedLoading && feedRows.length > 0 && (
                     <ul className="divide-y divide-zinc-100 dark:divide-purple-900/30">
-                      {feedRows.slice(0, 20).map((row, i) => {
-                        const { icon, text } = describe(row);
-                        return (
-                          <li key={i} className="flex items-start gap-2 py-2 text-sm">
-                            <span aria-hidden="true">{icon}</span>
-                            <span className="min-w-0 flex-1">
-                              {row.web_name && <span className="font-medium">{row.web_name}</span>} {text}
-                            </span>
-                            <span className="shrink-0 text-xs text-zinc-400">{ago(row.observed_at)}</span>
-                          </li>
-                        );
-                      })}
+                      {feedRows.slice(0, 20).map((row, i) => (
+                        <FeedRowItem key={i} row={row} className="px-0 py-2" />
+                      ))}
                     </ul>
                   )}
                   <p className="mt-2 text-xs text-zinc-500">

@@ -4,6 +4,8 @@
 // filtered to one squad, without a second implementation — one quantity,
 // one implementation, per CLAUDE.md.
 
+import { formatDateTime } from "./utils";
+
 export interface FeedRow {
   season: string;
   kind: "price_rise" | "price_fall" | "status" | "news" | "fixture";
@@ -34,36 +36,103 @@ export function ago(iso: string): string {
 const money = (tenths: unknown): string =>
   typeof tenths === "number" ? `£${(tenths / 10).toFixed(1)}m` : "?";
 
-export function describe(row: FeedRow): { icon: string; text: string } {
+/**
+ * How one feed row should read.
+ *
+ * This used to return `{ icon, text }`, where `icon` was a system emoji
+ * (📈 📉 🟡 🔴 📰 📅) and `text` was everything else crammed into one string.
+ * Two problems the audit named (DSI-122): an emoji renders in the platform's
+ * own colours and never matches the design system around it, and a price rise
+ * and a price fall came out visually identical, so the direction had to be read
+ * out of the decimals.
+ *
+ * So this returns semantics, not presentation. The caller picks the glyph and
+ * the badge; this decides what changed, which way, and how much it matters.
+ * `detail` is the second line DSI-122 asked for — it exists so an availability
+ * row can put the medical quote under the status change instead of running
+ * three restatements of the same fact into one sentence.
+ */
+export type FeedTone = "positive" | "negative" | "warning" | "neutral";
+
+export interface FeedPresentation {
+  tone: FeedTone;
+  /** What changed, as a phrase. Never carries the magnitude — that is `badge`. */
+  headline: string;
+  /** The magnitude or resulting state, for a Badge. */
+  badge?: string;
+  /** Supporting quote or note, rendered muted on its own line. */
+  detail?: string;
+}
+
+const signedMoney = (oldT: unknown, newT: unknown): string | undefined => {
+  if (typeof oldT !== "number" || typeof newT !== "number") return undefined;
+  const delta = (newT - oldT) / 10;
+  // U+2212 minus, matching the transfer headline convention.
+  return `${delta > 0 ? "+" : "−"}£${Math.abs(delta).toFixed(1)}m`;
+};
+
+export function describe(row: FeedRow): FeedPresentation {
   const d = row.detail;
   switch (row.kind) {
     case "price_rise":
-      return { icon: "📈", text: `${money(d.old)} → ${money(d.new)}` };
+      return {
+        tone: "positive",
+        headline: `${money(d.old)} → ${money(d.new)}`,
+        badge: signedMoney(d.old, d.new),
+      };
     case "price_fall":
-      return { icon: "📉", text: `${money(d.old)} → ${money(d.new)}` };
+      return {
+        tone: "negative",
+        headline: `${money(d.old)} → ${money(d.new)}`,
+        badge: signedMoney(d.old, d.new),
+      };
     case "status": {
       const oldS = STATUS_LABEL[String(d.old_status)] ?? String(d.old_status);
       const newS = STATUS_LABEL[String(d.new_status)] ?? String(d.new_status);
-      const chance = d.new_chance !== null && d.new_chance !== undefined
-        ? ` (${d.new_chance}% next round)`
-        : "";
+      // Tone follows where the player LANDED, not merely that something moved.
+      // Reading only "is the new status a ruled-out one" made
+      // `Suspended -> Available` amber — a player becoming available again is
+      // the best news in this feed, and it was styled as a caution.
       const ruledOut = d.new_status === "i" || d.new_status === "s" || d.new_status === "u";
+      const recovered = d.new_status === "a";
       // Sprint 29.5: change_feed folds a co-timestamped news change into the
       // same status row (news_new) rather than emitting a second row for the
       // same FPL update — surface it here so the sentence isn't lost.
-      const news = typeof d.news_new === "string" && d.news_new !== "" ? ` — "${d.news_new}"` : "";
-      return { icon: ruledOut ? "🔴" : "🟡", text: `${oldS} → ${newS}${chance}${news}` };
+      const news = typeof d.news_new === "string" && d.news_new !== "" ? d.news_new : undefined;
+      const chance =
+        d.new_chance !== null && d.new_chance !== undefined ? `${d.new_chance}%` : undefined;
+      return {
+        tone: recovered ? "positive" : ruledOut ? "negative" : "warning",
+        headline: `${oldS} → ${newS}`,
+        // The status and the chance are one fact, so they travel as one badge
+        // rather than as a sentence restating the headline.
+        badge: chance ? `${newS} · ${chance}` : newS,
+        detail: news,
+      };
     }
     case "news": {
-      const text = d.new === null || d.new === "" ? "News cleared" : String(d.new);
-      return { icon: "📰", text };
+      const cleared = d.new === null || d.new === "";
+      return {
+        tone: "neutral",
+        headline: cleared ? "News cleared" : String(d.new),
+      };
     }
     case "fixture": {
       const match = `${d.home ?? "?"} v ${d.away ?? "?"}`;
-      const what = d.field === "event"
-        ? `moved GW${d.old} → GW${d.new}`
-        : `kickoff ${String(d.old ?? "?").slice(0, 16)} → ${String(d.new ?? "?").slice(0, 16)}`;
-      return { icon: "📅", text: `${match} — ${what}` };
+      const movedRound = d.field === "event";
+      return {
+        // A fixture crossing a gameweek boundary can create a blank or double
+        // and rewrites chip strategy; a kickoff shifting within a round does
+        // not. They should not read the same (DSI-122).
+        tone: movedRound ? "warning" : "neutral",
+        headline: match,
+        badge: movedRound ? `GW${d.old} → GW${d.new}` : "Time change",
+        detail: movedRound
+          ? undefined
+          // Was `.slice(0, 16)` on the raw ISO string, which printed
+          // `2027-01-06T20:00` — DSI-122's "looks like a raw backend log".
+          : `${formatDateTime(d.old as string)} → ${formatDateTime(d.new as string)}`,
+      };
     }
   }
 }

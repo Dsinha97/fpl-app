@@ -114,17 +114,23 @@ export function SegmentedControl<T extends string>({
   const item = size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm";
 
   return (
-    <div
-      ref={listRef}
-      role={semantics === "tabs" ? "tablist" : "radiogroup"}
-      aria-label={label}
-      onKeyDown={onKeyDown}
-      className={cn(
-        "relative inline-flex shrink-0 items-center gap-0.5 rounded-full bg-muted",
-        pad,
-        className,
-      )}
-    >
+    // A control with six segments overflows a phone, and the page body must
+    // never scroll horizontally — so the overflow is contained here rather
+    // than pushed onto whatever page adopts it. `offsetLeft` stays relative to
+    // the list, so the indicator keeps tracking correctly inside the scroller.
+    // `max-w-full` lets the wrapper shrink; `w-max` keeps the list at its
+    // natural width inside it.
+    <div className={cn("max-w-full overflow-x-auto", className)}>
+      <div
+        ref={listRef}
+        role={semantics === "tabs" ? "tablist" : "radiogroup"}
+        aria-label={label}
+        onKeyDown={onKeyDown}
+        className={cn(
+          "relative flex w-max items-center gap-0.5 rounded-full bg-muted",
+          pad,
+        )}
+      >
       {indicator && (
         <span
           aria-hidden
@@ -167,9 +173,10 @@ export function SegmentedControl<T extends string>({
             {o.badge !== undefined && (
               <span className="text-[0.85em] tabular-nums text-muted-foreground">{o.badge}</span>
             )}
-          </button>
-        );
-      })}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

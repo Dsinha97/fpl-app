@@ -2,18 +2,32 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { CalendarClock, LineChart, Newspaper, Rss, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ago, describe, type FeedRow } from "@/lib/change-feed";
+import { FeedRowItem } from "@/components/feed-row";
+import { ago, type FeedRow } from "@/lib/change-feed";
 import { confidentEntities, dedupeByUrl, sourceBadge, type NewsRow } from "@/lib/news-feed";
 
+/**
+ * DSI-122: this row used to pair each label with a system emoji
+ * (`📈 Prices`, `🟡 Availability`, …). Two problems. An emoji renders in the
+ * platform's own colours and weight, so it never matches the system around it.
+ * And the yellow circle on Availability read as an active warning *state*
+ * rather than a category label — worse when the active pill was a solid green
+ * fill with a yellow dot sitting inside it.
+ *
+ * Monochrome line icons inherit `currentColor`, so they follow the selected
+ * and unselected states instead of fighting them.
+ */
 const FILTERS = [
-  { key: "all", label: "All" },
-  { key: "price", label: "📈 Prices" },
-  { key: "availability", label: "🟡 Availability" },
-  { key: "news", label: "📰 News" },
-  { key: "fixture", label: "📅 Fixtures" },
-  { key: "feeds", label: "🗞 Feeds" },
+  { key: "all", label: "All", Icon: null },
+  { key: "price", label: "Prices", Icon: LineChart },
+  { key: "availability", label: "Availability", Icon: TriangleAlert },
+  { key: "news", label: "News", Icon: Newspaper },
+  { key: "fixture", label: "Fixtures", Icon: CalendarClock },
+  { key: "feeds", label: "Feeds", Icon: Rss },
 ] as const;
 
 type FilterKey = (typeof FILTERS)[number]["key"];
@@ -147,18 +161,20 @@ export default function NewsPage() {
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2 text-sm">
-        {FILTERS.map((f) => (
-          <Button
-            key={f.key}
-            type="button"
-            variant="toggle"
-            size="md"
-            aria-pressed={filter === f.key}
-            onClick={() => setFilter(f.key)}
-          >
-            {f.label}
-          </Button>
-        ))}
+        <SegmentedControl
+          label="Change type"
+          value={filter}
+          onValueChange={setFilter}
+          options={FILTERS.map((f) => ({
+            value: f.key,
+            label: (
+              <>
+                {f.Icon && <f.Icon className="size-3.5" aria-hidden />}
+                {f.label}
+              </>
+            ),
+          }))}
+        />
       </div>
 
       {filter !== "feeds" && (
@@ -178,34 +194,9 @@ export default function NewsPage() {
 
           {!loading && !error && (
             <ul className="mt-4 divide-y divide-border rounded-lg border border-border bg-card">
-              {visible.map((row, i) => {
-                const { icon, text } = describe(row);
-                return (
-                  <li key={i} className="flex items-start gap-3 px-4 py-3">
-                    <span className="mt-0.5 text-base" aria-hidden="true">
-                      {icon}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-foreground">
-                        {row.web_name && (
-                          <span className="font-medium">
-                            {row.web_name}
-                            {row.team_short ? ` (${row.team_short})` : ""}
-                            {" · "}
-                          </span>
-                        )}
-                        {text}
-                      </p>
-                    </div>
-                    <time
-                      title={new Date(row.observed_at).toLocaleString()}
-                      className="shrink-0 text-xs text-muted-foreground"
-                    >
-                      {ago(row.observed_at)}
-                    </time>
-                  </li>
-                );
-              })}
+              {visible.map((row, i) => (
+                <FeedRowItem key={i} row={row} />
+              ))}
               {visible.length === 0 && (
                 <li className="px-4 py-8 text-center text-sm text-muted-foreground">
                   Nothing yet — changes appear here as the pipeline observes them. Price changes
