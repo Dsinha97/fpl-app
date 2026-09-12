@@ -116,12 +116,29 @@ export function PitchView({
       Math.min(a.left - w.left + a.width / 2 - PANEL_WIDTH / 2, w.width - PANEL_WIDTH - 4),
     );
 
-    // Prefer below the card, flip above when there is not enough room.
-    const below = a.bottom - w.top + 8;
-    const top =
-      below + PANEL_MAX_HEIGHT <= w.height
-        ? below
-        : Math.max(4, a.top - w.top - PANEL_MAX_HEIGHT - 8);
+    // Prefer below the card, flip above when there is not enough room — in
+    // the *visible viewport*, not the pitch card's own height. The panel is
+    // absolutely positioned, so it already scrolls correctly with the page;
+    // the bug was comparing against `w.height` (the whole card, often taller
+    // than what's currently on screen), which could call a spot "fits below"
+    // when that spot was actually past the visible bottom edge. `a`/`w` come
+    // from getBoundingClientRect and are already viewport-relative — the
+    // check happens in that space, and only the final `top` is translated
+    // back into the wrapper-relative frame `position: absolute` needs.
+    //
+    // Picking a side isn't enough on its own: on a short viewport neither side
+    // may have the full PANEL_MAX_HEIGHT of room, and the chosen side still
+    // needs clamping into the visible range rather than being placed flush
+    // against the card and left to run off the opposite edge.
+    const gap = 8;
+    const margin = 4;
+    const spaceBelow = window.innerHeight - a.bottom - gap;
+    const spaceAbove = a.top - gap;
+    const openAbove = spaceBelow < PANEL_MAX_HEIGHT && spaceAbove > spaceBelow;
+    const rawTop = openAbove ? a.top - gap - PANEL_MAX_HEIGHT : a.bottom + gap;
+    const maxTop = window.innerHeight - PANEL_MAX_HEIGHT - margin;
+    const viewportTop = Math.max(margin, Math.min(rawTop, maxTop));
+    const top = viewportTop - w.top;
 
     setMenu({ id: player.id, top, left });
   };
