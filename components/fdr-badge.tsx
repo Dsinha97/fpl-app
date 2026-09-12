@@ -73,7 +73,7 @@ export function FixtureCell({
     return (
       <span
         title={title}
-        className={`inline-flex items-center justify-center rounded bg-zinc-200 px-1 py-0.5 text-[10px] font-bold text-zinc-500 shadow-sm dark:bg-[#2A0A45] dark:text-zinc-500 ${venueRing(home)} ${className}`}
+        className={`inline-flex items-center justify-center rounded bg-zinc-200 px-1 py-0.5 text-[10px] font-bold text-zinc-500 shadow-sm dark:bg-surface-3 dark:text-zinc-500 ${venueRing(home)} ${className}`}
       >
         {opponent.toUpperCase()}
       </span>

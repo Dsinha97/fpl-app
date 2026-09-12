@@ -20,7 +20,7 @@ function PercentileBar({ score, label }: { score: number; label: string }) {
         className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-purple-950/60"
       >
         <div
-          className="h-full rounded-full bg-purple-700 transition-[width] duration-300 motion-reduce:transition-none dark:bg-[#00FF87]"
+          className="h-full rounded-full bg-purple-700 transition-[width] duration-300 motion-reduce:transition-none dark:bg-primary"
           style={{ width: `${score}%` }}
         />
       </div>
@@ -42,7 +42,7 @@ function PercentileBar({ score, label }: { score: number; label: string }) {
  */
 export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
           Career Percentile Profile
@@ -59,13 +59,13 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div>
           <div className="text-xs text-zinc-500">Tier (career median)</div>
-          <div className="mt-0.5 text-lg font-semibold text-purple-900 dark:text-[#00FF87]">
+          <div className="mt-0.5 text-lg font-semibold text-purple-900 dark:text-primary">
             {profile.tier}
           </div>
         </div>
         <div>
           <div className="text-xs text-zinc-500">Seasons of record</div>
-          <div className="mt-0.5 text-lg font-semibold text-purple-900 dark:text-[#00FF87]">
+          <div className="mt-0.5 text-lg font-semibold text-purple-900 dark:text-primary">
             {profile.seasons}
           </div>
         </div>
@@ -206,7 +206,7 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
       aria-current={tab === id ? "page" : undefined}
       className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
         tab === id
-          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-[#00FF87] dark:ring-1 dark:ring-[#00FF87]/40"
+          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-primary dark:ring-1 dark:ring-primary/40"
           : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/50"
       }`}
     >
@@ -215,7 +215,7 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
   );
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Rivals</h3>
         <div className="flex gap-1 rounded-lg border border-zinc-200 p-0.5 dark:border-purple-900/40">

@@ -140,7 +140,7 @@ export function ChipPlanEditor({
                             onChange(pinInHalf(plan, chip, def, lastEvent, v === "" ? null : Number(v)));
                           }}
                           title={played ? `${CHIP_LABELS[chip]} was already played this half.` : undefined}
-                          className="min-h-9 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                          className="min-h-9 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
                         >
                           <option value="">{played ? "Already played" : "Not planned"}</option>
                           {!played &&

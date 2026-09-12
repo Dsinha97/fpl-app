@@ -58,6 +58,7 @@
   --color-surface-1: var(--surface-1);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
+  --color-pitch-turf: var(--pitch-turf);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-success-surface: var(--success-surface);
@@ -98,6 +99,11 @@
   --surface-1: #fafafa;
   --surface-2: #ffffff;
   --surface-3: #ffffff;
+  /* The pitch backdrop in components/pitch.tsx. Artwork rather than
+     chrome, like lib/fdr.ts's ramp — but it is still a design value with
+     two theme variants, so it belongs here and not as a literal in a
+     className. Light is emerald-600, the shade it has always been. */
+  --pitch-turf: #00a63e;
   --popover: #ffffff;
   --popover-foreground: oklch(0.145 0 0);
   --primary: #3c0366;
@@ -162,6 +168,7 @@
   --surface-1: #0e0118;
   --surface-2: #1e0234;
   --surface-3: #2a0a45;
+  --pitch-turf: #082015;
   /*
    * Popover surface deliberately mapped to --surface-3 (#2a0a45), not
    * --surface-2/--card (#1e0234): every dropdown/menu popover in the app

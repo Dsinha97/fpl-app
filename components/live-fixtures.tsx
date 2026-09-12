@@ -195,7 +195,7 @@ export function LiveFixtureCard({ fixture, teams, playersById, squadElementIds }
   );
 
   return (
-    <div className="w-full self-start rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234] sm:w-[calc(50%-0.375rem)]">
+    <div className="w-full self-start rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-card sm:w-[calc(50%-0.375rem)]">
       {live && (
         <span className="flex w-fit items-center gap-1.5 rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400" aria-hidden="true" />

@@ -65,7 +65,7 @@ export function DraftTimeline({
   return (
     <section
       ref={panel}
-      className="mt-6 rounded-xl border border-purple-300 bg-white p-4 dark:border-[#00FF87]/40 dark:bg-[#1E0234]"
+      className="mt-6 rounded-xl border border-purple-300 bg-white p-4 dark:border-primary/40 dark:bg-card"
     >
       <div className="flex items-start justify-between gap-2">
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">

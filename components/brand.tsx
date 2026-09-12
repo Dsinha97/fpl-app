@@ -17,7 +17,7 @@ export function Monogram({ size = 32 }: { size?: number }) {
         width="32"
         height="32"
         rx="8"
-        className="fill-purple-950 dark:fill-[#1E0234]"
+        className="fill-purple-950 dark:fill-card"
       />
       <g strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
         <line x1="16" y1="8" x2="16" y2="24" stroke="#FFFFFF" />
@@ -33,7 +33,7 @@ export function Wordmark({ subtitle = false }: { subtitle?: boolean }) {
   return (
     <span className="flex flex-col leading-none">
       <span className="text-base font-extrabold tracking-tight text-purple-950 dark:text-white">
-        FPL <span className="text-purple-700 dark:text-[#00FF87]">DECISION</span>
+        FPL <span className="text-purple-700 dark:text-primary">DECISION</span>
       </span>
       {subtitle && (
         <span className="mt-0.5 text-[9px] font-semibold tracking-[0.15em] text-purple-800 dark:text-purple-400">

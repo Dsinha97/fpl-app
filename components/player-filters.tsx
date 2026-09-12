@@ -125,7 +125,7 @@ export function PlayerFilters({
         value={value.search}
         onChange={(e) => onChange({ ...value, search: e.target.value })}
         placeholder="Search player…"
-        className="w-44 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+        className="w-44 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
       />
 
       <FilterDisclosure activeCount={activeCount}>
@@ -134,7 +134,7 @@ export function PlayerFilters({
             value={lockedPosition ?? value.position}
             disabled={lockedPosition !== undefined}
             onChange={(e) => onChange({ ...value, position: Number(e.target.value) })}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:opacity-50 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
           >
             <option value={0}>All positions</option>
             {Object.entries(positionOptions).map(([id, label]) => (
@@ -147,7 +147,7 @@ export function PlayerFilters({
           <select
             value={value.team}
             onChange={(e) => onChange({ ...value, team: Number(e.target.value) })}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
           >
             <option value={0}>All teams</option>
             {teamOptions.map(([id, short]) => (
@@ -173,7 +173,7 @@ export function PlayerFilters({
             {(value.price[0] !== priceBounds[0] || value.price[1] !== priceBounds[1]) && (
               <button
                 onClick={() => onChange({ ...value, price: priceBounds })}
-                className="text-xs text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87]"
+                className="text-xs text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
               >
                 reset
               </button>
@@ -188,7 +188,7 @@ export function PlayerFilters({
                   type="checkbox"
                   checked={value.special.has(f)}
                   onChange={() => toggleSpecial(f)}
-                  className="h-3.5 w-3.5 rounded border-zinc-300 text-purple-700 focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-purple-800/50 dark:text-[#00FF87]"
+                  className="h-3.5 w-3.5 rounded border-zinc-300 text-purple-700 focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-purple-800/50 dark:text-primary"
                 />
                 {SPECIAL_LABELS[f]}
               </label>

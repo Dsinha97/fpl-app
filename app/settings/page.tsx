@@ -101,12 +101,12 @@ function AccountTab() {
 
   return (
     <div className="mt-6 space-y-6">
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
         <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Signed in as</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{user?.email}</p>
       </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
         <h2 className="flex items-center gap-1.5 text-sm font-medium text-zinc-900 dark:text-zinc-100">
           FPL Manager ID
           <InfoTooltip label="What does linking a Manager ID do?">
@@ -128,12 +128,12 @@ function AccountTab() {
             onChange={(e) => setInput(e.target.value)}
             inputMode="numeric"
             placeholder="e.g. 1234567"
-            className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
+            className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
           />
           <button
             type="submit"
             disabled={busy}
-            className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+            className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
           >
             {busy ? "Linking…" : entryId ? "Update" : "Link"}
           </button>
@@ -263,7 +263,7 @@ function ImportTab() {
   };
 
   return (
-    <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+    <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
       <h2 className="flex items-center gap-1.5 text-sm font-medium text-zinc-900 dark:text-zinc-100">
         Why paste, not log in?
         <InfoTooltip label="Why is this a paste, not a login?">
@@ -275,7 +275,7 @@ function ImportTab() {
       </h2>
       <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
         Opening{" "}
-        <code className="rounded bg-zinc-100 px-1 text-[11px] dark:bg-[#2A0A45]">
+        <code className="rounded bg-zinc-100 px-1 text-[11px] dark:bg-surface-3">
           {myTeamUrlHint(entryId)}
         </code>{" "}
         directly in a tab won&apos;t work even signed in — it returns an &quot;Authentication
@@ -291,20 +291,20 @@ function ImportTab() {
             href="https://fantasy.premierleague.com/my-team"
             target="_blank"
             rel="noreferrer"
-            className="text-purple-800 underline dark:text-[#00FF87]"
+            className="text-purple-800 underline dark:text-primary"
           >
             fantasy.premierleague.com/my-team
           </a>
           .
         </li>
         <li>
-          Open DevTools (<code className="rounded bg-zinc-100 px-1 text-xs dark:bg-[#2A0A45]">F12</code>)
+          Open DevTools (<code className="rounded bg-zinc-100 px-1 text-xs dark:bg-surface-3">F12</code>)
           and select the <strong>Network</strong> tab.
         </li>
         <li>Reload the page, then filter the request list for &quot;my-team&quot;.</li>
         <li>
           Click the request ending in{" "}
-          <code className="rounded bg-zinc-100 px-1 text-xs dark:bg-[#2A0A45]">
+          <code className="rounded bg-zinc-100 px-1 text-xs dark:bg-surface-3">
             {myTeamUrlHint(entryId)}
           </code>
           , open its <strong>Response</strong> tab, and copy the whole JSON body.
@@ -318,12 +318,12 @@ function ImportTab() {
           onChange={(e) => setRaw(e.target.value)}
           rows={6}
           placeholder='{"picks": [...], "chips": [...], "transfers": {...}}'
-          className="w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
+          className="w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
         />
         <button
           type="submit"
           disabled={status.kind === "busy" || !raw.trim()}
-          className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+          className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
         >
           {status.kind === "busy" ? "Importing…" : "Import as draft"}
         </button>
@@ -351,7 +351,7 @@ function ImportTab() {
           )}
           <a
             href={`/builder/?draft=${status.draftId}`}
-            className="inline-block rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+            className="inline-block rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
           >
             Open in Builder →
           </a>
@@ -415,7 +415,7 @@ export default function SettingsPage() {
       aria-current={tab === id ? "page" : undefined}
       className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         tab === id
-          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-[#00FF87] dark:ring-1 dark:ring-[#00FF87]/40"
+          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-primary dark:ring-1 dark:ring-primary/40"
           : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/50"
       }`}
     >

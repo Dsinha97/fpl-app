@@ -805,7 +805,7 @@ export default function TransfersPage() {
                   )}
                 </span>
                 <span className="shrink-0 text-right">
-                  <span className="block tabular-nums font-semibold text-purple-800 dark:text-[#00FF87]">
+                  <span className="block tabular-nums font-semibold text-purple-800 dark:text-primary">
                     {xpFor(player, horizon).toFixed(1)}
                   </span>
                   {teamFit !== null && (
@@ -835,7 +835,7 @@ export default function TransfersPage() {
       aria-current={tab === id ? "page" : undefined}
       className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         tab === id
-          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-[#00FF87] dark:ring-1 dark:ring-[#00FF87]/40"
+          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-primary dark:ring-1 dark:ring-primary/40"
           : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/50"
       }`}
     >
@@ -1021,7 +1021,7 @@ export default function TransfersPage() {
             No saved squads yet. Build one in the{" "}
             <Link
               href="/builder"
-              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
             >
               Team Builder
             </Link>{" "}
@@ -1120,7 +1120,7 @@ export default function TransfersPage() {
                           pickingFor === pick.playerId
                             ? "bg-purple-50 dark:bg-purple-950/40"
                             : move
-                              ? "bg-amber-50 dark:bg-[#2a1f0a]"
+                              ? "bg-warning-surface"
                               : "bg-card-supporting"
                         }`}
                       >
@@ -1265,7 +1265,7 @@ export default function TransfersPage() {
                     {applied}{" "}
                     <Link
                       href="/scenarios"
-                      className="underline-offset-2 hover:underline dark:text-[#00FF87]"
+                      className="underline-offset-2 hover:underline dark:text-primary"
                     >
                       Compare in Scenario Lab
                     </Link>
@@ -1280,7 +1280,7 @@ export default function TransfersPage() {
                   {simulation.cost.transfers} transfer
                   {simulation.cost.transfers === 1 ? "" : "s"} · {horizonLabel(horizon)}
                   {wildcardMode && (
-                    <span className="ml-1.5 rounded bg-purple-950 px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-white dark:bg-[#00FF87] dark:text-slate-950">
+                    <span className="ml-1.5 rounded bg-purple-950 px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-white dark:bg-primary dark:text-slate-950">
                       Wildcard
                     </span>
                   )}

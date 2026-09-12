@@ -1478,8 +1478,8 @@ export default function BuilderPage() {
       key={label}
       className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
         ok
-          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-[#00FF87]"
-          : "bg-zinc-100 text-zinc-500 dark:bg-[#2A0A45] dark:text-zinc-400"
+          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-primary"
+          : "bg-zinc-100 text-zinc-500 dark:bg-surface-3 dark:text-zinc-400"
       }`}
     >
       {ok ? "✓" : "○"} {label}
@@ -1505,10 +1505,10 @@ export default function BuilderPage() {
             {money(validation.budgetRemaining)} left
           </span>
         </div>
-        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-[#2A0A45]">
+        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-surface-3">
           <div
             className={`h-full rounded-full transition-[width,background-color] duration-300 motion-reduce:transition-none ${
-              validation.overBudget ? "bg-red-500" : "bg-purple-800 dark:bg-[#00FF87]"
+              validation.overBudget ? "bg-red-500" : "bg-purple-800 dark:bg-primary"
             }`}
             style={{ width: `${Math.min(100, (validation.spent / rules.totalSpend) * 100)}%` }}
           />
@@ -1537,7 +1537,7 @@ export default function BuilderPage() {
           <span
             className={`rounded px-1.5 py-0.5 font-semibold ${
               validation.isLegal
-                ? "bg-emerald-600 text-white dark:bg-[#00FF87] dark:text-slate-950"
+                ? "bg-emerald-600 text-white dark:bg-primary dark:text-slate-950"
                 : "bg-zinc-200 text-zinc-600 dark:bg-purple-900/60 dark:text-zinc-300"
             }`}
           >
@@ -1648,7 +1648,7 @@ export default function BuilderPage() {
                 }
                 switchTeam(found, true);
               }}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
             >
               {drafts.every((d) => d.draftId !== team.draftId) && (
                 <option value={team.draftId}>{team.name} (unsaved)</option>
@@ -1664,7 +1664,7 @@ export default function BuilderPage() {
             value={team.name}
             onChange={(e) => persist({ ...team, name: e.target.value })}
             aria-label="Draft name"
-            className="w-36 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
+            className="w-36 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
           />
           <ActionMenu
             primaryLabel="Save"
@@ -1743,7 +1743,7 @@ export default function BuilderPage() {
         {/* ============================================ pitch column */}
         <section className="min-w-0 space-y-4">
           {/* prominent xP panel */}
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
             <div className="flex flex-wrap items-end gap-6">
               <div>
                 <div
@@ -1754,14 +1754,14 @@ export default function BuilderPage() {
                     ? "Projected · rest of season*"
                     : `Projected · next ${horizon} GW${horizon === 1 ? "" : "s"}`}
                 </div>
-                <div className="text-4xl font-extrabold tabular-nums text-purple-900 dark:text-[#00FF87]">
+                <div className="text-4xl font-extrabold tabular-nums text-purple-900 dark:text-primary">
                   {projection.total.toFixed(1)}
                 </div>
               </div>
               {horizon !== 1 && (
                 <div>
                   <div className="text-xs uppercase tracking-wide text-zinc-500">Next GW</div>
-                  <div className="text-3xl font-bold tabular-nums text-purple-800 dark:text-[#00FF87]/80">
+                  <div className="text-3xl font-bold tabular-nums text-purple-800 dark:text-primary/80">
                     {projectionGw.total.toFixed(1)}
                   </div>
                 </div>
@@ -1775,7 +1775,7 @@ export default function BuilderPage() {
                   <div className="flex items-center justify-end gap-2">
                     <CaptainBadge className="h-6 w-6" />
                     <span>
-                      <span className="font-semibold text-purple-800 dark:text-[#00FF87]">
+                      <span className="font-semibold text-purple-800 dark:text-primary">
                         +{projection.captainBonus.toFixed(1)}
                       </span>{" "}
                       armband bonus{captainName ? ` · ${captainName}` : ""}
@@ -1814,7 +1814,7 @@ export default function BuilderPage() {
                   trigger={
                     <>
                       Bench Boost{" "}
-                      <span className="font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                      <span className="font-semibold tabular-nums text-purple-800 dark:text-primary">
                         {cheapChips.bboost.gain >= 0 ? "+" : ""}
                         {cheapChips.bboost.gain.toFixed(1)}
                       </span>
@@ -1829,7 +1829,7 @@ export default function BuilderPage() {
                   trigger={
                     <>
                       Triple Captain{" "}
-                      <span className="font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                      <span className="font-semibold tabular-nums text-purple-800 dark:text-primary">
                         {cheapChips.threeXC.gain >= 0 ? "+" : ""}
                         {cheapChips.threeXC.gain.toFixed(1)}
                       </span>
@@ -1840,7 +1840,7 @@ export default function BuilderPage() {
                 </TapToReveal>
                 <Link
                   href={`/transfers?tab=chips&draft=${team.draftId}`}
-                  className="ml-auto text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                  className="ml-auto text-purple-700 underline-offset-2 hover:underline dark:text-primary"
                 >
                   Free Hit &amp; Wildcard schedule →
                 </Link>
@@ -1865,7 +1865,7 @@ export default function BuilderPage() {
         <section className="min-w-0 space-y-4">
           {/* Sprint 3/15.7: lineup + armband recommendation, walkable by gameweek */}
           {lineup && effectiveEvent !== null && (
-            <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+            <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500">
                   Gameweek lineup
@@ -1933,7 +1933,7 @@ export default function BuilderPage() {
                   <dt className="font-medium text-zinc-600 dark:text-zinc-300">
                     Overall projection
                   </dt>
-                  <dd className="font-bold tabular-nums text-purple-900 dark:text-[#00FF87]">
+                  <dd className="font-bold tabular-nums text-purple-900 dark:text-primary">
                     {(
                       lineup.startersXp +
                       lineup.benchExpectedContribution +
@@ -1962,7 +1962,7 @@ export default function BuilderPage() {
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                     <span className="flex items-center gap-1.5">
                       <CaptainBadge className="h-6 w-6" />
-                      <span className="text-base font-bold text-purple-900 dark:text-[#00FF87]">
+                      <span className="text-base font-bold text-purple-900 dark:text-primary">
                         {lineup.captain.webName}
                       </span>
                     </span>
@@ -1994,7 +1994,7 @@ export default function BuilderPage() {
           )}
 
           {/* optimizer */}
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               Optimise squad
             </h2>
@@ -2004,7 +2004,7 @@ export default function BuilderPage() {
                 <select
                   value={strategy}
                   onChange={(e) => setStrategy(e.target.value as Strategy)}
-                  className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                  className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
                 >
                   {Object.entries(STRATEGY_LABELS).map(([k, v]) => (
                     <option key={k} value={k}>
@@ -2158,7 +2158,7 @@ export default function BuilderPage() {
                         type="checkbox"
                         checked={includeUnavailable}
                         onChange={(e) => setIncludeUnavailable(e.target.checked)}
-                        className="h-3.5 w-3.5 rounded border-zinc-300 text-purple-700 focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-purple-800/50 dark:text-[#00FF87]"
+                        className="h-3.5 w-3.5 rounded border-zinc-300 text-purple-700 focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-purple-800/50 dark:text-primary"
                       />
                       Include below the minutes floor
                     </label>
@@ -2349,7 +2349,7 @@ export default function BuilderPage() {
                 value={sortKey}
                 onChange={(e) => changeFilter(setSortKey)(e.target.value as SortKey)}
                 aria-label="Sort by"
-                className="rounded-md border border-zinc-300 bg-white px-1.5 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                className="rounded-md border border-zinc-300 bg-white px-1.5 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
               >
                 <option value="xp5">xP 5</option>
                 <option value="xp1">xP GW</option>

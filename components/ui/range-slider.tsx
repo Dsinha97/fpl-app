@@ -40,6 +40,11 @@ export function RangeSlider({
       step={step}
       className={className}
     >
+      {/* The thumb stays a 14px dot — bigger reads as a handle, not a
+          value marker — but a 14px *hit* target is a misclick generator on a
+          trackpad and unusable on touch (DSI-126). The invisible `before`
+          halo takes the target to 26px without touching layout, the same
+          trick TapToReveal uses on its triggers. */}
       <Slider.Control className="flex w-36 touch-none select-none items-center py-2">
         <Slider.Track className="relative h-1 w-full rounded bg-zinc-200 dark:bg-purple-950">
           <Slider.Indicator className="rounded bg-purple-800 dark:bg-primary" />
@@ -48,7 +53,7 @@ export function RangeSlider({
               key={label}
               index={i}
               getAriaLabel={() => label}
-              className="h-3.5 w-3.5 rounded-full border-2 border-purple-800 bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary"
+              className="relative h-3.5 w-3.5 rounded-full border-2 border-purple-800 bg-card outline-none transition-shadow before:absolute before:-inset-1.5 before:content-[''] hover:shadow-[0_0_0_4px_var(--ring)]/25 focus-visible:ring-2 focus-visible:ring-ring dark:border-primary"
             />
           ))}
         </Slider.Track>
@@ -97,7 +102,7 @@ export function ValueSlider({
           <Slider.Indicator className="rounded bg-purple-800 dark:bg-primary" />
           <Slider.Thumb
             getAriaLabel={() => label}
-            className="h-3.5 w-3.5 rounded-full border-2 border-purple-800 bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary"
+            className="relative h-3.5 w-3.5 rounded-full border-2 border-purple-800 bg-card outline-none transition-shadow before:absolute before:-inset-1.5 before:content-[''] hover:shadow-[0_0_0_4px_var(--ring)]/25 focus-visible:ring-2 focus-visible:ring-ring dark:border-primary"
           />
         </Slider.Track>
       </Slider.Control>

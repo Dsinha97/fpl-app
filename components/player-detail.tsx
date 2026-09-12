@@ -325,7 +325,7 @@ export function PlayerDetail({
                       r.points >= 6
                         ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                         : r.points >= 2
-                          ? "bg-zinc-100 text-zinc-700 dark:bg-[#2A0A45] dark:text-zinc-300"
+                          ? "bg-zinc-100 text-zinc-700 dark:bg-surface-3 dark:text-zinc-300"
                           : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
                     }`}
                   >

@@ -1128,7 +1128,7 @@ export default function DeadlinePage() {
                 chosen.current = true;
                 setDraftId(e.target.value);
               }}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
             >
               {drafts.map((d) => (
                 <option key={d.draftId} value={d.draftId}>
@@ -1159,11 +1159,11 @@ export default function DeadlinePage() {
         <div className={`mt-6 ${card} text-center`}>
           <p className="text-sm text-zinc-500">
             No saved squads yet. Build one in the{" "}
-            <Link href="/builder" className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]">
+            <Link href="/builder" className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary">
               Team Builder
             </Link>{" "}
             or paste your real squad in{" "}
-            <Link href="/settings/?tab=import" className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]">
+            <Link href="/settings/?tab=import" className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary">
               Settings → Import squad
             </Link>
             .
@@ -1255,7 +1255,7 @@ export default function DeadlinePage() {
                       <div className="flex items-center gap-3">
                         <Link
                           href="/team/"
-                          className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                          className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
                         >
                           View in My Team →
                         </Link>
@@ -1497,7 +1497,7 @@ export default function DeadlinePage() {
                       </h2>
                       <Link
                         href={`/builder/?draft=${team.draftId}`}
-                        className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                        className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
                       >
                         Edit in Builder →
                       </Link>
@@ -1618,7 +1618,7 @@ export default function DeadlinePage() {
                       </p>
                       <p className="mt-1 text-sm">
                         Recommended captain:{" "}
-                        <span className="font-semibold text-purple-900 dark:text-[#00FF87]">
+                        <span className="font-semibold text-purple-900 dark:text-primary">
                           {lineup.captain?.webName ?? "—"}
                         </span>
                         {lineup.captain && (
@@ -1766,7 +1766,7 @@ export default function DeadlinePage() {
                             title={h === "season" ? seasonHorizonNote(ctx.seasonWindow) : undefined}
                             className={`rounded-md px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                               horizon === h
-                                ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
+                                ? "bg-purple-950 text-white dark:bg-primary dark:text-slate-950"
                                 : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
                             }`}
                           >
@@ -1789,7 +1789,7 @@ export default function DeadlinePage() {
                             saveDraft({ ...team, freeTransfers: n });
                             setDrafts(listDrafts());
                           }}
-                          className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                          className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
                         >
                           {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
                             <option key={i} value={i}>

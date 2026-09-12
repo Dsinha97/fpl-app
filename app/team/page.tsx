@@ -216,7 +216,7 @@ const PAGE_ROWS = 1000;
 
 // Sprint 23 — same tokens `/deadline` and `/chips` already use, so this page
 // stops repeating `border-zinc-200 bg-white … dark:border-purple-900/40
-// dark:bg-[#1E0234]` inline on every card.
+// dark:bg-card` inline on every card.
 const card = "rounded-lg border border-zinc-200 bg-card p-4 dark:border-purple-900/40";
 const cardSupporting =
   "rounded-lg border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border";
@@ -271,7 +271,7 @@ function GameweekSummary({
           </>
         )}
         <span className="text-zinc-400">=</span>
-        <span className="font-semibold text-purple-900 dark:text-[#00FF87]">{score.asPicked}</span>
+        <span className="font-semibold text-purple-900 dark:text-primary">{score.asPicked}</span>
       </div>
 
       <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 tabular-nums text-zinc-600 dark:text-zinc-400">
@@ -279,7 +279,7 @@ function GameweekSummary({
         {hit > 0 && <span>· includes a −{hit} transfer hit</span>}
         <span>· {history?.points_on_bench ?? score.benchRaw} left on the bench</span>
         {history?.active_chip && (
-          <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-900 dark:bg-purple-900/50 dark:text-[#00FF87]">
+          <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-900 dark:bg-purple-900/50 dark:text-primary">
             {history.active_chip}
           </span>
         )}
@@ -1319,12 +1319,12 @@ export default function TeamPage() {
           onChange={(e) => setInputId(e.target.value)}
           inputMode="numeric"
           placeholder="e.g. 1234567"
-          className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
+          className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
         />
         <button
           type="submit"
           disabled={loading}
-          className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+          className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
         >
           {loading ? "Syncing…" : savedId ? "Refresh" : "Connect"}
         </button>
@@ -1370,7 +1370,7 @@ export default function TeamPage() {
                     type="button"
                     onClick={() => void handleImport()}
                     disabled={importing}
-                    className="shrink-0 rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                    className="shrink-0 rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
                   >
                     {importing ? "Importing…" : "Import as draft →"}
                   </button>
@@ -1477,7 +1477,7 @@ export default function TeamPage() {
                         <select
                           value={selectedEvent ?? ""}
                           onChange={(e) => setSelectedEvent(Number(e.target.value))}
-                          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
                         >
                           {pickedEvents.map((event) => (
                             <option key={event} value={event}>
@@ -1491,11 +1491,11 @@ export default function TeamPage() {
                   </div>
 
                   {pickedEvents.length === 0 && (
-                    <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-[#1E0234]">
+                    <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-card">
                       No squad to show yet — FPL publishes picks after the first deadline.{" "}
                       <a
                         href="/settings/?tab=import"
-                        className="text-purple-800 underline dark:text-[#00FF87]"
+                        className="text-purple-800 underline dark:text-primary"
                       >
                         Import your squad from FPL
                       </a>{" "}
@@ -1593,7 +1593,7 @@ export default function TeamPage() {
                 ].map((tile) => (
                   <div key={tile.label} className={cardSupporting}>
                     <div className="text-xs text-zinc-500">{tile.label}</div>
-                    <div className="mt-1 text-lg font-semibold text-purple-900 dark:text-[#00FF87]">
+                    <div className="mt-1 text-lg font-semibold text-purple-900 dark:text-primary">
                       {tile.value}
                     </div>
                   </div>
@@ -1627,7 +1627,7 @@ export default function TeamPage() {
                       }}
                       aria-disabled={!importedDraft}
                       disabled={!importedDraft}
-                      className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                      className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
                     >
                       {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
                         <option key={i} value={i}>
@@ -1813,7 +1813,7 @@ export default function TeamPage() {
                                 className="h-1.5 w-24 overflow-hidden rounded-full bg-zinc-200 dark:bg-purple-950/60"
                               >
                                 <div
-                                  className="h-full rounded-full bg-purple-700 transition-[width] duration-300 motion-reduce:transition-none dark:bg-[#00FF87]"
+                                  className="h-full rounded-full bg-purple-700 transition-[width] duration-300 motion-reduce:transition-none dark:bg-primary"
                                   style={{ width: `${100 - s.rank_percentage}%` }}
                                 />
                               </div>
@@ -1866,7 +1866,7 @@ export default function TeamPage() {
                           }}
                           inputMode="numeric"
                           placeholder="Add rival by Manager ID"
-                          className="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
+                          className="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
                         />
                         <button
                           type="button"
@@ -2025,7 +2025,7 @@ export default function TeamPage() {
           <p className="mt-2">
             Enter your Manager ID above — it&apos;s the number in the URL when you view your
             points page on the FPL site: <br />
-            <code className="mt-1 inline-block rounded bg-zinc-100 px-1.5 py-0.5 text-xs dark:bg-[#2A0A45]">
+            <code className="mt-1 inline-block rounded bg-zinc-100 px-1.5 py-0.5 text-xs dark:bg-surface-3">
               fantasy.premierleague.com/entry/<b>1234567</b>/event/1
             </code>
           </p>

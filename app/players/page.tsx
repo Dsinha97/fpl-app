@@ -551,8 +551,8 @@ export default function PlayersPage() {
             setSortDesc(true);
           }
         }}
-        className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87] ${
-          sortKey === key ? "text-purple-800 dark:text-[#00FF87]" : ""
+        className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary ${
+          sortKey === key ? "text-purple-800 dark:text-primary" : ""
         }`}
       >
         {label}
@@ -657,7 +657,7 @@ export default function PlayersPage() {
               title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
               className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 horizon === h
-                  ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
+                  ? "bg-purple-950 text-white dark:bg-primary dark:text-slate-950"
                   : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
               }`}
             >
@@ -695,7 +695,7 @@ export default function PlayersPage() {
       )}
 
       {!loading && !error && (
-        <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+        <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
           <table className="w-full min-w-[56rem] text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500 dark:border-purple-900/40">
@@ -704,7 +704,7 @@ export default function PlayersPage() {
                     mobile — the checkbox lives in this same cell (see the
                     body row below) rather than its own column, so there is
                     one sticky boundary to reason about, not two. */}
-                <th className="sticky left-0 z-10 bg-white px-3 py-2 uppercase tracking-wide dark:bg-[#1E0234]">
+                <th className="sticky left-0 z-10 bg-white px-3 py-2 uppercase tracking-wide dark:bg-card">
                   Player
                 </th>
                 <th className="px-2 py-2 uppercase tracking-wide">Team</th>
@@ -739,8 +739,8 @@ export default function PlayersPage() {
                           setSortDesc(true);
                         }
                       }}
-                      className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87] ${
-                        sortKey === "xdc" ? "text-purple-800 dark:text-[#00FF87]" : ""
+                      className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary ${
+                        sortKey === "xdc" ? "text-purple-800 dark:text-primary" : ""
                       }`}
                     >
                       XD
@@ -768,8 +768,8 @@ export default function PlayersPage() {
                           setSortDesc(true);
                         }
                       }}
-                      className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87] ${
-                        sortKey === "run" ? "text-purple-800 dark:text-[#00FF87]" : ""
+                      className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary ${
+                        sortKey === "run" ? "text-purple-800 dark:text-primary" : ""
                       }`}
                     >
                       Next {horizonLength(horizon, seasonWindow)}
@@ -795,7 +795,7 @@ export default function PlayersPage() {
                     key={p.id}
                     className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
                   >
-                    <td className="sticky left-0 z-10 bg-white px-3 py-1.5 dark:bg-[#1E0234]">
+                    <td className="sticky left-0 z-10 bg-white px-3 py-1.5 dark:bg-card">
                       <span className="flex items-center gap-1.5">
                         <input
                           type="checkbox"
@@ -803,7 +803,7 @@ export default function PlayersPage() {
                           disabled={disableCheckbox}
                           onChange={() => toggleSelected(p.id)}
                           aria-label={`Select ${p.web_name} to compare`}
-                          className="h-4 w-4 shrink-0 accent-purple-700 disabled:cursor-not-allowed disabled:opacity-40 dark:accent-[#00FF87]"
+                          className="h-4 w-4 shrink-0 accent-purple-700 disabled:cursor-not-allowed disabled:opacity-40 dark:accent-primary"
                         />
                         <span className="font-medium" title={fullName(p) ?? undefined}>
                           {p.web_name}
@@ -846,7 +846,7 @@ export default function PlayersPage() {
                         );
                       })()}
                     </td>
-                    <td className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                    <td className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-primary">
                       {x?.xp_1?.toFixed(1) ?? "—"}
                     </td>
                     <td className="px-2 py-1.5 tabular-nums">
@@ -858,7 +858,7 @@ export default function PlayersPage() {
                     </td>
                     {/* Current season — the emphasised block (bold/accent), set
                         off from the muted last-season trio further right. */}
-                    <td className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                    <td className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-primary">
                       {p.total_points ?? "—"}
                     </td>
                     <td className="px-2 py-1.5 font-semibold tabular-nums">{p.goals_scored ?? "—"}</td>
@@ -953,7 +953,7 @@ export default function PlayersPage() {
       {selected.length >= 1 && (
         <div
           ref={compareTrigger}
-          className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-[#1E0234]/95"
+          className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-card/95"
         >
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -962,14 +962,14 @@ export default function PlayersPage() {
             <span className="flex items-center gap-3">
               <button
                 onClick={() => setSelected([])}
-                className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87]"
+                className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
               >
                 Clear
               </button>
               <button
                 onClick={() => setCompareOpen((v) => !v)}
                 aria-expanded={compareOpen}
-                className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e078]"
+                className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
               >
                 {compareOpen ? "Hide comparison" : `Compare ${selected.length}`}
               </button>

@@ -39,7 +39,7 @@ export default function Home() {
       <main className="flex w-full max-w-3xl flex-col items-center gap-6 px-6 py-24 text-center">
         <Monogram size={72} />
         <h1 className="text-4xl font-extrabold tracking-tight text-purple-950 dark:text-white">
-          FPL <span className="text-purple-700 dark:text-[#00FF87]">DECISION</span>
+          FPL <span className="text-purple-700 dark:text-primary">DECISION</span>
         </h1>
         <p className="text-sm font-semibold tracking-[0.2em] text-purple-800 dark:text-purple-400">
           ANALYTICS HUB
@@ -50,7 +50,7 @@ export default function Home() {
         <div className="mt-2 flex flex-wrap justify-center gap-3">
           <Link
             href="/team"
-            className="rounded-md bg-purple-950 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+            className="rounded-md bg-purple-950 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
           >
             Import your FPL squad →
           </Link>

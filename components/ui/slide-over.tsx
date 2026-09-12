@@ -73,7 +73,7 @@ export function SlideOver({
         aria-modal="true"
         aria-label={label}
         style={{ width }}
-        className={`fixed inset-y-0 z-50 overflow-y-auto bg-white p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-2xl dark:bg-[#2A0A45] ${edge}`}
+        className={`fixed inset-y-0 z-50 overflow-y-auto bg-white p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-2xl dark:bg-surface-3 ${edge}`}
       >
         {children}
       </div>

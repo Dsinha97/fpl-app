@@ -60,7 +60,7 @@ export const NAV_GROUPS = [
 const normalize = (path: string) => (path !== "/" ? path.replace(/\/$/, "") : path);
 
 const activeLinkClass =
-  "bg-purple-50 font-medium text-purple-800 dark:bg-purple-950/60 dark:text-[#00FF87]";
+  "bg-purple-50 font-medium text-purple-800 dark:bg-purple-950/60 dark:text-primary";
 const inactiveLinkClass =
   "text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-purple-950/40";
 
@@ -121,8 +121,8 @@ function DesktopNavGroup({
         closeDelay={150}
         className={`flex items-center gap-1 whitespace-nowrap rounded-md border-b-2 px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           active
-            ? "border-current font-medium text-purple-800 dark:text-[#00FF87]"
-            : "border-transparent text-zinc-600 hover:text-purple-800 dark:text-zinc-400 dark:hover:text-[#00FF87]"
+            ? "border-current font-medium text-purple-800 dark:text-primary"
+            : "border-transparent text-zinc-600 hover:text-purple-800 dark:text-zinc-400 dark:hover:text-primary"
         }`}
       >
         {group.label}
@@ -146,7 +146,7 @@ function DesktopNavGroup({
                     aria-current={itemActive ? "page" : undefined}
                     className={`block px-3 py-1.5 text-sm ${
                       itemActive
-                        ? "font-medium text-purple-800 dark:text-[#00FF87]"
+                        ? "font-medium text-purple-800 dark:text-primary"
                         : "text-popover-foreground"
                     }`}
                   >
@@ -197,7 +197,7 @@ function MobileNavGroup({
         onClick={() => setOpen((v) => !v)}
         className={`flex w-full items-center justify-between rounded-md px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           active
-            ? "text-purple-800 dark:text-[#00FF87]"
+            ? "text-purple-800 dark:text-primary"
             : "text-zinc-700 dark:text-zinc-300"
         }`}
       >

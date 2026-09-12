@@ -56,7 +56,7 @@ const FUNCTIONS = [
 
 const STATUS_STYLES: Record<string, string> = {
   success: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
-  skipped: "bg-zinc-100 text-zinc-600 dark:bg-[#2A0A45] dark:text-zinc-400",
+  skipped: "bg-zinc-100 text-zinc-600 dark:bg-surface-3 dark:text-zinc-400",
   partial: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   error: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
   running: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
@@ -169,7 +169,7 @@ export function PipelineStatus() {
         <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
           Last run per function
         </h2>
-        <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+        <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
@@ -240,7 +240,7 @@ export function PipelineStatus() {
             ].map((c) => (
               <div
                 key={c.label}
-                className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]"
+                className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-card"
               >
                 <div className="text-xs text-zinc-500">{c.label}</div>
                 <div className="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-50">

@@ -63,7 +63,7 @@ export function AccountMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-label={user ? "Account menu" : "Sign in and theme menu"}
         aria-expanded={open}
-        className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-300 text-xs font-semibold text-zinc-600 transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+        className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-300 text-xs font-semibold text-zinc-600 transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:border-primary dark:hover:text-primary"
       >
         {initials ?? <PersonIcon />}
       </button>
@@ -72,7 +72,7 @@ export function AccountMenu() {
         <div
           role="menu"
           aria-label="Account"
-          className="absolute right-0 top-full z-40 mt-2 w-56 rounded-lg border border-zinc-200 bg-white p-2 shadow-lg dark:border-purple-800/50 dark:bg-[#2A0A45]"
+          className="absolute right-0 top-full z-40 mt-2 w-56 rounded-lg border border-zinc-200 bg-white p-2 shadow-lg dark:border-purple-800/50 dark:bg-surface-3"
         >
           {user ? (
             <div className="border-b border-zinc-100 px-2 pb-2 dark:border-purple-900/40">
@@ -139,7 +139,7 @@ export function AccountMenu() {
                 title={THEME_LABEL[m]}
                 className={`flex flex-1 flex-col items-center gap-1 rounded-md border py-1.5 text-[11px] transition-colors ${
                   mode === m
-                    ? "border-purple-600 bg-purple-50 text-purple-800 dark:border-[#00FF87] dark:bg-[#00FF87]/10 dark:text-[#00FF87]"
+                    ? "border-purple-600 bg-purple-50 text-purple-800 dark:border-primary dark:bg-primary/10 dark:text-primary"
                     : "border-transparent text-zinc-500 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-purple-950/40"
                 }`}
               >
@@ -166,7 +166,7 @@ export function AccountMenu() {
               href="/signin/"
               onClick={() => setOpen(false)}
               role="menuitem"
-              className="mt-1 block rounded-md px-2 py-2 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-50 dark:text-[#00FF87] dark:hover:bg-purple-950/40"
+              className="mt-1 block rounded-md px-2 py-2 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-50 dark:text-primary dark:hover:bg-purple-950/40"
             >
               Sign in
             </Link>

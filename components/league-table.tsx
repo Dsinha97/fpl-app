@@ -79,12 +79,12 @@ export function LeagueTable({
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
         <table className="w-full min-w-[40rem] border-collapse text-xs">
           <thead>
             <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-              <th className="sticky left-0 z-10 bg-white px-2 py-2 text-center dark:bg-[#1E0234]">#</th>
-              <th className="sticky left-8 z-10 bg-white px-2 py-2 dark:bg-[#1E0234]">Team</th>
+              <th className="sticky left-0 z-10 bg-white px-2 py-2 text-center dark:bg-card">#</th>
+              <th className="sticky left-8 z-10 bg-white px-2 py-2 dark:bg-card">Team</th>
               <th className="px-2 py-2 text-center">P</th>
               <th className="px-2 py-2 text-center">W</th>
               <th className="px-2 py-2 text-center">D</th>
@@ -114,10 +114,10 @@ export function LeagueTable({
                   key={team.id}
                   className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
                 >
-                  <td className="sticky left-0 z-10 bg-white px-2 py-1.5 text-center tabular-nums text-zinc-500 dark:bg-[#1E0234]">
+                  <td className="sticky left-0 z-10 bg-white px-2 py-1.5 text-center tabular-nums text-zinc-500 dark:bg-card">
                     {noFixturesStarted ? "—" : position}
                   </td>
-                  <td className="sticky left-8 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white px-2 py-1.5 font-medium text-zinc-800 dark:bg-[#1E0234] dark:text-zinc-200">
+                  <td className="sticky left-8 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white px-2 py-1.5 font-medium text-zinc-800 dark:bg-card dark:text-zinc-200">
                     <TeamCrest teamCode={team.code} shortName={team.short_name} className="h-4 w-4 shrink-0" />
                     {team.name}
                   </td>
@@ -143,7 +143,7 @@ export function LeagueTable({
                       <td key={g} className="px-1 py-1.5 text-center">
                         {cellFixtures.length === 0 ? (
                           <span
-                            className="block rounded bg-zinc-100 px-1 py-1 text-zinc-400 dark:bg-[#2A0A45] dark:text-zinc-600"
+                            className="block rounded bg-zinc-100 px-1 py-1 text-zinc-400 dark:bg-surface-3 dark:text-zinc-600"
                             title={`GW${g}: blank — no fixture`}
                           >
                             —

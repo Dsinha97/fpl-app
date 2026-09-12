@@ -148,14 +148,14 @@ export function FdrMatrix({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search team…"
-          className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+          className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
         />
         <label className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
           Sort
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOrder)}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
           >
             {(Object.keys(SORT_LABELS) as SortOrder[]).map((s) => (
               <option key={s} value={s} disabled={s === "position" && !positionsKnown}>
@@ -202,21 +202,21 @@ export function FdrMatrix({
         </span>
         <span className="flex items-center gap-3 text-zinc-500">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-green-400 ring-offset-1 ring-offset-white dark:bg-purple-900 dark:ring-offset-[#1E0234]" />
+            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-green-400 ring-offset-1 ring-offset-white dark:bg-purple-900 dark:ring-offset-card" />
             home
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-red-400 ring-offset-1 ring-offset-white dark:bg-purple-900 dark:ring-offset-[#1E0234]" />
+            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-red-400 ring-offset-1 ring-offset-white dark:bg-purple-900 dark:ring-offset-card" />
             away
           </span>
         </span>
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
         <table className="w-full min-w-[36rem] border-collapse text-xs">
           <thead>
             <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-              <th className="sticky left-0 z-10 bg-white px-3 py-2 dark:bg-[#1E0234]">Team</th>
+              <th className="sticky left-0 z-10 bg-white px-3 py-2 dark:bg-card">Team</th>
               <th className="px-2 py-2 text-center">Avg</th>
               {gwCols.map((g) => (
                 <th key={g} className="px-1 py-2 text-center">
@@ -231,7 +231,7 @@ export function FdrMatrix({
                 key={team.id}
                 className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
               >
-                <td className="sticky left-0 z-10 bg-white px-3 py-1.5 font-medium text-zinc-800 dark:bg-[#1E0234] dark:text-zinc-200">
+                <td className="sticky left-0 z-10 bg-white px-3 py-1.5 font-medium text-zinc-800 dark:bg-card dark:text-zinc-200">
                   {team.short_name}
                 </td>
                 <td className="px-2 py-1.5 text-center tabular-nums text-zinc-500">
@@ -243,7 +243,7 @@ export function FdrMatrix({
                     <td key={g} className="px-1 py-1.5 text-center">
                       {cellFixtures.length === 0 ? (
                         <span
-                          className="block rounded bg-zinc-100 px-1 py-1 text-zinc-400 dark:bg-[#2A0A45] dark:text-zinc-600"
+                          className="block rounded bg-zinc-100 px-1 py-1 text-zinc-400 dark:bg-surface-3 dark:text-zinc-600"
                           title={`GW${g}: blank — no fixture`}
                         >
                           —

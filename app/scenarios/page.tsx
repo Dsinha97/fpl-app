@@ -625,7 +625,7 @@ export default function ScenariosPage() {
                 }
                 className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
                   view === v
-                    ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
+                    ? "bg-purple-950 text-white dark:bg-primary dark:text-slate-950"
                     : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
                 }`}
               >
@@ -643,7 +643,7 @@ export default function ScenariosPage() {
               title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
               className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 horizon === h
-                  ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
+                  ? "bg-purple-950 text-white dark:bg-primary dark:text-slate-950"
                   : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
               }`}
             >
@@ -752,12 +752,12 @@ export default function ScenariosPage() {
       )}
 
       {drafts.length === 0 && !loading && (
-        <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 text-center dark:border-purple-900/40 dark:bg-[#1E0234]">
+        <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 text-center dark:border-purple-900/40 dark:bg-card">
           <p className="text-sm text-zinc-500">
             No drafts saved yet. Build a squad in the{" "}
             <Link
               href="/builder"
-              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
             >
               Team Builder
             </Link>{" "}
@@ -805,8 +805,8 @@ export default function ScenariosPage() {
                 key={draft.draftId}
                 className={`rounded-xl border p-4 transition-colors ${
                   picked
-                    ? "border-purple-600 bg-purple-50/60 dark:border-[#00FF87] dark:bg-[#25063f]"
-                    : "border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]"
+                    ? "border-purple-600 bg-primary/5 dark:border-primary dark:bg-primary/10"
+                    : "border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -829,7 +829,7 @@ export default function ScenariosPage() {
                             }
                           }}
                           aria-label="Draft name"
-                          className="w-full rounded border border-purple-400 bg-white px-1.5 py-0.5 text-sm font-semibold text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-[#00FF87] dark:bg-[#2A0A45] dark:text-zinc-100"
+                          className="w-full rounded border border-purple-400 bg-white px-1.5 py-0.5 text-sm font-semibold text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary dark:bg-surface-3 dark:text-zinc-100"
                         />
                         {renameError && (
                           <p className="mt-1 text-xs text-red-600 dark:text-red-400">{renameError}</p>
@@ -888,7 +888,7 @@ export default function ScenariosPage() {
                         checked={picked}
                         onChange={() => toggleSelect(draft.draftId)}
                         disabled={!picked && selected.length >= MAX_COMPARE}
-                        className="accent-purple-800 dark:accent-[#00FF87]"
+                        className="accent-purple-800 dark:accent-primary"
                       />
                       compare
                     </label>
@@ -901,7 +901,7 @@ export default function ScenariosPage() {
                     <div className="text-[10px] uppercase tracking-wide text-zinc-500">
                       SquadScore
                     </div>
-                    <div className="text-2xl font-extrabold tabular-nums text-purple-900 dark:text-[#00FF87]">
+                    <div className="text-2xl font-extrabold tabular-nums text-purple-900 dark:text-primary">
                       {score ? score.total.toFixed(1) : "—"}
                     </div>
                   </div>
@@ -961,7 +961,7 @@ export default function ScenariosPage() {
                 <div className="mt-3 flex flex-wrap gap-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
                   <Link
                     href={`/builder?draft=${draft.draftId}`}
-                    className="rounded bg-purple-950 px-2 py-1 font-medium text-white transition-colors hover:bg-purple-800 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                    className="rounded bg-purple-950 px-2 py-1 font-medium text-white transition-colors hover:bg-purple-800 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
                   >
                     Open
                   </Link>
@@ -970,13 +970,13 @@ export default function ScenariosPage() {
                       cloneDraft(draft);
                       refresh();
                     }}
-                    className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+                    className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/60 dark:hover:border-primary dark:hover:text-primary"
                   >
                     Clone
                   </button>
                   <button
                     onClick={() => openTimeline(draft.draftId)}
-                    className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
+                    className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/60 dark:hover:border-primary dark:hover:text-primary"
                   >
                     Timeline
                   </button>
@@ -1024,7 +1024,7 @@ export default function ScenariosPage() {
           <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
             Comparing {chosen.length} drafts
           </h2>
-          <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
@@ -1059,7 +1059,7 @@ export default function ScenariosPage() {
             Wildcard are full-squad rebuilds, valued for every playable gameweek on the{" "}
             <Link
               href={chosen[0] ? `/transfers?tab=chips&draft=${chosen[0].draftId}` : "/transfers?tab=chips"}
-              className="text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+              className="text-purple-700 underline-offset-2 hover:underline dark:text-primary"
             >
               Chip Strategy
             </Link>{" "}
@@ -1075,7 +1075,7 @@ export default function ScenariosPage() {
       )}
 
       {chosen.length >= 2 && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-[#1E0234]/95">
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-card/95">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
               Comparing {chosen.length} draft{chosen.length === 1 ? "" : "s"}
@@ -1083,7 +1083,7 @@ export default function ScenariosPage() {
             <span className="flex items-center gap-3">
               <button
                 onClick={() => setSelected([])}
-                className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87]"
+                className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
               >
                 Clear
               </button>
@@ -1091,7 +1091,7 @@ export default function ScenariosPage() {
                 onClick={() =>
                   comparisonRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
                 }
-                className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e078]"
+                className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
               >
                 Compare {chosen.length} drafts ↓
               </button>
@@ -1291,7 +1291,7 @@ function ComparisonRows({
                 <span
                   className={
                     best !== null && v === best && nums.length > 1
-                      ? "font-semibold text-purple-800 dark:text-[#00FF87]"
+                      ? "font-semibold text-purple-800 dark:text-primary"
                       : ""
                   }
                 >

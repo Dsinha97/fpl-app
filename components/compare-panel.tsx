@@ -214,7 +214,7 @@ export function ComparePanel({
           viewport, four equal-percentage columns squeeze player names and
           numbers illegibly small instead of scrolling. Same overflow-x-auto +
           min-w + sticky-first-column pattern app/players/page.tsx uses. */}
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
         <table className="w-full min-w-[40rem] text-sm">
           <colgroup>
             <col style={{ width: "9rem" }} />
@@ -224,7 +224,7 @@ export function ComparePanel({
           </colgroup>
           <thead>
             <tr className="border-b border-zinc-200 dark:border-purple-900/40">
-              <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-[#1E0234]">
+              <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-card">
                 Metric
               </th>
               {chosen.map((p) => {
@@ -271,7 +271,7 @@ export function ComparePanel({
                   key={m.label}
                   className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
                 >
-                  <th className="sticky left-0 z-10 bg-white px-3 py-1.5 text-left text-xs font-medium text-zinc-500 dark:bg-[#1E0234]">
+                  <th className="sticky left-0 z-10 bg-white px-3 py-1.5 text-left text-xs font-medium text-zinc-500 dark:bg-card">
                     <span className="flex items-center gap-1">
                       {m.label}
                       {m.hint && <InfoTooltip label={m.hint}>{m.hint}</InfoTooltip>}
@@ -286,7 +286,7 @@ export function ComparePanel({
                         key={p.id}
                         className={`px-3 py-1.5 tabular-nums ${
                           isBest
-                            ? "font-bold text-purple-900 dark:text-[#00FF87]"
+                            ? "font-bold text-purple-900 dark:text-primary"
                             : "text-zinc-800 dark:text-zinc-200"
                         }`}
                       >
@@ -302,7 +302,7 @@ export function ComparePanel({
 
             {/* set-piece roles — informational only, no winner to highlight */}
             <tr className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-              <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-[#1E0234]">
+              <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-card">
                 Set pieces
               </th>
               {chosen.map((p) => {
@@ -331,7 +331,7 @@ export function ComparePanel({
 
             {/* fixture runs */}
             <tr className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-              <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-[#1E0234]">
+              <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-card">
                 <span className="flex items-center gap-1">
                   Fixtures
                   <InfoTooltip>
@@ -371,7 +371,7 @@ export function ComparePanel({
           {ranked.map((r, i) => (
             <li
               key={r.player.id}
-              className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]"
+              className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-card"
             >
               <div className="flex items-baseline justify-between gap-2">
                 <span className="font-semibold text-zinc-900 dark:text-zinc-100">

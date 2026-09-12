@@ -157,7 +157,7 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
         return (
           <section
             key={event}
-            className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]"
+            className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card"
           >
             <button
               onClick={() =>
@@ -177,7 +177,7 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
                   {meta?.name ?? `Gameweek ${event}`}
                 </span>
                 {meta?.finished && (
-                  <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:bg-[#2A0A45]">
+                  <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:bg-surface-3">
                     complete
                   </span>
                 )}
@@ -210,7 +210,7 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
                   return (
                     <div key={f.id}>
                       {showDay && (
-                        <div className="bg-zinc-50 px-4 py-1.5 text-center text-xs font-medium uppercase tracking-widest text-zinc-500 dark:bg-[#160126]">
+                        <div className="bg-surface-1 px-4 py-1.5 text-center text-xs font-medium uppercase tracking-widest text-zinc-500">
                           {formatDay(f.kickoff_time!)}
                         </div>
                       )}
@@ -360,7 +360,7 @@ function FixtureRow({
         }`}
       >
         <div className="overflow-hidden">
-          <div className="bg-zinc-50 px-4 py-3 dark:bg-[#160126]">
+          <div className="bg-surface-1 px-4 py-3">
             <FixtureStatBreakdown stats={stats!} playersById={playersById!} provisional={!complete} />
           </div>
         </div>
