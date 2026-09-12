@@ -81,6 +81,9 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | 16 Notifications — the Telegram bot | DSI-65 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §3 |
 | Top-1k ownership sample, kept | DSI-60 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §4 |
 | Custom SMTP for Supabase Auth | DSI-58 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §4 |
+| Fix: price/news notifications silently dropped, fixture alert wording | DSI-133 | M8 | — |
+| Fix: played chips not greyed out in Chip Plan | DSI-117 | M8 | — |
+| Fix: Builder player-info panel running off screen | DSI-116 | M8 | — |
 
 ## Open
 

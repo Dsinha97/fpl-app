@@ -23,6 +23,12 @@ import {
   EMPTY_CHIP_PLAN,
 } from "./team-state";
 
+// Re-exported: every consumer of this module's chip primitives (the plan
+// editor, the pages composing it) already imports `ChipKind` alongside them,
+// and re-exporting here means they don't also need a second import from
+// `./team-state` just for the type.
+export type { ChipKind };
+
 export interface EventPrediction {
   expectedMinutes: number | null;
   startProbability: number | null;
@@ -469,7 +475,15 @@ export type ChipPlanProblemKind =
   | "past-gameweek"
   | "two-chips-one-gameweek"
   | "duplicate-in-half"
+  | "already-played"
   | "conflicts-with-active-chip";
+
+/** One chip FPL's own history already reports as played this season — the
+ *  shape `manager_chips` (`event, name`) is read into. */
+export interface PlayedChip {
+  chip: ChipKind;
+  event: number;
+}
 
 export interface ChipPlanProblem {
   kind: ChipPlanProblemKind;
@@ -496,7 +510,10 @@ export interface ChipPlanValidation {
  *   - at most one entry per gameweek, across all chips (FPL rule);
  *   - at most one entry per (chip, half) — a half is *which `chip_definitions`
  *     row* the gameweek falls into, not an assumed boundary;
- *   - an entry at `nextEvent` does not contradict a chip FPL already reports live.
+ *   - an entry at `nextEvent` does not contradict a chip FPL already reports live;
+ *   - at most one entry per (chip, half) where FPL's own history
+ *     (`manager_chips`) already reports that chip played this half — a plan
+ *     can't offer to plan a chip that no longer exists to play.
  */
 export function validateChipPlan(
   plan: ChipPlan | undefined,
@@ -504,6 +521,7 @@ export function validateChipPlan(
   nextEvent: number,
   lastEvent: number,
   activeChip: string | null = null,
+  playedChips: PlayedChip[] = [],
 ): ChipPlanValidation {
   const entries = sortEntries(chipPlanOf({ chipPlan: plan } as TeamState).entries);
   const problems: ChipPlanProblem[] = [];
@@ -518,6 +536,19 @@ export function validateChipPlan(
     defsByChip.set(chip, list);
   }
   for (const list of defsByChip.values()) list.sort((a, b) => a.startEvent - b.startEvent);
+
+  // Which (chip, half) FPL's own history already reports as played — checked
+  // before the plan's own duplicate-in-half rule, since "already played" is a
+  // fact and "duplicate in the plan" is only ever an intention conflicting
+  // with itself.
+  const playedHalves = new Set<string>(); // `${chip}:${defIndex}`
+  for (const played of playedChips) {
+    const defs = defsByChip.get(played.chip) ?? [];
+    const defIndex = defs.findIndex(
+      (d) => d.startEvent <= played.event && played.event <= resolveStopEvent(d, lastEvent),
+    );
+    if (defIndex !== -1) playedHalves.add(`${played.chip}:${defIndex}`);
+  }
 
   const eventsSeen = new Map<number, ChipPlanEntry>();
   const halvesSeen = new Set<string>(); // `${chip}:${defIndex}`
@@ -571,7 +602,15 @@ export function validateChipPlan(
         ok = false;
       } else {
         const halfKey = `${entry.chip}:${defIndex}`;
-        if (halvesSeen.has(halfKey)) {
+        if (playedHalves.has(halfKey)) {
+          problems.push({
+            kind: "already-played",
+            chip: entry.chip,
+            event: entry.event,
+            message: `${CHIP_LABELS[entry.chip]} was already played this half — there is nothing left to plan.`,
+          });
+          ok = false;
+        } else if (halvesSeen.has(halfKey)) {
           problems.push({
             kind: "duplicate-in-half",
             chip: entry.chip,
