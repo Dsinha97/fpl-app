@@ -42,7 +42,11 @@ export const fdrTheme: Record<FdrRating, FDRConfig> = {
     label: "Hard",
     // Orange
     bgClass: "bg-orange-500 dark:bg-orange-500",
-    textClass: "text-white dark:text-slate-950",
+    // Was text-white in light mode: 2.80:1 on orange-500, which fails WCAG AA
+    // even at the 3.0 large/bold threshold. Dark mode already used slate-950
+    // on the identical fill for 7.20:1, so the two themes now agree and both
+    // pass. Measured M9; the only contrast failure in the five-step ramp.
+    textClass: "text-slate-950 dark:text-slate-950",
     hexCode: "#F97316",
   },
   5: {
@@ -70,14 +74,29 @@ export const fdrClasses = (n: number | null | undefined): string => {
 
 export const fdrLabel = (n: number | null | undefined): string => fdrConfig(n).label;
 
-// Venue is encoded as a ring rather than by letter case, which was hard to
-// read at a glance. The 1px surface-coloured offset guarantees the ring stays
-// legible even when its hue is close to the FDR fill underneath (green ring on
-// an easy-green fixture, red ring on a very-hard-red one).
+// Venue is encoded by the PRESENCE of a neutral ring, not by its hue.
+//
+// It used to be a green ring for home and a red ring for away, which put the
+// venue channel on the one axis red-green colour blindness destroys — and did
+// it on top of a fill that is itself red or green. Measured (M9, Machado 2009
+// severity 1.0, linear-RGB separation): green-400 vs red-400 scores 1.039 at
+// normal vision, 0.579 under protanopia and 0.204 under deuteranopia. An 80%
+// collapse, i.e. roughly 1 in 12 men could not read home from away at all.
+//
+// Presence-vs-absence is a shape channel, so it survives every CVD condition
+// and greyscale print intact. The ring is neutral (near-black on light,
+// near-white on dark) rather than any hue, so it also stops competing with the
+// difficulty fill underneath it — the 1px surface-coloured offset still
+// separates the two.
+//
+// The ramp itself was measured at the same time and KEPT: adjacent steps stay
+// >= 0.32 apart under all three conditions, sometimes wider than at normal
+// vision. The audit's blanket "desaturate the matrix" would have discarded a
+// working channel to fix a broken one.
 export const venueRing = (home: boolean): string =>
   home
-    ? "ring-2 ring-offset-1 ring-green-400 ring-offset-white dark:ring-offset-[#1E0234]"
-    : "ring-2 ring-offset-1 ring-red-400 ring-offset-white dark:ring-offset-[#1E0234]";
+    ? "ring-2 ring-offset-1 ring-zinc-900/80 ring-offset-white dark:ring-white/80 dark:ring-offset-card"
+    : "";
 
 // ------------------------------------------------------- fixture windows
 //

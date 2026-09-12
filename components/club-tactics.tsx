@@ -108,7 +108,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
               {/* CSS Grid 0fr→1fr rather than mount/unmount (Sprint 24) — see
                   CollapsibleCard's identical pattern for why. */}
               <div
-                className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
+                className={`grid transition-[grid-template-rows] duration-base ease-emphasis motion-reduce:transition-none ${
                   open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                 }`}
               >

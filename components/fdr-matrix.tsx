@@ -8,9 +8,11 @@ import {
   STRENGTH_FDR_NOTE,
   type FdrCell,
   type FdrRating,
+  venueRing,
   type FdrSource,
 } from "@/lib/fdr";
 import { FDRBadge, FixtureCell } from "./fdr-badge";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 export interface MatrixFixture {
   event: number | null;
@@ -120,25 +122,23 @@ export function FdrMatrix({
           {sort === "hardest" && `Sorted hardest ${horizon === 38 ? "season" : `${horizon}-GW`} run first`}
           {sort === "az" && "Sorted A–Z"}
           {sort === "position" && "Sorted by table position"}
-          {" · green ring = home, red ring = away"}
+          {" · ringed = home, plain = away"}
         </p>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-zinc-500">Window</span>
-          {HORIZONS.map((h) => (
-            <button
-              key={h}
-              type="button"
-              onClick={() => setHorizon(h)}
-              aria-pressed={horizon === h}
-              className={`rounded-md border px-2.5 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                horizon === h
-                  ? "border-transparent bg-primary text-primary-foreground"
-                  : "border-input text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {h === 38 ? "All" : `${h} GWs`}
-            </button>
-          ))}
+          {/* A window is a parameter, not a view, so `radio` rather than `tabs`
+              — "tab" would be a lie to a screen reader here. */}
+          <SegmentedControl
+            label="Fixture window"
+            semantics="radio"
+            size="sm"
+            value={String(horizon)}
+            onValueChange={(v) => setHorizon(Number(v) as (typeof HORIZONS)[number])}
+            options={HORIZONS.map((h) => ({
+              value: String(h),
+              label: h === 38 ? "All" : `${h} GWs`,
+            }))}
+          />
         </div>
       </div>
 
@@ -174,21 +174,20 @@ export function FdrMatrix({
         {strengthKnown && (
           <span className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
             Rating
-            {(["official", "strength"] as FdrSource[]).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setSource(s)}
-                aria-pressed={source === s}
-                className={`rounded-md border px-2.5 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  source === s
-                    ? "border-transparent bg-primary text-primary-foreground"
-                    : "border-input text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {s === "official" ? "Official" : "Strength"}
-              </button>
-            ))}
+            {/* DSI-127: these two read as one solid green button beside one dark
+                button, which looks like an action and its disabled twin rather
+                than a binary choice. One segmented switch says "pick a side". */}
+            <SegmentedControl
+              label="Difficulty rating source"
+              semantics="radio"
+              size="sm"
+              value={source}
+              onValueChange={(v) => setSource(v as FdrSource)}
+              options={[
+                { value: "official", label: "Official" },
+                { value: "strength", label: "Strength" },
+              ]}
+            />
           </span>
         )}
       </div>
@@ -202,11 +201,11 @@ export function FdrMatrix({
         </span>
         <span className="flex items-center gap-3 text-zinc-500">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-green-400 ring-offset-1 ring-offset-white dark:bg-purple-900 dark:ring-offset-card" />
+            <span className={`inline-block h-3 w-3 rounded bg-zinc-300 dark:bg-purple-900 ${venueRing(true)}`} />
             home
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-red-400 ring-offset-1 ring-offset-white dark:bg-purple-900 dark:ring-offset-card" />
+            <span className={`inline-block h-3 w-3 rounded bg-zinc-300 dark:bg-purple-900 ${venueRing(false)}`} />
             away
           </span>
         </span>
