@@ -178,3 +178,14 @@ were.
 See also: [chip-strategy.md](chip-strategy.md) (the underlying valuations),
 [transfer-engine.md](transfer-engine.md) (the simulator and deadline optimiser this plan
 conditions), [frontend-conventions.md](frontend-conventions.md) (`TeamState`, horizon conventions).
+
+## "Apply to plan", and what a pin means (M9 Sprint C2, 2026-09-12)
+
+The chip recommendation gained an **Apply to plan** action, which closed a gap the two surfaces had
+left: the timing engine could name the best gameweek for a chip and there was no way to act on it
+without re-entering it by hand.
+
+That made the distinction explicit — `source: "manual"` now means *a decision*, while a bare pin
+icon means *a shortlist*. The plan editor also greys out chips FPL's own history says have already
+been played, so a plan cannot offer a chip that no longer exists to play.
+— [sprints/m9.md](../sprints/m9.md)

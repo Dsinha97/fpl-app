@@ -428,7 +428,10 @@ didn't reach on every surface. Landed alongside the `fpldecision.com` domain cut
   The mobile drawer header is now the app's own Monogram + Wordmark (Gmail-sidebar style)
   instead of a plain "Navigation" label, with the dedicated `×` close button removed — backdrop
   tap, Escape, and the hamburger itself (already an `×` while open) were three existing ways out;
-  a fourth was redundant. Desktop nav groups now open on hover (translucent
+  a fourth was redundant. **That last reason was wrong, and stayed wrong for three weeks** — the
+  drawer is `z-50` over a `z-40` header, so the hamburger's `×` is underneath the panel and was
+  never visible to anyone. A close button came back in DSI-141; see
+  [`IconSwap`, and a close button nobody could see](#iconswap-and-a-close-button-nobody-could-see-dsi-141). Desktop nav groups now open on hover (translucent
   `bg-popover/80 backdrop-blur-md`) and "solidify" to opaque `bg-popover` on click — a controlled
   `Menu.Root` with `openOnHover`/`delay`/`closeDelay` on `Menu.Trigger` and `modal={false}` (the
   default `true` would lock page scroll on mere hover, which the prior click-only menu never
@@ -559,3 +562,128 @@ needs this.
 
 This is the third variant of the same underlying idea in the codebase — after the bottom sheet and
 the left drawer above — and the first one extracted as a primitive rather than written in place.
+
+## M9 — the audit, the primitives layer, and what the audit got wrong (2026-09-12/13)
+
+An external design audit of every screen, worked in four sprints: **A** built primitives, **B**
+applied them app-wide, **C1** did the per-screen visual work, **C2** the items that turned out to be
+product work wearing design clothes. — [sprints/m9.md](../sprints/m9.md)
+
+**Roughly half of each audit item was already fixed, already false, or would have been a regression
+applied literally.** That is the sprint's most reusable finding, and it is why every item below
+carries a measurement rather than a verdict. Three that mattered:
+
+- *"Desaturate the FDR matrix."* Measured first (Machado 2009, severity 1.0, linear-RGB separation):
+  the difficulty ramp holds ≥ 0.32 between adjacent steps under all three CVD conditions, sometimes
+  wider than at normal vision. The broken channel was **venue** — a green ring for home against red
+  for away scores 1.039 at normal vision and 0.204 under deuteranopia. Desaturating would have
+  discarded a working channel to fix a different one. See
+  [fixture-difficulty.md](fixture-difficulty.md).
+- *"Make the deadline a tab bar."* Measured the widths; it did not fit.
+- *"88 `title=` attributes need converting."* Measured: 14 exceed 40 characters, and most of those
+  are truncation fallbacks where `title` is the correct idiom. Four carried reasoning available
+  nowhere else and were converted; the rest were left.
+
+### The primitives, and what adoption actually reached
+
+`Button`, `Badge`, `Alert`, `DataTable`, `Delta`, `ModelNote`, `SegmentedControl`, plus a motion
+scale and more of the raw-hex → token migration. Sprint A built them and adopted each in 1–2 files;
+Sprint B is what made them app-wide: `Button` 1 → 20 files, `DataTable` 0 → 14 with the raw `<td>`
+count across `app/` and `components/` reaching **0**, `Badge` 9, `Alert` 6, `ModelNote` 5 → 12.
+`Checkbox` and `NoteDisclosure` were added mid-sprint and are fully adopted.
+
+Three shapes deliberately keep a raw `<button>`: disclosure primitives, whole-row/whole-card
+targets, and table sort headers — none is a button in the visual sense, and each would override most
+of what the variant supplies.
+
+Two Sprint B premises did not survive measurement. `ModelNote`'s scope assumed notes were rendered
+naked; all 22 used notes were *already* inside a disclosure, and what was real is that 17 sites
+re-typed the typography the primitive owns. The `title=` sweep is above.
+
+### `SegmentedControl` is the only pick-one control
+
+Four affordances existed for one job — a bordered strip with a `--primary` fill, a `bg-purple-950`
+variant, a third border treatment, and a plain `<select>` — across a horizon picker at six call
+sites and six other toggles, three of which were byte-identical `tabButton` helpers. All of them now
+route through one component, with `HorizonControl` wrapping it for the `Horizon` type's string
+round-trip and its `"season"` case.
+
+Two deliberate exceptions, recorded so they are not "finished" later: the FDR **Sort** control stays
+a `<select>` (three options, one conditionally disabled with a *"(not published yet)"* suffix a
+segmented control has nowhere to put), and `manager-leagues`' rows carry `aria-pressed` but are a
+list you pick from, not a toggle group.
+
+The indicator is a raised neutral surface rather than `--primary`: choosing a tab is navigation, not
+an action.
+
+### The accent question, settled in two passes
+
+`--primary` is reserved for actions and for a single top-tier winner. Sprint B swept the utility
+actions to outline and found the last data-viz misuse — the Past Seasons bar on `/team`, a hand-copy
+of `PercentileBar`, which had already been moved to `--chart-1` once. *Fixed once, missed once*, the
+sprint's own recurring shape.
+
+One conflict was parked for a human and resolved by DSI-141: `/transfers`' 5 GW column. DSI-135
+wanted it demoted to plain foreground; DSI-124 had just narrowed it from "every value accented" to
+the squad's own top quartile so the accent would mean something, and demoting would delete that.
+`--chart-1` had been rejected as the middle path for failing contrast on white (3.7:1) — but light
+mode there is `purple-800` and was never the complaint. **Light stays, dark moves to `--chart-1`**,
+measured at 11.21:1 against the ground it is actually painted on rather than the 5.1:1 assumed
+against the card. Selected-state fills and progress bars keep the accent; they are states, not
+triggers.
+
+### The settings card: a control row that states its own values
+
+`CollapsibleCard` acquired a second standard use beyond a methodology note — the page's parameters,
+collapsed behind a summary of those same parameters. `/transfers`' **Plan settings** (horizon,
+squad, free transfers, wildcard) reads `5 GW · New draft · 1 free transfer` shut, matching the Chip
+plan card directly below it; `/fixtures`' **FDR settings** (window, search, sort, rating source)
+reads `8 GWs · Easiest run`. The rule that makes it safe: **a settings card that hides its own
+values is just a place to lose a filter in**, so every non-default choice appears in the summary.
+
+On `/fixtures` the six-swatch legend moved the other way — out of the permanent layout and into a
+**How to read FDR** link beside the sort caption. A legend explains the grid rather than changing
+it, and is learned once.
+
+### `IconSwap`, and a close button nobody could see (DSI-141)
+
+`References/Components/icon-swap.md` as `components/ui/icon-swap.tsx`: two icons in one grid cell,
+the outgoing one leaving at `scale(0.25)` behind a 2px blur. Being one grid cell is the part that
+matters beyond the motion — the control's width is the wider icon at every frame, so nothing beside
+it moves. The `☰`/`×` text swap it replaced changed width mid-transition and nudged the wordmark.
+
+Sprint 25 had argued the mobile drawer needed no close control "since the hamburger is already an ×
+while open". It is — and the drawer is `z-50` over a `z-40` header, so that × has always been
+underneath the panel. The affordance was not redundant, it was invisible. The drawer's header row
+now reproduces the header it covers to the pixel (close button at x=16, wordmark at x=72, measured
+dx 0 / dy 0.3px), so only the icon changes.
+
+### Overflow that hides options is still overflow (DSI-141)
+
+`SegmentedControl` contained its own overflow with `max-w-full overflow-x-auto` and no visual
+affordance, so on a phone the later segments were simply gone — `/team`'s six horizon segments,
+`/settings`' four tab labels, `/news`' change-type row. Nothing was clipped and
+`document.body.scrollWidth` equalled the viewport, which is exactly why a responsive pass whose bar
+is *"nothing overflows"* kept certifying it. Now: edge fades drawn in the track's own colour,
+rendered only when a side actually has something hidden, plus the selected segment scrolled into
+view. One primitive, nine call sites. See
+[frontend-conventions.md](frontend-conventions.md#a-scroll-container-only-works-if-every-ancestor-may-shrink-2026-09-13)
+for the two rules this depends on.
+
+### Density on a phone: the frozen column and the `+N` chip
+
+`/players`' sticky first column carried a checkbox, a name and up to four badges — most of a 375px
+viewport, leaving a sliver for the data it exists to keep company with. Capped below `sm` with the
+name truncating, and `RoleBadges` now draws only the highest-ranked set-piece duty (penalty → free
+kick → corner, the priority `StatusBadge` already encoded) followed by a `+N` for the rest.
+`/compare`'s metric column went 9rem → 7.5rem.
+
+The `+N` chip produced the two defects that only running the app could find:
+
+- It nested a `<button>` inside `/builder`'s own whole-row button — invalid HTML and a React
+  hydration error. The chip is a plain titled span unless a caller opts in with `revealable`, which
+  is why that prop defaults to off.
+- `TapToReveal`'s panel is `fixed z-30` and was still painted over by the *next row's* `sticky z-10`
+  cell. **`fixed` positions against the viewport but does not escape a stacking context**, and equal
+  z-indexes are settled by DOM order. It portals to `document.body` now — which is what `fixed
+  z-30` already claimed to mean, and it applies to all 14 of its call sites.

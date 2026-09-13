@@ -56,11 +56,22 @@ Not implemented anywhere before this: `/review`'s transfers section was a bare i
 Per `manager_transfers` row: what came in, what went out, over the horizon the transfer was made
 for.
 
-**The horizon is a user input, not an invented constant.** The database records no intended
+**The window is a user input, not an invented constant.** The database records no intended
 horizon, so it is a documented page-level control over the shared `HORIZONS` —
 [methodology.md](methodology.md#when-a-term-cannot-be-dropped-make-it-an-input). Terms stay separate
-(`+X in − Y out − Z hit`), never a bare net. A transfer whose horizon runs past the last scored
+(`+X in − Y out − Z hit`), never a bare net. A transfer whose window runs past the last scored
 gameweek reports as *in progress, N of M scored* rather than being silently truncated.
+
+**Called "Transfers lookback" since 2026-09-13, not "horizon".** The control measures the past, and
+`horizon` is this app's word for a projection everywhere else
+([frontend-conventions.md](frontend-conventions.md#horizon-is-a-page-level-control-and-season-is-a-string)).
+The rename came out of a real confusion: the owner reported 1 GW and 3 GW returning identical
+figures. A `tsx` harness against entry 274486 showed the window construction is correct — only
+*scored* gameweeks count, and this early only GW3 has any, so every lookback sums the same football.
+The defect was that an unchanged number explained nothing, so the panel now states its own coverage
+(*"1 of 10 gameweeks in these lookback windows have been scored, so the verdicts are not final — and
+a longer lookback cannot change them until more gameweeks finish"*). A measurement that cannot move
+yet should say why, not look broken. — [sprints/m9.md](../sprints/m9.md)
 
 ## Chip ROI
 
