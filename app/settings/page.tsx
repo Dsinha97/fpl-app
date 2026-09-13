@@ -330,13 +330,14 @@ function ImportTab() {
           placeholder='{"picks": [...], "chips": [...], "transfers": {...}}'
           className="w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
         />
-        <button
+        <Button
           type="submit"
           disabled={status.kind === "busy" || !raw.trim()}
-          className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
+          size="md"
+          className="px-4"
         >
           {status.kind === "busy" ? "Importing…" : "Import as draft"}
-        </button>
+        </Button>
       </form>
 
       {status.kind === "error" && (

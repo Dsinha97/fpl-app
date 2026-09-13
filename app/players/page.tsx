@@ -1070,13 +1070,15 @@ export default function PlayersPage() {
                 Best value per row is highlighted. Horizon follows the page — {horizonLabel(horizon)}.
               </p>
             </div>
-            <button
+            <Button
               onClick={() => setCompareOpen(false)}
               aria-label="Close comparison"
-              className="shrink-0 rounded-md px-2 py-1 text-xl leading-none text-zinc-500 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-purple-950/60"
+              variant="ghost"
+              size="icon-sm"
+              className="shrink-0 text-xl leading-none text-zinc-500"
             >
               ×
-            </button>
+            </Button>
           </div>
 
           {chosen.length === 0 ? (

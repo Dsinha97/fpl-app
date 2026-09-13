@@ -524,12 +524,13 @@ export function ChipTiming({
       {applied && team && (
         <p className="mt-4 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
           {applied}{" "}
-          <button
+          <Button
             onClick={onShowTransferPath}
-            className="font-medium underline-offset-2 hover:underline"
+            variant="link"
+            className="h-auto p-0 text-inherit"
           >
             Show me →
-          </button>
+          </Button>
         </p>
       )}
 
@@ -576,13 +577,15 @@ export function ChipTiming({
             {resultLoading ? "Recalculating chip values…" : "Squad changed since these values were computed."}
           </span>
           {!resultLoading && (
-            <button
+            <Button
               type="button"
               onClick={runResult}
-              className="shrink-0 rounded-md border border-warning-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-warning-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              variant="outline"
+              size="xs"
+              className="shrink-0 border-warning-border px-2.5 hover:bg-warning-surface/70"
             >
               Re-run
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -683,7 +686,7 @@ export function ChipTiming({
                       Chip schedule · {half.label}
                     </h2>
                     {(half.oneOff || half.wildcard) && (
-                      <button
+                      <Button
                         type="button"
                         onClick={() => pinSchedule(half)}
                         disabled={!!half.oneOff && half.oneOff.margin < 1}
@@ -692,10 +695,12 @@ export function ChipTiming({
                             ? "This schedule is not a strong recommendation — the next-best combination is nearly as good."
                             : `Pin every chip in this schedule to "${team.name}"'s plan.`
                         }
-                        className="min-h-9 rounded-md border border-purple-700 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
+                        variant="outline"
+                        size="xs"
+                        className="min-h-9 border-purple-700 px-2.5 text-purple-700 hover:bg-purple-50 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
                       >
                         Pin whole schedule
-                      </button>
+                      </Button>
                     )}
                   </div>
 

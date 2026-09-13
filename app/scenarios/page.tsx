@@ -737,13 +737,15 @@ export default function ScenariosPage() {
               : "Drafts or horizon changed since these scores were computed."}
           </span>
           {!computing && (
-            <button
+            <Button
               type="button"
               onClick={runCompute}
-              className="shrink-0 rounded-md border border-warning-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-warning-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              variant="outline"
+              size="xs"
+              className="shrink-0 border-warning-border px-2.5 hover:bg-warning-surface/70"
             >
               Re-run
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -864,7 +866,9 @@ export default function ScenariosPage() {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
                       type="button"
                       onClick={() => {
                         setPinnedDraft(draft.pinned ? null : draft.draftId);
@@ -875,7 +879,7 @@ export default function ScenariosPage() {
                           ? "Unpin — stop opening this squad by default"
                           : "Pin — open this squad by default everywhere"
                       }
-                      className={`text-[13px] leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                      className={`text-[13px] leading-none transition-colors ${
                         draft.pinned
                           ? "text-amber-600 dark:text-amber-400"
                           : "text-zinc-300 hover:text-amber-600 dark:text-zinc-600 dark:hover:text-amber-400"
@@ -884,7 +888,7 @@ export default function ScenariosPage() {
                       aria-label={draft.pinned ? `Unpin ${draft.name}` : `Pin ${draft.name}`}
                     >
                       <Pin className="h-3.5 w-3.5" aria-hidden />
-                    </button>
+                    </Button>
                     {/* The box itself was 13px — under the 24px minimum, and a
                         fiddly target on a card you are trying to tick quickly.
                         The label already wraps both box and word, so padding
@@ -1003,7 +1007,9 @@ export default function ScenariosPage() {
                   <Button variant="outline" size="xs" onClick={() => openTimeline(draft.draftId)}>
                     Timeline
                   </Button>
-                  <button
+                  <Button
+                    variant="outline"
+                    size="xs"
                     onClick={() => {
                       if (confirmDelete !== draft.draftId) {
                         setConfirmDelete(draft.draftId);
@@ -1016,14 +1022,14 @@ export default function ScenariosPage() {
                       refresh();
                     }}
                     onBlur={() => setConfirmDelete(null)}
-                    className={`rounded border px-2 py-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    className={`rounded border px-2 py-1 font-medium transition-colors ${
                       confirmDelete === draft.draftId
                         ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
                         : "border-zinc-300 text-red-600 hover:border-red-500 dark:border-purple-800/60 dark:text-red-400"
                     }`}
                   >
                     {confirmDelete === draft.draftId ? "Confirm delete?" : "Delete"}
-                  </button>
+                  </Button>
                 </div>
               </article>
             );
@@ -1126,18 +1132,18 @@ export default function ScenariosPage() {
               <Button variant="link" size="md" onClick={() => setSelected([])}>
                 Clear
               </Button>
-              <button
+              <Button
                 onClick={() =>
                   comparisonRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
                 }
-                className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
+                size="md"
               >
                 {/* It scrolls. "Compare N drafts" read as the action that
                     produces the comparison, which is already on the page
                     below (DSI-123) — so name the navigation, not a
                     recalculation that never happens. */}
                 Jump to comparison ↓
-              </button>
+              </Button>
             </span>
           </div>
         </div>

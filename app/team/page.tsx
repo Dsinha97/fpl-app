@@ -1344,13 +1344,14 @@ export default function TeamPage() {
         placeholder="e.g. 1234567"
         className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
       />
-      <button
+      <Button
         type="submit"
         disabled={loading}
-        className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
+        size="md"
+        className="px-4"
       >
         {loading ? "Syncing…" : savedId ? "Refresh" : "Connect"}
-      </button>
+      </Button>
     </form>
   );
 
@@ -1942,14 +1943,16 @@ export default function TeamPage() {
                           placeholder="Add rival by Manager ID"
                           className="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
                         />
-                        <button
+                        <Button
                           type="button"
                           onClick={() => void addRival()}
                           disabled={rivalBusy || !rivalInput.trim()}
-                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+                          variant="outline"
+                          size="xs"
+                          className="px-2.5"
                         >
                           {rivalBusy ? "Adding…" : "Add"}
-                        </button>
+                        </Button>
                       </div>
                       {rivalError && (
                         <p className="mt-1.5 text-xs text-red-700 dark:text-red-400">{rivalError}</p>
@@ -1981,14 +1984,16 @@ export default function TeamPage() {
                               ))}
                             </select>
                             {rivalCandidates.length > 0 && (
-                              <button
+                              <Button
                                 type="button"
                                 onClick={() => void addFromLeague()}
                                 disabled={rivalBusy}
-                                className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+                                variant="outline"
+                                size="xs"
+                                className="px-2.5"
                               >
                                 Add top {rivalCandidates.length}
-                              </button>
+                              </Button>
                             )}
                           </div>
 
@@ -2052,15 +2057,17 @@ export default function TeamPage() {
                                 className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-purple-950/50 dark:text-zinc-300"
                               >
                                 {label}
-                                <button
+                                <Button
                                   type="button"
                                   onClick={() => void removeRival(entryId)}
                                   disabled={rivalBusy}
                                   aria-label={`Remove ${label} as a rival`}
-                                  className="text-zinc-400 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:hover:text-red-400"
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
                                 >
                                   ×
-                                </button>
+                                </Button>
                               </li>
                             );
                           })}

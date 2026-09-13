@@ -748,14 +748,16 @@ export default function TransfersPage() {
         <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
           Replacing {scoredById.get(pickingFor)?.webName}
         </h3>
-        <button
+        <Button
           type="button"
           onClick={() => setPickingFor(null)}
           aria-label="Cancel"
-          className="rounded text-zinc-400 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-zinc-200"
+          variant="ghost"
+          size="icon-xs"
+          className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
         >
           ×
-        </button>
+        </Button>
       </div>
       <input
         type="search"
@@ -1412,7 +1414,7 @@ export default function TransfersPage() {
                   ))}
                 </ul>
 
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     if (simulation.legal) applyAsNewDraft();
@@ -1423,10 +1425,11 @@ export default function TransfersPage() {
                       ? "Saves the result as a new draft"
                       : "Fix the problems above first"
                   }
-                  className="mt-3 w-full rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
+                  size="md"
+                  className="mt-3 w-full"
                 >
                   Apply as a new draft
-                </button>
+                </Button>
 
                 <p className="mt-3 text-[10px] leading-relaxed text-zinc-400">
                   {TRANSFER_MODEL_NOTE}

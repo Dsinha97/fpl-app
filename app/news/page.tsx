@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { CalendarClock, LineChart, Newspaper, Rss, TriangleAlert } from "lucide-react";
@@ -236,13 +237,14 @@ export default function NewsPage() {
             <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               Showing only headlines that mention{" "}
               <span className="font-medium text-foreground">{entityFilter.name}</span>
-              <button
+              <Button
                 type="button"
                 onClick={() => setEntityFilter(null)}
-                className="rounded px-1.5 py-0.5 underline underline-offset-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                variant="link"
+                className="h-auto p-0 text-inherit"
               >
                 clear
-              </button>
+              </Button>
             </p>
           )}
 
@@ -310,7 +312,9 @@ export default function NewsPage() {
                       const active =
                         entityFilter?.type === e.entity_type && entityFilter?.id === e.entity_id;
                       return (
-                        <button
+                        <Button
+                          size="xs"
+                          variant="ghost"
                           key={i}
                           type="button"
                           aria-pressed={active}
@@ -319,7 +323,7 @@ export default function NewsPage() {
                               active ? null : { type: e.entity_type, id: e.entity_id, name: label },
                             )
                           }
-                          className={`rounded px-1.5 py-0.5 text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                          className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
                             active
                               ? "bg-primary text-slate-950"
                               : "bg-accent text-accent-foreground hover:bg-primary/20"
@@ -327,7 +331,7 @@ export default function NewsPage() {
                           title={`${active ? "Clear this filter" : `Show only headlines mentioning ${label}`} · ${e.entity_type} match · ${Math.round(e.confidence * 100)}% confidence · ${e.matched_via}`}
                         >
                           {label}
-                        </button>
+                        </Button>
                       );
                     })}
                   </div>
