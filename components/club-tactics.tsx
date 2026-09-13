@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { InfoTooltip } from "@/components/info-tooltip";
+import { ModelNote } from "@/components/ui/model-note";
 import { ExpandToggle } from "@/components/ui/expand-toggle";
 import { TeamCrest } from "@/components/identity";
 import { buildupStyleLabel, TACTICAL_PROFILE_NOTE, type TacticalProfile } from "@/lib/tactical-profile";
@@ -44,11 +44,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
     <section>
       <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
         PL Club Tactics
-        <InfoTooltip label="What is this?">
-          <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-            {TACTICAL_PROFILE_NOTE}
-          </p>
-        </InfoTooltip>
+        <ModelNote label="What is this?">{TACTICAL_PROFILE_NOTE}</ModelNote>
       </h2>
       <p className="mt-1 text-sm text-zinc-500">
         Each club&apos;s head coach — formation, buildup style, pressing intensity — shown as
@@ -61,7 +57,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
           return (
             <div
               key={teamId}
-              className="w-full self-start overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234] sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.333%-0.5rem)]"
+              className="w-full self-start overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.333%-0.5rem)]"
             >
               <button
                 onClick={() => toggle(teamId)}
@@ -108,7 +104,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
               {/* CSS Grid 0fr→1fr rather than mount/unmount (Sprint 24) — see
                   CollapsibleCard's identical pattern for why. */}
               <div
-                className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
+                className={`grid transition-[grid-template-rows] duration-base ease-emphasis motion-reduce:transition-none ${
                   open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                 }`}
               >
@@ -141,8 +137,16 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                               {group}
                             </span>
                             {roleLine && <>: {roleLine.replace(/_/g, " ")}</>}
+                            {/* Not italic (DSI-127). These are full sentences of
+                                source prose, and several lines of italic at 11px
+                                on the dark purple card is the hardest thing to
+                                read on the page. Emphasis comes from the role
+                                line above it being the medium weight, not from
+                                slanting the explanation. */}
                             {detailLine && (
-                              <span className="block break-words italic">{detailLine}</span>
+                              <span className="block break-words text-zinc-500 dark:text-zinc-500">
+                                {detailLine}
+                              </span>
                             )}
                           </li>
                         );
@@ -154,7 +158,11 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                     profile.modifiers.highPressFdrModifier !== null ||
                     profile.modifiers.setPieceBias !== null) && (
                     <p className="mt-2 border-t border-zinc-100 pt-2 text-[11px] text-zinc-400 dark:border-purple-900/40">
-                      Source figures, not applied to xP — low block ×
+                      {/* "not applied to xP" sat immediately above three
+                          multipliers, which reads as a contradiction rather than
+                          a disclaimer (DSI-127). Lead with what they are. */}
+                      Context only — the source&apos;s own figures, read by nothing in this app&apos;s
+                      projection: low block ×
                       {profile.modifiers.lowBlockFdrModifier ?? "—"}, high press ×
                       {profile.modifiers.highPressFdrModifier ?? "—"}, set pieces ×
                       {profile.modifiers.setPieceBias ?? "—"}

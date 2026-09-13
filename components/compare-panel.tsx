@@ -1,8 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
+import { Button } from "@/components/ui/button";
 import { FixtureCell } from "@/components/fdr-badge";
-import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
+import { FdrLegendContent, InfoTooltip, TapToReveal } from "@/components/info-tooltip";
+import { Badge } from "@/components/ui/badge";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import {
   comparePlayers,
@@ -14,6 +17,7 @@ import {
   XDC_MODEL_NOTE,
   type ScoredPlayer,
 } from "@/lib/scoring";
+import { ModelNote } from "@/components/ui/model-note";
 import { horizonLabel, horizonLength, type Horizon } from "@/lib/team-state";
 import { fullName } from "@/lib/player-search";
 
@@ -210,11 +214,64 @@ export function ComparePanel({
 
   return (
     <>
+      {/* ranking */}
+      <section>
+        <h2 className="flex items-center gap-1.5 text-sm font-medium uppercase tracking-wide text-zinc-500">
+          Ranking over {horizonLabel(horizon)}
+        
+          <ModelNote label="How is this ranking calculated?" align="right">
+            <span className="block">{COMPARISON_MODEL_NOTE}</span>
+            <span className="block">{RISK_MODEL_NOTE}</span>
+          </ModelNote>
+        </h2>
+        <ol className="mt-3 space-y-2">
+          {ranked.map((r, i) => (
+            <li
+              key={r.player.id}
+              className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-card"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                  {i + 1}. {r.player.webName}
+                </span>
+                <span
+                  className="text-xs tabular-nums text-zinc-500"
+                  title="Weighted comparison score"
+                >
+                  score {r.score.toFixed(3)}
+                </span>
+              </div>
+              {/* Badges rather than coloured text with a ✓/! glyph in front
+                  (DSI-126): a caution about a player's minutes reads as a flag
+                  to weigh, not as a coloured sentence, and the badge's own
+                  tone carries what the glyph was doing. */}
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {r.strengths.map((s) => (
+                  <Badge key={s} tone="positive" variant="outline" size="sm" className="normal-case">
+                    {s}
+                  </Badge>
+                ))}
+                {r.weaknesses.map((w) => (
+                  <Badge key={w} tone="warning" variant="outline" size="sm" className="normal-case">
+                    {w}
+                  </Badge>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ol>
+
+      </section>
+
+      {/* The verdict comes before the evidence: the ranking answers the
+          question the table only supplies the working for, and a reader who
+          wants the working scrolls past it. It used to sit under 16 metric
+          rows, which on a phone meant the conclusion was off the fold. */}
       {/* min-w rather than table-fixed's percentage columns — on a phone
           viewport, four equal-percentage columns squeeze player names and
           numbers illegibly small instead of scrolling. Same overflow-x-auto +
           min-w + sticky-first-column pattern app/players/page.tsx uses. */}
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
         <table className="w-full min-w-[40rem] text-sm">
           <colgroup>
             <col style={{ width: "9rem" }} />
@@ -224,13 +281,13 @@ export function ComparePanel({
           </colgroup>
           <thead>
             <tr className="border-b border-zinc-200 dark:border-purple-900/40">
-              <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-[#1E0234]">
+              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-card">
                 Metric
-              </th>
+              </DataHeadCell>
               {chosen.map((p) => {
                 const row = rowById.get(p.id);
                 return (
-                  <th key={p.id} className="px-3 py-2 text-left">
+                  <DataHeadCell key={p.id} className="px-3 py-2 text-left">
                     <div className="flex min-w-0 items-center gap-1.5">
                       <span
                         className="min-w-0 truncate font-semibold text-zinc-900 dark:text-zinc-100"
@@ -246,18 +303,20 @@ export function ComparePanel({
                           size="w-3.5 h-3.5"
                         />
                       )}
-                      <button
+                      <Button
                         onClick={() => onRemove(p.id)}
                         aria-label={`Remove ${p.webName}`}
-                        className="ml-auto shrink-0 text-zinc-400 transition-colors hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="ml-auto shrink-0 text-zinc-400 hover:text-red-500"
                       >
                         ×
-                      </button>
+                      </Button>
                     </div>
                     <div className="text-xs font-normal text-zinc-500">
                       {p.teamShort} · {POSITIONS[p.elementType]}
                     </div>
-                  </th>
+                  </DataHeadCell>
                 );
               })}
             </tr>
@@ -267,44 +326,64 @@ export function ComparePanel({
               const values = chosen.map((p) => m.value(p));
               const { best, contested } = winnerOf(values, m.dir);
               return (
-                <tr
-                  key={m.label}
-                  className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
-                >
-                  <th className="sticky left-0 z-10 bg-white px-3 py-1.5 text-left text-xs font-medium text-zinc-500 dark:bg-[#1E0234]">
+                <DataRow key={m.label} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                  <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-1.5 text-left text-xs font-medium text-zinc-500 dark:bg-card">
                     <span className="flex items-center gap-1">
                       {m.label}
                       {m.hint && <InfoTooltip label={m.hint}>{m.hint}</InfoTooltip>}
                     </span>
-                  </th>
+                  </DataHeadCell>
                   {chosen.map((p, i) => {
                     const v = values[i];
                     const isBest = best !== null && v === best && !contested;
                     const isTiedBest = best !== null && v === best && contested;
                     return (
-                      <td
+                      <DataCell
                         key={p.id}
                         className={`px-3 py-1.5 tabular-nums ${
                           isBest
-                            ? "font-bold text-purple-900 dark:text-[#00FF87]"
+                            ? "font-bold text-purple-900 dark:text-primary"
                             : "text-zinc-800 dark:text-zinc-200"
                         }`}
                       >
                         {m.format(v)}
-                        {isBest && <span className="ml-1 text-[10px]">▲</span>}
-                        {isTiedBest && <span className="ml-1 text-[10px]">–</span>}
-                      </td>
+                        {/* The glyph follows the metric's own direction
+                            (DSI-126). A ▲ beside the cheapest price said two
+                            wrong things at once: that low is up, and that cheap
+                            is better — price is a cost, not a performance
+                            score. Low-is-best rows now point down and the
+                            title names the superlative rather than implying
+                            a winner. */}
+                        {isBest && (
+                          <TapToReveal
+                            label={`Why ${m.label.toLowerCase()} is marked best here`}
+                            align="right"
+                            trigger={<span className="text-[10px]">{m.dir === "high" ? "▲" : "▼"}</span>}
+                            wrapperClassName="relative ml-1 inline-flex align-middle"
+                          >
+                            <span className="block text-xs leading-relaxed">
+                              {m.dir === "high" ? "Highest" : "Lowest"} {m.label.toLowerCase()} of
+                              those compared.
+                            </span>
+                          </TapToReveal>
+                        )}
+                        {isTiedBest && (
+                          <span className="ml-1 text-[10px]" title="Tied — no clear best">
+                            –
+                          </span>
+                        )}
+                      </DataCell>
                     );
                   })}
-                </tr>
+                </DataRow>
               );
             })}
 
             {/* set-piece roles — informational only, no winner to highlight */}
-            <tr className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-              <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-[#1E0234]">
+            <DataRow className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-card">
                 Set pieces
-              </th>
+              </DataHeadCell>
               {chosen.map((p) => {
                 const row = rowById.get(p.id);
                 const hasRole =
@@ -313,7 +392,7 @@ export function ComparePanel({
                     row.direct_freekicks_order === 1 ||
                     row.corners_and_indirect_freekicks_order === 1);
                 return (
-                  <td key={p.id} className="px-3 py-2">
+                  <DataCell key={p.id} className="px-3 py-2">
                     {hasRole ? (
                       <RoleBadges
                         penaltyOrder={row.penalties_order}
@@ -324,23 +403,23 @@ export function ComparePanel({
                     ) : (
                       <span className="text-zinc-400">—</span>
                     )}
-                  </td>
+                  </DataCell>
                 );
               })}
-            </tr>
+            </DataRow>
 
             {/* fixture runs */}
-            <tr className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-              <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-[#1E0234]">
+            <DataRow className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-card">
                 <span className="flex items-center gap-1">
                   Fixtures
                   <InfoTooltip>
                     <FdrLegendContent />
                   </InfoTooltip>
                 </span>
-              </th>
+              </DataHeadCell>
               {chosen.map((p) => (
-                <td key={p.id} className="px-3 py-2">
+                <DataCell key={p.id} className="px-3 py-2">
                   <span className="flex flex-wrap gap-1">
                     {(upcoming.get(p.teamId) ?? [])
                       .slice(0, horizonLength(horizon, seasonWindow))
@@ -355,53 +434,13 @@ export function ComparePanel({
                         />
                       ))}
                   </span>
-                </td>
+                </DataCell>
               ))}
-            </tr>
+            </DataRow>
           </tbody>
         </table>
       </div>
 
-      {/* ranking */}
-      <section className="mt-6">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
-          Ranking over {horizonLabel(horizon)}
-        </h2>
-        <ol className="mt-3 space-y-2">
-          {ranked.map((r, i) => (
-            <li
-              key={r.player.id}
-              className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]"
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                  {i + 1}. {r.player.webName}
-                </span>
-                <span
-                  className="text-xs tabular-nums text-zinc-500"
-                  title="Weighted comparison score"
-                >
-                  score {r.score.toFixed(3)}
-                </span>
-              </div>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
-                {r.strengths.map((s) => (
-                  <span key={s} className="text-emerald-700 dark:text-emerald-400">
-                    ✓ {s}
-                  </span>
-                ))}
-                {r.weaknesses.map((w) => (
-                  <span key={w} className="text-amber-700 dark:text-amber-400">
-                    ! {w}
-                  </span>
-                ))}
-              </div>
-            </li>
-          ))}
-        </ol>
-        <p className="mt-3 text-[11px] leading-relaxed text-zinc-400">{COMPARISON_MODEL_NOTE}</p>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">{RISK_MODEL_NOTE}</p>
-      </section>
     </>
   );
 }

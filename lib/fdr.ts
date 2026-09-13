@@ -42,7 +42,11 @@ export const fdrTheme: Record<FdrRating, FDRConfig> = {
     label: "Hard",
     // Orange
     bgClass: "bg-orange-500 dark:bg-orange-500",
-    textClass: "text-white dark:text-slate-950",
+    // Was text-white in light mode: 2.80:1 on orange-500, which fails WCAG AA
+    // even at the 3.0 large/bold threshold. Dark mode already used slate-950
+    // on the identical fill for 7.20:1, so the two themes now agree and both
+    // pass. Measured M9; the only contrast failure in the five-step ramp.
+    textClass: "text-slate-950 dark:text-slate-950",
     hexCode: "#F97316",
   },
   5: {
@@ -70,14 +74,42 @@ export const fdrClasses = (n: number | null | undefined): string => {
 
 export const fdrLabel = (n: number | null | undefined): string => fdrConfig(n).label;
 
-// Venue is encoded as a ring rather than by letter case, which was hard to
-// read at a glance. The 1px surface-coloured offset guarantees the ring stays
-// legible even when its hue is close to the FDR fill underneath (green ring on
-// an easy-green fixture, red ring on a very-hard-red one).
+// Venue is encoded by a ring on AWAY fixtures only, and never by hue.
+//
+// History, because two of these decisions were measured and should not be
+// re-litigated by eye:
+//
+//  - It was once a green ring for home and a red ring for away, which put the
+//    venue channel on the one axis red-green colour blindness destroys — on
+//    top of a fill that is itself red or green. Measured (M9, Machado 2009
+//    severity 1.0, linear-RGB separation): green-400 vs red-400 scores 1.039
+//    at normal vision, 0.579 under protanopia, 0.204 under deuteranopia. An
+//    80% collapse: roughly 1 in 12 men could not read home from away at all.
+//  - It then became two neutral rings, near-black/near-white for home and
+//    purple-400 for away, on the reasoning that presence-vs-absence alone made
+//    an away fixture look like an unstyled one.
+//
+// Two rings is what this replaces. Reported 2026-09-13 as simply hard to read,
+// and the reason is that both rings were chosen to be *quiet* — a 2px ring on
+// a 20px pill, separated from each other mostly by hue, at the size these
+// actually render. Distinguishing "which ring is this" is a harder task than
+// "is there a ring", and the second task is the one that carries the meaning.
+//
+// So: home carries nothing, away carries a single high-contrast neutral ring.
+// Luminance, not hue, so it survives all three CVD conditions by construction
+// rather than by measurement, and it is the same near-black/near-white the
+// old home ring used — the value that already cleared every difficulty fill.
+//
+// The ramp itself was measured at the same time and KEPT: adjacent steps stay
+// >= 0.32 apart under all three conditions, sometimes wider than at normal
+// vision. The audit's blanket "desaturate the matrix" would have discarded a
+// working channel to fix a broken one.
+//
+// Anything relying on the ring alone must say so: `FdrMatrix`'s legend reads
+// "ring = away", and every `FixtureCell` carries the venue in its title and
+// aria-label regardless of width.
 export const venueRing = (home: boolean): string =>
-  home
-    ? "ring-2 ring-offset-1 ring-green-400 ring-offset-white dark:ring-offset-[#1E0234]"
-    : "ring-2 ring-offset-1 ring-red-400 ring-offset-white dark:ring-offset-[#1E0234]";
+  home ? "" : "ring-2 ring-offset-1 ring-zinc-900 ring-offset-white dark:ring-white dark:ring-offset-card";
 
 // ------------------------------------------------------- fixture windows
 //

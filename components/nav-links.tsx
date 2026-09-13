@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Menu } from "@base-ui/react/menu";
@@ -60,7 +61,7 @@ export const NAV_GROUPS = [
 const normalize = (path: string) => (path !== "/" ? path.replace(/\/$/, "") : path);
 
 const activeLinkClass =
-  "bg-purple-50 font-medium text-purple-800 dark:bg-purple-950/60 dark:text-[#00FF87]";
+  "bg-purple-50 font-medium text-purple-800 dark:bg-purple-950/60 dark:text-primary";
 const inactiveLinkClass =
   "text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-purple-950/40";
 
@@ -121,8 +122,8 @@ function DesktopNavGroup({
         closeDelay={150}
         className={`flex items-center gap-1 whitespace-nowrap rounded-md border-b-2 px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           active
-            ? "border-current font-medium text-purple-800 dark:text-[#00FF87]"
-            : "border-transparent text-zinc-600 hover:text-purple-800 dark:text-zinc-400 dark:hover:text-[#00FF87]"
+            ? "border-current font-medium text-purple-800 dark:text-primary"
+            : "border-transparent text-zinc-600 hover:text-purple-800 dark:text-zinc-400 dark:hover:text-primary"
         }`}
       >
         {group.label}
@@ -146,7 +147,7 @@ function DesktopNavGroup({
                     aria-current={itemActive ? "page" : undefined}
                     className={`block px-3 py-1.5 text-sm ${
                       itemActive
-                        ? "font-medium text-purple-800 dark:text-[#00FF87]"
+                        ? "font-medium text-purple-800 dark:text-primary"
                         : "text-popover-foreground"
                     }`}
                   >
@@ -197,7 +198,7 @@ function MobileNavGroup({
         onClick={() => setOpen((v) => !v)}
         className={`flex w-full items-center justify-between rounded-md px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           active
-            ? "text-purple-800 dark:text-[#00FF87]"
+            ? "text-purple-800 dark:text-primary"
             : "text-zinc-700 dark:text-zinc-300"
         }`}
       >
@@ -211,7 +212,7 @@ function MobileNavGroup({
           pattern every other expander in the app uses, so the drawer's
           groups animate instead of snapping open. */}
       <div
-        className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
+        className={`grid transition-[grid-template-rows] duration-base ease-emphasis motion-reduce:transition-none ${
           open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         }`}
       >
@@ -268,15 +269,17 @@ export function MobileNav() {
        across the wordmark, and the account avatar keeps the right edge to
        itself via its own `ml-auto` in layout.tsx. */
     <div ref={wrapper} className="relative lg:hidden">
-      <button
+      <Button
         type="button"
         aria-label={open ? "Close navigation menu" : "Open navigation menu"}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-11 w-11 items-center justify-center rounded-md text-xl leading-none text-zinc-600 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-zinc-300 dark:hover:bg-purple-950/60"
+        variant="ghost"
+        size="icon"
+        className="size-11 text-xl leading-none text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-purple-950/60"
       >
         <span aria-hidden="true">{open ? "×" : "☰"}</span>
-      </button>
+      </Button>
 
       {/* A trigger at the header's left edge is one tap; docking the drawer
           to the same edge it opened from (rather than the bottom, as an

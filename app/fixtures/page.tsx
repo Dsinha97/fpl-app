@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CalendarDays, Grid3x3, List, Shirt } from "lucide-react";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { supabase } from "@/lib/supabase/client";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { FdrMatrix } from "@/components/fdr-matrix";
@@ -134,20 +136,16 @@ export default function FixturesPage() {
 
   const teamsById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
 
-  const tabButton = (id: Tab, label: string, icon: string) => (
-    <button
-      onClick={() => setTab(id)}
-      aria-current={tab === id ? "page" : undefined}
-      className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        tab === id
-          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-[#00FF87] dark:ring-1 dark:ring-[#00FF87]/40"
-          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/50"
-      }`}
-    >
-      <span aria-hidden="true">{icon}</span>
-      {label}
-    </button>
-  );
+  /* Monochrome line icons rather than the system emoji this row used to carry
+     (`✓ ▦ ≡ 🎽`). DSI-122 raises this against /news' filter pills, but it is
+     the same defect here: an emoji renders in the platform's own colours and
+     style, so it never matches the design system around it. */
+  const TABS = [
+    { value: "schedule" as const, label: <><CalendarDays className="size-3.5" aria-hidden />Schedule</> },
+    { value: "fdr" as const, label: <><Grid3x3 className="size-3.5" aria-hidden />FDR</> },
+    { value: "table" as const, label: <><List className="size-3.5" aria-hidden />Table</> },
+    { value: "clubs" as const, label: <><Shirt className="size-3.5" aria-hidden />Clubs</> },
+  ];
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
@@ -158,12 +156,13 @@ export default function FixturesPage() {
         </InfoTooltip>
       </h1>
 
-      <div className="mt-4 flex gap-1 rounded-lg border border-zinc-200 p-1 dark:border-purple-900/40">
-        {tabButton("schedule", "Schedule", "✓")}
-        {tabButton("fdr", "FDR", "▦")}
-        {tabButton("table", "Table", "≡")}
-        {tabButton("clubs", "Clubs", "🎽")}
-      </div>
+      <SegmentedControl
+        className="mt-4"
+        label="Fixtures view"
+        options={TABS}
+        value={tab}
+        onValueChange={setTab}
+      />
 
       {error && (
         <p className="mt-6 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
@@ -181,7 +180,7 @@ export default function FixturesPage() {
       {!loading && !error && tab === "schedule" && (
         <>
           <p className="mt-4 text-sm text-zinc-500">
-            Upcoming gameweeks first, completed ones collapsed. Times shown in {localZone()}; final
+            Upcoming gameweeks first; completed ones collapse into their own section below. Times shown in {localZone()}; final
             scores replace the kickoff time once a match is over.
           </p>
           <FixtureSchedule

@@ -13,6 +13,7 @@
 // league the reader has no way of knowing exists.
 
 import { ChevronRight } from "lucide-react";
+import { TapToReveal } from "@/components/info-tooltip";
 
 export interface ManagerLeagueRow {
   league_id: number;
@@ -91,13 +92,26 @@ export function ManagerLeagues({ leagues, onSelect, selectedLeagueId }: ManagerL
                       <span className="flex shrink-0 items-center gap-1 tabular-nums text-zinc-500">
                         {rankLabel(l)}
                         {move !== null && move !== 0 && (
-                          <span
-                            className={move > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}
-                            title={`${move > 0 ? "Up" : "Down"} ${Math.abs(move)} since last recorded`}
+                          <TapToReveal
+                            label={`What this league's rank movement is measured against`}
+                            align="right"
+                            trigger={
+                              <span
+                                className={
+                                  move > 0
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : "text-red-600 dark:text-red-400"
+                                }
+                              >
+                                {move > 0 ? "▲" : "▼"}
+                                {Math.abs(move)}
+                              </span>
+                            }
                           >
-                            {move > 0 ? "▲" : "▼"}
-                            {Math.abs(move)}
-                          </span>
+                            <span className="block text-xs leading-relaxed">
+                              {move > 0 ? "Up" : "Down"} {Math.abs(move)} since last recorded.
+                            </span>
+                          </TapToReveal>
                         )}
                       </span>
                     </>

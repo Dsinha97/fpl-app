@@ -16,6 +16,11 @@ import {
   teamStateFromMyTeamJson,
   type SellPriceMismatch,
 } from "@/lib/fpl-squad";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { DevToolsWalkthrough } from "@/components/devtools-walkthrough";
+import { useErrorShake } from "@/components/ui/use-error-shake";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 // Sprint 14.3 — one settings page with two tabs, replacing the standalone
 // /settings/fpl route (now a redirect, below) and giving "claim your Manager
@@ -42,6 +47,9 @@ function AccountTab() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ kind: "ok" | "error"; message: string } | null>(null);
+  const entryField = useErrorShake<HTMLInputElement>(
+    status?.kind === "error" ? status.message : null,
+  );
 
   useEffect(() => {
     // entryId arrives asynchronously from AuthProvider's own Supabase fetch,
@@ -101,12 +109,12 @@ function AccountTab() {
 
   return (
     <div className="mt-6 space-y-6">
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
         <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Signed in as</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{user?.email}</p>
       </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
         <h2 className="flex items-center gap-1.5 text-sm font-medium text-zinc-900 dark:text-zinc-100">
           FPL Manager ID
           <InfoTooltip label="What does linking a Manager ID do?">
@@ -124,19 +132,27 @@ function AccountTab() {
 
         <form onSubmit={onSubmit} className="mt-3 flex flex-wrap items-center gap-2">
           <input
+            ref={entryField}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             inputMode="numeric"
             placeholder="e.g. 1234567"
-            className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
+            className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
           />
-          <button
+          {/* Outline once a manager is already linked, and inert until the
+              value actually changes (DSI-128). Linking is a one-time setup
+              step; a solid accent button that stays live forever asks to be
+              pressed on every visit to a page nobody came here to act on.
+              The first link keeps the filled treatment — there it is the
+              point of the screen. */}
+          <Button
             type="submit"
-            disabled={busy}
-            className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+            variant={entryId ? "outline" : "default"}
+            size="md"
+            disabled={busy || (entryId !== null && input.trim() === String(entryId))}
           >
             {busy ? "Linking…" : entryId ? "Update" : "Link"}
-          </button>
+          </Button>
         </form>
 
         {status && (
@@ -177,6 +193,15 @@ function ImportTab() {
   const { teamName, entryId } = useAuth();
   const [raw, setRaw] = useState("");
   const [status, setStatus] = useState<ImportStatus>({ kind: "idle" });
+  /** Resolved after mount: `navigator` does not exist during prerender. */
+  const [canPaste, setCanPaste] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCanPaste(typeof navigator !== "undefined" && !!navigator.clipboard?.readText);
+  }, []);
+  const importField = useErrorShake<HTMLTextAreaElement>(
+    status.kind === "error" ? status.message : null,
+  );
 
   const onImport = async (e: FormEvent) => {
     e.preventDefault();
@@ -263,7 +288,7 @@ function ImportTab() {
   };
 
   return (
-    <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+    <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
       <h2 className="flex items-center gap-1.5 text-sm font-medium text-zinc-900 dark:text-zinc-100">
         Why paste, not log in?
         <InfoTooltip label="Why is this a paste, not a login?">
@@ -275,7 +300,7 @@ function ImportTab() {
       </h2>
       <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
         Opening{" "}
-        <code className="rounded bg-zinc-100 px-1 text-[11px] dark:bg-[#2A0A45]">
+        <code className="rounded bg-zinc-100 px-1 text-[11px] dark:bg-surface-3">
           {myTeamUrlHint(entryId)}
         </code>{" "}
         directly in a tab won&apos;t work even signed in — it returns an &quot;Authentication
@@ -291,20 +316,20 @@ function ImportTab() {
             href="https://fantasy.premierleague.com/my-team"
             target="_blank"
             rel="noreferrer"
-            className="text-purple-800 underline dark:text-[#00FF87]"
+            className="text-purple-800 underline dark:text-primary"
           >
             fantasy.premierleague.com/my-team
           </a>
           .
         </li>
         <li>
-          Open DevTools (<code className="rounded bg-zinc-100 px-1 text-xs dark:bg-[#2A0A45]">F12</code>)
+          Open DevTools (<code className="rounded bg-zinc-100 px-1 text-xs dark:bg-surface-3">F12</code>)
           and select the <strong>Network</strong> tab.
         </li>
         <li>Reload the page, then filter the request list for &quot;my-team&quot;.</li>
         <li>
           Click the request ending in{" "}
-          <code className="rounded bg-zinc-100 px-1 text-xs dark:bg-[#2A0A45]">
+          <code className="rounded bg-zinc-100 px-1 text-xs dark:bg-surface-3">
             {myTeamUrlHint(entryId)}
           </code>
           , open its <strong>Response</strong> tab, and copy the whole JSON body.
@@ -312,21 +337,60 @@ function ImportTab() {
         <li>Paste it below and import.</li>
       </ol>
 
+      <DevToolsWalkthrough urlHint={myTeamUrlHint(entryId)} />
+
       <form onSubmit={onImport} className="mt-4 space-y-2">
         <textarea
+          ref={importField}
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
           rows={6}
           placeholder='{"picks": [...], "chips": [...], "transfers": {...}}'
-          className="w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
+          className="w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
         />
-        <button
-          type="submit"
-          disabled={status.kind === "busy" || !raw.trim()}
-          className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
-        >
-          {status.kind === "busy" ? "Importing…" : "Import as draft"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="submit"
+            disabled={status.kind === "busy" || !raw.trim()}
+            size="md"
+          className="px-4"
+          >
+            {status.kind === "busy" ? "Importing…" : "Import as draft"}
+          </Button>
+          {/* The JSON is already on the clipboard at this point -- that is the
+              step immediately before this one -- so the paste is the app's job
+              to offer, not the reader's to perform into a textarea they have
+              to focus first. Feature-detected: `navigator.clipboard.readText`
+              is absent in Firefox and on any non-secure origin, and a button
+              that silently does nothing is worse than no button. */}
+          {canPaste && (
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={async () => {
+                try {
+                  const text = await navigator.clipboard.readText();
+                  if (!text.trim()) {
+                    setStatus({ kind: "error", message: "Clipboard is empty." });
+                    return;
+                  }
+                  setRaw(text);
+                  setStatus({ kind: "idle" });
+                } catch {
+                  // Denied, or a prompt that was dismissed. Say so rather than
+                  // appearing to have worked.
+                  setStatus({
+                    kind: "error",
+                    message: "Couldn't read the clipboard -- paste into the box instead.",
+                  });
+                }
+              }}
+            >
+              Paste from clipboard
+            </Button>
+          )}
+        </div>
       </form>
 
       {status.kind === "error" && (
@@ -341,17 +405,17 @@ function ImportTab() {
             Imported {status.playerCount} players, £{(status.budget / 10).toFixed(1)}m total budget.
           </p>
           {status.mismatches.length > 0 && (
-            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+            <Alert tone="warning">
               {status.mismatches.length} pick(s) had a sell-price our formula computed differently
               from FPL&apos;s own figure — worth a look, not blocking:{" "}
               {status.mismatches
                 .map((m) => `#${m.playerId} (ours £${(m.ours / 10).toFixed(1)}m vs FPL £${(m.fpl / 10).toFixed(1)}m)`)
                 .join(", ")}
-            </p>
+            </Alert>
           )}
           <a
             href={`/builder/?draft=${status.draftId}`}
-            className="inline-block rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+            className="inline-block rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
           >
             Open in Builder →
           </a>
@@ -409,20 +473,6 @@ export default function SettingsPage() {
   const signedOut = !loading && !user;
   if (signedOut && tab !== "status") return null;
 
-  const tabButton = (id: Tab, label: string) => (
-    <button
-      onClick={() => setTab(id)}
-      aria-current={tab === id ? "page" : undefined}
-      className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        tab === id
-          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-[#00FF87] dark:ring-1 dark:ring-[#00FF87]/40"
-          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/50"
-      }`}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <main className={`mx-auto w-full flex-1 px-4 py-10 ${tab === "status" ? "max-w-5xl" : "max-w-xl"}`}>
       <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
@@ -432,12 +482,18 @@ export default function SettingsPage() {
       {/* Signed out, the other two tabs are not reachable, so offering them
           would be a dead end rather than a choice. */}
       {!signedOut && (
-        <div className="mt-4 flex gap-1 rounded-lg border border-zinc-200 p-1 dark:border-purple-900/40">
-          {tabButton("account", "Account details")}
-          {tabButton("import", "Import squad")}
-          {tabButton("notifications", "Notifications")}
-          {tabButton("status", "Pipeline")}
-        </div>
+        <SegmentedControl
+          className="mt-4"
+          label="Settings section"
+          value={tab}
+          onValueChange={(v) => setTab(v as Tab)}
+          options={[
+            { value: "account", label: "Account details" },
+            { value: "import", label: "Import squad" },
+            { value: "notifications", label: "Notifications" },
+            { value: "status", label: "Pipeline" },
+          ]}
+        />
       )}
 
       {/* Each tab mounts only while showing — PipelineStatus issues a count

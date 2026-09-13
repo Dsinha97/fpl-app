@@ -63,7 +63,7 @@ export default function AuthCallbackPage() {
           </p>
           <a
             href="/signin/"
-            className="mt-4 text-sm text-purple-800 underline dark:text-[#00FF87]"
+            className="mt-4 text-sm text-purple-800 underline dark:text-primary"
           >
             Try again
           </a>

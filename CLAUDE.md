@@ -153,6 +153,9 @@ or `tsc --noEmit` breaks on Deno globals.
 - **A page tested only signed-out can hide an RLS policy that only covers `anon`.** Simulate
   both roles (`set local role …` + `request.jwt.claims` in `execute_sql`), not just the one
   the feature you're building happens to exercise.
+  For the UI half of that, there is now a dev-only test account — `/signed-in` puts the
+  preview browser into a real session (`.claude/skills/signed-in/`), so "I couldn't see
+  the signed-in state" is no longer a reason a pass covered only one of them.
 - **`router.replace()` in a render body, not an effect, is a real React warning** that only
   fires on the branch a page redirects *from* — a signed-in-only or signed-out-only test
   pass never triggers it. Always wrap in `useEffect`.

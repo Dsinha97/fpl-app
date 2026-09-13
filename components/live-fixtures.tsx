@@ -10,6 +10,7 @@ import {
   STAT_LABELS,
   type FixtureStatLine,
 } from "@/lib/fixture-stats";
+import { Badge } from "@/components/ui/badge";
 
 export interface LiveFixtureTeam {
   id: number;
@@ -66,6 +67,15 @@ interface FixtureStatBreakdownProps {
   squadElementIds?: Set<number>;
   /** Bonus is provisional until FPL confirms it post-match. */
   provisional: boolean;
+  /**
+   * Club codes for the two columns. Optional so existing mounts keep working,
+   * but both callers pass them: without a column heading the layout is two
+   * unlabelled lists, and an em-dash for "no events this side" floats with
+   * nothing to attach it to — DSI-119 and DSI-127 report the same confusion
+   * from opposite pages.
+   */
+  homeShort?: string;
+  awayShort?: string;
 }
 
 /**
@@ -79,6 +89,8 @@ export function FixtureStatBreakdown({
   playersById,
   squadElementIds,
   provisional,
+  homeShort,
+  awayShort,
 }: FixtureStatBreakdownProps) {
   const lines = DISPLAY_STAT_ORDER
     .map((id) => ({ id, line: stats.get(id) }))
@@ -116,19 +128,27 @@ export function FixtureStatBreakdown({
 
   return (
     <div className="space-y-3">
+      {(homeShort || awayShort) && (
+        <div className="grid grid-cols-2 gap-x-3 border-b border-border pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="pr-3 text-right">{homeShort}</span>
+          <span className="pl-3">{awayShort}</span>
+        </div>
+      )}
       {lines.map(({ id, line }) => (
         <div key={id}>
           <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
             <span aria-hidden="true">{STAT_LABELS[id].icon}</span> {STAT_LABELS[id].label}
             {id === "bonus" && provisional && (
-              <span className="ml-1.5 rounded bg-amber-100 px-1 py-0.5 text-[9px] normal-case text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+              <Badge tone="warning" variant="solid" size="sm" className="ml-1.5 normal-case">
                 provisional
-              </span>
+              </Badge>
             )}
           </p>
-          <div className="mt-1 grid grid-cols-2 gap-x-3 text-sm">
-            <ul className="space-y-0.5 text-right">{side(line.h, id)}</ul>
-            <ul className="space-y-0.5">{side(line.a, id)}</ul>
+          {/* A real divider between the sides, so the columns read as home and
+              away rather than as one centred list. */}
+          <div className="mt-1 grid grid-cols-2 gap-x-3 divide-x divide-border text-sm">
+            <ul className="space-y-0.5 pr-3 text-right">{side(line.h, id)}</ul>
+            <ul className="space-y-0.5 pl-3">{side(line.a, id)}</ul>
           </div>
         </div>
       ))}
@@ -195,7 +215,7 @@ export function LiveFixtureCard({ fixture, teams, playersById, squadElementIds }
   );
 
   return (
-    <div className="w-full self-start rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234] sm:w-[calc(50%-0.375rem)]">
+    <div className="w-full self-start rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-card sm:w-[calc(50%-0.375rem)]">
       {live && (
         <span className="flex w-fit items-center gap-1.5 rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400" aria-hidden="true" />
@@ -230,7 +250,7 @@ export function LiveFixtureCard({ fixture, teams, playersById, squadElementIds }
           nothing. */}
       {expandable && (
         <div
-          className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
+          className={`grid transition-[grid-template-rows] duration-base ease-emphasis motion-reduce:transition-none ${
             expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
           }`}
         >
@@ -239,6 +259,8 @@ export function LiveFixtureCard({ fixture, teams, playersById, squadElementIds }
               <FixtureStatBreakdown
                 stats={stats}
                 playersById={playersById}
+                homeShort={home?.short_name}
+                awayShort={away?.short_name}
                 squadElementIds={squadElementIds}
                 provisional={provisionalBonus}
               />

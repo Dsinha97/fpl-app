@@ -9,7 +9,7 @@ export const InteractivePitch = ({ children }: { children?: React.ReactNode }) =
   return (
     <div className="relative mx-auto w-full max-h-[70vh] aspect-[7/10] overflow-hidden rounded-2xl border-2 border-purple-800/80 shadow-2xl transition-colors sm:aspect-[4/3] dark:border-purple-600/60">
       {/* Green pitch background */}
-      <div className="absolute inset-0 bg-emerald-600 transition-colors dark:bg-[#082015]" />
+      <div className="absolute inset-0 bg-pitch-turf transition-colors " />
 
       {/* Mow lines */}
       <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_10%,#ffffff_10%,#ffffff_20%)] opacity-15 dark:opacity-25" />

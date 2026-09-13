@@ -1,8 +1,9 @@
 "use client";
 
 import { RangeSlider } from "@/components/ui/range-slider";
+import { ModelNote } from "@/components/ui/model-note";
 import { FilterDisclosure } from "@/components/ui/filter-disclosure";
-import { InfoTooltip } from "@/components/info-tooltip";
+import { Button } from "@/components/ui/button";
 import { matchesPlayerQuery, type SearchableName } from "@/lib/player-search";
 import { GEM_ARCHETYPE_LABELS, GEMS_MODEL_NOTE, type GemArchetype } from "@/lib/hidden-gems";
 
@@ -125,7 +126,7 @@ export function PlayerFilters({
         value={value.search}
         onChange={(e) => onChange({ ...value, search: e.target.value })}
         placeholder="Search player…"
-        className="w-44 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+        className="w-44 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
       />
 
       <FilterDisclosure activeCount={activeCount}>
@@ -134,7 +135,7 @@ export function PlayerFilters({
             value={lockedPosition ?? value.position}
             disabled={lockedPosition !== undefined}
             onChange={(e) => onChange({ ...value, position: Number(e.target.value) })}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:opacity-50 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
           >
             <option value={0}>All positions</option>
             {Object.entries(positionOptions).map(([id, label]) => (
@@ -147,7 +148,7 @@ export function PlayerFilters({
           <select
             value={value.team}
             onChange={(e) => onChange({ ...value, team: Number(e.target.value) })}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
           >
             <option value={0}>All teams</option>
             {teamOptions.map(([id, short]) => (
@@ -171,34 +172,41 @@ export function PlayerFilters({
               maxLabel="Maximum price"
             />
             {(value.price[0] !== priceBounds[0] || value.price[1] !== priceBounds[1]) && (
-              <button
+              <Button
                 onClick={() => onChange({ ...value, price: priceBounds })}
-                className="text-xs text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87]"
+                variant="link"
+                className="h-auto p-0 text-xs text-zinc-500 underline hover:text-purple-700 dark:hover:text-primary"
               >
                 reset
-              </button>
+              </Button>
             )}
           </label>
 
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 border-l border-zinc-200 pl-3 dark:border-purple-900/40">
             <span className="text-xs uppercase tracking-wide text-zinc-500">Special</span>
-            {SPECIAL_ORDER.map((f) => (
-              <label key={f} className="flex items-center gap-1.5 text-xs">
-                <input
-                  type="checkbox"
-                  checked={value.special.has(f)}
-                  onChange={() => toggleSpecial(f)}
-                  className="h-3.5 w-3.5 rounded border-zinc-300 text-purple-700 focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-purple-800/50 dark:text-[#00FF87]"
-                />
-                {SPECIAL_LABELS[f]}
-              </label>
-            ))}
-            <InfoTooltip label="What do these special options mean?">
-              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                Matches any player with any of the ticked properties — not all of them.{" "}
-                {GEMS_MODEL_NOTE}
-              </p>
-            </InfoTooltip>
+            {/* Toggle pills, not a checkbox list (DSI-126). These are six
+                mutually-compatible filters that get flipped on and off
+                repeatedly, and a 14px checkbox is both a small target and the
+                wrong signal — a checkbox reads as a form field to submit,
+                where these apply immediately. aria-pressed keeps the toggle
+                semantics a checkbox was carrying. */}
+            {SPECIAL_ORDER.map((f) => {
+              const on = value.special.has(f);
+              return (
+                <Button
+                  key={f}
+                  variant="toggle"
+                  size="xs"
+                  className="rounded-full"
+                  onClick={() => toggleSpecial(f)}
+                  aria-pressed={on}
+                >
+                  {SPECIAL_LABELS[f]}
+                </Button>
+              );
+            })}
+            <ModelNote label="What do these special options mean?">Matches any player with any of the ticked properties — not all of them.{" "}
+                {GEMS_MODEL_NOTE}</ModelNote>
           </span>
         </div>
       </FilterDisclosure>

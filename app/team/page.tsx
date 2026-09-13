@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { useRouter } from "next/navigation";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
@@ -56,6 +57,9 @@ import { GameweekReviewPanel } from "@/components/gameweek-review-panel";
 import { DecisionAnalyticsPanel } from "@/components/decision-analytics-panel";
 import { TelegramLink } from "@/components/telegram-link";
 import { useAuth } from "@/components/auth-provider";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { useErrorShake } from "@/components/ui/use-error-shake";
 
 /**
  * How many rivals one "add from league" press will take on.
@@ -216,7 +220,7 @@ const PAGE_ROWS = 1000;
 
 // Sprint 23 — same tokens `/deadline` and `/chips` already use, so this page
 // stops repeating `border-zinc-200 bg-white … dark:border-purple-900/40
-// dark:bg-[#1E0234]` inline on every card.
+// dark:bg-card` inline on every card.
 const card = "rounded-lg border border-zinc-200 bg-card p-4 dark:border-purple-900/40";
 const cardSupporting =
   "rounded-lg border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border";
@@ -271,7 +275,7 @@ function GameweekSummary({
           </>
         )}
         <span className="text-zinc-400">=</span>
-        <span className="font-semibold text-purple-900 dark:text-[#00FF87]">{score.asPicked}</span>
+        <span className="font-semibold text-purple-900 dark:text-primary">{score.asPicked}</span>
       </div>
 
       <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 tabular-nums text-zinc-600 dark:text-zinc-400">
@@ -279,7 +283,7 @@ function GameweekSummary({
         {hit > 0 && <span>· includes a −{hit} transfer hit</span>}
         <span>· {history?.points_on_bench ?? score.benchRaw} left on the bench</span>
         {history?.active_chip && (
-          <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-900 dark:bg-purple-900/50 dark:text-[#00FF87]">
+          <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-900 dark:bg-purple-900/50 dark:text-primary">
             {history.active_chip}
           </span>
         )}
@@ -310,6 +314,8 @@ function GameweekSummary({
 export default function TeamPage() {
   const router = useRouter();
   const [inputId, setInputId] = useState("");
+  /** Whether the Manager ID editor is showing on an already-connected team. */
+  const [editingId, setEditingId] = useState(false);
   const [savedId, setSavedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -986,6 +992,8 @@ export default function TeamPage() {
         value: number | null;
         valueNote: string;
         decimals: number;
+        /** Omitted keeps PlayerCard's "xP" default — the projection view. */
+        unit?: string;
         isCaptain: boolean;
         isVice: boolean;
       },
@@ -1001,6 +1009,7 @@ export default function TeamPage() {
         expected_points: opts.value,
         value_note: opts.valueNote,
         value_decimals: opts.decimals,
+        value_unit: opts.unit,
         status: row.status,
         chance_of_playing_next_round: row.chance_of_playing_next_round,
         is_captain: opts.isCaptain,
@@ -1046,10 +1055,19 @@ export default function TeamPage() {
           ? `Hasn't kicked off yet — GW${p.event} fixture not started`
           : scored === undefined
             ? "No stats recorded for this player in this gameweek"
-            : `GW${p.event} points${multiplier > 1 ? ` (×${multiplier} armband)` : ""}${
+            : // Spell the armband out as arithmetic rather than as a bare
+              // "(×2)" beside an already-multiplied total: the card shows 24
+              // and the reader cannot tell whether the multiplier has been
+              // applied yet or is still to come (DSI-120).
+              `GW${p.event} points${
+                multiplier > 1 && p.position <= 11
+                  ? ` — ${scored.points} × ${multiplier} armband = ${scored.points * multiplier}`
+                  : ""
+              }${
                 scored.fixtures > 1 ? ` · ${scored.fixtures} fixtures` : ""
               }${p.position >= 12 ? " · benched, counted only under a Bench Boost" : ""}`,
         decimals: 0,
+        unit: "pts",
         isCaptain: p.isCaptain,
         isVice: p.isViceCaptain,
       });
@@ -1306,32 +1324,65 @@ export default function TeamPage() {
   const m = data?.manager;
   const seasonStarted = (data?.gwHistory.length ?? 0) > 0;
 
+  /**
+   * The Manager ID is a once-ever setting that used to hold the top of this
+   * page on every visit (DSI-120). It now appears in exactly two places: the
+   * onboarding card, when there is no team to show, and behind "Change" once
+   * there is. The audit asked for it to move to /settings outright — but
+   * /settings is behind a sign-in wall and /team works signed out off
+   * `localStorage.fpl_manager_id`, so that would strand exactly the visitors
+   * who still need it. Signed-in users get the pointer to /settings instead.
+   */
+  const managerIdField = useErrorShake<HTMLInputElement>(error);
+
+  const connectForm = (
+    <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-3">
+      <label htmlFor="manager-id" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        FPL Manager ID
+      </label>
+      <input
+        id="manager-id"
+        ref={managerIdField}
+        value={inputId}
+        onChange={(e) => setInputId(e.target.value)}
+        inputMode="numeric"
+        placeholder="e.g. 1234567"
+        className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
+      />
+      <Button
+        type="submit"
+        disabled={loading}
+        size="md"
+        className="px-4"
+      >
+        {loading ? "Syncing…" : savedId ? "Refresh" : "Connect"}
+      </Button>
+    </form>
+  );
+
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-      {/* ------------------------------------------------ connect form */}
-      <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-3">
-        <label htmlFor="manager-id" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          FPL Manager ID
-        </label>
-        <input
-          id="manager-id"
-          value={inputId}
-          onChange={(e) => setInputId(e.target.value)}
-          inputMode="numeric"
-          placeholder="e.g. 1234567"
-          className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
-        >
-          {loading ? "Syncing…" : savedId ? "Refresh" : "Connect"}
-        </button>
-        <span className="text-xs text-zinc-500">
-          Find it in your team&apos;s URL on fantasy.premierleague.com
-        </span>
-      </form>
+      {/* --------------------------------------------- onboarding card */}
+      {/* One centred unit rather than an input floating above the sentence
+          explaining it — reading order now matches the order of the steps. */}
+      {!m && (
+        <section className="mx-auto max-w-xl rounded-lg border border-zinc-200 bg-white p-6 text-center dark:border-purple-900/40 dark:bg-card">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+            Connect your FPL team
+          </h1>
+          <p className="mx-auto mt-1.5 max-w-md text-sm text-zinc-500">
+            Enter your Manager ID to sync your live squad. It&apos;s the number in your team&apos;s
+            URL on fantasy.premierleague.com:
+          </p>
+          <p className="mt-2 break-all font-mono text-xs text-zinc-400">
+            fantasy.premierleague.com/entry/<span className="text-primary">1234567</span>/event/1
+          </p>
+          <div className="mt-4 flex justify-center [&>form]:justify-center">{connectForm}</div>
+        </section>
+      )}
+
+      {/* Connected: the editor is out of the way until asked for. */}
+      {m && editingId && <div className="mb-4">{connectForm}</div>}
 
       {error && (
         <p className="mt-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
@@ -1342,13 +1393,13 @@ export default function TeamPage() {
       {/* A refresh that didn't happen, not a page that failed — amber, and it
           sits alongside the data rather than replacing it. */}
       {syncNotice && (
-        <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+        <Alert tone="warning" className="mt-4">
           {syncNotice}{" "}
           <a href="/signin/" className="underline">
             Sign in
           </a>
           .
-        </p>
+        </Alert>
       )}
 
       {m && (
@@ -1364,16 +1415,33 @@ export default function TeamPage() {
                   be buried in (a casual tester never found it there); the
                   Telegram link sits beside it for the same reason — a linking
                   control tucked into a settings tab is one nobody finds. */}
-              <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
+              {/* No shrink-0 on the group. It held two controls when it was
+                  written; DSI-120 added Refresh and Change ID, and a
+                  four-child group that refuses to shrink takes its min-content
+                  width whatever the viewport — which pushed the page 56px wide
+                  of a 375px screen and made the whole document scroll
+                  sideways. flex-wrap can only wrap what is allowed to shrink. */}
+              <div className="flex min-w-0 flex-wrap items-start justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => savedId && void connect(savedId)}
+                  disabled={loading || !savedId}
+                >
+                  {loading ? "Syncing…" : "Refresh"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => setEditingId((v) => !v)}
+                  aria-expanded={editingId}
+                >
+                  {editingId ? "Cancel" : "Change ID"}
+                </Button>
                 {data && data.picks.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => void handleImport()}
-                    disabled={importing}
-                    className="shrink-0 rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
-                  >
+                  <Button size="xs" onClick={() => void handleImport()} disabled={importing}>
                     {importing ? "Importing…" : "Import as draft →"}
-                  </button>
+                  </Button>
                 )}
                 <TelegramLink variant="compact" />
               </div>
@@ -1477,7 +1545,7 @@ export default function TeamPage() {
                         <select
                           value={selectedEvent ?? ""}
                           onChange={(e) => setSelectedEvent(Number(e.target.value))}
-                          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
                         >
                           {pickedEvents.map((event) => (
                             <option key={event} value={event}>
@@ -1491,11 +1559,11 @@ export default function TeamPage() {
                   </div>
 
                   {pickedEvents.length === 0 && (
-                    <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-[#1E0234]">
+                    <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-card">
                       No squad to show yet — FPL publishes picks after the first deadline.{" "}
                       <a
                         href="/settings/?tab=import"
-                        className="text-purple-800 underline dark:text-[#00FF87]"
+                        className="text-purple-800 underline dark:text-primary"
                       >
                         Import your squad from FPL
                       </a>{" "}
@@ -1511,6 +1579,21 @@ export default function TeamPage() {
                   {pointsLoading && <p className="mt-3 text-sm text-zinc-500">Loading points…</p>}
                   {!pointsLoading && gwLayout && (
                     <PitchView squad={gwCards} quota={data.rules.positionQuota} layout={gwLayout} />
+                  )}
+                  {/* The silent-empty path. `gwLayout` is null whenever the
+                      picks or the score for the selected gameweek are missing,
+                      and until now that rendered *nothing* — heading, gameweek
+                      selector, and then blank space, with no error and no
+                      explanation. Reported 2026-09-13 as "I can't see the squad
+                      view". Same defect the comment above this section records
+                      for the old "Current squad" mode: a short or absent squad
+                      with no error is worse than an error. */}
+                  {!pointsLoading && !pointsError && !gwLayout && pickedEvents.length > 0 && (
+                    <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-card">
+                      No squad to show for GW{selectedEvent} — FPL hasn&apos;t published picks for
+                      it, or they haven&apos;t synced yet. Try <strong>Refresh</strong> above, or
+                      pick another gameweek.
+                    </p>
                   )}
                   {/* The points are that gameweek's; the rest of the card
                       isn't, and can't be — `players` holds one current row
@@ -1593,7 +1676,15 @@ export default function TeamPage() {
                 ].map((tile) => (
                   <div key={tile.label} className={cardSupporting}>
                     <div className="text-xs text-zinc-500">{tile.label}</div>
-                    <div className="mt-1 text-lg font-semibold text-purple-900 dark:text-[#00FF87]">
+                    {/* DSI-120: every tile in this 2x3 grid was primary-green —
+                        team value, bank, total points, rank, gameweek points,
+                        the deadline countdown. When six numbers share the
+                        accent, none of them is emphasised; the accent has
+                        simply become the body colour. These are standing
+                        totals, so they read as foreground. --primary is kept
+                        for actions and for a net-positive outcome, which is
+                        what DSI-129 #1 reserves it for. */}
+                    <div className="mt-1 text-lg font-semibold text-foreground">
                       {tile.value}
                     </div>
                   </div>
@@ -1627,7 +1718,7 @@ export default function TeamPage() {
                       }}
                       aria-disabled={!importedDraft}
                       disabled={!importedDraft}
-                      className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                      className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
                     >
                       {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
                         <option key={i} value={i}>
@@ -1705,8 +1796,12 @@ export default function TeamPage() {
                     From FPL&apos;s own transfer record. Only appears once a transfer has been
                     synced — see Refresh above if a recent change is missing.
                   </p>
+                  {/* An Alert, not amber text loose on the card (DSI-120): this
+                      is a discrepancy between two records the reader is being
+                      asked to reconcile, and a bare coloured paragraph reads as
+                      a stray debug line rather than something to act on. */}
                   {importReconciliation && (
-                    <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">
+                    <Alert tone="warning" className="mt-2 text-[11px]">
                       Your saved squad also changed by{" "}
                       {importReconciliation.diff.in
                         .map((id) => data?.players.get(id)?.web_name ?? `#${id}`)
@@ -1716,7 +1811,7 @@ export default function TeamPage() {
                         .join(", ") || "—"}{" "}
                       out since the last save — check that against the ledger above if the two
                       don&apos;t obviously match.
-                    </p>
+                    </Alert>
                   )}
                 </section>
               )}
@@ -1746,29 +1841,26 @@ export default function TeamPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                      <th className="px-3 py-2">GW</th>
-                      <th className="px-3 py-2">Points</th>
-                      <th className="px-3 py-2">Total</th>
-                      <th className="px-3 py-2">Overall Rank</th>
-                      <th className="px-3 py-2">Bench</th>
-                      <th className="px-3 py-2">Value</th>
-                      <th className="px-3 py-2">Chip</th>
+                      <DataHeadCell className="px-3 py-2">GW</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Points</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Total</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Overall Rank</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Bench</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Value</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Chip</DataHeadCell>
                     </tr>
                   </thead>
                   <tbody>
                     {data.gwHistory.map((g) => (
-                      <tr
-                        key={g.event}
-                        className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
-                      >
-                        <td className="px-3 py-2 tabular-nums">{g.event}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtNum(g.points)}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtNum(g.total_points)}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtNum(g.overall_rank)}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtNum(g.points_on_bench)}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtMoney(g.value)}</td>
-                        <td className="px-3 py-2">{g.active_chip ?? ""}</td>
-                      </tr>
+                      <DataRow key={g.event} className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
+                        <DataCell className="px-3 py-2 tabular-nums">{g.event}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtNum(g.points)}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtNum(g.total_points)}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtNum(g.overall_rank)}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtNum(g.points_on_bench)}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtMoney(g.value)}</DataCell>
+                        <DataCell className="px-3 py-2">{g.active_chip ?? ""}</DataCell>
+                      </DataRow>
                     ))}
                   </tbody>
                 </table>
@@ -1786,22 +1878,19 @@ export default function TeamPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                      <th className="px-3 py-2">Season</th>
-                      <th className="px-3 py-2">Points</th>
-                      <th className="px-3 py-2">Rank</th>
-                      <th className="px-3 py-2">Percentile</th>
+                      <DataHeadCell className="px-3 py-2">Season</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Points</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Rank</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Percentile</DataHeadCell>
                     </tr>
                   </thead>
                   <tbody>
                     {data.seasons.map((s) => (
-                      <tr
-                        key={s.season_name}
-                        className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
-                      >
-                        <td className="px-3 py-2">{s.season_name}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtNum(s.total_points)}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtNum(s.rank)}</td>
-                        <td className="px-3 py-2">
+                      <DataRow key={s.season_name} className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
+                        <DataCell className="px-3 py-2">{s.season_name}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtNum(s.total_points)}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtNum(s.rank)}</DataCell>
+                        <DataCell className="px-3 py-2">
                           {s.rank_percentage !== null ? (
                             <div className="flex items-center gap-2">
                               <span className="w-16 shrink-0 tabular-nums">
@@ -1813,7 +1902,14 @@ export default function TeamPage() {
                                 className="h-1.5 w-24 overflow-hidden rounded-full bg-zinc-200 dark:bg-purple-950/60"
                               >
                                 <div
-                                  className="h-full rounded-full bg-purple-700 transition-[width] duration-300 motion-reduce:transition-none dark:bg-[#00FF87]"
+                                  // The second copy of `PercentileBar`'s bar
+                                  // (components/manager-profile-card.tsx), and
+                                  // it still had the CTA colour that one moved
+                                  // off: --primary for a static data
+                                  // visualisation dilutes the buttons, because
+                                  // the eye stops reading that green as "this
+                                  // is actionable" (DSI-120, DSI-135 #1).
+                                  className="h-full rounded-full bg-chart-1 transition-[width] duration-base ease-slide motion-reduce:transition-none"
                                   style={{ width: `${100 - s.rank_percentage}%` }}
                                 />
                               </div>
@@ -1821,8 +1917,8 @@ export default function TeamPage() {
                           ) : (
                             "—"
                           )}
-                        </td>
-                      </tr>
+                        </DataCell>
+                      </DataRow>
                     ))}
                   </tbody>
                 </table>
@@ -1866,16 +1962,18 @@ export default function TeamPage() {
                           }}
                           inputMode="numeric"
                           placeholder="Add rival by Manager ID"
-                          className="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
+                          className="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
                         />
-                        <button
+                        <Button
                           type="button"
                           onClick={() => void addRival()}
                           disabled={rivalBusy || !rivalInput.trim()}
-                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+                          variant="outline"
+                          size="xs"
+                          className="px-2.5"
                         >
                           {rivalBusy ? "Adding…" : "Add"}
-                        </button>
+                        </Button>
                       </div>
                       {rivalError && (
                         <p className="mt-1.5 text-xs text-red-700 dark:text-red-400">{rivalError}</p>
@@ -1907,14 +2005,16 @@ export default function TeamPage() {
                               ))}
                             </select>
                             {rivalCandidates.length > 0 && (
-                              <button
+                              <Button
                                 type="button"
                                 onClick={() => void addFromLeague()}
                                 disabled={rivalBusy}
-                                className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+                                variant="outline"
+                                size="xs"
+                                className="px-2.5"
                               >
                                 Add top {rivalCandidates.length}
-                              </button>
+                              </Button>
                             )}
                           </div>
 
@@ -1978,15 +2078,17 @@ export default function TeamPage() {
                                 className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-purple-950/50 dark:text-zinc-300"
                               >
                                 {label}
-                                <button
+                                <Button
                                   type="button"
                                   onClick={() => void removeRival(entryId)}
                                   disabled={rivalBusy}
                                   aria-label={`Remove ${label} as a rival`}
-                                  className="text-zinc-400 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:hover:text-red-400"
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
                                 >
                                   ×
-                                </button>
+                                </Button>
                               </li>
                             );
                           })}
@@ -2017,20 +2119,11 @@ export default function TeamPage() {
         </>
       )}
 
-      {!m && !loading && !error && (
-        <div className="mt-16 text-center text-sm text-zinc-500">
-          <p className="text-base font-medium text-zinc-700 dark:text-zinc-300">
-            Connect your FPL team
-          </p>
-          <p className="mt-2">
-            Enter your Manager ID above — it&apos;s the number in the URL when you view your
-            points page on the FPL site: <br />
-            <code className="mt-1 inline-block rounded bg-zinc-100 px-1.5 py-0.5 text-xs dark:bg-[#2A0A45]">
-              fantasy.premierleague.com/entry/<b>1234567</b>/event/1
-            </code>
-          </p>
-        </div>
-      )}
+      {/* The "Connect your FPL team" empty state that used to live here said
+          the same three things as the onboarding card above, which is what the
+          card was built from — it existed only because the form it pointed at
+          ("enter your Manager ID above") was a bare row with no explanation of
+          its own. One statement, at the top, where the form is. */}
     </main>
   );
 }

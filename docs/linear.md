@@ -25,6 +25,7 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | M6 · GW5 check-in | 2026-09-21 | One cheap look after GW5 is scored |
 | M7 · GW10 model batch | 2026-11-09 | The three model questions that share one harness run |
 | M8 · Beyond this season | — | Sprint 36 (shipped 2026-09-10), Sprint 15, platform follow-ups, blocked-on-data items |
+| M9 · Design audit | 2026-09-13 | Sprints A/B/C1/C2 across every screen, plus DSI-139 and DSI-140 found in flight |
 
 ## Shipped
 
@@ -76,6 +77,14 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | 34 Post-GW3 scoreboard + harness fixes | DSI-48 | M5 | [sprints/sprint-34.md](sprints/sprint-34.md) |
 | 35 Results-derived FDR (not shipped) | DSI-49 | M5 | [sprints/sprint-35.md](sprints/sprint-35.md) |
 | 36 Decision analytics, Telegram bot, Todo sweep | DSI-74 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) |
+| M9 A Design foundations (primitives + tokens) | DSI-134 | M9 | [sprints/m9.md](sprints/m9.md) |
+| M9 B Global sweeps | DSI-135 | M9 | [sprints/m9.md](sprints/m9.md) |
+| M9 B Pick-one controls on SegmentedControl | DSI-138 | M9 | [sprints/m9.md](sprints/m9.md) |
+| M9 C1 Per-screen visual work | DSI-136 | M9 | [sprints/m9.md](sprints/m9.md) |
+| M9 C2 Feature-shaped audit items | DSI-137 | M9 | [sprints/m9.md](sprints/m9.md) |
+| Design audit, per screen | DSI-118 … DSI-129 | M9 | [sprints/m9.md](sprints/m9.md) |
+| draft_snapshots sync hits a missing UPDATE policy | DSI-139 | M9 | [sprints/m9.md](sprints/m9.md) — half open, see below |
+| Long methodology explainers render inline | DSI-140 | M9 | [sprints/m9.md](sprints/m9.md) |
 | 17 part 1 Historical decision analytics | DSI-66 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §1 |
 | Rivals from a league's standings | DSI-61 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §2 |
 | 16 Notifications — the Telegram bot | DSI-65 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §3 |

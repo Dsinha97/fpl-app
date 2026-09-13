@@ -110,7 +110,7 @@ export function GameweekReviewPanel({
       {review && (
         <div className="mt-6 flex flex-col gap-5">
           {/* 1. Points and rank movement */}
-          <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
             <h2 className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">
               Gameweek {review.event}
             </h2>
@@ -157,7 +157,7 @@ export function GameweekReviewPanel({
           </section>
 
           {/* 2. Captain */}
-          <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
             <h2 className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">Captain</h2>
             {review.captain ? (
               <div className="mt-2 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
@@ -190,7 +190,7 @@ export function GameweekReviewPanel({
           </section>
 
           {/* 3. Bench */}
-          <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
             <h2 className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">Bench</h2>
             <div className="mt-2 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
               <p>Recovered by auto-subs (projected): {review.bench.recovered} pts</p>
@@ -205,7 +205,7 @@ export function GameweekReviewPanel({
           </section>
 
           {/* 4. Transfers */}
-          <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
             <h2 className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">Transfers</h2>
             {review.transfers.length > 0 ? (
               <ul className="mt-2 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">

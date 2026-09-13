@@ -1,5 +1,14 @@
 "use client";
 
+/* The pin buttons style text-zinc-400 → hover:text-primary, and 📌 rendered in
+   the platform's own colours and ignored all of it — on /scenarios the same
+   emoji made the pinned and unpinned states visually identical. lucide's Pin
+   inherits currentColor, which is what those classes were written for. Same
+   reason /news dropped its emoji pills (DSI-122/DSI-125). */
+import { Button } from "@/components/ui/button";
+import { ModelNote } from "@/components/ui/model-note";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
+import { Pin } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
@@ -27,6 +36,8 @@ import {
   type TeamState,
 } from "@/lib/team-state";
 import { availabilityFromStatus, type ScoredPlayer } from "@/lib/scoring";
+import { Alert } from "@/components/ui/alert";
+import { signed } from "@/lib/utils";
 
 interface PlayerRow {
   id: number;
@@ -43,7 +54,6 @@ interface PlayerRow {
 const FALLBACK_SEASON_WINDOW = 8;
 const CHIP_ORDER: ChipKind[] = ["wildcard", "freehit", "bboost", "3xc"];
 
-const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
 /**
  * The chip-timing engine — which gameweek each chip is worth the most, and by
@@ -363,6 +373,27 @@ export function ChipTiming({
     setApplied(`Pinned ${CHIP_LABELS[chip]} to GW${event} on "${team.name}".`);
   };
 
+  /**
+   * The same write, recorded as a decision rather than a shortlisting.
+   *
+   * `ChipPlanEntry.source` has carried "manual" | "shortlist" | "fpl" since it
+   * was introduced, and until now every control on this page wrote
+   * "shortlist" — including the ones that apply a whole recommended schedule,
+   * which is plainly a choice and not a maybe. Nothing branches on the
+   * distinction today (only "fpl" is load-bearing, in `chipEntriesInForce`),
+   * so this changes no behaviour; it stops the record being wrong about how
+   * each entry got there, which is what it exists to say.
+   *
+   * The rule on this page is now: a bare pin icon shortlists, a labelled
+   * "Apply" button decides.
+   */
+  const applyChip = (chip: ChipKind, event: number) => {
+    if (!team) return;
+    saveDraft({ ...team, chipPlan: setChipPlanEntry(team.chipPlan, chip, event, "manual") });
+    onDraftsChanged();
+    setApplied(`${CHIP_LABELS[chip]} is now planned for GW${event} on "${team.name}".`);
+  };
+
   const pinSchedule = (half: ChipHalfSchedule) => {
     if (!team) return;
     const entries: { chip: ChipKind; event: number }[] = [];
@@ -370,10 +401,10 @@ export function ChipTiming({
     if (half.wildcard) entries.push({ chip: "wildcard", event: half.wildcard.event });
     if (entries.length === 0) return;
     let plan = team.chipPlan;
-    for (const e of entries) plan = setChipPlanEntry(plan, e.chip, e.event, "shortlist");
+    for (const e of entries) plan = setChipPlanEntry(plan, e.chip, e.event, "manual");
     saveDraft({ ...team, chipPlan: plan });
     onDraftsChanged();
-    setApplied(`Pinned the ${half.label} schedule (${entries.length} chip${entries.length === 1 ? "" : "s"}) to "${team.name}".`);
+    setApplied(`Applied the ${half.label} schedule (${entries.length} chip${entries.length === 1 ? "" : "s"}) to "${team.name}".`);
   };
 
   /**
@@ -489,10 +520,10 @@ export function ChipTiming({
   const pinPreset = (preset: { label: string; entries: { chip: ChipKind; event: number }[] }) => {
     if (!team) return;
     let plan = team.chipPlan;
-    for (const e of preset.entries) plan = setChipPlanEntry(plan, e.chip, e.event, "shortlist");
+    for (const e of preset.entries) plan = setChipPlanEntry(plan, e.chip, e.event, "manual");
     saveDraft({ ...team, chipPlan: plan });
     onDraftsChanged();
-    setApplied(`Pinned the ${preset.label} sequence (${preset.entries.length} chip${preset.entries.length === 1 ? "" : "s"}) to "${team.name}". The Transfer Path tab has the sequence-aware total.`);
+    setApplied(`Applied the ${preset.label} sequence (${preset.entries.length} chip${preset.entries.length === 1 ? "" : "s"}) to "${team.name}". The Transfer Path tab has the sequence-aware total.`);
   };
 
   return (
@@ -503,9 +534,7 @@ export function ChipTiming({
         <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
           Chip Strategy
           {result && (
-            <InfoTooltip label="What do these numbers assume?">
-              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{result.note}</p>
-            </InfoTooltip>
+            <ModelNote label="What do these numbers assume?">{result.note}</ModelNote>
           )}
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
@@ -516,12 +545,13 @@ export function ChipTiming({
       {applied && team && (
         <p className="mt-4 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
           {applied}{" "}
-          <button
+          <Button
             onClick={onShowTransferPath}
-            className="font-medium underline-offset-2 hover:underline"
+            variant="link"
+            className="h-auto p-0 text-inherit"
           >
             Show me →
-          </button>
+          </Button>
         </p>
       )}
 
@@ -552,10 +582,10 @@ export function ChipTiming({
       )}
 
       {team && !loading && team.players.length !== rules.squadSize && (
-        <p className="mt-5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+        <Alert tone="warning" className="mt-5">
           {team.name} has {team.players.length} of {rules.squadSize} players. Chip values need a
           complete squad.
-        </p>
+        </Alert>
       )}
 
       {!loading && team && team.players.length === rules.squadSize && (resultLoading || resultStale) && (
@@ -568,21 +598,28 @@ export function ChipTiming({
             {resultLoading ? "Recalculating chip values…" : "Squad changed since these values were computed."}
           </span>
           {!resultLoading && (
-            <button
+            <Button
               type="button"
               onClick={runResult}
-              className="shrink-0 rounded-md border border-warning-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-warning-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              variant="outline"
+              size="xs"
+              className="shrink-0 border-warning-border px-2.5 hover:bg-warning-surface/70"
             >
               Re-run
-            </button>
+            </Button>
           )}
         </div>
       )}
 
       {result && team && (
         <>
+          {/* DSI-137 #3: this was the page's headline recommendation and the
+              only thing on the page you could not act on — every schedule and
+              sequence below had a button, while the single best play had to be
+              re-found by hand in the tables underneath. */}
           {bestOverall && (
-            <p className="mt-5 text-sm text-zinc-700 dark:text-zinc-300">
+            <div className="mt-5 flex flex-wrap items-baseline justify-between gap-2">
+            <p className="min-w-0 flex-1 text-sm text-zinc-700 dark:text-zinc-300">
               <strong className="font-semibold text-zinc-900 dark:text-zinc-50">
                 Best single play:
               </strong>{" "}
@@ -600,6 +637,16 @@ export function ChipTiming({
                   </span>
                 )}
             </p>
+              <Button
+                variant="outline"
+                size="xs"
+                className="min-h-9 shrink-0 border-purple-700 px-2.5 text-purple-700 dark:border-primary dark:text-primary"
+                onClick={() => applyChip(bestOverall.chip, bestOverall.event)}
+                title={`Plan ${CHIP_LABELS[bestOverall.chip]} for GW${bestOverall.event} on "${team.name}".`}
+              >
+                Apply to plan
+              </Button>
+            </div>
           )}
 
           {/* Sprint 23 put sequences and schedules side by side so the short
@@ -618,14 +665,10 @@ export function ChipTiming({
                     <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                       Chip sequences
                     </h2>
-                    <InfoTooltip label="About chip sequences">
-                      <p className="text-xs leading-relaxed">
-                        Starting points for a planned sequence, not a recommendation — pin one, then
+                    <ModelNote label="About chip sequences">Starting points for a planned sequence, not a recommendation — pin one, then
                         move any gameweek. The schedules value each chip independently against
                         today&apos;s squad; a sequence values each chip against what the one before
-                        it left behind. See it on the Transfer Path tab after pinning.
-                      </p>
-                    </InfoTooltip>
+                        it left behind. See it on the Transfer Path tab after pinning.</ModelNote>
                   </div>
                   <div className="mt-3 space-y-2">
                     {presets.map((preset) => (
@@ -646,13 +689,14 @@ export function ChipTiming({
                           </span>
                           <p className="mt-0.5 text-xs text-zinc-500">{preset.note}</p>
                         </div>
-                        <button
-                          type="button"
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          className="min-h-9 shrink-0 border-purple-700 text-purple-700 dark:border-primary dark:text-primary"
                           onClick={() => pinPreset(preset)}
-                          className="min-h-9 shrink-0 rounded-md border border-purple-700 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary dark:text-primary dark:hover:bg-primary/10"
                         >
-                          Pin
-                        </button>
+                          Apply sequence
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -674,19 +718,21 @@ export function ChipTiming({
                       Chip schedule · {half.label}
                     </h2>
                     {(half.oneOff || half.wildcard) && (
-                      <button
+                      <Button
                         type="button"
                         onClick={() => pinSchedule(half)}
                         disabled={!!half.oneOff && half.oneOff.margin < 1}
                         title={
                           half.oneOff && half.oneOff.margin < 1
                             ? "This schedule is not a strong recommendation — the next-best combination is nearly as good."
-                            : `Pin every chip in this schedule to "${team.name}"'s plan.`
+                            : `Apply every chip in this schedule to "${team.name}"'s plan.`
                         }
-                        className="min-h-9 rounded-md border border-purple-700 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
+                        variant="outline"
+                        size="xs"
+                        className="min-h-9 border-purple-700 px-2.5 text-purple-700 hover:bg-purple-50 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
                       >
-                        Pin whole schedule
-                      </button>
+                        Apply schedule
+                      </Button>
                     )}
                   </div>
 
@@ -705,17 +751,24 @@ export function ChipTiming({
                                 {CHIP_LABELS[e.chip]}
                               </span>
                               <span className="text-zinc-500">GW{e.event}</span>
+                              {/* "this GW" beside the number (DSI-125). These
+                                  sit alongside a Wildcard reading +297.4, and
+                                  the only thing that made +20.5 comparable was
+                                  a footnote under the other card. The Wildcard
+                                  row already names its own window; this is the
+                                  matching half. */}
                               <span className="tabular-nums text-purple-800 dark:text-primary">
                                 {signed(e.gain)}
+                                <span className="ml-1 text-[10px] font-normal text-zinc-500">this GW</span>
                               </span>
-                              <button
-                                type="button"
+                              <Button
                                 onClick={() => pinChip(e.chip, e.event)}
                                 title={`Pin ${CHIP_LABELS[e.chip]} to GW${e.event}`}
-                                className="ml-1 rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
+                                aria-label={`Pin ${CHIP_LABELS[e.chip]} to GW${e.event} in this plan`}
+                                variant="ghost" size="icon-xs" className="ml-1 text-zinc-400 hover:text-purple-700 dark:hover:text-primary"
                               >
-                                📌
-                              </button>
+                                <Pin className="h-3.5 w-3.5" aria-hidden />
+                              </Button>
                             </div>
                           ))}
                       </div>
@@ -739,14 +792,14 @@ export function ChipTiming({
                         <span className="tabular-nums text-purple-800 dark:text-primary">
                           {signed(half.wildcard.gain)}
                         </span>
-                        <button
-                          type="button"
+                        <Button
                           onClick={() => pinChip("wildcard", half.wildcard!.event)}
                           title={`Pin Wildcard to GW${half.wildcard.event}`}
-                          className="ml-1 rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
+                          aria-label={`Pin Wildcard to GW${half.wildcard.event} in this plan`}
+                          variant="ghost" size="icon-xs" className="ml-1 text-zinc-400 hover:text-purple-700 dark:hover:text-primary"
                         >
-                          📌
-                        </button>
+                          <Pin className="h-3.5 w-3.5" aria-hidden />
+                        </Button>
                       </div>
                       <span className="text-xs text-zinc-500">
                         cumulative through GW{half.stopEvent} — not added to the total above
@@ -811,14 +864,13 @@ export function ChipTiming({
                               <span className="tabular-nums font-semibold text-purple-800 dark:text-primary">
                                 {signed(v.gain)}
                               </span>
-                              <button
-                                type="button"
+                              <Button
                                 onClick={() => pinChip(chip, v.event)}
                                 title={`Pin ${CHIP_LABELS[chip]} to GW${v.event}`}
-                                className="rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
+                                variant="ghost" size="icon-xs" className="text-zinc-400 hover:text-purple-700 dark:hover:text-primary"
                               >
-                                📌
-                              </button>
+                                <Pin className="h-3.5 w-3.5" aria-hidden />
+                              </Button>
                             </span>
                           </li>
                         ))}
@@ -867,34 +919,27 @@ export function ChipTiming({
             <table className="w-full min-w-[420px] text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-[10px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                  <th className="py-1.5 pr-2">GW</th>
+                  <DataHeadCell className="py-1.5 pr-2">GW</DataHeadCell>
                   {CHIP_ORDER.map((chip) => (
-                    <th key={chip} className="py-1.5 pr-2 text-right">
+                    <DataHeadCell key={chip} className="py-1.5 pr-2" numeric>
                       {CHIP_LABELS[chip]}
-                    </th>
+                    </DataHeadCell>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {events.map((event) => (
-                  <tr
-                    key={event}
-                    className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
-                  >
-                    <td className="py-1 pr-2 text-zinc-500">{event}</td>
+                  <DataRow key={event} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                    <DataCell className="py-1 pr-2 text-zinc-500">{event}</DataCell>
                     {CHIP_ORDER.map((chip) => {
                       const v = byChipEvent.get(chip)?.get(event);
                       return (
-                        <td
-                          key={chip}
-                          className="py-1 pr-2 text-right tabular-nums text-zinc-700 dark:text-zinc-300"
-                          title={v?.blocked ?? undefined}
-                        >
+                        <DataCell key={chip} className="py-1 pr-2 text-zinc-700 dark:text-zinc-300" title={v?.blocked ?? undefined} numeric>
                           {v && !v.blocked ? signed(v.gain) : "—"}
-                        </td>
+                        </DataCell>
                       );
                     })}
-                  </tr>
+                  </DataRow>
                 ))}
               </tbody>
             </table>

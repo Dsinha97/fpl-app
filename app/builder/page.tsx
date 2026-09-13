@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
@@ -22,6 +23,16 @@ import {
   setPinnedDraft,
 } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
+import { Pencil } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Delta } from "@/components/ui/delta";
+import { Pager } from "@/components/ui/pager";
+import { SlideOver } from "@/components/ui/slide-over";
+import { SM, useMinWidth } from "@/components/ui/use-viewport";
+import { stickyHeaderBottom } from "@/components/ui/use-anchored-panel";
+import { ModelNote } from "@/components/ui/model-note";
 import { loadPredictionSeries } from "@/lib/player-pool";
 import { loadSquadHeadlines, type NewsHeadline } from "@/lib/news-feed";
 import {
@@ -36,7 +47,6 @@ import {
   sameSquadState,
   validateSquad,
   xpAt,
-  HORIZONS,
   horizonLabel,
   horizonLength,
   seasonHorizonNote,
@@ -91,6 +101,8 @@ import {
   PlayerFilters,
   type PlayerFilterState,
 } from "@/components/player-filters";
+import { HorizonControl } from "@/components/horizon-control";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 interface PlayerRow {
   id: number;
@@ -994,6 +1006,8 @@ export default function BuilderPage() {
     return rows.sort((a, b) => value(b) - value(a));
   }, [players, xp, resolvedFilters, sortKey, replaceEligibility, gemsById]);
 
+
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const visible = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
@@ -1286,6 +1300,8 @@ export default function BuilderPage() {
   } | null>(null);
   const pickerCard = useRef<HTMLDivElement>(null);
   const closingPicker = useRef<number | null>(null);
+  /** The row the open picker panel is anchored to, so scroll can re-place it. */
+  const pickerAnchor = useRef<HTMLElement | null>(null);
 
   /**
    * Adding into an empty pitch slot (`PitchView`'s `onAddToSlot`) — the same
@@ -1296,11 +1312,21 @@ export default function BuilderPage() {
    * because the two modes are mutually exclusive but each needs its own
    * "what to restore".
    */
+  const [renaming, setRenaming] = useState(false);
   const [addingPosition, setAddingPosition] = useState<number | null>(null);
+  /** The slot button the picker is anchored to on desktop. */
+  const [addAnchor, setAddAnchor] = useState<HTMLElement | null>(null);
   const preAddPosition = useRef<number | null>(null);
 
-  const startAdding = (elementType: number) => {
+  const startAdding = (elementType: number, anchor?: HTMLElement) => {
+    // Tapping the same slot again closes it — the + is a × while open, so it
+    // has to behave like one.
+    if (addingPosition === elementType) {
+      stopAdding();
+      return;
+    }
     setAddingPosition(elementType);
+    setAddAnchor(anchor ?? null);
     if (resolvedFilters) {
       preAddPosition.current = resolvedFilters.position;
       setFilters({ ...resolvedFilters, position: elementType });
@@ -1310,12 +1336,132 @@ export default function BuilderPage() {
 
   const stopAdding = () => {
     setAddingPosition(null);
+    setAddAnchor(null);
     if (preAddPosition.current !== null) {
       const restore = preAddPosition.current;
       preAddPosition.current = null;
       setFilters((f) => (f ? { ...f, position: restore } : f));
     }
   };
+
+  /**
+   * Where the desktop slot popover sits: beside the + that opened it, clamped
+   * into the viewport and flipped above when there is no room below. Same
+   * problem `PlayerDetail` solves on this page, same shape of answer.
+   */
+  const isDesktop = useMinWidth(SM);
+  const slotPanelCoords = useMemo(() => {
+    if (!addAnchor || !isDesktop) return null;
+    const r = addAnchor.getBoundingClientRect();
+    const W = 320;
+    const H = Math.min(448, window.innerHeight * 0.7);
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - W / 2), window.innerWidth - W - 8);
+    const below = r.bottom + 8;
+    const top = below + H > window.innerHeight - 8 ? Math.max(8, r.top - H - 8) : below;
+    return { top, left };
+  }, [addAnchor, isDesktop]);
+
+
+  /**
+   * The slot picker's contents — search, filters and the eligible players for
+   * the slot that was tapped.
+   *
+   * Everything here already existed: `filtered` is the same memo the pool
+   * table reads, and `startAdding` has already locked its position filter to
+   * the slot. This is a surface, not a second search — which is why the panel
+   * and the table below can never disagree about who is eligible.
+   */
+  const slotPickerBody = (
+    <div className="flex min-h-0 flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          Add a {addingPosition !== null ? (POSITIONS[addingPosition] ?? "player") : "player"}
+        </h2>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={stopAdding}
+          aria-label="Close the player picker"
+          className="text-zinc-500"
+        >
+          ✕
+        </Button>
+      </div>
+
+      {resolvedFilters && priceBounds && (
+        <div className="flex items-center gap-2">
+          <input
+            type="search"
+            value={resolvedFilters.search}
+            onChange={(e) => setFilters({ ...resolvedFilters, search: e.target.value })}
+            placeholder="Search player…"
+            autoFocus
+            className="min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <PlayerFilters
+            value={resolvedFilters}
+            onChange={(next) => {
+              setFilters(next);
+              setPage(0);
+            }}
+            teamOptions={[...teamShort.entries()].sort((a, b) => a[1].localeCompare(b[1]))}
+            priceBounds={priceBounds}
+            lockedPosition={addingPosition ?? undefined}
+          />
+        </div>
+      )}
+
+      <ul className="-mx-1 min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1">
+        {filtered.slice(0, 40).map((p) => {
+          const meta = metaById.get(p.id);
+          const reason = meta ? blockedReason(team, rules, meta, lookup) : "Not available";
+          const x = xp.get(p.id);
+          return (
+            <li key={p.id}>
+              <button
+                type="button"
+                disabled={reason !== null || !meta}
+                title={reason ?? `Add ${p.web_name}`}
+                onClick={() => {
+                  if (!meta) return;
+                  persist(addPlayer(team, meta));
+                  stopAdding();
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-medium">{p.web_name}</span>
+                    <AvailabilityBadge
+                      status={p.status}
+                      chanceOfPlaying={p.chance_of_playing_next_round}
+                      news={p.news}
+                      size="w-3.5 h-3.5"
+                    />
+                  </span>
+                  <span className="block truncate text-[11px] text-zinc-500">
+                    {teamShort.get(p.team_id)} · £{((p.now_cost ?? 0) / 10).toFixed(1)}m
+                    {reason ? ` · ${reason}` : ""}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right text-sm font-semibold tabular-nums">
+                  {x?.xp_5?.toFixed(1) ?? "—"}
+                  <span className="ml-0.5 text-[10px] font-normal text-muted-foreground">xP</span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+        {filtered.length === 0 && (
+          <li className="px-2 py-6 text-center text-sm text-zinc-500">
+            No eligible players match these filters.
+          </li>
+        )}
+      </ul>
+    </div>
+  );
+
 
   useEffect(() => {
     if (addingPosition !== null) {
@@ -1335,10 +1481,9 @@ export default function BuilderPage() {
    * Float the panel to the left of the picker column, level with the clicked
    * row. Viewport coordinates, so it never covers the list it came from.
    */
-  const openPickerDetail = (row: PlayerRow, anchor: HTMLElement) => {
-    if (closingPicker.current === row.id) return;
+  const placePickerDetail = (anchor: HTMLElement) => {
     const wrap = pickerCard.current;
-    if (!wrap) return;
+    if (!wrap) return null;
 
     const a = anchor.getBoundingClientRect();
     const w = wrap.getBoundingClientRect();
@@ -1347,13 +1492,36 @@ export default function BuilderPage() {
     const leftGutter = w.left - PANEL_WIDTH - 8;
     const left = leftGutter >= 8 ? leftGutter : Math.max(8, w.right - PANEL_WIDTH - 8);
 
-    const top = Math.max(
-      8,
-      Math.min(a.top - 24, window.innerHeight - PANEL_MAX_HEIGHT - 8),
-    );
+    // This panel is `fixed`, so its floor is the sticky header rather than the
+    // top of the viewport — otherwise scrolling parks it over the nav bar.
+    const minTop = stickyHeaderBottom() + 8;
+    const maxTop = Math.max(minTop, window.innerHeight - PANEL_MAX_HEIGHT - 8);
+    const top = Math.max(minTop, Math.min(a.top - 24, maxTop));
 
-    setPickerDetail({ id: row.id, top, left });
+    return { top, left };
   };
+
+  const openPickerDetail = (row: PlayerRow, anchor: HTMLElement) => {
+    if (closingPicker.current === row.id) return;
+    const at = placePickerDetail(anchor);
+    if (!at) return;
+    pickerAnchor.current = anchor;
+    setPickerDetail({ id: row.id, ...at });
+  };
+
+  // Keep it tracking its row on scroll, stopped by the header.
+  useEffect(() => {
+    if (!pickerDetail || !isDesktop) return;
+    const follow = () => {
+      const anchor = pickerAnchor.current;
+      if (!anchor) return;
+      const at = placePickerDetail(anchor);
+      if (at) setPickerDetail((d) => (d ? { ...d, ...at } : d));
+    };
+    window.addEventListener("scroll", follow, { passive: true });
+    return () => window.removeEventListener("scroll", follow);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickerDetail?.id, isDesktop]);
 
   /** What selling the outgoing player would leave to spend — the slider's ceiling. */
   const replaceAffordable = useMemo(() => {
@@ -1478,8 +1646,8 @@ export default function BuilderPage() {
       key={label}
       className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
         ok
-          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-[#00FF87]"
-          : "bg-zinc-100 text-zinc-500 dark:bg-[#2A0A45] dark:text-zinc-400"
+          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-primary"
+          : "bg-zinc-100 text-zinc-500 dark:bg-surface-3 dark:text-zinc-400"
       }`}
     >
       {ok ? "✓" : "○"} {label}
@@ -1505,10 +1673,10 @@ export default function BuilderPage() {
             {money(validation.budgetRemaining)} left
           </span>
         </div>
-        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-[#2A0A45]">
+        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-surface-3">
           <div
             className={`h-full rounded-full transition-[width,background-color] duration-300 motion-reduce:transition-none ${
-              validation.overBudget ? "bg-red-500" : "bg-purple-800 dark:bg-[#00FF87]"
+              validation.overBudget ? "bg-red-500" : "bg-purple-800 dark:bg-primary"
             }`}
             style={{ width: `${Math.min(100, (validation.spent / rules.totalSpend) * 100)}%` }}
           />
@@ -1537,15 +1705,22 @@ export default function BuilderPage() {
           <span
             className={`rounded px-1.5 py-0.5 font-semibold ${
               validation.isLegal
-                ? "bg-emerald-600 text-white dark:bg-[#00FF87] dark:text-slate-950"
+                ? "bg-emerald-600 text-white dark:bg-primary dark:text-slate-950"
                 : "bg-zinc-200 text-zinc-600 dark:bg-purple-900/60 dark:text-zinc-300"
             }`}
           >
             {validation.isLegal ? "✓ Legal squad" : "Incomplete squad"}
           </span>
-          <span className="text-zinc-500">
-            {team.players.length}/{rules.squadSize} · {money(validation.budgetRemaining)} left
-          </span>
+          {/* DSI-121: this said "15/15 · £0.4m left", both of which are already
+              stated twelve pixels above — the squad count in the header line
+              and the bank in the bar's own right-hand figure. What the summary
+              actually needs to carry when collapsed is what is still wrong,
+              not a second copy of what is fine. */}
+          {!validation.isLegal && (
+            <span className="text-zinc-500">
+              {team.players.length}/{rules.squadSize} selected
+            </span>
+          )}
           <span className="ml-auto text-zinc-400 group-open:hidden">show requirements ▾</span>
           <span className="ml-auto hidden text-zinc-400 group-open:inline">hide ▴</span>
         </summary>
@@ -1591,42 +1766,25 @@ export default function BuilderPage() {
                 Import your FPL squad
               </Link>{" "}
               or{" "}
-              <button
+              <Button
                 type="button"
+                variant="link"
                 onClick={() => runOptimizer(true)}
                 disabled={optimizerRunning}
-                className="font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                className="h-auto p-0 text-inherit align-baseline"
               >
                 build one for me
-              </button>
+              </Button>
               .
             </p>
           )}
         </div>
 
         {/* drafts bar */}
-        <div className="flex flex-wrap items-center gap-2 text-sm">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
           {/* Page-level horizon: drives the projection, the picker, and the
               optimiser. The XI/captain panel stays on the next gameweek. */}
-          <span className="flex items-center gap-1 rounded-md border border-zinc-300 px-1.5 py-1 dark:border-purple-800/50">
-            <span className="text-xs text-zinc-500">Horizon</span>
-            {HORIZONS.map((h) => (
-              <button
-                key={h}
-                type="button"
-                onClick={() => setHorizon(h)}
-                title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-                aria-pressed={horizon === h}
-                className={`rounded px-1.5 py-0.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  horizon === h
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {horizonLabel(h)}
-              </button>
-            ))}
-          </span>
+          <HorizonControl value={horizon} onValueChange={setHorizon} />
 
           {drafts.length > 0 && (
             <select
@@ -1648,7 +1806,7 @@ export default function BuilderPage() {
                 }
                 switchTeam(found, true);
               }}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
             >
               {drafts.every((d) => d.draftId !== team.draftId) && (
                 <option value={team.draftId}>{team.name} (unsaved)</option>
@@ -1660,13 +1818,39 @@ export default function BuilderPage() {
               ))}
             </select>
           )}
-          <input
-            value={team.name}
-            onChange={(e) => persist({ ...team, name: e.target.value })}
-            aria-label="Draft name"
-            className="w-36 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100 dark:focus-visible:border-[#00FF87]"
-          />
+          {/* DSI-121: the select above and this field both showed the draft
+              name, side by side — "two adjacent boxes with identical text
+              [that] looks like a duplicate UI bug". They are different actions
+              (switch vs rename) and only one is wanted at a time, so renaming
+              is now a mode: the pencil swaps the selector for the field, and
+              Enter or blur ends it. */}
+          {renaming ? (
+            <input
+              value={team.name}
+              onChange={(e) => persist({ ...team, name: e.target.value })}
+              onBlur={() => setRenaming(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === "Escape") setRenaming(false);
+              }}
+              aria-label="Draft name"
+              autoFocus
+              className="w-36 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
+            />
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={() => setRenaming(true)}
+              aria-label={`Rename draft "${team.name}"`}
+              title="Rename this draft"
+              className="text-zinc-500"
+            >
+              <Pencil className="size-3.5" aria-hidden />
+            </Button>
+          )}
           <ActionMenu
+            tone="outline"
             primaryLabel="Save"
             onPrimary={onSave}
             primaryDisabled={!isDirty}
@@ -1743,7 +1927,7 @@ export default function BuilderPage() {
         {/* ============================================ pitch column */}
         <section className="min-w-0 space-y-4">
           {/* prominent xP panel */}
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
             <div className="flex flex-wrap items-end gap-6">
               <div>
                 <div
@@ -1754,14 +1938,14 @@ export default function BuilderPage() {
                     ? "Projected · rest of season*"
                     : `Projected · next ${horizon} GW${horizon === 1 ? "" : "s"}`}
                 </div>
-                <div className="text-4xl font-extrabold tabular-nums text-purple-900 dark:text-[#00FF87]">
+                <div className="text-4xl font-extrabold tabular-nums text-purple-900 dark:text-primary">
                   {projection.total.toFixed(1)}
                 </div>
               </div>
               {horizon !== 1 && (
                 <div>
                   <div className="text-xs uppercase tracking-wide text-zinc-500">Next GW</div>
-                  <div className="text-3xl font-bold tabular-nums text-purple-800 dark:text-[#00FF87]/80">
+                  <div className="text-3xl font-bold tabular-nums text-purple-800 dark:text-primary/80">
                     {projectionGw.total.toFixed(1)}
                   </div>
                 </div>
@@ -1775,7 +1959,7 @@ export default function BuilderPage() {
                   <div className="flex items-center justify-end gap-2">
                     <CaptainBadge className="h-6 w-6" />
                     <span>
-                      <span className="font-semibold text-purple-800 dark:text-[#00FF87]">
+                      <span className="font-semibold text-purple-800 dark:text-primary">
                         +{projection.captainBonus.toFixed(1)}
                       </span>{" "}
                       armband bonus{captainName ? ` · ${captainName}` : ""}
@@ -1814,7 +1998,7 @@ export default function BuilderPage() {
                   trigger={
                     <>
                       Bench Boost{" "}
-                      <span className="font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                      <span className="font-semibold tabular-nums text-purple-800 dark:text-primary">
                         {cheapChips.bboost.gain >= 0 ? "+" : ""}
                         {cheapChips.bboost.gain.toFixed(1)}
                       </span>
@@ -1829,7 +2013,7 @@ export default function BuilderPage() {
                   trigger={
                     <>
                       Triple Captain{" "}
-                      <span className="font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                      <span className="font-semibold tabular-nums text-purple-800 dark:text-primary">
                         {cheapChips.threeXC.gain >= 0 ? "+" : ""}
                         {cheapChips.threeXC.gain.toFixed(1)}
                       </span>
@@ -1840,7 +2024,7 @@ export default function BuilderPage() {
                 </TapToReveal>
                 <Link
                   href={`/transfers?tab=chips&draft=${team.draftId}`}
-                  className="ml-auto text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                  className="ml-auto text-purple-700 underline-offset-2 hover:underline dark:text-primary"
                 >
                   Free Hit &amp; Wildcard schedule →
                 </Link>
@@ -1858,14 +2042,50 @@ export default function BuilderPage() {
             onRemove={(id) => persist(removePlayer(team, id, lookup(id)?.nowCost))}
             onFindReplacement={startReplacing}
             onAddToSlot={startAdding}
+            addingPosition={addingPosition}
           />
         </section>
+
+
+        {/* The slot picker.
+            Two surfaces, one state. On a phone it rises from the bottom edge
+            (References/Components/panel-reveal.md) because that is where the
+            thumb is and because the pitch stays visible behind it — you can
+            see which slot you are filling. On a desktop it is a popover beside
+            the slot you clicked.
+
+            It cannot grow out of the slot itself: components/pitch.tsx clips
+            its children, so a panel expanding from a + would be cut off at the
+            touchline. The + morphs in place instead and this opens separately. */}
+        {addingPosition !== null && !isDesktop && (
+          <SlideOver
+            open
+            onClose={stopAdding}
+            side="bottom"
+            label={`Add a ${POSITIONS[addingPosition] ?? "player"}`}
+          >
+            <div className="min-h-0 flex-1 px-1">{slotPickerBody}</div>
+          </SlideOver>
+        )}
+        {addingPosition !== null && isDesktop && (
+          <>
+            <div aria-hidden onClick={stopAdding} className="fixed inset-0 z-30" />
+            <div
+              role="dialog"
+              aria-label={`Add a ${POSITIONS[addingPosition] ?? "player"}`}
+              style={slotPanelCoords ?? { top: -9999, left: -9999 }}
+              className="fixed z-40 flex max-h-[min(28rem,70vh)] w-80 flex-col rounded-xl border border-border bg-popover p-3 shadow-2xl motion-safe:[animation:sheet-rise_var(--duration-base)_var(--ease-slide)]"
+            >
+              {slotPickerBody}
+            </div>
+          </>
+        )}
 
         {/* ========================================== selector column */}
         <section className="min-w-0 space-y-4">
           {/* Sprint 3/15.7: lineup + armband recommendation, walkable by gameweek */}
           {lineup && effectiveEvent !== null && (
-            <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+            <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500">
                   Gameweek lineup
@@ -1889,7 +2109,7 @@ export default function BuilderPage() {
                     ))}
                   </select>
                 </h2>
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     if (!lineupApplied) applyLineup();
@@ -1900,10 +2120,10 @@ export default function BuilderPage() {
                       ? "XI and armband already match the recommendation"
                       : `Apply the recommended XI, bench order, and armband for GW${effectiveEvent}`
                   }
-                  className="shrink-0 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
+                  className="shrink-0 px-3 aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
                 >
                   {lineupApplied ? "Applied" : `Apply GW${effectiveEvent} XI & armband`}
-                </button>
+                </Button>
               </div>
 
               {effectiveEvent !== nextEvent && (
@@ -1933,7 +2153,7 @@ export default function BuilderPage() {
                   <dt className="font-medium text-zinc-600 dark:text-zinc-300">
                     Overall projection
                   </dt>
-                  <dd className="font-bold tabular-nums text-purple-900 dark:text-[#00FF87]">
+                  <dd className="font-bold tabular-nums text-purple-900 dark:text-primary">
                     {(
                       lineup.startersXp +
                       lineup.benchExpectedContribution +
@@ -1948,8 +2168,17 @@ export default function BuilderPage() {
               {lineup.captain && (
                 <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-purple-900/40">
                   <div className="flex items-baseline justify-between">
-                    <span className="text-xs uppercase tracking-wide text-zinc-500">
+                    <span className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-zinc-500">
                       Recommended captain
+                      {/* DSI-121: CAPTAIN_MODEL_NOTE was a bare grey footnote
+                          under the reasons list — internal weighting detail
+                          occupying decision space on the one card a manager
+                          reads to make a call. It qualifies the whole
+                          recommendation, so it hangs off the recommendation's
+                          own heading. */}
+                      <ModelNote label="How is the captain recommendation calculated?">
+                        {CAPTAIN_MODEL_NOTE}
+                      </ModelNote>
                     </span>
                     <TapToReveal
                       label="How is captain confidence calculated?"
@@ -1962,7 +2191,7 @@ export default function BuilderPage() {
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                     <span className="flex items-center gap-1.5">
                       <CaptainBadge className="h-6 w-6" />
-                      <span className="text-base font-bold text-purple-900 dark:text-[#00FF87]">
+                      <span className="text-base font-bold text-purple-900 dark:text-primary">
                         {lineup.captain.webName}
                       </span>
                     </span>
@@ -1985,16 +2214,13 @@ export default function BuilderPage() {
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-2 text-[10px] leading-relaxed text-zinc-400">
-                    {CAPTAIN_MODEL_NOTE}
-                  </p>
                 </div>
               )}
             </div>
           )}
 
           {/* optimizer */}
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               Optimise squad
             </h2>
@@ -2004,7 +2230,7 @@ export default function BuilderPage() {
                 <select
                   value={strategy}
                   onChange={(e) => setStrategy(e.target.value as Strategy)}
-                  className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                  className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
                 >
                   {Object.entries(STRATEGY_LABELS).map(([k, v]) => (
                     <option key={k} value={k}>
@@ -2030,24 +2256,27 @@ export default function BuilderPage() {
               </label>
             </div>
             <div className="mt-3 flex gap-2 text-sm">
-              <button
+              <Button
                 type="button"
                 onClick={() => runOptimizer(false)}
                 disabled={optimizerRunning}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                variant="default"
+                size="md"
+                className="flex-1"
               >
                 {optimizerRunning && <Spinner />}
                 {optimizerRunning ? "Optimising…" : "Fill remaining"}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => runOptimizer(true)}
                 disabled={optimizerRunning}
-                className="flex items-center justify-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                variant="outline"
+                size="md"
               >
                 {optimizerRunning && <Spinner />}
                 {optimizerRunning ? "Optimising…" : "Rebuild"}
-              </button>
+              </Button>
             </div>
             <div className="mt-2 flex items-start justify-between gap-2 text-[11px]">
               <p className="text-zinc-500">
@@ -2057,17 +2286,19 @@ export default function BuilderPage() {
               {/* One-slot undo: the saved draft is untouched until Save, so
                   this restores exactly what a rebuild replaced. */}
               {previousTeam && (
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     setTeam(previousTeam);
                     setPreviousTeam(null);
                     setOptimizeNote("Reverted to the previous squad");
                   }}
-                  className="relative shrink-0 before:absolute before:-inset-2.5 before:content-[''] rounded border border-input px-2 py-0.5 font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  variant="outline"
+                  size="xs"
+                  className="relative shrink-0 px-2 text-[11px] before:absolute before:-inset-2.5 before:content-['']"
                 >
                   ↩ Revert
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -2094,14 +2325,16 @@ export default function BuilderPage() {
                       Compare all
                     </Link>
                   )}
-                  <button
+                  <Button
                     type="button"
                     onClick={() => stopReplacing()}
                     aria-label="Close"
-                    className="flex h-5 w-5 items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-purple-950/60"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="size-5 text-zinc-400"
                   >
                     ×
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -2144,41 +2377,37 @@ export default function BuilderPage() {
                         label="Maximum price"
                       />
                       {maxPriceOverride !== null && (
-                        <button
+                        <Button
                           type="button"
                           onClick={() => setMaxPriceOverride(null)}
-                          className="rounded text-purple-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-primary"
+                          variant="link"
+                          className="h-auto p-0 text-purple-700 dark:text-primary"
                         >
                           reset
-                        </button>
+                        </Button>
                       )}
                     </label>
                     <label className="flex items-center gap-1.5">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={includeUnavailable}
                         onChange={(e) => setIncludeUnavailable(e.target.checked)}
-                        className="h-3.5 w-3.5 rounded border-zinc-300 text-purple-700 focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-purple-800/50 dark:text-[#00FF87]"
+                        className="size-3.5"
                       />
                       Include below the minutes floor
                     </label>
                     <div className="flex items-center gap-1.5">
                       <span>Show</span>
-                      {REPLACEMENT_LIMITS.map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => setReplaceLimit(n)}
-                          aria-pressed={replaceLimit === n}
-                          className={`rounded px-1.5 py-0.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                            replaceLimit === n
-                              ? "bg-primary text-primary-foreground"
-                              : "border border-input hover:bg-muted"
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      ))}
+                      <SegmentedControl
+                        label="Number of replacements to show"
+                        semantics="radio"
+                        size="sm"
+                        value={String(replaceLimit)}
+                        onValueChange={(v) => setReplaceLimit(Number(v) as (typeof REPLACEMENT_LIMITS)[number])}
+                        options={REPLACEMENT_LIMITS.map((n) => ({
+                          value: String(n),
+                          label: String(n),
+                        }))}
+                      />
                     </div>
                     <label className="flex items-center gap-1.5">
                       <span>Archetype</span>
@@ -2234,12 +2463,57 @@ export default function BuilderPage() {
                             </span>
                             <GemBadge verdict={gemsById.get(r.player.id)} />
                           </p>
+                          {/* DSI-121: the trade-off was one dense string
+                              ("-3.8 xP — a downgrade · better fixtures · frees
+                              £0.5m"), so a manager hunting for a budget
+                              enabler had to read every line. The two deltas
+                              that drive the decision — points and cash — lead
+                              as badges; the rest stays as supporting prose.
+                              Cash is computed from the two prices rather than
+                              parsed back out of the sentence. */}
+                          <p className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <Badge
+                              tone={r.xpDelta >= 0 ? "positive" : "negative"}
+                              size="sm"
+                              className="tabular-nums"
+                            >
+                              <Delta value={r.xpDelta} unit="xP" showArrow={false} className="text-inherit" />
+                            </Badge>
+                            {(() => {
+                              const out = replaceFor !== null ? lookup(replaceFor) : undefined;
+                              if (!out) return null;
+                              const freed = (out.nowCost ?? 0) - r.player.price;
+                              if (freed === 0) {
+                                return (
+                                  <Badge tone="neutral" size="sm">
+                                    price-neutral
+                                  </Badge>
+                                );
+                              }
+                              return (
+                                <Badge tone="warning" size="sm" className="tabular-nums">
+                                  {freed > 0 ? "frees" : "costs"} £{(Math.abs(freed) / 10).toFixed(1)}m
+                                </Badge>
+                              );
+                            })()}
+                          </p>
+                          {/* The two entries the badges above now carry are
+                              dropped from the prose, or the card says "frees
+                              £0.5m" twice — the duplicate-UI defect this item
+                              is about, reintroduced one line down. Coupled to
+                              the exact phrases lib/scoring.ts builds; the
+                              durable fix landed in DSI-124: `Replacement`
+                              exposes each note's `kind`, so this filters on
+                              meaning rather than on the wording of a string
+                              built in lib/scoring.ts. */}
                           <p className="mt-0.5 text-[11px] text-zinc-500">
-                            {r.rationale.join(" · ")}
+                            {r.rationale
+                              .filter((n) => n.kind !== "xp" && n.kind !== "price")
+                              .map((n) => n.text)
+                              .join(" · ")}
                           </p>
                           <p className="mt-0.5 text-[10px] tabular-nums text-zinc-400">
-                            xP {r.xpDelta >= 0 ? "+" : ""}
-                            {r.xpDelta.toFixed(1)} · risk {r.riskDelta >= 0 ? "+" : ""}
+                            risk {r.riskDelta >= 0 ? "+" : ""}
                             {r.riskDelta} · fit {r.teamFit.toFixed(1)}
                             {r.exitRoutes !== undefined && (
                               <>
@@ -2258,16 +2532,17 @@ export default function BuilderPage() {
                             )}
                           </p>
                         </div>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => {
                             const meta = metaById.get(r.player.id);
                             if (meta) doSwap(replaceFor, meta);
                           }}
-                          className="shrink-0 rounded bg-primary px-2 py-1 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          size="xs"
+                          className="shrink-0"
                         >
                           Swap
-                        </button>
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -2306,13 +2581,14 @@ export default function BuilderPage() {
                   legal target{eligibleCount === 1 ? "" : "s"}, max{" "}
                   £{(replaceEligibility.priceCeiling / 10).toFixed(1)}m
                 </span>
-                <button
+                <Button
                   type="button"
                   onClick={() => stopReplacing()}
-                  className="shrink-0 rounded font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  variant="link"
+                  className="h-auto shrink-0 p-0 text-inherit"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             )}
             {addingPosition !== null && (
@@ -2321,13 +2597,14 @@ export default function BuilderPage() {
                   Adding a <strong>{POSITIONS[addingPosition]}</strong> — filtered to that
                   position
                 </span>
-                <button
+                <Button
                   type="button"
                   onClick={() => stopAdding()}
-                  className="shrink-0 rounded font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  variant="link"
+                  className="h-auto shrink-0 p-0 text-inherit"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             )}
             <div className="flex flex-wrap items-start gap-2 text-xs">
@@ -2349,7 +2626,7 @@ export default function BuilderPage() {
                 value={sortKey}
                 onChange={(e) => changeFilter(setSortKey)(e.target.value as SortKey)}
                 aria-label="Sort by"
-                className="rounded-md border border-zinc-300 bg-white px-1.5 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                className="rounded-md border border-zinc-300 bg-white px-1.5 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
               >
                 <option value="xp5">xP 5</option>
                 <option value="xp1">xP GW</option>
@@ -2373,18 +2650,16 @@ export default function BuilderPage() {
                 </colgroup>
                 <thead>
                   <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                    <th className="py-1.5 pl-1">Player</th>
-                    <th className="py-1.5">£</th>
-                    <th className="py-1.5">{sortColumnLabel(sortKey, horizon)}</th>
-                    <th className="py-1.5">
+                    <DataHeadCell className="py-1.5 pl-1">Player</DataHeadCell>
+                    <DataHeadCell className="py-1.5">£</DataHeadCell>
+                    <DataHeadCell className="py-1.5">{sortColumnLabel(sortKey, horizon)}</DataHeadCell>
+                    <DataHeadCell className="py-1.5">
                       <span className="inline-flex items-center gap-1">
                         Risk
-                        <InfoTooltip label="How is Risk scored?">
-                          <p className="text-xs leading-relaxed">{RISK_MODEL_NOTE}</p>
-                        </InfoTooltip>
+                        <ModelNote label="How is Risk scored?">{RISK_MODEL_NOTE}</ModelNote>
                       </span>
-                    </th>
-                    <th className="py-1.5"></th>
+                    </DataHeadCell>
+                    <DataHeadCell className="py-1.5"></DataHeadCell>
                   </tr>
                 </thead>
                 <tbody>
@@ -2397,11 +2672,8 @@ export default function BuilderPage() {
                     // slot hasn't been freed yet.
                     const reason = replaceFor !== null ? null : blockedReason(team, rules, meta, lookup);
                     return (
-                      <tr
-                        key={p.id}
-                        className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
-                      >
-                        <td className="py-1 pl-1">
+                      <DataRow key={p.id} className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
+                        <DataCell className="py-1 pl-1">
                           <button
                             type="button"
                             onClick={(e) => openPickerDetail(p, e.currentTarget)}
@@ -2438,9 +2710,9 @@ export default function BuilderPage() {
                               {` · ${p.total_points ?? 0}pts · ${p.goals_scored ?? 0}G · ${p.assists ?? 0}A`}
                             </span>
                           </button>
-                        </td>
-                        <td className="py-1 tabular-nums">{((p.now_cost ?? 0) / 10).toFixed(1)}</td>
-                        <td className="py-1 font-semibold tabular-nums text-purple-800 dark:text-primary">
+                        </DataCell>
+                        <DataCell className="py-1 tabular-nums">{((p.now_cost ?? 0) / 10).toFixed(1)}</DataCell>
+                        <DataCell className="py-1 font-semibold tabular-nums text-purple-800 dark:text-primary">
                           {(() => {
                             switch (sortKey) {
                               case "xp5":
@@ -2460,14 +2732,14 @@ export default function BuilderPage() {
                                 return String(p.minutes ?? 0);
                             }
                           })()}
-                        </td>
-                        <td className="py-1 tabular-nums text-zinc-500">
+                        </DataCell>
+                        <DataCell className="py-1 tabular-nums text-zinc-500">
                           {scoredById.has(p.id)
                             ? riskScore(scoredById.get(p.id)!, horizon, seasonWindow)
                             : "—"}
-                        </td>
-                        <td className="py-1 pr-1 text-right">
-                          <button
+                        </DataCell>
+                        <DataCell className="py-1 pr-1" numeric>
+                          <Button
                             type="button"
                             disabled={reason !== null}
                             title={reason ?? (replaceFor !== null ? `Swap in ${p.web_name}` : `Add ${p.web_name}`)}
@@ -2485,55 +2757,81 @@ export default function BuilderPage() {
                             // there adds the wrong player, not a harmless
                             // near-miss. Horizontal is safe: its neighbour is
                             // this same cell's own padding, not another row.
-                            className="relative before:absolute before:-inset-x-2 before:content-[''] rounded border border-input px-1.5 py-0.5 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-35 dark:hover:border-primary dark:hover:text-primary"
+                            variant="outline"
+                            size="xs"
+                            className="relative px-1.5 before:absolute before:-inset-x-2 before:content-[''] hover:border-purple-700 hover:text-purple-700 disabled:opacity-35 dark:hover:border-primary dark:hover:text-primary"
                           >
                             {replaceFor !== null ? "⇄" : "+"}
-                          </button>
-                        </td>
-                      </tr>
+                          </Button>
+                        </DataCell>
+                      </DataRow>
                     );
                   })}
                   {visible.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="py-6 text-center text-zinc-500">
+                    <DataRow>
+                      <DataCell colSpan={5} className="py-6 text-center text-zinc-500">
                         {replaceFor !== null && eligibleCount === 0
                           ? `No legal replacement for ${metaById.get(replaceFor)?.webName ?? "this player"} at £${(replaceEligibility!.priceCeiling / 10).toFixed(1)}m or less.`
                           : "No players match these filters."}
-                      </td>
-                    </tr>
+                      </DataCell>
+                    </DataRow>
                   )}
                 </tbody>
               </table>
             </div>
 
-            {/* pager */}
-            <div className="mt-2 flex items-center justify-between border-t border-zinc-100 pt-2 text-xs dark:border-purple-900/30">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={safePage === 0}
-                className="relative before:absolute before:-inset-2.5 before:content-[''] rounded border border-input px-2 py-0.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-35"
-              >
-                ‹ Prev
-              </button>
-              <span className="text-zinc-500">
-                Page {safePage + 1} of {pageCount} · {filtered.length} player
-                {filtered.length === 1 ? "" : "s"}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-                disabled={safePage >= pageCount - 1}
-                className="relative before:absolute before:-inset-2.5 before:content-[''] rounded border border-input px-2 py-0.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-35"
-              >
-                Next ›
-              </button>
-            </div>
+            {/* This markup is where `Pager` came from — /players needed the
+                same control and copying it would have made two. */}
+            <Pager
+              page={safePage}
+              pageCount={pageCount}
+              onPageChange={setPage}
+              total={filtered.length}
+              noun="player"
+            />
 
             {/* Same detail panel the pitch uses, anchored to the picker row.
                 Actions differ by context: pool players get Add and Find
-                replacement, squad players the armband controls. */}
-            {pickerPanel && (
+                replacement, squad players the armband controls.
+
+                Same shape as the pitch: an anchored popover on a pointer, a
+                bottom sheet on a phone. A popover pinned to a table row lands
+                halfway off a 375px screen and nowhere near the thumb. */}
+            {pickerPanel && !isDesktop && (
+              <SlideOver
+                open
+                onClose={closePickerDetail}
+                side="bottom"
+                label={`${pickerPanel.player.web_name} details`}
+              >
+                <PlayerDetail
+                  player={pickerPanel.player}
+                  inline
+                  onClose={closePickerDetail}
+                  onSetCaptain={(id) => persist(setCaptain(team, id))}
+                  onSetVice={(id) => persist(setViceCaptain(team, id))}
+                  onRemove={(id) => persist(removePlayer(team, id, lookup(id)?.nowCost))}
+                  owned={pickerPanel.owned}
+                  addDisabledReason={pickerPanel.addDisabledReason}
+                  addLabel={replaceFor !== null ? "Swap in" : "Add to squad"}
+                  onAdd={(id) => {
+                    const m = metaById.get(id);
+                    if (!m) return;
+                    if (replaceFor !== null) doSwap(replaceFor, m);
+                    else {
+                      persist(addPlayer(team, m));
+                      if (addingPosition !== null) stopAdding();
+                    }
+                    closePickerDetail();
+                  }}
+                  onFindReplacement={(id) => {
+                    startReplacing(id);
+                    closePickerDetail();
+                  }}
+                />
+              </SlideOver>
+            )}
+            {pickerPanel && isDesktop && (
               <PlayerDetail
                 player={pickerPanel.player}
                 top={pickerPanel.top}

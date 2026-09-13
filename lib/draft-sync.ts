@@ -120,9 +120,25 @@ export async function syncDrafts(userId: string): Promise<SyncResult> {
       })),
     );
     if (snapshotRows.length > 0) {
+      // `ignoreDuplicates` — ON CONFLICT DO NOTHING, not DO UPDATE (DSI-139).
+      //
+      // A snapshot is an immutable point in time, so `draft_snapshots` was
+      // given select/insert/delete and deliberately no UPDATE policy
+      // (20260809190000_sprint14_auth_ownership.sql). The unique index on
+      // (draft_id, at) landed afterwards, and the upsert written against it
+      // took the UPDATE path on every re-push of a draft whose history the
+      // client still held — which RLS refused, 403, for the whole table's
+      // lifetime. Nothing surfaced it: the push is fire-and-forget and the
+      // error only ever reached the console.
+      //
+      // Doing nothing on conflict is not a workaround for the missing policy,
+      // it is the correct semantics: the same (draft_id, at) IS the same
+      // snapshot, so there has never been anything to overwrite. Unlike the
+      // `team_drafts` upsert above, which does need its UPDATE policy and has
+      // one — a draft's payload genuinely changes.
       const { error: snapError } = await supabase
         .from("draft_snapshots")
-        .upsert(snapshotRows, { onConflict: "draft_id,at" });
+        .upsert(snapshotRows, { onConflict: "draft_id,at", ignoreDuplicates: true });
       if (snapError) console.error(`draft_snapshots push failed: ${snapError.message}`);
     }
   }

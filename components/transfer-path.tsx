@@ -1,11 +1,16 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { NoteDisclosure } from "@/components/ui/note-disclosure";
 import { CHIP_LABELS } from "@/lib/chip-plan";
 import { DEFAULT_DECISION_MARGIN } from "@/lib/transfer-optimizer";
 import { horizonLabel, type Horizon } from "@/lib/team-state";
 import type { TransferMove } from "@/lib/transfers";
+import { stepNet } from "@/lib/transfer-path";
 import type { TransferPathResult, TransferPathStep } from "@/lib/transfer-path";
 import { Spinner } from "@/components/ui/spinner";
+import { signed } from "@/lib/utils";
+import { TapToReveal } from "@/components/info-tooltip";
 
 interface TransferPathProps {
   result: TransferPathResult | null;
@@ -29,11 +34,6 @@ interface TransferPathProps {
   onDecisionMarginChange?: (v: number) => void;
 }
 
-const signed = (v: number, digits = 1) => {
-  const rounded = Number(v.toFixed(digits));
-  if (rounded === 0) return (0).toFixed(digits);
-  return `${rounded > 0 ? "+" : ""}${rounded.toFixed(digits)}`;
-};
 
 /**
  * The forward transfer path — what should happen between now and the last
@@ -82,23 +82,48 @@ export function TransferPath({
           </p>
         </div>
         {stale && (
-          <button
+          <Button
             type="button"
             onClick={onRun}
             disabled={loading}
-            className="order-first flex w-full items-center justify-between gap-2 rounded-md border border-warning-border bg-warning-surface px-2.5 py-1.5 text-xs font-medium text-warning-foreground transition-colors hover:bg-warning-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 sm:order-none sm:w-auto"
+            variant="outline"
+            size="md"
+            className="order-first w-full justify-between border-warning-border bg-warning-surface text-xs text-warning-foreground hover:bg-warning-surface/70 hover:text-warning-foreground disabled:opacity-60 sm:order-none sm:w-auto"
           >
             <span className="flex items-center gap-1.5">
               {loading && <Spinner />}
               {loading ? "Re-running…" : "Inputs changed — re-run"}
             </span>
-          </button>
+          </Button>
         )}
         {onDecisionMarginChange && decisionMargin !== undefined && (
           <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-            <span title="Rolling is only worth something the model cannot see: injury news, price moves, rotation hints. That value is yours to assert, not the model's to claim.">
-              Value of waiting for news
-            </span>
+            {/* DSI-119: "this input lacks context — is 1 an xP penalty, a rank
+                risk weight, or days before the deadline?" It is expected
+                points, and that was nowhere on screen; the native title said
+                why the input exists but never what its unit was. A one-off
+                control carrying multi-sentence reasoning is exactly the case
+                TapToReveal is for — unlike the per-row badges, there is one of
+                these on the page, so it costs one tab stop. */}
+            <TapToReveal
+              label="What does Value of waiting for news mean?"
+              triggerClassName="cursor-help underline decoration-dotted decoration-from-font underline-offset-2"
+              trigger="Value of waiting for news"
+            >
+              <span className="block font-semibold text-zinc-900 dark:text-zinc-100">
+                Measured in expected points
+              </span>
+              <span className="mt-1.5 block">
+                How many xP a gameweek of press conferences, price moves and rotation hints is
+                worth to you. It is added to the case for rolling a transfer rather than spending
+                it now.
+              </span>
+              <span className="mt-1.5 block">
+                Rolling is only worth something the model cannot see, so this value is yours to
+                assert rather than the model&apos;s to claim. Set it to 0 to see the pure
+                arithmetic.
+              </span>
+            </TapToReveal>
             <input
               type="number"
               min={0}
@@ -113,26 +138,29 @@ export function TransferPath({
               className="w-16 rounded-md border border-input bg-surface-3 px-2 py-1 text-right tabular-nums text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
             {decisionMargin !== DEFAULT_DECISION_MARGIN && (
-              <button
+              <Button
                 type="button"
                 onClick={() => onDecisionMarginChange(DEFAULT_DECISION_MARGIN)}
-                className="rounded text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                variant="link"
+                className="h-auto p-0 text-muted-foreground"
               >
                 reset
-              </button>
+              </Button>
             )}
           </label>
         )}
-        <button
+        <Button
           type="button"
           onClick={onRun}
           disabled={loading || disabled}
           title={disabled ? "Still loading this horizon's expected points" : undefined}
-          className="flex min-h-9 items-center gap-1.5 rounded-md border border-purple-700 px-3 py-1.5 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
+          variant="outline"
+          size="md"
+          className="min-h-9 border-purple-700 text-purple-700 hover:bg-purple-50 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
         >
           {loading && <Spinner />}
           {loading ? "Planning…" : result ? "Re-plan path" : "Plan the path"}
-        </button>
+        </Button>
       </div>
 
       {result && (
@@ -188,9 +216,10 @@ export function TransferPath({
             </>
           )}
 
-          <p className="mt-3 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-            Ran {result.simulationCount} simulations beyond the deadline&rsquo;s own search. {result.note}
-          </p>
+          <NoteDisclosure>
+            Ran {result.simulationCount} simulations beyond the deadline&rsquo;s own search.{" "}
+            {result.note}
+          </NoteDisclosure>
         </>
       )}
     </section>
@@ -217,20 +246,28 @@ function StepRow({
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{label}</span>
         <span className="flex items-center gap-3">
+          {/* The terms were here without the "= net" the house format calls
+              for (CLAUDE.md), so a reader had to subtract the hit themselves
+              to find out whether the gameweek was actually up or down —
+              DSI-120's complaint, though not its diagnosis: this line is grey,
+              never green, so it was never "green despite a negative net". The
+              risk term joins it for the same reason the headline carries one:
+              a net that includes a term the reader cannot see does not add up
+              on the page. */}
           <span className="text-[11px] tabular-nums text-zinc-500">
             {signed(step.eventXp)} xP
             {step.chipBonus > 0 ? ` + ${step.chipBonus.toFixed(1)} chip` : ""}
             {step.decisionMargin > 0 ? ` + ${step.decisionMargin.toFixed(1)} waiting` : ""}
             {step.pointsCost > 0 ? ` − ${step.pointsCost} hit` : ""}
+            {Math.abs(step.riskPointsDelta) >= 0.05
+              ? ` ${step.riskPointsDelta > 0 ? "−" : "+"} ${Math.abs(step.riskPointsDelta).toFixed(1)} risk`
+              : ""}{" "}
+            = <span className="font-semibold text-zinc-700 dark:text-zinc-300">{signed(stepNet(step))}</span>
           </span>
           {onLoad && (
-            <button
-              type="button"
-              onClick={onLoad}
-              className="shrink-0 rounded-md border border-purple-700 px-2 py-0.5 text-[11px] font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary dark:text-primary dark:hover:bg-primary/10"
-            >
-              Load
-            </button>
+            <Button variant="outline" size="xs" onClick={onLoad} className="shrink-0">
+              Load into basket
+            </Button>
           )}
           {loaded && !onLoad && (
             <span className="shrink-0 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">

@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import type { ManagerProfile, RivalRow } from "@/lib/manager-profile";
 import { TapToReveal } from "@/components/info-tooltip";
+import { AnnotatedLabel } from "@/components/ui/model-note";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 const CONFIDENCE_STYLE: Record<ManagerProfile["confidence"], string> = {
   high: "text-emerald-700 dark:text-emerald-400",
@@ -20,7 +23,12 @@ function PercentileBar({ score, label }: { score: number; label: string }) {
         className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-purple-950/60"
       >
         <div
-          className="h-full rounded-full bg-purple-700 transition-[width] duration-300 motion-reduce:transition-none dark:bg-[#00FF87]"
+          // DSI-120: these bars used the same --primary as every CTA in the
+          // app. Using the primary interactive colour for a static data
+          // visualisation dilutes the buttons — the eye stops reading it as
+          // "this is actionable". --chart-1 is the visualisation ramp's own
+          // first slot, which is what it is there for.
+          className="h-full rounded-full bg-chart-1 transition-[width] duration-base ease-slide motion-reduce:transition-none"
           style={{ width: `${score}%` }}
         />
       </div>
@@ -42,7 +50,7 @@ function PercentileBar({ score, label }: { score: number; label: string }) {
  */
 export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
           Career Percentile Profile
@@ -59,13 +67,13 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div>
           <div className="text-xs text-zinc-500">Tier (career median)</div>
-          <div className="mt-0.5 text-lg font-semibold text-purple-900 dark:text-[#00FF87]">
+          <div className="mt-0.5 text-lg font-semibold text-purple-900 dark:text-primary">
             {profile.tier}
           </div>
         </div>
         <div>
           <div className="text-xs text-zinc-500">Seasons of record</div>
-          <div className="mt-0.5 text-lg font-semibold text-purple-900 dark:text-[#00FF87]">
+          <div className="mt-0.5 text-lg font-semibold text-purple-900 dark:text-primary">
             {profile.seasons}
           </div>
         </div>
@@ -167,11 +175,12 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
 /** A gap that may not exist yet (no career record on one side, or no gameweeks played) — never fabricated as 0. */
 function GapCell({ gap, decimals = 1 }: { gap: number | null; decimals?: number }) {
   if (gap === null) {
-    return <td className="py-1.5 text-right tabular-nums text-zinc-400">—</td>;
+    return <DataCell className="py-1.5 text-zinc-400" numeric>—</DataCell>;
   }
   return (
-    <td
-      className={`py-1.5 text-right tabular-nums font-medium ${
+    <DataCell
+      numeric
+      className={`py-1.5 font-medium ${
         gap > 0
           ? "text-emerald-700 dark:text-emerald-400"
           : gap < 0
@@ -181,7 +190,7 @@ function GapCell({ gap, decimals = 1 }: { gap: number | null; decimals?: number 
     >
       {gap > 0 ? "+" : ""}
       {gap.toFixed(decimals)}
-    </td>
+    </DataCell>
   );
 }
 
@@ -199,29 +208,20 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
 
   if (rivals.length === 0) return null;
 
-  const tabButton = (id: RivalTab, label: string) => (
-    <button
-      type="button"
-      onClick={() => setTab(id)}
-      aria-current={tab === id ? "page" : undefined}
-      className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-        tab === id
-          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-[#00FF87] dark:ring-1 dark:ring-[#00FF87]/40"
-          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/50"
-      }`}
-    >
-      {label}
-    </button>
-  );
-
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-[#1E0234]">
+    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Rivals</h3>
-        <div className="flex gap-1 rounded-lg border border-zinc-200 p-0.5 dark:border-purple-900/40">
-          {tabButton("season", "This season")}
-          {tabButton("career", "Career")}
-        </div>
+        <SegmentedControl
+          label="Rival comparison period"
+          size="sm"
+          value={tab}
+          onValueChange={(v) => setTab(v as RivalTab)}
+          options={[
+            { value: "season", label: "This season" },
+            { value: "career", label: "Career" },
+          ]}
+        />
       </div>
 
       {tab === "season" ? (
@@ -229,41 +229,50 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
           <table className="mt-3 w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                <th className="py-1.5">Manager</th>
-                <th className="py-1.5 text-right">GW pts</th>
-                <th className="py-1.5 text-right">Total</th>
-                <th className="py-1.5 text-right">Rank</th>
-                <th className="py-1.5 text-right">Gap</th>
+                <DataHeadCell className="py-1.5">Manager</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>GW pts</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>Total</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>Rank</DataHeadCell>
+                {/* "Gap" alone never said whose (DSI-120). The sign is right —
+                    it is mine minus theirs, so green is genuinely ahead — but a
+                    reader seeing a negative number had no way to learn that from
+                    the screen. The direction now travels with the column. */}
+                <DataHeadCell className="py-1.5" numeric>
+                  <AnnotatedLabel
+                    label="What the Gap column means"
+                    align="right"
+                    note="Your total points minus theirs. Positive (green) means you are ahead; negative (amber) means you are behind."
+                  >
+                    Gap
+                  </AnnotatedLabel>
+                </DataHeadCell>
               </tr>
             </thead>
             <tbody>
               {[...rivals]
                 .sort((a, b) => (b.season?.pointsGap ?? -Infinity) - (a.season?.pointsGap ?? -Infinity))
                 .map((r) => (
-                  <tr
-                    key={r.entryId}
-                    className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
-                  >
-                    <td className="py-1.5 text-zinc-800 dark:text-zinc-200">{r.teamName}</td>
+                  <DataRow key={r.entryId} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                    <DataCell className="py-1.5 text-zinc-800 dark:text-zinc-200">{r.teamName}</DataCell>
                     {r.season ? (
                       <>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-800 dark:text-zinc-200">
+                        <DataCell className="py-1.5 text-zinc-800 dark:text-zinc-200" numeric>
                           {r.season.lastEventPoints}
-                        </td>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                        </DataCell>
+                        <DataCell className="py-1.5 text-zinc-500" numeric>
                           {r.season.totalPoints}
-                        </td>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                        </DataCell>
+                        <DataCell className="py-1.5 text-zinc-500" numeric>
                           {r.season.overallRank?.toLocaleString() ?? "—"}
-                        </td>
+                        </DataCell>
                         <GapCell gap={r.season.pointsGap} decimals={0} />
                       </>
                     ) : (
-                      <td colSpan={4} className="py-1.5 text-right text-xs text-zinc-400">
+                      <DataCell colSpan={4} className="py-1.5 text-xs text-zinc-400" numeric>
                         No gameweeks played yet
-                      </td>
+                      </DataCell>
                     )}
-                  </tr>
+                  </DataRow>
                 ))}
             </tbody>
           </table>
@@ -279,45 +288,54 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
           <table className="mt-3 w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                <th className="py-1.5">Manager</th>
-                <th className="py-1.5 text-right">Seasons</th>
-                <th className="py-1.5 text-right">Median</th>
-                <th className="py-1.5 text-right">Best</th>
-                <th className="py-1.5 text-right">Worst</th>
-                <th className="py-1.5 text-right">Gap</th>
+                <DataHeadCell className="py-1.5">Manager</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>Seasons</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>Median</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>Best</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>Worst</DataHeadCell>
+                {/* "Gap" alone never said whose (DSI-120). The sign is right —
+                    it is mine minus theirs, so green is genuinely ahead — but a
+                    reader seeing a negative number had no way to learn that from
+                    the screen. The direction now travels with the column. */}
+                <DataHeadCell className="py-1.5" numeric>
+                  <AnnotatedLabel
+                    label="What the Gap column means"
+                    align="right"
+                    note="Your median career percentile score minus theirs. Positive (green) means the stronger record is yours; negative (amber) means theirs."
+                  >
+                    Gap
+                  </AnnotatedLabel>
+                </DataHeadCell>
               </tr>
             </thead>
             <tbody>
               {[...rivals]
                 .sort((a, b) => (b.career?.gap ?? -Infinity) - (a.career?.gap ?? -Infinity))
                 .map((r) => (
-                  <tr
-                    key={r.entryId}
-                    className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
-                  >
-                    <td className="py-1.5 text-zinc-800 dark:text-zinc-200">{r.teamName}</td>
+                  <DataRow key={r.entryId} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                    <DataCell className="py-1.5 text-zinc-800 dark:text-zinc-200">{r.teamName}</DataCell>
                     {r.career ? (
                       <>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                        <DataCell className="py-1.5 text-zinc-500" numeric>
                           {r.career.seasons}
-                        </td>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-800 dark:text-zinc-200">
+                        </DataCell>
+                        <DataCell className="py-1.5 text-zinc-800 dark:text-zinc-200" numeric>
                           {r.career.median.toFixed(1)}
-                        </td>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                        </DataCell>
+                        <DataCell className="py-1.5 text-zinc-500" numeric>
                           {r.career.best.toFixed(0)}
-                        </td>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                        </DataCell>
+                        <DataCell className="py-1.5 text-zinc-500" numeric>
                           {r.career.worst.toFixed(0)}
-                        </td>
+                        </DataCell>
                         <GapCell gap={r.career.gap} />
                       </>
                     ) : (
-                      <td colSpan={4} className="py-1.5 text-right text-xs text-zinc-400">
+                      <DataCell colSpan={4} className="py-1.5 text-xs text-zinc-400" numeric>
                         First season
-                      </td>
+                      </DataCell>
                     )}
-                  </tr>
+                  </DataRow>
                 ))}
             </tbody>
           </table>

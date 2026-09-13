@@ -5,7 +5,7 @@ import { useState } from "react";
 import { FDRBadge } from "./fdr-badge";
 import { StatusBadge } from "./player-status-icons";
 import { Skeleton } from "./ui/skeleton";
-import { asRating } from "@/lib/fdr";
+import { asRating, venueRing } from "@/lib/fdr";
 
 export interface UpcomingFixture {
   event: number;
@@ -31,6 +31,15 @@ export interface PlayerData {
   value_note?: string | null;
   /** Decimals for the headline number. Real points are whole; xP is not. */
   value_decimals?: number;
+  /**
+   * The unit printed after the headline number. Defaults to "xP" because most
+   * callers project; `/team`'s played gameweeks pass "pts". It used to be the
+   * literal string "xP" for everyone, so a finished gameweek's card read
+   * "6 xP" directly above a tooltip reading "GW4 points" — the label
+   * contradicting the number it labels, which is the exact failure
+   * CLAUDE.md's "say what the number means" exists to prevent.
+   */
+  value_unit?: string;
   /**
    * True while `expected_points` is still being calculated rather than
    * genuinely absent — distinguishes "not modelled" from "not here yet" so a
@@ -173,12 +182,20 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
     >
       {/* Captain / vice badge */}
       {player.is_captain && (
-        <span className="absolute -left-1 -top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full border-2 border-emerald-400 bg-purple-950 text-[10px] font-extrabold text-emerald-400 shadow-md">
+        <span
+          role="img"
+          aria-label="Captain"
+          className="absolute -left-1 -top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-extrabold text-primary-foreground shadow-md ring-2 ring-card"
+        >
           C
         </span>
       )}
       {player.is_vice_captain && !player.is_captain && (
-        <span className="absolute -left-1 -top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full border-2 border-purple-500 bg-purple-950 text-[9px] font-extrabold text-slate-200 shadow-md">
+        <span
+          role="img"
+          aria-label="Vice-captain"
+          className="absolute -left-1 -top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-100 text-[9px] font-extrabold text-zinc-900 shadow-md ring-2 ring-card"
+        >
           VC
         </span>
       )}
@@ -252,10 +269,16 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
           </span>
         ) : hasXp ? (
           <span
-            className={`font-bold text-emerald-400 ${player.next_fixture ? "text-[10px]" : "text-base"}`}
+            className={`inline-flex items-baseline gap-px font-bold text-emerald-400 ${player.next_fixture ? "text-[10px]" : "text-base"}`}
             title={player.value_note ?? "Expected points (xP) over the selected horizon"}
           >
             {player.expected_points!.toFixed(player.value_decimals ?? 1)}
+            <span
+              aria-hidden
+              className={`font-normal text-emerald-400/70 ${player.next_fixture ? "text-[7px]" : "text-[9px]"}`}
+            >
+              {player.value_unit ?? "xP"}
+            </span>
           </span>
         ) : (
           <span
@@ -268,9 +291,11 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
         {player.next_fixture && (
           <FDRBadge
             rating={asRating(player.next_fixture.fdr)}
-            className={`px-1 py-0 text-[8px] font-bold ring-1 ${
-              player.next_fixture.is_home ? "ring-green-400" : "ring-red-400"
-            }`}
+            /* venueRing(), not a second green/red pair defined here. The
+               matrix moved off hue for venue because red-green is the one axis
+               colour blindness destroys; this card kept its own copy and so
+               kept the defect (CLAUDE.md: one quantity, one implementation). */
+            className={`px-1 py-0 text-[8px] font-bold ${venueRing(player.next_fixture.is_home)}`}
           >
             {player.next_fixture.opponent_short_name}
             {/* Home/away as text only from sm up — below that this single span,
@@ -295,14 +320,43 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
  * turning the slot itself into the "add a player" affordance instead of the
  * far-away picker table being the only way in.
  */
-export function EmptySlot({ label, onAdd }: { label: string; onAdd?: () => void }) {
+export function EmptySlot({
+  label,
+  onAdd,
+  open = false,
+}: {
+  label: string;
+  /** Receives the slot's own button, so the picker can anchor to it. */
+  onAdd?: (anchor: HTMLElement) => void;
+  /** True while this slot's picker is open — turns the + into a ×. */
+  open?: boolean;
+}) {
   const inner = (
     <>
-      <span className="flex h-12 w-11 items-center justify-center rounded-md border-2 border-dashed border-purple-200/50 sm:h-14 sm:w-13 dark:border-purple-400/30">
+      {/* The + was a faint glyph inside a dashed outline — it read as a
+          placeholder rather than a control, which is the "unactionable pitch"
+          complaint. It is now a filled circular button that morphs on open,
+          following References/Components/plus-to-menu.md: the plus rotates 45°
+          into a ×, on that recipe's own bouncier open curve.
+
+          The morph stays inside the slot rather than growing into the picker
+          panel, because components/pitch.tsx clips its children
+          (`overflow-hidden`) — a panel expanding out of a slot would be cut
+          off at the touchline. The panel opens separately, anchored to this
+          button. */}
+      <span
+        className={`flex h-12 w-11 items-center justify-center rounded-md border-2 border-dashed transition-colors sm:h-14 sm:w-13 ${
+          onAdd
+            ? "border-primary/50 group-hover/slot:border-primary group-hover/slot:bg-primary/10"
+            : "border-purple-200/50 dark:border-purple-400/30"
+        }`}
+      >
         {onAdd ? (
           <span
             aria-hidden="true"
-            className="text-base font-bold leading-none text-purple-100/70 dark:text-purple-300/60"
+            className={`flex h-7 w-7 items-center justify-center rounded-full bg-primary text-lg font-bold leading-none text-primary-foreground shadow-md transition-transform duration-slow ease-pop motion-reduce:transition-none ${
+              open ? "rotate-45" : "group-hover/slot:scale-110"
+            }`}
           >
             +
           </span>
@@ -320,9 +374,10 @@ export function EmptySlot({ label, onAdd }: { label: string; onAdd?: () => void 
     return (
       <button
         type="button"
-        onClick={onAdd}
-        aria-label={`Add a ${label}`}
-        className="flex w-16 flex-col items-center justify-center rounded-md sm:w-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={(e) => onAdd(e.currentTarget)}
+        aria-label={open ? `Close the ${label} picker` : `Add a ${label}`}
+        aria-expanded={open}
+        className="group/slot flex w-16 flex-col items-center justify-center rounded-md sm:w-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {inner}
       </button>

@@ -58,6 +58,7 @@
   --color-surface-1: var(--surface-1);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
+  --color-pitch-turf: var(--pitch-turf);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-success-surface: var(--success-surface);
@@ -78,6 +79,41 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /*
+   * Motion scale. Timing was the last thing in the app still being invented
+   * per call site: three accordions each hand-typed `duration-300
+   * ease-[cubic-bezier(0.16,1,0.3,1)]`, and everything else used whatever
+   * Tailwind default fell out. These names come from the Transitions.dev
+   * recipes in References/Components/ (accordion, tab-sliding, checkbox-check,
+   * panel-reveal, number-pop, tooltip-hover), collapsed from ~20 one-off
+   * property names into one scale.
+   *
+   * Registering them here rather than as bare custom properties is what makes
+   * `duration-base` and `ease-slide` real utilities, so a component can no
+   * longer reach for an arbitrary number without it being obvious in review.
+   *
+   * Open and close are deliberately NOT the same length. A panel or tooltip
+   * should appear deliberately and get out of the way immediately; matching
+   * the two makes dismissal feel sticky.
+   */
+  --duration-instant: 50ms;
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 350ms;
+  --duration-slower: 400ms;
+  --duration-pop: 500ms;
+
+  /* The Transitions.dev standard: a hard decelerate, no overshoot. Sliding
+     indicators, accordions, colour changes. */
+  --ease-slide: cubic-bezier(0.22, 1, 0.36, 1);
+  /* The app's existing accordion curve (CollapsibleCard, ClubTacticsGrid) —
+     kept distinct rather than folded into --ease-slide so migrating those two
+     is a decision someone makes, not a silent re-timing. */
+  --ease-emphasis: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Overshoots past 1. For a value landing (a counter, a recomputed xP), never
+     for a surface — a panel that springs reads as a bug. */
+  --ease-pop: cubic-bezier(0.34, 1.45, 0.64, 1);
 }
 
 /*
@@ -98,6 +134,18 @@
   --surface-1: #fafafa;
   --surface-2: #ffffff;
   --surface-3: #ffffff;
+  /* The pitch backdrop in components/pitch.tsx. Artwork rather than
+     chrome, like lib/fdr.ts's ramp — but it is still a design value with
+     two theme variants, so it belongs here and not as a literal in a
+     className. Light is emerald-600, the shade it has always been. */
+  --pitch-turf: #00a63e;
+
+  /* Motion constants that are distances and delays rather than durations —
+     no Tailwind utility maps to them, so they stay plain custom properties. */
+  --motion-blur: 2px;
+  --motion-delay-hint: 80ms;
+  --motion-digit-distance: 8px;
+  --motion-digit-stagger: 70ms;
   --popover: #ffffff;
   --popover-foreground: oklch(0.145 0 0);
   --primary: #3c0366;
@@ -125,7 +173,21 @@
   --danger-foreground: #b91c1c;
   --danger-surface: #fef2f2;
   --danger-border: #fca5a5;
-  --chart-1: oklch(0.87 0 0);
+  /*
+   * Data-visualisation colour, distinct from --primary on purpose.
+   *
+   * DSI-120: the career percentile bars used the CTA green. Spending the
+   * primary interactive colour on a static chart dilutes every button on the
+   * page — the eye stops reading that green as "this is actionable". A cyan
+   * sits apart from both the neon green and the purple chrome, and is the
+   * "purple-tinted cyan" the audit suggested.
+   *
+   * Only slot 1 is real. --chart-2..5 below are still shadcn's defaults
+   * (a greyscale ramp here, assorted purples in dark) because nothing
+   * consumes them yet, and a categorical ramp invented before it has a
+   * consumer is a palette nobody validated against real series.
+   */
+  --chart-1: #0891b2;
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
@@ -162,6 +224,7 @@
   --surface-1: #0e0118;
   --surface-2: #1e0234;
   --surface-3: #2a0a45;
+  --pitch-turf: #082015;
   /*
    * Popover surface deliberately mapped to --surface-3 (#2a0a45), not
    * --surface-2/--card (#1e0234): every dropdown/menu popover in the app
@@ -197,7 +260,8 @@
   --danger-foreground: #f87171;
   --danger-surface: oklch(0.28 0.09 25 / 40%);
   --danger-border: oklch(0.4 0.12 25 / 60%);
-  --chart-1: #00ff87;
+  /* Was #00ff87 — byte-identical to --primary, which is the defect. */
+  --chart-1: #22d3ee;
   --chart-2: oklch(0.7 0.18 300);
   --chart-3: oklch(0.62 0.17 320);
   --chart-4: oklch(0.55 0.16 280);
@@ -221,5 +285,70 @@
   }
   html {
     @apply font-sans;
+  }
+}
+/* Drift for the landing hero's line field (components/ui/background-paths).
+   pathLength={1} normalises every path to a unit length, so one dash pattern
+   and one offset sweep read identically on curves of very different real
+   lengths. */
+@keyframes bg-path-drift {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -1; }
+}
+
+/* Bottom-sheet entry (components/ui/slide-over, side="bottom"), from
+   References/Components/panel-reveal.md: travel, fade and cross-blur on one
+   duration so a half-height rise still reads as a full open. */
+@keyframes sheet-rise {
+  from { transform: translateY(var(--motion-sheet-travel, 40%)); opacity: 0; filter: blur(var(--motion-blur)); }
+  to   { transform: translateY(0); opacity: 1; filter: blur(0); }
+}
+
+/*
+ * Error-state shake — Transitions.dev recipe
+ * (References/Components/error-shake.md), trimmed to the part this app needs.
+ *
+ * The recipe also owns the error border tween and the message reveal; those
+ * already exist here as ordinary Tailwind classes on each form, so taking
+ * them would have meant two implementations of the same red. What Tailwind
+ * cannot express is a multi-segment keyframe with per-stop easing, so that is
+ * what lives here.
+ *
+ * Percentages are cumulative fractions of the total (80 + 60 + 80 + 60 =
+ * 280ms): recompute them if any segment changes. Restarting the animation on
+ * a repeated error needs the class removed, a reflow forced, and the class
+ * re-added — `useErrorShake` does that.
+ */
+@keyframes t-shake {
+  0% {
+    transform: translateX(0);
+    animation-timing-function: var(--ease-slide);
+  }
+  28.57% {
+    transform: translateX(6px);
+    animation-timing-function: var(--ease-slide);
+  }
+  57.14% {
+    transform: translateX(-6px);
+    animation-timing-function: var(--ease-slide);
+  }
+  78.57% {
+    transform: translateX(4px);
+    animation-timing-function: var(--ease-slide);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.t-shake {
+  animation: t-shake 280ms linear;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-shake {
+    animation: none !important;
+    transform: none !important;
   }
 }

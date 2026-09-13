@@ -49,7 +49,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           <DraftSyncProvider />
-          <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+          <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
             <nav className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4 sm:gap-6">
               {/* MobileNav renders first so its trigger is leftmost below
                   `lg` — reachable without reaching across the wordmark from

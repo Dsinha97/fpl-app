@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
+import { NoteDisclosure } from "@/components/ui/note-disclosure";
 import {
   averageFdr,
   fdrTheme,
@@ -8,9 +10,11 @@ import {
   STRENGTH_FDR_NOTE,
   type FdrCell,
   type FdrRating,
+  venueRing,
   type FdrSource,
 } from "@/lib/fdr";
 import { FDRBadge, FixtureCell } from "./fdr-badge";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 export interface MatrixFixture {
   event: number | null;
@@ -120,25 +124,22 @@ export function FdrMatrix({
           {sort === "hardest" && `Sorted hardest ${horizon === 38 ? "season" : `${horizon}-GW`} run first`}
           {sort === "az" && "Sorted A–Z"}
           {sort === "position" && "Sorted by table position"}
-          {" · green ring = home, red ring = away"}
         </p>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-zinc-500">Window</span>
-          {HORIZONS.map((h) => (
-            <button
-              key={h}
-              type="button"
-              onClick={() => setHorizon(h)}
-              aria-pressed={horizon === h}
-              className={`rounded-md border px-2.5 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                horizon === h
-                  ? "border-transparent bg-primary text-primary-foreground"
-                  : "border-input text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {h === 38 ? "All" : `${h} GWs`}
-            </button>
-          ))}
+          {/* A window is a parameter, not a view, so `radio` rather than `tabs`
+              — "tab" would be a lie to a screen reader here. */}
+          <SegmentedControl
+            label="Fixture window"
+            semantics="radio"
+            size="sm"
+            value={String(horizon)}
+            onValueChange={(v) => setHorizon(Number(v) as (typeof HORIZONS)[number])}
+            options={HORIZONS.map((h) => ({
+              value: String(h),
+              label: h === 38 ? "All" : `${h} GWs`,
+            }))}
+          />
         </div>
       </div>
 
@@ -148,14 +149,14 @@ export function FdrMatrix({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search team…"
-          className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+          className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
         />
         <label className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
           Sort
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOrder)}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
           >
             {(Object.keys(SORT_LABELS) as SortOrder[]).map((s) => (
               <option key={s} value={s} disabled={s === "position" && !positionsKnown}>
@@ -174,21 +175,20 @@ export function FdrMatrix({
         {strengthKnown && (
           <span className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
             Rating
-            {(["official", "strength"] as FdrSource[]).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setSource(s)}
-                aria-pressed={source === s}
-                className={`rounded-md border px-2.5 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  source === s
-                    ? "border-transparent bg-primary text-primary-foreground"
-                    : "border-input text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {s === "official" ? "Official" : "Strength"}
-              </button>
-            ))}
+            {/* DSI-127: these two read as one solid green button beside one dark
+                button, which looks like an action and its disabled twin rather
+                than a binary choice. One segmented switch says "pick a side". */}
+            <SegmentedControl
+              label="Difficulty rating source"
+              semantics="radio"
+              size="sm"
+              value={source}
+              onValueChange={(v) => setSource(v as FdrSource)}
+              options={[
+                { value: "official", label: "Official" },
+                { value: "strength", label: "Strength" },
+              ]}
+            />
           </span>
         )}
       </div>
@@ -200,50 +200,43 @@ export function FdrMatrix({
             <FDRBadge key={r} rating={Number(r) as FdrRating} showLabel />
           ))}
         </span>
-        <span className="flex items-center gap-3 text-zinc-500">
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-green-400 ring-offset-1 ring-offset-white dark:bg-purple-900 dark:ring-offset-[#1E0234]" />
-            home
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded bg-zinc-300 ring-2 ring-red-400 ring-offset-1 ring-offset-white dark:bg-purple-900 dark:ring-offset-[#1E0234]" />
-            away
-          </span>
+        {/* One swatch, not two: only away is marked now, so a "home" swatch
+            would be a picture of the absence of a thing. */}
+        <span className="flex items-center gap-1.5 text-zinc-500">
+          <span className={`inline-block h-3 w-3 rounded bg-zinc-300 dark:bg-purple-900 ${venueRing(false)}`} />
+          ring = away
         </span>
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
         <table className="w-full min-w-[36rem] border-collapse text-xs">
           <thead>
             <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-              <th className="sticky left-0 z-10 bg-white px-3 py-2 dark:bg-[#1E0234]">Team</th>
-              <th className="px-2 py-2 text-center">Avg</th>
+              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 dark:bg-card">Team</DataHeadCell>
+              <DataHeadCell className="px-2 py-2 text-center">Avg</DataHeadCell>
               {gwCols.map((g) => (
-                <th key={g} className="px-1 py-2 text-center">
+                <DataHeadCell key={g} className="px-1 py-2 text-center">
                   GW{g}
-                </th>
+                </DataHeadCell>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map(({ team, cells, avg }) => (
-              <tr
-                key={team.id}
-                className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
-              >
-                <td className="sticky left-0 z-10 bg-white px-3 py-1.5 font-medium text-zinc-800 dark:bg-[#1E0234] dark:text-zinc-200">
+              <DataRow key={team.id} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                <DataCell className="sticky left-0 z-10 bg-white px-3 py-1.5 font-medium text-zinc-800 dark:bg-card dark:text-zinc-200">
                   {team.short_name}
-                </td>
-                <td className="px-2 py-1.5 text-center tabular-nums text-zinc-500">
+                </DataCell>
+                <DataCell className="px-2 py-1.5 text-center tabular-nums text-zinc-500">
                   {avg !== null ? avg.toFixed(1) : "—"}
-                </td>
+                </DataCell>
                 {gwCols.map((g) => {
                   const cellFixtures = cells.get(g) ?? [];
                   return (
-                    <td key={g} className="px-1 py-1.5 text-center">
+                    <DataCell key={g} className="px-1 py-1.5 text-center">
                       {cellFixtures.length === 0 ? (
                         <span
-                          className="block rounded bg-zinc-100 px-1 py-1 text-zinc-400 dark:bg-[#2A0A45] dark:text-zinc-600"
+                          className="block rounded bg-zinc-100 px-1 py-1 text-zinc-400 dark:bg-surface-3 dark:text-zinc-600"
                           title={`GW${g}: blank — no fixture`}
                         >
                           —
@@ -269,27 +262,36 @@ export function FdrMatrix({
                           ))}
                         </span>
                       )}
-                    </td>
+                    </DataCell>
                   );
                 })}
-              </tr>
+              </DataRow>
             ))}
             {rows.length === 0 && (
-              <tr>
-                <td colSpan={gwCols.length + 2} className="px-3 py-6 text-center text-zinc-500">
+              <DataRow>
+                <DataCell colSpan={gwCols.length + 2} className="px-3 py-6 text-center text-zinc-500">
                   No team matches &quot;{search}&quot;.
-                </td>
-              </tr>
+                </DataCell>
+              </DataRow>
             )}
           </tbody>
         </table>
       </div>
 
-      <p className="mt-4 text-xs text-zinc-400">
-        {source === "official"
-          ? "Uses FPL's own published difficulty rating for each fixture."
-          : STRENGTH_FDR_NOTE}
-      </p>
+      {/* The Strength note runs to ~90 words of methodology -- how the rating
+          is derived, that it is coarser than its own five-colour ramp, and
+          that nothing in the app scores against it. All load-bearing, none of
+          it worth reading on the way to the next thing, which is what
+          NoteDisclosure is for (DSI-140). The official one is a single line
+          and stays plain: collapsing a one-liner adds a click and hides
+          nothing. */}
+      {source === "official" ? (
+        <p className="mt-4 text-xs text-zinc-400">
+          Uses FPL&apos;s own published difficulty rating for each fixture.
+        </p>
+      ) : (
+        <NoteDisclosure className="mt-4">{STRENGTH_FDR_NOTE}</NoteDisclosure>
+      )}
     </>
   );
 }

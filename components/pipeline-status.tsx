@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { DataCell, DataHeadCell, DataRow, DataTable, DataTableHead } from "@/components/ui/data-table";
 import { supabase } from "@/lib/supabase/client";
 import { AccuracyScoreboard } from "@/components/accuracy-scoreboard";
 import { SyncHealthPanel } from "@/components/sync-health";
@@ -56,7 +58,7 @@ const FUNCTIONS = [
 
 const STATUS_STYLES: Record<string, string> = {
   success: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
-  skipped: "bg-zinc-100 text-zinc-600 dark:bg-[#2A0A45] dark:text-zinc-400",
+  skipped: "bg-zinc-100 text-zinc-600 dark:bg-surface-3 dark:text-zinc-400",
   partial: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   error: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
   running: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
@@ -156,39 +158,35 @@ export function PipelineStatus() {
     <div className="mt-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Pipeline Status</h2>
-        <button
+        <Button
           onClick={() => void load()}
           disabled={loading}
-          className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+          variant="outline"
+          size="md"
+          className="border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
         >
           {loading ? "Loading…" : "Refresh"}
-        </button>
+        </Button>
       </div>
 
       <section className="mt-6">
         <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
           Last run per function
         </h2>
-        <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                <th className="px-3 py-2">Function</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">When</th>
-                <th className="px-3 py-2">Duration</th>
-                <th className="px-3 py-2">Rows</th>
-                <th className="px-3 py-2">Detail</th>
-              </tr>
-            </thead>
+        <DataTable minWidth="44rem" wrapperClassName="mt-3" label="Last run per sync function">
+            <DataTableHead>
+              <DataHeadCell className="px-3">Function</DataHeadCell>
+              <DataHeadCell className="px-3">Status</DataHeadCell>
+              <DataHeadCell className="px-3">When</DataHeadCell>
+              <DataHeadCell className="px-3" numeric>Duration</DataHeadCell>
+              <DataHeadCell className="px-3" numeric>Rows</DataHeadCell>
+              <DataHeadCell className="px-3">Detail</DataHeadCell>
+            </DataTableHead>
             <tbody>
               {runs.map((r) => (
-                <tr
-                  key={r.function_name}
-                  className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
-                >
-                  <td className="px-3 py-2 font-mono text-xs">{r.function_name}</td>
-                  <td className="px-3 py-2">
+                <DataRow key={r.function_name} className="text-zinc-800 dark:text-zinc-200">
+                  <DataCell className="px-3 py-2 font-mono text-xs">{r.function_name}</DataCell>
+                  <DataCell className="px-3 py-2">
                     <span
                       className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                         STATUS_STYLES[r.status] ?? STATUS_STYLES.running
@@ -196,25 +194,24 @@ export function PipelineStatus() {
                     >
                       {r.status}
                     </span>
-                  </td>
-                  <td className="px-3 py-2 text-zinc-500">{ago(r.started_at)}</td>
-                  <td className="px-3 py-2 tabular-nums text-zinc-500">{duration(r)}</td>
-                  <td className="px-3 py-2 tabular-nums">{r.rows_written.toLocaleString()}</td>
-                  <td className="px-3 py-2 max-w-xs truncate text-xs text-zinc-500">
+                  </DataCell>
+                  <DataCell className="px-3 py-2 text-zinc-500">{ago(r.started_at)}</DataCell>
+                  <DataCell className="px-3 py-2 text-zinc-500" numeric>{duration(r)}</DataCell>
+                  <DataCell className="px-3 py-2" numeric>{r.rows_written.toLocaleString()}</DataCell>
+                  <DataCell className="px-3 py-2 max-w-xs truncate text-xs text-zinc-500">
                     {r.error ?? (r.details ? JSON.stringify(r.details) : "")}
-                  </td>
-                </tr>
+                  </DataCell>
+                </DataRow>
               ))}
               {runs.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-zinc-500">
+                  <DataCell colSpan={6} className="px-3 py-6 text-center text-zinc-500">
                     No sync runs recorded yet.
-                  </td>
+                  </DataCell>
                 </tr>
               )}
             </tbody>
-          </table>
-        </div>
+        </DataTable>
       </section>
 
       {counts && (
@@ -240,7 +237,7 @@ export function PipelineStatus() {
             ].map((c) => (
               <div
                 key={c.label}
-                className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-[#1E0234]"
+                className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-card"
               >
                 <div className="text-xs text-zinc-500">{c.label}</div>
                 <div className="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-50">

@@ -1,8 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ModelNote } from "@/components/ui/model-note";
+import { DataCell, DataHeadCell } from "@/components/ui/data-table";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { quantile } from "@/lib/stats";
 import { FdrLegendContent, InfoTooltip, TapToReveal } from "@/components/info-tooltip";
 import { Spinner } from "@/components/ui/spinner";
 import { AvailabilityBadge } from "@/components/player-status-icons";
@@ -17,6 +20,7 @@ import {
   riskScore,
   RISK_MODEL_NOTE,
   xpFor,
+  type RationaleNote,
   type ScoredPlayer,
 } from "@/lib/scoring";
 import {
@@ -48,7 +52,6 @@ import {
 } from "@/lib/chip-plan";
 import {
   DEFAULT_RULES,
-  HORIZONS,
   horizonLabel,
   horizonLength,
   seasonHorizonNote,
@@ -59,6 +62,14 @@ import {
   type SquadRules,
   type TeamState,
 } from "@/lib/team-state";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { NoteDisclosure } from "@/components/ui/note-disclosure";
+import { Alert } from "@/components/ui/alert";
+import { signed } from "@/lib/utils";
+import { HorizonControl } from "@/components/horizon-control";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 interface PlayerRow {
   id: number;
@@ -98,7 +109,6 @@ const CANDIDATES = 8;
 type TransfersTab = "transfers" | "chips";
 
 const money = (tenths: number) => `£${(tenths / 10).toFixed(1)}m`;
-const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
 export default function TransfersPage() {
   const [drafts, setDrafts] = useState<TeamState[]>([]);
@@ -148,6 +158,8 @@ export default function TransfersPage() {
   const [decisionMargin, setDecisionMargin] = useState(DEFAULT_DECISION_MARGIN);
   /** The squad slot currently being filled, if any. */
   const [pickingFor, setPickingFor] = useState<number | null>(null);
+  /** A ?replace=<id> from another page, waiting for the draft to resolve. */
+  const requestedReplace = useRef<number | null>(null);
   const [search, setSearch] = useState("");
   /** Sprint 23: on mobile the picker renders inline below the table rather
    * than in the desktop aside (there's no room for a second column), so on
@@ -173,7 +185,18 @@ export default function TransfersPage() {
     // the most recently saved draft when the id is absent or stale.
     const requested = resolveRequestedDraft(list, window.location.search);
     setDraftId(requested?.draftId ?? null);
-    if (new URLSearchParams(window.location.search).get("tab") === "chips") setTab("chips");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "chips") setTab("chips");
+    // ?replace=<playerId> opens the picker on that player, so "Replace" in a
+    // player panel elsewhere (/deadline's pitch) lands on the picker rather
+    // than on this page's top and leaving the reader to find the row again.
+    //
+    // Held in a ref, not set here: `draftId` resolves in this same pass, and
+    // the "a different squad invalidates the basket" effect below clears
+    // `pickingFor` when it does. Setting it now just loses it a tick later —
+    // which is exactly what the first version of this did.
+    const replace = Number(params.get("replace"));
+    if (Number.isFinite(replace) && replace > 0) requestedReplace.current = replace;
   }, []);
 
   useEffect(() => {
@@ -411,10 +434,21 @@ export default function TransfersPage() {
     // A different squad invalidates the basket.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMoves([]);
-    setPickingFor(null);
     setApplied(null);
     setWildcardMode(false);
     setPathResult(null);
+    // ...including the picker, unless the URL asked for one and a draft has
+    // now actually resolved. The `draftId !== null` guard is load-bearing:
+    // this effect also runs on the first commit, when draftId is still null,
+    // and consuming the request there spends it a tick before the draft that
+    // gives it meaning arrives. Consumed once, so switching squads afterwards
+    // still clears the picker.
+    if (draftId !== null && requestedReplace.current !== null) {
+      setPickingFor(requestedReplace.current);
+      requestedReplace.current = null;
+    } else {
+      setPickingFor(null);
+    }
   }, [draftId]);
 
   useEffect(() => {
@@ -535,6 +569,23 @@ export default function TransfersPage() {
   const pool = useMemo(() => [...scoredById.values()], [scoredById]);
 
   /**
+   * The squad's own 75th-percentile projection over the current horizon.
+   *
+   * Backs the accent on the squad table's xP column (DSI-124): every value used
+   * to be --primary, which meant none of them were emphasised. `null` when
+   * there is nothing to rank, so the column falls back to plain foreground
+   * rather than highlighting an empty squad.
+   */
+  const topQuartileXp = useMemo(() => {
+    if (!team) return null;
+    const xs = team.players
+      .map((pick) => scoredById.get(pick.playerId))
+      .filter((s): s is NonNullable<typeof s> => s !== undefined)
+      .map((s) => xpFor(s, horizon));
+    return xs.length >= 4 ? quantile(xs, 0.75) : null;
+  }, [team, scoredById, horizon]);
+
+  /**
    * The weekly decision: roll, spend, take a hit, or wildcard. This is a real
    * search over candidate baskets, not a lookup, so it used to run inside a
    * bare useMemo — freezing the tab on every keystroke that touched horizon,
@@ -653,7 +704,7 @@ export default function TransfersPage() {
         .map((player) => ({
           player,
           teamFit: null as number | null,
-          rationale: [] as string[],
+          rationale: [] as RationaleNote[],
           exitRoutes: undefined as number | undefined,
         }));
     }
@@ -725,14 +776,16 @@ export default function TransfersPage() {
         <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
           Replacing {scoredById.get(pickingFor)?.webName}
         </h3>
-        <button
+        <Button
           type="button"
           onClick={() => setPickingFor(null)}
           aria-label="Cancel"
-          className="rounded text-zinc-400 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-zinc-200"
+          variant="ghost"
+          size="icon-xs"
+          className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
         >
           ×
-        </button>
+        </Button>
       </div>
       <input
         type="search"
@@ -779,9 +832,25 @@ export default function TransfersPage() {
                   <span className="ml-1.5 text-xs text-zinc-500">
                     {player.teamShort} · {money(player.price)}
                   </span>
+                  {/* Badges, not one grey run-on (DSI-124). "-1.2 xP — a
+                      downgrade · better fixtures · more risk" is four separate
+                      judgements a manager weighs differently, and joining them
+                      with dots makes the reader parse the sentence to find the
+                      one they care about. Every word is kept; the tone comes
+                      from lib/scoring.ts, so it cannot drift from the wording. */}
                   {rationale.length > 0 && (
-                    <span className="block text-[11px] text-zinc-500 break-words">
-                      {rationale.join(" · ")}
+                    <span className="mt-0.5 flex flex-wrap gap-1">
+                      {rationale.map((n) => (
+                        <Badge
+                          key={n.text}
+                          tone={n.tone === "negative" ? "negative" : n.tone === "warning" ? "warning" : n.tone === "positive" ? "positive" : "neutral"}
+                          variant="outline"
+                          size="sm"
+                          className="normal-case"
+                        >
+                          {n.text}
+                        </Badge>
+                      ))}
                     </span>
                   )}
                   {exitRoutes !== undefined && (
@@ -805,7 +874,7 @@ export default function TransfersPage() {
                   )}
                 </span>
                 <span className="shrink-0 text-right">
-                  <span className="block tabular-nums font-semibold text-purple-800 dark:text-[#00FF87]">
+                  <span className="block tabular-nums font-semibold text-purple-800 dark:text-primary">
                     {xpFor(player, horizon).toFixed(1)}
                   </span>
                   {teamFit !== null && (
@@ -828,21 +897,6 @@ export default function TransfersPage() {
     </>
   );
 
-  const tabButton = (id: TransfersTab, label: string) => (
-    <button
-      type="button"
-      onClick={() => setTab(id)}
-      aria-current={tab === id ? "page" : undefined}
-      className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        tab === id
-          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-[#00FF87] dark:ring-1 dark:ring-[#00FF87]/40"
-          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/50"
-      }`}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -858,25 +912,7 @@ export default function TransfersPage() {
           </p>
         </div>
         {tab === "transfers" && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-zinc-500">Horizon</span>
-          {HORIZONS.map((h) => (
-            <button
-              key={h}
-              type="button"
-              onClick={() => setHorizon(h)}
-              title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-              aria-pressed={horizon === h}
-              className={`rounded-md border px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                horizon === h
-                  ? "border-transparent bg-primary text-primary-foreground"
-                  : "border-input text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {horizonLabel(h)}
-            </button>
-          ))}
-        </div>
+        <HorizonControl value={horizon} onValueChange={setHorizon} />
         )}
       </div>
 
@@ -890,10 +926,15 @@ export default function TransfersPage() {
           can't, which is why ChipTiming takes the draft as a prop rather
           than resolving its own. */}
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <div className="flex gap-1 rounded-lg border border-zinc-200 p-1 dark:border-purple-900/40">
-          {tabButton("transfers", "Transfer path")}
-          {tabButton("chips", "Chip timing")}
-        </div>
+        <SegmentedControl
+          label="Transfers view"
+          value={tab}
+          onValueChange={(v) => setTab(v as TransfersTab)}
+          options={[
+            { value: "transfers", label: "Transfer path" },
+            { value: "chips", label: "Chip timing" },
+          ]}
+        />
         {drafts.length > 0 && (
           <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
             Squad
@@ -972,23 +1013,17 @@ export default function TransfersPage() {
             "Apply this basket with no points hit, however many players change — the same as playing the Wildcard chip."
           }
         >
-          <input
-            type="checkbox"
+          <Checkbox
             checked={wildcardMode}
             disabled={wildcardBlockedReason !== null}
             onChange={(e) => setWildcardMode(e.target.checked)}
-            className="disabled:cursor-not-allowed"
           />
           Apply as Wildcard (no hit)
         </label>
         {moves.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setMoves([])}
-            className="rounded-md border border-input px-2.5 py-1 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
+          <Button variant="outline" size="xs" onClick={() => setMoves([])}>
             Clear {moves.length} transfer{moves.length === 1 ? "" : "s"}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -1021,7 +1056,7 @@ export default function TransfersPage() {
             No saved squads yet. Build one in the{" "}
             <Link
               href="/builder"
-              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
             >
               Team Builder
             </Link>{" "}
@@ -1053,10 +1088,10 @@ export default function TransfersPage() {
       )}
 
       {team && !loading && team.players.length !== rules.squadSize && (
-        <p className="mt-5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+        <Alert tone="warning" className="mt-5">
           {team.name} has {team.players.length} of {rules.squadSize} players. The transfer plan needs
           a complete squad — a partial one has free slots to fill, not transfers to weigh.
-        </p>
+        </Alert>
       )}
 
       {team && !loading && (
@@ -1076,26 +1111,31 @@ export default function TransfersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-[10px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                  <th className="sticky left-0 z-10 bg-card-supporting px-2 py-1.5">
+                  <DataHeadCell className="sticky left-0 z-10 bg-card-supporting px-2 py-1.5">
                     Player
-                  </th>
-                  <th className="hidden px-2 py-1.5 sm:table-cell">Pos</th>
-                  <th className="hidden px-2 py-1.5 sm:table-cell">Sell</th>
-                  <th className="px-2 py-1.5">{horizonLabel(horizon)}</th>
-                  <th className="px-2 py-1.5">
+                  </DataHeadCell>
+                  <DataHeadCell className="hidden px-2 py-1.5 sm:table-cell">Pos</DataHeadCell>
+                  <DataHeadCell className="hidden px-2 py-1.5 sm:table-cell">Sell</DataHeadCell>
+                  <DataHeadCell className="px-2 py-1.5">{horizonLabel(horizon)}</DataHeadCell>
+                  <DataHeadCell className="px-2 py-1.5">
                     <span className="inline-flex items-center gap-1">
                       Risk
-                      <InfoTooltip label="How is Risk scored?">
-                        <p className="text-xs leading-relaxed">{RISK_MODEL_NOTE}</p>
-                      </InfoTooltip>
+                      <ModelNote label="How is Risk scored?">{RISK_MODEL_NOTE}</ModelNote>
                     </span>
-                  </th>
-                  <th className="px-2 py-1.5"></th>
+                  </DataHeadCell>
+                  <DataHeadCell className="px-2 py-1.5"></DataHeadCell>
                 </tr>
               </thead>
               <tbody>
                 {team.players.map((pick) => {
                   const s = scoredById.get(pick.playerId);
+                  // DSI-124: this column painted every projection --primary, so
+                  // no value stood out and the accent stopped meaning anything.
+                  // The audit asked for "top quartile only", which is a real
+                  // statistic rather than a threshold someone picked — so it is
+                  // the squad's own P75, via lib/stats.ts's shared `quantile`.
+                  const isTopQuartile =
+                    s !== undefined && topQuartileXp !== null && xpFor(s, horizon) >= topQuartileXp;
                   const row = rowById.get(pick.playerId);
                   const move = movesByOut.get(pick.playerId);
                   const incoming = move ? scoredById.get(move.inId) : undefined;
@@ -1115,12 +1155,12 @@ export default function TransfersPage() {
                             : ""
                       }`}
                     >
-                      <td
+                      <DataCell
                         className={`sticky left-0 z-10 px-2 py-1.5 ${
                           pickingFor === pick.playerId
                             ? "bg-purple-50 dark:bg-purple-950/40"
                             : move
-                              ? "bg-amber-50 dark:bg-[#2a1f0a]"
+                              ? "bg-warning-surface"
                               : "bg-card-supporting"
                         }`}
                       >
@@ -1168,45 +1208,54 @@ export default function TransfersPage() {
                             </span>
                           )}
                         </span>
-                      </td>
-                      <td className="hidden px-2 py-1.5 text-xs text-zinc-500 sm:table-cell">
+                      </DataCell>
+                      <DataCell className="hidden px-2 py-1.5 text-xs text-zinc-500 sm:table-cell">
                         {POSITIONS[s?.elementType ?? 0] ?? "—"}
-                      </td>
-                      <td className="hidden px-2 py-1.5 text-xs tabular-nums text-zinc-500 sm:table-cell">
+                      </DataCell>
+                      <DataCell className="hidden px-2 py-1.5 text-xs tabular-nums text-zinc-500 sm:table-cell">
                         {money(pick.purchasePrice)}
-                      </td>
-                      <td className="px-1.5 py-1.5 tabular-nums font-semibold text-purple-800 dark:text-primary">
+                      </DataCell>
+                      <DataCell
+                        numeric
+                        className={`px-1.5 py-1.5 font-semibold ${
+                          isTopQuartile ? "text-purple-800 dark:text-primary" : "text-foreground"
+                        }`}
+                      >
                         {s ? xpFor(s, horizon).toFixed(1) : "—"}
-                      </td>
-                      <td className="px-1.5 py-1.5 tabular-nums text-zinc-500">
+                      </DataCell>
+                      <DataCell className="px-1.5 py-1.5 tabular-nums text-zinc-500">
                         {s ? riskScore(s, horizon, seasonWindow) : "—"}
-                      </td>
+                      </DataCell>
                       {/* Tighter left padding than the stat columns — this is
                           the action, not another number, so it doesn't need
                           the same breathing room, and the freed width is
                           what used to read as a gap before the button. */}
-                      <td className="py-1.5 pl-1 pr-2 text-right">
+                      <DataCell className="py-1.5 pl-1 pr-2" numeric>
                         {move ? (
-                          <button
-                            type="button"
+                          <Button
+                            variant="link"
+                            size="xs"
+                            className="text-zinc-500"
                             onClick={() => setMoves((prev) => prev.filter((m) => m.outId !== move.outId))}
-                            className="rounded text-xs text-zinc-500 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             undo
-                          </button>
+                          </Button>
                         ) : (
-                          <button
-                            type="button"
+                          <Button
+                            variant="outline"
+                            size="md"
+                            /* min-h-9 kept: this is the 36px target the
+                               DSI-124 pass measured and declined to shrink. */
+                            className="min-h-9"
                             onClick={() => {
                               setPickingFor(pick.playerId);
                               setSearch("");
                             }}
-                            className="min-h-9 rounded border border-input px-2.5 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary dark:hover:text-primary"
                           >
                             Replace
-                          </button>
+                          </Button>
                         )}
-                      </td>
+                      </DataCell>
                     </tr>
                   );
                 })}
@@ -1265,7 +1314,7 @@ export default function TransfersPage() {
                     {applied}{" "}
                     <Link
                       href="/scenarios"
-                      className="underline-offset-2 hover:underline dark:text-[#00FF87]"
+                      className="underline-offset-2 hover:underline dark:text-primary"
                     >
                       Compare in Scenario Lab
                     </Link>
@@ -1280,7 +1329,7 @@ export default function TransfersPage() {
                   {simulation.cost.transfers} transfer
                   {simulation.cost.transfers === 1 ? "" : "s"} · {horizonLabel(horizon)}
                   {wildcardMode && (
-                    <span className="ml-1.5 rounded bg-purple-950 px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-white dark:bg-[#00FF87] dark:text-slate-950">
+                    <span className="ml-1.5 rounded bg-purple-950 px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-white dark:bg-primary dark:text-slate-950">
                       Wildcard
                     </span>
                   )}
@@ -1328,10 +1377,10 @@ export default function TransfersPage() {
                 )}
 
                 {simulation.legal && simulation.transferGain <= 0 && (
-                  <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+                  <Alert tone="warning" className="mt-3">
                     This does not pay for itself over {horizonLabel(horizon)}. Rolling the transfer
                     keeps the option open.
-                  </p>
+                  </Alert>
                 )}
 
                 {simulation.armbandNote && (
@@ -1390,7 +1439,7 @@ export default function TransfersPage() {
                   ))}
                 </ul>
 
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     if (simulation.legal) applyAsNewDraft();
@@ -1401,18 +1450,17 @@ export default function TransfersPage() {
                       ? "Saves the result as a new draft"
                       : "Fix the problems above first"
                   }
-                  className="mt-3 w-full rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
+                  size="md"
+                  className="mt-3 w-full"
                 >
                   Apply as a new draft
-                </button>
+                </Button>
 
-                <p className="mt-3 text-[10px] leading-relaxed text-zinc-400">
-                  {TRANSFER_MODEL_NOTE}
-                </p>
-                <p className="mt-1 text-[10px] leading-relaxed text-zinc-400">
+                <NoteDisclosure>{TRANSFER_MODEL_NOTE}</NoteDisclosure>
+                <NoteDisclosure className="mt-1">
                   An ↑/↓ next to an incoming player above means its price watch reads &ldquo;likely
                   tonight&rdquo;. {PRICE_WATCH_MODEL_NOTE}
-                </p>
+                </NoteDisclosure>
               </div>
             )}
           </aside>

@@ -25,7 +25,11 @@ const eslintConfig = defineConfig([
     // never a className, so the selector below can't reach it anyway.
     files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
     rules: {
-      "no-restricted-syntax": ["warn", NO_RAW_HEX_IN_CLASSNAME],
+      // M9 Sprint A: promoted warn -> error. The rule shipped as a warning
+      // because 169 call sites already violated it and a red build helps
+      // nobody. Those are now all migrated (count: 0), so the only thing a
+      // warning still buys is a slow climb back.
+      "no-restricted-syntax": ["error", NO_RAW_HEX_IN_CLASSNAME],
     },
   },
   // Override default ignores of eslint-config-next.

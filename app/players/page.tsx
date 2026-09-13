@@ -1,10 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ModelNote } from "@/components/ui/model-note";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { FixtureCell } from "@/components/fdr-badge";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { ConfidenceBadge, RateBand } from "@/components/confidence-badge";
+import { Badge } from "@/components/ui/badge";
+import { Pager } from "@/components/ui/pager";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { GemBadge } from "@/components/gem-badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,12 +34,12 @@ import {
   type PlayerFilterState,
 } from "@/components/player-filters";
 import {
-  HORIZONS,
   horizonLabel,
   horizonLength,
   seasonHorizonNote,
   type Horizon,
 } from "@/lib/team-state";
+import { HorizonControl } from "@/components/horizon-control";
 
 interface PlayerRow {
   id: number;
@@ -165,6 +171,16 @@ type SortKey =
 const FALLBACK_SEASON_WINDOW = 8;
 
 /** Slider bounds in FPL's tenths-of-a-million units: £4.0m to £16.0m. */
+/**
+ * Rows per page on the explorer.
+ *
+ * /builder's picker uses 10 because it lives in a 360px rail; this is a
+ * full-width table, and the page previously showed 100 at once, so a small
+ * page would read as a regression in density rather than as access to the
+ * rest. 50 keeps the table dense and still makes all 657 reachable.
+ */
+const PAGE_SIZE = 50;
+
 const PRICE_MIN = 40;
 const PRICE_MAX = 160;
 
@@ -232,6 +248,7 @@ export default function PlayersPage() {
    */
   const [selected, setSelected] = useState<number[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [page, setPage] = useState(0);
   const compareTrigger = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -491,7 +508,7 @@ export default function PlayersPage() {
     return new Map(verdicts.map((v) => [v.playerId, v]));
   }, [gemCandidates, horizon, seasonWindow]);
 
-  const visible = useMemo(() => {
+  const sorted = useMemo(() => {
     const rows = players.filter((p) => matchesFilters(p, filters, gemsById));
 
     const value = (p: PlayerRow): number => {
@@ -537,28 +554,52 @@ export default function PlayersPage() {
     };
 
     rows.sort((a, b) => (sortDesc ? value(b) - value(a) : value(a) - value(b)));
-    return rows.slice(0, 100);
+    // Was `rows.slice(0, 100)` with no pager, so 557 of the 657 players were
+    // simply unreachable on the page whose entire job is exploring them —
+    // while /builder's picker, reading the same rows, could page to every one.
+    // A cap with no way past it is a missing feature wearing a default's
+    // clothes. Paged below instead.
+    return rows;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, history, runs, xp, filters, sortKey, sortDesc, horizon, seasonWindow, gemsById, predictions]);
 
-  const header = (label: string, key: SortKey) => (
-    <th className="px-2 py-2">
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const visible = sorted.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+
+  /** Every sortable column here holds a number, so the header right-aligns to
+   *  sit over its own decimals — a left-aligned label above a right-aligned
+   *  column reads as two different columns (DSI-126, DSI-129 #4). */
+  const header = (label: string, key: SortKey, note?: ReactNode) => (
+    <DataHeadCell className="px-2 py-2" numeric>
+      {/* Label first, then the "?" — these columns are right-aligned, so the
+          affordance belongs on the outer edge where the eye lands, not wedged
+          between the previous column and this one's name. */}
+      <span className="flex items-center justify-end gap-1.5">
       <button
         onClick={() => {
           if (sortKey === key) setSortDesc(!sortDesc);
           else {
             setSortKey(key);
+            setPage(0);
             setSortDesc(true);
           }
         }}
-        className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87] ${
-          sortKey === key ? "text-purple-800 dark:text-[#00FF87]" : ""
+        className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary ${
+          sortKey === key ? "text-purple-800 dark:text-primary" : ""
         }`}
       >
         {label}
         {sortKey === key ? (sortDesc ? " ↓" : " ↑") : ""}
       </button>
-    </th>
+      {note && (
+        <InfoTooltip label={`What is ${label}?`} align="right">
+          <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{note}</p>
+        </InfoTooltip>
+      )}
+      </span>
+    </DataHeadCell>
   );
 
   const teamOptions = [...teamShort.entries()].sort((a, b) => a[1].localeCompare(b[1]));
@@ -642,29 +683,23 @@ export default function PlayersPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
             Player Explorer
           </h1>
+          {/* DSI-126: this was a five-part definition list running across the
+              page. Each definition now lives on the column it defines, where
+              it is actually needed — and one of them ("green ring = home") had
+              silently gone stale when the venue encoding changed, which is the
+              failure mode of explaining a column somewhere other than at it. */}
           <p className="mt-1 text-sm text-zinc-500">
-            xP = model-projected points (next gameweek, and over the horizon below) · xG/xA are
-            per 90 minutes{" "}
-            {historySeason ? `· stats from ${shortSeason(historySeason)}` : ""} · green ring = home · top 100 shown
+            {sorted.length} players
+            {historySeason ? ` · season stats from ${shortSeason(historySeason)}` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-zinc-500">Horizon</span>
-          {HORIZONS.map((h) => (
-            <button
-              key={h}
-              onClick={() => setHorizon(h)}
-              title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-              className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                horizon === h
-                  ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
-                  : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
-              }`}
-            >
-              {horizonLabel(h)}
-            </button>
-          ))}
-        </div>
+        <HorizonControl
+          value={horizon}
+          onValueChange={(h) => {
+            setHorizon(h);
+            setPage(0);
+          }}
+        />
       </div>
       {horizon === "season" && (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{seasonHorizonNote(seasonWindow)}</p>
@@ -674,7 +709,13 @@ export default function PlayersPage() {
       <div className="mt-4">
         <PlayerFilters
           value={filters}
-          onChange={setFilters}
+          onChange={(next) => {
+            setFilters(next);
+            // Changing what is listed returns to the first page — staying on
+            // page 12 of a filter that now matches three players shows an
+            // empty table.
+            setPage(0);
+          }}
           teamOptions={teamOptions}
           priceBounds={[PRICE_MIN, PRICE_MAX]}
           positionOptions={POSITIONS}
@@ -695,8 +736,17 @@ export default function PlayersPage() {
       )}
 
       {!loading && !error && (
-        <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+        <>
+        <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
           <table className="w-full min-w-[56rem] text-sm">
+            {/* NOT sticky, deliberately. `overflow-x-auto` on the wrapper above
+                computes `overflow-y: auto` too, which makes that wrapper the
+                vertical scroll container — and with no height cap it never
+                scrolls, so `sticky top-0` has nothing to stick against and the
+                header just leaves with the page. Making it work needs a
+                max-height on the wrapper (see `DataTable`'s `maxHeight`), which
+                turns this into an inner-scrolling table; that is a layout
+                decision for the /players pass, not a class to sprinkle on. */}
             <thead>
               <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500 dark:border-purple-900/40">
                 {/* Sticky so the player being scanned stays visible while
@@ -704,33 +754,32 @@ export default function PlayersPage() {
                     mobile — the checkbox lives in this same cell (see the
                     body row below) rather than its own column, so there is
                     one sticky boundary to reason about, not two. */}
-                <th className="sticky left-0 z-10 bg-white px-3 py-2 uppercase tracking-wide dark:bg-[#1E0234]">
+                <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 uppercase tracking-wide dark:bg-card">
                   Player
-                </th>
-                <th className="px-2 py-2 uppercase tracking-wide">Team</th>
-                <th className="px-2 py-2 uppercase tracking-wide">Pos</th>
+                </DataHeadCell>
+                <DataHeadCell className="px-2 py-2 uppercase tracking-wide">Team</DataHeadCell>
+                <DataHeadCell className="px-2 py-2 uppercase tracking-wide">Pos</DataHeadCell>
                 {header("Price", "price")}
-                <th className="px-2 py-2">
-                  <span className="flex items-center gap-1.5">
+                {/* Right, like every numeric column's cells (DSI-120 sibling
+                    finding in DSI-126): these two headers were the only ones
+                    left-aligned over right-aligned data. */}
+                <DataHeadCell className="px-2 py-2" numeric>
+                  <span className="flex items-center justify-end gap-1.5">
                     <span className="uppercase tracking-wide">Price watch</span>
-                    <InfoTooltip label="What is Price watch?">
-                      <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                        {PRICE_WATCH_MODEL_NOTE}
-                      </p>
-                    </InfoTooltip>
+                    <ModelNote label="What is Price watch?">{PRICE_WATCH_MODEL_NOTE}</ModelNote>
                   </span>
-                </th>
-                {header("xP GW", "xp1")}
+                </DataHeadCell>
+                {header("xP GW", "xp1", "Model-projected points for the next gameweek. The column beside it projects over the horizon selected above.")}
                 {header(`xP ${horizonLabel(horizon)}`, "xpH")}
                 {header("Pts", "gwPoints")}
                 {header("G", "goals")}
                 {header("A", "assists")}
                 {header("Mins", "minutes")}
-                {header(`xG/90`, "xgCur")}
-                {header(`xA/90`, "xaCur")}
+                {header(`xG/90`, "xgCur", "Expected goals per 90 minutes played this season — a rate, not a total, so a substitute is comparable to a starter. Dimmed below 450 minutes, where the rate is real but not yet stable.")}
+                {header(`xA/90`, "xaCur", "Expected assists per 90 minutes played this season. Same rate basis and same thin-sample dimming as xG/90.")}
                 {header("xMins", "xmins")}
-                <th className="px-2 py-2">
-                  <span className="flex items-center gap-1.5">
+                <DataHeadCell className="px-2 py-2" numeric>
+                  <span className="flex items-center justify-end gap-1.5">
                     <button
                       onClick={() => {
                         if (sortKey === "xdc") setSortDesc(!sortDesc);
@@ -739,26 +788,22 @@ export default function PlayersPage() {
                           setSortDesc(true);
                         }
                       }}
-                      className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87] ${
-                        sortKey === "xdc" ? "text-purple-800 dark:text-[#00FF87]" : ""
+                      className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary ${
+                        sortKey === "xdc" ? "text-purple-800 dark:text-primary" : ""
                       }`}
                     >
                       XD
                       {sortKey === "xdc" ? (sortDesc ? " ↓" : " ↑") : ""}
                     </button>
-                    <InfoTooltip label="What is xDefcon?">
-                      <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                        {XDC_MODEL_NOTE}
-                      </p>
-                    </InfoTooltip>
+                    <ModelNote label="What is xDefcon?">{XDC_MODEL_NOTE}</ModelNote>
                   </span>
-                </th>
+                </DataHeadCell>
                 {header("xP/£m", "value")}
                 {header("Own %", "ownership")}
                 {header(`Pts ${historySeason ? shortSeason(historySeason) : "LY"}`, "points")}
                 {header(`xG ${historySeason ? shortSeason(historySeason) : "LY"}`, "xg")}
                 {header(`xA ${historySeason ? shortSeason(historySeason) : "LY"}`, "xa")}
-                <th className="px-2 py-2">
+                <DataHeadCell className="px-2 py-2">
                   <span className="flex items-center gap-1.5">
                     <button
                       onClick={() => {
@@ -768,8 +813,8 @@ export default function PlayersPage() {
                           setSortDesc(true);
                         }
                       }}
-                      className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87] ${
-                        sortKey === "run" ? "text-purple-800 dark:text-[#00FF87]" : ""
+                      className={`uppercase tracking-wide transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary ${
+                        sortKey === "run" ? "text-purple-800 dark:text-primary" : ""
                       }`}
                     >
                       Next {horizonLength(horizon, seasonWindow)}
@@ -779,7 +824,7 @@ export default function PlayersPage() {
                       <FdrLegendContent />
                     </InfoTooltip>
                   </span>
-                </th>
+                </DataHeadCell>
               </tr>
             </thead>
             <tbody>
@@ -793,17 +838,25 @@ export default function PlayersPage() {
                 return (
                   <tr
                     key={p.id}
-                    className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
+                    data-selected={isSelected || undefined}
+                    // DSI-126: a checked row was distinguished only by the
+                    // checkbox itself, which scrolls out of view the moment the
+                    // wide table is panned sideways. A tint plus a left edge on
+                    // the frozen cell keeps the selection visible from anywhere
+                    // in the row.
+                    className={`border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200 ${
+                      isSelected
+                        ? "bg-primary/[0.06] [&>td:first-child]:shadow-[inset_2px_0_0_0_var(--primary)]"
+                        : ""
+                    }`}
                   >
-                    <td className="sticky left-0 z-10 bg-white px-3 py-1.5 dark:bg-[#1E0234]">
+                    <DataCell className="sticky left-0 z-10 bg-white px-3 py-1.5 dark:bg-card">
                       <span className="flex items-center gap-1.5">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={isSelected}
                           disabled={disableCheckbox}
                           onChange={() => toggleSelected(p.id)}
                           aria-label={`Select ${p.web_name} to compare`}
-                          className="h-4 w-4 shrink-0 accent-purple-700 disabled:cursor-not-allowed disabled:opacity-40 dark:accent-[#00FF87]"
                         />
                         <span className="font-medium" title={fullName(p) ?? undefined}>
                           {p.web_name}
@@ -820,50 +873,60 @@ export default function PlayersPage() {
                         />
                         <GemBadge verdict={gemsById.get(p.id)} />
                       </span>
-                    </td>
-                    <td className="px-2 py-1.5 text-zinc-500">{teamShort.get(p.team_id)}</td>
-                    <td className="px-2 py-1.5 text-zinc-500">{POSITIONS[p.element_type]}</td>
-                    <td className="px-2 py-1.5 tabular-nums">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5 text-zinc-500">{teamShort.get(p.team_id)}</DataCell>
+                    <DataCell className="px-2 py-1.5 text-zinc-500">{POSITIONS[p.element_type]}</DataCell>
+                    <DataCell className="px-2 py-1.5" numeric>
                       £{((p.now_cost ?? 0) / 10).toFixed(1)}m
-                    </td>
-                    <td className="px-2 py-1.5 text-xs">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5 text-xs" numeric>
                       {(() => {
                         const pp = priceProgress.get(p.code);
+                        // Was the literal word "unknown", which reads as an
+                        // unhandled database null rather than as "no signal
+                        // yet" (DSI-126). The column header's own tooltip
+                        // already carries PRICE_WATCH_MODEL_NOTE, which is
+                        // where the explanation belongs.
                         if (!pp || pp.verdict === "unknown") {
-                          return <span className="text-zinc-400">unknown</span>;
+                          return <span className="text-muted-foreground">&mdash;</span>;
                         }
-                        const arrow = pp.direction === "rise" ? "↑" : pp.direction === "fall" ? "↓" : "→";
-                        const color =
-                          pp.direction === "rise"
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : pp.direction === "fall"
-                              ? "text-red-600 dark:text-red-400"
-                              : "text-zinc-400";
+                        const pct = Math.round((pp.progress ?? 0) * 100);
+                        if (pp.direction === "flat") {
+                          return <span className="tabular-nums text-muted-foreground">{pct}%</span>;
+                        }
                         return (
-                          <span className={`tabular-nums ${color}`} title={pp.verdict}>
-                            {arrow} {Math.round((pp.progress ?? 0) * 100)}%
-                          </span>
+                          <Badge
+                            tone={pp.direction === "rise" ? "positive" : "negative"}
+                            size="sm"
+                            className="tabular-nums"
+                            title={`Price watch: ${pp.direction} — ${pct}% (${pp.verdict})`}
+                          >
+                            {pp.direction === "rise" ? "▲" : "▼"} {pct}%
+                          </Badge>
                         );
                       })()}
-                    </td>
-                    <td className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5 font-semibold text-foreground" numeric>
                       {x?.xp_1?.toFixed(1) ?? "—"}
-                    </td>
-                    <td className="px-2 py-1.5 tabular-nums">
-                      <span className="flex items-center gap-1">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5" numeric>
+                      <span className="flex items-center justify-end gap-1">
                         {xpForHorizon(x, horizon)?.toFixed(1) ?? "—"}
                         <ConfidenceBadge reliability={x?.reliability} priorWeight={x?.prior_weight} compact />
                       </span>
                       <RateBand lower={bandLower ?? undefined} upper={bandUpper ?? undefined} />
-                    </td>
-                    {/* Current season — the emphasised block (bold/accent), set
-                        off from the muted last-season trio further right. */}
-                    <td className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-[#00FF87]">
+                    </DataCell>
+                    {/* Current season — the emphasised block, set off from the
+                        muted last-season trio further right. Emphasis is weight,
+                        not the accent: --primary is reserved for actions and the
+                        single top-tier winner (DSI-129 #1), and four columns of
+                        it meant none of them stood out. */}
+                    <DataCell className="px-2 py-1.5 font-semibold text-foreground" numeric>
                       {p.total_points ?? "—"}
-                    </td>
-                    <td className="px-2 py-1.5 font-semibold tabular-nums">{p.goals_scored ?? "—"}</td>
-                    <td className="px-2 py-1.5 font-semibold tabular-nums">{p.assists ?? "—"}</td>
-                    <td className="px-2 py-1.5 font-semibold tabular-nums">{p.minutes ?? "—"}</td>
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5 font-semibold" numeric>{p.goals_scored ?? "—"}</DataCell>
+                    <DataCell className="px-2 py-1.5 font-semibold" numeric>{p.assists ?? "—"}</DataCell>
+                    <DataCell className="px-2 py-1.5 font-semibold" numeric>{p.minutes ?? "—"}</DataCell>
                     {(() => {
                       const xgRate = perNinety(p.expected_goals, p.minutes);
                       const xaRate = perNinety(p.expected_assists, p.minutes);
@@ -872,8 +935,9 @@ export default function PlayersPage() {
                       const thin = (p.minutes ?? 0) < MIN_MINUTES_FOR_CONFIDENT_RATE;
                       return (
                         <>
-                          <td
-                            className={`px-2 py-1.5 tabular-nums ${thin ? "text-zinc-400" : ""}`}
+                          <DataCell
+                            numeric
+                            className={`px-2 py-1.5 ${thin ? "text-zinc-400" : ""}`}
                             title={
                               thin && p.expected_goals !== null
                                 ? `${p.expected_goals.toFixed(2)} xG in ${p.minutes ?? 0} min`
@@ -881,9 +945,10 @@ export default function PlayersPage() {
                             }
                           >
                             {xgRate?.toFixed(2) ?? "—"}
-                          </td>
-                          <td
-                            className={`px-2 py-1.5 tabular-nums ${thin ? "text-zinc-400" : ""}`}
+                          </DataCell>
+                          <DataCell
+                            numeric
+                            className={`px-2 py-1.5 ${thin ? "text-zinc-400" : ""}`}
                             title={
                               thin && p.expected_assists !== null
                                 ? `${p.expected_assists.toFixed(2)} xA in ${p.minutes ?? 0} min`
@@ -891,28 +956,28 @@ export default function PlayersPage() {
                             }
                           >
                             {xaRate?.toFixed(2) ?? "—"}
-                          </td>
+                          </DataCell>
                         </>
                       );
                     })()}
-                    <td className="px-2 py-1.5 tabular-nums">
+                    <DataCell className="px-2 py-1.5" numeric>
                       {predictions.get(p.id)?.expected_minutes?.toFixed(0) ?? "—"}
-                    </td>
-                    <td className="px-2 py-1.5 tabular-nums">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5" numeric>
                       {XDC_POSITIONS.has(p.element_type)
                         ? xdcForHorizon(x, horizon)?.toFixed(2) ?? "—"
                         : "—"}
-                    </td>
-                    <td className="px-2 py-1.5 tabular-nums">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5" numeric>
                       {valueOf(p, x)?.toFixed(2) ?? "—"}
-                    </td>
-                    <td className="px-2 py-1.5 tabular-nums">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5" numeric>
                       {p.selected_by_percent !== null ? `${p.selected_by_percent}%` : "—"}
-                    </td>
-                    <td className="px-2 py-1.5 tabular-nums text-zinc-500">{h?.total_points ?? "—"}</td>
-                    <td className="px-2 py-1.5 tabular-nums text-zinc-500">{h?.expected_goals ?? "—"}</td>
-                    <td className="px-2 py-1.5 tabular-nums text-zinc-500">{h?.expected_assists ?? "—"}</td>
-                    <td className="px-2 py-1.5">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5 text-zinc-500" numeric>{h?.total_points ?? "—"}</DataCell>
+                    <DataCell className="px-2 py-1.5 text-zinc-500" numeric>{h?.expected_goals ?? "—"}</DataCell>
+                    <DataCell className="px-2 py-1.5 text-zinc-500" numeric>{h?.expected_assists ?? "—"}</DataCell>
+                    <DataCell className="px-2 py-1.5">
                       {/* Wraps to at most 3 rows and grows sideways instead of
                           down — the table already scrolls horizontally, so a
                           19 GW or Season run just widens the scroll area
@@ -929,20 +994,31 @@ export default function PlayersPage() {
                           />
                         ))}
                       </span>
-                    </td>
+                    </DataCell>
                   </tr>
                 );
               })}
               {visible.length === 0 && (
-                <tr>
-                  <td colSpan={20} className="px-3 py-6 text-center text-zinc-500">
+                <DataRow>
+                  <DataCell colSpan={20} className="px-3 py-6 text-center text-zinc-500">
                     No players match the current filters.
-                  </td>
-                </tr>
+                  </DataCell>
+                </DataRow>
               )}
             </tbody>
           </table>
-        </div>
+          </div>
+          {/* Outside the overflow-x wrapper on purpose: inside it, the pager
+              scrolled sideways with the table and Prev/Page slid off-screen
+              the moment anyone panned to the right-hand columns. */}
+          <Pager
+            page={safePage}
+            pageCount={pageCount}
+            onPageChange={setPage}
+            total={sorted.length}
+            noun="player"
+          />
+        </>
       )}
 
       {/* The bar that used to link to /compare now opens it in place. It
@@ -953,26 +1029,19 @@ export default function PlayersPage() {
       {selected.length >= 1 && (
         <div
           ref={compareTrigger}
-          className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-[#1E0234]/95"
+          className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-card/95"
         >
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
               {selected.length} of {MAX_COMPARE} players selected
             </span>
             <span className="flex items-center gap-3">
-              <button
-                onClick={() => setSelected([])}
-                className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87]"
-              >
+              <Button variant="link" size="md" onClick={() => setSelected([])}>
                 Clear
-              </button>
-              <button
-                onClick={() => setCompareOpen((v) => !v)}
-                aria-expanded={compareOpen}
-                className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e078]"
-              >
+              </Button>
+              <Button size="md" onClick={() => setCompareOpen((v) => !v)} aria-expanded={compareOpen}>
                 {compareOpen ? "Hide comparison" : `Compare ${selected.length}`}
-              </button>
+              </Button>
             </span>
           </div>
         </div>
@@ -996,13 +1065,15 @@ export default function PlayersPage() {
                 Best value per row is highlighted. Horizon follows the page — {horizonLabel(horizon)}.
               </p>
             </div>
-            <button
+            <Button
               onClick={() => setCompareOpen(false)}
               aria-label="Close comparison"
-              className="shrink-0 rounded-md px-2 py-1 text-xl leading-none text-zinc-500 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-purple-950/60"
+              variant="ghost"
+              size="icon-sm"
+              className="shrink-0 text-xl leading-none text-zinc-500"
             >
               ×
-            </button>
+            </Button>
           </div>
 
           {chosen.length === 0 ? (

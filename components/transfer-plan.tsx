@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { TapToReveal } from "@/components/info-tooltip";
+import { NoteDisclosure } from "@/components/ui/note-disclosure";
 import {
   DEFAULT_DECISION_MARGIN,
   type Branch,
@@ -10,6 +12,7 @@ import { horizonLabel, type ChipKind, type Horizon } from "@/lib/team-state";
 import type { TransferMove } from "@/lib/transfers";
 import { CHIP_LABELS } from "@/lib/chip-plan";
 import { Spinner } from "@/components/ui/spinner";
+import { signed } from "@/lib/utils";
 
 interface TransferPlanProps {
   result: OptimizerResult | null;
@@ -38,11 +41,6 @@ export const signatureOf = (moves: TransferMove[]) =>
  * "0.0" rather than "-0.0" — which looks like a rendering bug and invites the
  * reader to distrust the rest of the row.
  */
-const signed = (v: number, digits = 1) => {
-  const rounded = Number(v.toFixed(digits));
-  if (rounded === 0) return (0).toFixed(digits);
-  return `${rounded > 0 ? "+" : ""}${rounded.toFixed(digits)}`;
-};
 
 /**
  * "Bench Boost GW5, Wildcard GW8" from whatever chip terms any branch's
@@ -89,10 +87,6 @@ export function TransferPlan({
   stale = false,
   onRerun,
 }: TransferPlanProps) {
-  // Collapsed by default — TRANSFER_MODEL_NOTE runs to a full paragraph and
-  // ate the whole screen below the branch list on mobile. Same idiom as the
-  // chips page's model-note banner.
-  const [noteOpen, setNoteOpen] = useState(false);
   const chipSummary = result ? summarizeChipTerms(result) : null;
 
   return (
@@ -108,22 +102,37 @@ export function TransferPlan({
           </p>
         </div>
         {stale && onRerun && (
-          <button
+          <Button
             type="button"
             onClick={onRerun}
             disabled={loading}
-            className="order-first flex w-full items-center justify-between gap-2 rounded-md border border-warning-border bg-warning-surface px-2.5 py-1.5 text-xs font-medium text-warning-foreground transition-colors hover:bg-warning-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 sm:order-none sm:w-auto"
+            variant="outline"
+            size="md"
+            className="order-first w-full justify-between border-warning-border bg-warning-surface text-xs text-warning-foreground hover:bg-warning-surface/70 hover:text-warning-foreground disabled:opacity-60 sm:order-none sm:w-auto"
           >
             <span className="flex items-center gap-1.5">
               {loading && <Spinner />}
               {loading ? "Re-running…" : "Inputs changed — re-run"}
             </span>
-          </button>
+          </Button>
         )}
         <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-          <span title="Rolling is only worth something the model cannot see: injury news, price moves, rotation hints. That value is yours to assert, not the model's to claim.">
-            Value of waiting for news
-          </span>
+          {/* 152 characters of reasoning that existed nowhere else on the
+              page and were reachable only by hovering -- so on a phone, not
+              at all (DSI-129 #2). */}
+          <TapToReveal
+            label="What the value of waiting means"
+            trigger={
+              <span className="underline decoration-dotted underline-offset-2">
+                Value of waiting for news
+              </span>
+            }
+          >
+            <span className="block text-xs leading-relaxed">
+              Rolling is only worth something the model cannot see: injury news, price moves,
+              rotation hints. That value is yours to assert, not the model&apos;s to claim.
+            </span>
+          </TapToReveal>
           <input
             type="number"
             min={0}
@@ -138,13 +147,14 @@ export function TransferPlan({
             className="w-16 rounded-md border border-input bg-surface-3 px-2 py-1 text-right tabular-nums text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           {decisionMargin !== DEFAULT_DECISION_MARGIN && (
-            <button
+            <Button
               type="button"
               onClick={() => onDecisionMarginChange(DEFAULT_DECISION_MARGIN)}
-              className="rounded text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              variant="link"
+              className="h-auto p-0 text-muted-foreground"
             >
               reset
-            </button>
+            </Button>
           )}
         </label>
       </div>
@@ -194,25 +204,10 @@ export function TransferPlan({
             ))}
           </ul>
 
-          <div className="mt-3 overflow-hidden rounded-md border border-zinc-200 dark:border-purple-900/40">
-            <button
-              type="button"
-              onClick={() => setNoteOpen((v) => !v)}
-              aria-expanded={noteOpen}
-              className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[10px] leading-relaxed text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-            >
-              <span
-                aria-hidden="true"
-                className={`shrink-0 text-zinc-400 transition-transform ${noteOpen ? "" : "rotate-180"}`}
-              >
-                ⌃
-              </span>
-              <span className={`min-w-0 flex-1 ${noteOpen ? "" : "truncate"}`}>
-                Free transfers next gameweek if you spend none now: {result.accruedFreeTransfers}.{" "}
-                {result.note}
-              </span>
-            </button>
-          </div>
+          <NoteDisclosure>
+            Free transfers next gameweek if you spend none now: {result.accruedFreeTransfers}.{" "}
+            {result.note}
+          </NoteDisclosure>
         </>
       )}
     </section>
@@ -312,7 +307,7 @@ function BranchRow({
       )}
 
       {!blocked && branch.moves.length > 0 && (
-        <button
+        <Button
           type="button"
           onClick={() => {
             if (!isLoaded) onLoad(branch.moves);
@@ -321,10 +316,12 @@ function BranchRow({
           title={
             isLoaded ? "Already in the basket" : "Puts these transfers in the basket below to apply"
           }
-          className="mt-1.5 min-h-9 rounded border border-input px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-40 motion-reduce:transition-none dark:hover:border-primary dark:hover:text-primary"
+          variant="outline"
+          size="md"
+          className="mt-1.5 min-h-9 hover:border-purple-700 hover:text-purple-700 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 motion-reduce:transition-none dark:hover:border-primary dark:hover:text-primary"
         >
           {isLoaded ? "Loaded" : "Load"}
-        </button>
+        </Button>
       )}
     </li>
   );

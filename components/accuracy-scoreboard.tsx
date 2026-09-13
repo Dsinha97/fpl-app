@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { DataCell, DataHeadCell, DataRow, DataTable, DataTableHead } from "@/components/ui/data-table";
 import { supabase } from "@/lib/supabase/client";
 import { loadSeasonContext } from "@/lib/season-context";
 import {
@@ -150,39 +151,32 @@ export function AccuracyScoreboard() {
             by {num(Math.abs(state.report.overall.bias), 2)} points per player-fixture.
           </p>
 
-          <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                  <th className="px-3 py-2">Cohort</th>
-                  <th className="px-3 py-2 text-right">n</th>
-                  <th className="px-3 py-2 text-right">Bias</th>
-                  <th className="px-3 py-2">Direction</th>
-                  <th className="px-3 py-2 text-right">MAE</th>
-                  <th className="px-3 py-2 text-right">RMSE</th>
-                  <th className="px-3 py-2 text-right">r</th>
-                </tr>
-              </thead>
+            <DataTable minWidth="42rem" wrapperClassName="mt-3" label="Prediction accuracy by cohort">
+              <DataTableHead>
+                <DataHeadCell className="px-3">Cohort</DataHeadCell>
+                <DataHeadCell className="px-3" numeric>n</DataHeadCell>
+                <DataHeadCell className="px-3" numeric>Bias</DataHeadCell>
+                <DataHeadCell className="px-3">Direction</DataHeadCell>
+                <DataHeadCell className="px-3" numeric>MAE</DataHeadCell>
+                <DataHeadCell className="px-3" numeric>RMSE</DataHeadCell>
+                <DataHeadCell className="px-3" numeric>r</DataHeadCell>
+              </DataTableHead>
               <tbody>
                 {rows.map((row) => (
-                  <tr
-                    key={row.label}
-                    className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
-                  >
-                    <td className="px-3 py-2 font-medium">{row.label}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
+                  <DataRow key={row.label} className="text-zinc-800 dark:text-zinc-200">
+                    <DataCell className="px-3 py-2 font-medium">{row.label}</DataCell>
+                    <DataCell className="px-3 py-2" numeric>
                       {row.stats.n.toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">{num(row.stats.bias)}</td>
-                    <td className="px-3 py-2 text-zinc-500">{biasPhrase(row.stats.bias)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{num(row.stats.mae)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{num(row.stats.rmse)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{num(row.stats.r)}</td>
-                  </tr>
+                    </DataCell>
+                    <DataCell className="px-3 py-2" numeric>{num(row.stats.bias)}</DataCell>
+                    <DataCell className="px-3 py-2 text-zinc-500">{biasPhrase(row.stats.bias)}</DataCell>
+                    <DataCell className="px-3 py-2" numeric>{num(row.stats.mae)}</DataCell>
+                    <DataCell className="px-3 py-2" numeric>{num(row.stats.rmse)}</DataCell>
+                    <DataCell className="px-3 py-2" numeric>{num(row.stats.r)}</DataCell>
+                  </DataRow>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </DataTable>
 
           <p className="mt-3 text-xs text-zinc-400">
             {state.report.events.length < 5 && (

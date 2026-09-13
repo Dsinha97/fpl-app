@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
 import type { DraftSnapshot } from "@/lib/drafts";
 
 const formatWhen = (iso: string) =>
@@ -65,7 +66,7 @@ export function DraftTimeline({
   return (
     <section
       ref={panel}
-      className="mt-6 rounded-xl border border-purple-300 bg-white p-4 dark:border-[#00FF87]/40 dark:bg-[#1E0234]"
+      className="mt-6 rounded-xl border border-purple-300 bg-white p-4 dark:border-primary/40 dark:bg-card"
     >
       <div className="flex items-start justify-between gap-2">
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -74,13 +75,15 @@ export function DraftTimeline({
             {entries.length} save{entries.length === 1 ? "" : "s"} recorded
           </span>
         </h2>
-        <button
+        <Button
           onClick={onClose}
           aria-label="Close timeline"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
+          variant="ghost"
+          size="icon-xs"
+          className="shrink-0 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
         >
           ×
-        </button>
+        </Button>
       </div>
 
       {entries.length === 0 ? (

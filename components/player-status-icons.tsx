@@ -233,9 +233,29 @@ export function AvailabilityBadge({
       ? ` · ${chanceOfPlaying}% chance of playing`
       : "";
 
+  const description = `${label}${chanceText}${news ? ` — ${news}` : ""}`;
+
   return (
+    // `role="img"` + `aria-label` rather than `title` alone.
+    //
+    // Sprint B's scope named the app's 88 native `title=` attributes for
+    // conversion to TapToReveal, on the grounds that a hover tooltip is
+    // unreachable on touch. For THIS badge that cure is worse than the
+    // disease: it renders on every row of /players, every pitch card and
+    // every /transfers row, so converting it would add several hundred
+    // focusable buttons to a single page and make keyboard traversal far
+    // worse than the hover gap it fixed.
+    //
+    // The real defect here was different and worse: this file had no
+    // `aria-label`, no `role` and no `aria-hidden` anywhere, and `title` on a
+    // `<span>` is not reliably announced — so an injury flag was invisible to
+    // a screen reader entirely, on any device. That is the part that had to
+    // be fixed, and it costs one attribute rather than a new interaction
+    // model. `title` stays for desktop hover.
     <span
-      title={`${label}${chanceText}${news ? ` — ${news}` : ""}`}
+      role="img"
+      aria-label={description}
+      title={description}
       className="inline-flex shrink-0 align-middle"
     >
       <StatusBadge status={status} chanceOfPlaying={chanceOfPlaying} size={size} />
@@ -255,17 +275,17 @@ export function RoleBadges({ penaltyOrder, freeKickOrder, cornerOrder, size = "w
   return (
     <>
       {penaltyOrder === 1 && (
-        <span title="First-choice penalty taker" className="inline-flex shrink-0 align-middle">
+        <span role="img" aria-label="First-choice penalty taker" title="First-choice penalty taker" className="inline-flex shrink-0 align-middle">
           <PenaltyTakerIcon className={size} />
         </span>
       )}
       {freeKickOrder === 1 && (
-        <span title="First-choice direct free-kick taker" className="inline-flex shrink-0 align-middle">
+        <span role="img" aria-label="First-choice direct free-kick taker" title="First-choice direct free-kick taker" className="inline-flex shrink-0 align-middle">
           <FreeKickTakerIcon className={size} />
         </span>
       )}
       {cornerOrder === 1 && (
-        <span title="First-choice corner taker" className="inline-flex shrink-0 align-middle">
+        <span role="img" aria-label="First-choice corner taker" title="First-choice corner taker" className="inline-flex shrink-0 align-middle">
           <CornerTakerIcon className={size} />
         </span>
       )}

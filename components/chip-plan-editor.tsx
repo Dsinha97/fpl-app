@@ -7,7 +7,6 @@
 
 import {
   CHIP_LABELS,
-  clearChipPlanEntry,
   resolveStopEvent,
   setChipPlanEntry,
   validateChipPlan,
@@ -140,7 +139,7 @@ export function ChipPlanEditor({
                             onChange(pinInHalf(plan, chip, def, lastEvent, v === "" ? null : Number(v)));
                           }}
                           title={played ? `${CHIP_LABELS[chip]} was already played this half.` : undefined}
-                          className="min-h-9 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                          className="min-h-9 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
                         >
                           <option value="">{played ? "Already played" : "Not planned"}</option>
                           {!played &&
@@ -150,16 +149,12 @@ export function ChipPlanEditor({
                               </option>
                             ))}
                         </select>
-                        {current && !played && (
-                          <button
-                            type="button"
-                            onClick={() => onChange(clearChipPlanEntry(plan, current.event))}
-                            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                            title="Clear this pin"
-                          >
-                            ✕
-                          </button>
-                        )}
+                        {/* The ✕ that used to sit here was a second way to do
+                            what the select's own "Not planned" option already
+                            does — an unlabelled ~12px target beside a 36px
+                            control, which is the misclick DSI-125 describes.
+                            The audit asked for the clear to live inside the
+                            dropdown; it already did. */}
                       </label>
                       {rowProblems.map((p, pi) => (
                         <p

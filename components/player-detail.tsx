@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ModelNote } from "@/components/ui/model-note";
+import { DataCell, DataRow } from "@/components/ui/data-table";
+import { Button } from "@/components/ui/button";
 import { FixtureCell } from "./fdr-badge";
 import { AvailabilityBadge, RoleBadges } from "./player-status-icons";
 import { ConfidenceBadge, RateBand } from "./confidence-badge";
@@ -39,9 +42,18 @@ export const PANEL_MAX_HEIGHT = 340;
 
 interface PlayerDetailProps {
   player: PlayerData;
-  /** Position within the anchoring container, in pixels. */
-  top: number;
-  left: number;
+  /**
+   * Position within the anchoring container, in pixels. Omitted when `inline`
+   * — a sheet positions the panel, so the panel does not position itself.
+   */
+  top?: number;
+  left?: number;
+  /**
+   * Render as plain content rather than a positioned dialog, for when
+   * something else already owns the surface (the mobile bottom sheet, which
+   * is itself a dialog — nesting a second one would announce twice).
+   */
+  inline?: boolean;
   onClose: () => void;
   /** Omitted on a read-only panel — each action's button renders only when its handler is given. */
   onSetCaptain?: (playerId: number) => void;
@@ -81,6 +93,7 @@ export function PlayerDetail({
   addLabel = "Add to squad",
   onFindReplacement,
   fixed = false,
+  inline = false,
 }: PlayerDetailProps) {
   const panel = useRef<HTMLDivElement>(null);
   const [showAll, setShowAll] = useState(false);
@@ -123,12 +136,16 @@ export function PlayerDetail({
   return (
     <div
       ref={panel}
-      role="dialog"
-      aria-label={`${player.web_name} details`}
-      style={{ top, left, width: PANEL_WIDTH, maxHeight: PANEL_MAX_HEIGHT }}
-      className={`z-40 overflow-y-auto rounded-lg border border-zinc-200 bg-card p-3 shadow-2xl dark:border-purple-700 ${
-        fixed ? "fixed" : "absolute"
-      }`}
+      role={inline ? undefined : "dialog"}
+      aria-label={inline ? undefined : `${player.web_name} details`}
+      style={inline ? undefined : { top, left, width: PANEL_WIDTH, maxHeight: PANEL_MAX_HEIGHT }}
+      className={
+        inline
+          ? "min-h-0 overflow-x-hidden overflow-y-auto px-1"
+          : `z-40 overflow-x-hidden overflow-y-auto rounded-lg border border-zinc-200 bg-card p-3 shadow-2xl dark:border-purple-700 ${
+              fixed ? "fixed" : "absolute"
+            }`
+      }
     >
       {/* header */}
       <div className="flex items-start gap-2">
@@ -141,14 +158,16 @@ export function PlayerDetail({
             {POSITION_NAME[player.element_type] ?? "—"}
           </p>
         </div>
-        <button
+        <Button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="-mr-1 -mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
+          variant="ghost"
+          size="icon-xs"
+          className="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
         >
           ×
-        </button>
+        </Button>
       </div>
 
       {/*
@@ -196,21 +215,21 @@ export function PlayerDetail({
           <table className="mt-1 w-full text-[11px]">
             <tbody>
               {player.live_breakdown.map((line) => (
-                <tr key={line.identifier} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-                  <td className="py-1 text-zinc-600 dark:text-zinc-400">{liveStatLabel(line.identifier)}</td>
-                  <td className="py-1 text-right tabular-nums text-zinc-500">{line.value}</td>
-                  <td className="py-1 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                <DataRow key={line.identifier} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                  <DataCell className="py-1 text-zinc-600 dark:text-zinc-400">{liveStatLabel(line.identifier)}</DataCell>
+                  <DataCell className="py-1 text-zinc-500" numeric>{line.value}</DataCell>
+                  <DataCell className="py-1 font-semibold text-zinc-900 dark:text-zinc-100" numeric>
                     {line.points}
-                  </td>
-                </tr>
+                  </DataCell>
+                </DataRow>
               ))}
-              <tr>
-                <td className="pt-1 font-semibold text-zinc-900 dark:text-zinc-100">Total</td>
-                <td />
-                <td className="pt-1 text-right font-bold tabular-nums text-purple-800 dark:text-primary">
+              <DataRow>
+                <DataCell className="pt-1 font-semibold text-zinc-900 dark:text-zinc-100">Total</DataCell>
+                <DataCell />
+                <DataCell className="pt-1 font-bold text-purple-800 dark:text-primary" numeric>
                   {player.live_breakdown.reduce((sum, l) => sum + l.points, 0)}
-                </td>
-              </tr>
+                </DataCell>
+              </DataRow>
             </tbody>
           </table>
         </div>
@@ -325,7 +344,7 @@ export function PlayerDetail({
                       r.points >= 6
                         ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                         : r.points >= 2
-                          ? "bg-zinc-100 text-zinc-700 dark:bg-[#2A0A45] dark:text-zinc-300"
+                          ? "bg-zinc-100 text-zinc-700 dark:bg-surface-3 dark:text-zinc-300"
                           : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
                     }`}
                   >
@@ -339,11 +358,16 @@ export function PlayerDetail({
 
           {/* club system — Sprint 12.5, context only, never folded into xP */}
           {player.system && (
-            <p
-              className="mt-2.5 truncate border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40 dark:text-zinc-400"
-              title={`System: ${player.system} — tactical context, not applied to xP.`}
-            >
-              <span className="font-medium text-zinc-600 dark:text-zinc-300">System</span> · {player.system}
+            <p className="mt-2.5 flex items-center gap-1 border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40 dark:text-zinc-400">
+              <span className="font-medium text-zinc-600 dark:text-zinc-300">System</span> ·{" "}
+              <span className="min-w-0 truncate">{player.system}</span>
+              {/* The line truncates, and the half that got cut was the caveat:
+                  this is context, never folded into xP. A title attribute is
+                  the wrong place for the one sentence that stops a number
+                  being misread. */}
+              <ModelNote label="What the club system tells you">
+                Tactical context for {player.system} — not applied to xP.
+              </ModelNote>
             </p>
           )}
 
@@ -455,15 +479,16 @@ export function PlayerDetail({
       {/* actions — pool player: add, or find a swap for an owned one */}
       {!owned && onAdd && (
         <div className="mt-3 flex gap-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
-          <button
+          <Button
             type="button"
             onClick={() => onAdd(player.id)}
             disabled={addDisabledReason !== null}
             title={addDisabledReason ?? `${addLabel}: ${player.web_name}`}
-            className="flex-1 rounded bg-primary px-2 py-1 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+            size="xs"
+            className="flex-1 disabled:opacity-40"
           >
             {addLabel}
-          </button>
+          </Button>
         </div>
       )}
       {!owned && addDisabledReason && (
@@ -482,54 +507,62 @@ export function PlayerDetail({
       {owned && (onSetCaptain || onSetVice || onRemove) && (
       <div className="mt-3 flex gap-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
         {onSetCaptain && (
-        <button
+        <Button
           type="button"
           onClick={() => {
             onSetCaptain(player.id);
             onClose();
           }}
           disabled={player.is_captain}
-          className="flex-1 rounded border border-input px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 dark:hover:border-primary dark:hover:text-primary"
+          variant="outline"
+          size="xs"
+          className="flex-1 hover:border-purple-700 hover:text-purple-700 disabled:opacity-40 dark:hover:border-primary dark:hover:text-primary"
         >
           {player.is_captain ? "Captain" : "Set C"}
-        </button>
+        </Button>
         )}
         {onSetVice && (
-        <button
+        <Button
           type="button"
           onClick={() => {
             onSetVice(player.id);
             onClose();
           }}
           disabled={player.is_vice_captain}
-          className="flex-1 rounded border border-input px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 dark:hover:border-primary dark:hover:text-primary"
+          variant="outline"
+          size="xs"
+          className="flex-1 hover:border-purple-700 hover:text-purple-700 disabled:opacity-40 dark:hover:border-primary dark:hover:text-primary"
         >
           {player.is_vice_captain ? "Vice" : "Set VC"}
-        </button>
+        </Button>
         )}
         {onRemove && (
-        <button
+        <Button
           type="button"
           onClick={() => {
             onRemove(player.id);
             onClose();
           }}
-          className="flex-1 rounded border border-input px-2 py-1 font-medium text-danger transition-colors hover:border-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          variant="outline"
+          size="xs"
+          className="flex-1 text-danger hover:border-danger"
         >
           Remove
-        </button>
+        </Button>
         )}
       </div>
       )}
 
       {owned && onFindReplacement && (
-        <button
+        <Button
           type="button"
           onClick={() => onFindReplacement(player.id)}
-          className="mt-1.5 min-h-9 w-full rounded border border-input px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary dark:hover:text-primary"
+          variant="outline"
+          size="md"
+          className="mt-1.5 min-h-9 w-full hover:border-purple-700 hover:text-purple-700 dark:hover:border-primary dark:hover:text-primary"
         >
           Replace
-        </button>
+        </Button>
       )}
     </div>
   );

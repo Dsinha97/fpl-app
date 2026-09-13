@@ -6,10 +6,12 @@
 // that nothing rendered them and sync-league-picks had never once been
 // invoked from the app. This page is that wiring — no new maths.
 
+import { Button } from "@/components/ui/button";
+import { ModelNote } from "@/components/ui/model-note";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { supabase } from "@/lib/supabase/client";
-import { InfoTooltip } from "@/components/info-tooltip";
 import { Spinner } from "@/components/ui/spinner";
 import { ManagerLeagues, type ManagerLeagueRow } from "@/components/manager-leagues";
 import {
@@ -279,15 +281,23 @@ export default function LeaguesPage() {
                 </p>
               )}
             </div>
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="md"
               onClick={() => void handleSync()}
               disabled={syncing}
-              className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+              /* Outline, matching /team's Refresh (DSI-129): re-syncing a
+                 league is a utility refresh, not the decision this page
+                 exists to support, and a filled accent button was claiming
+                 to be the latter. The last solid-accent utility trigger in
+                 the app — /builder's Save is already outline-and-disabled
+                 when clean, and /scenarios' Open and /settings' Update moved
+                 in C1. */
+              className="flex items-center gap-1.5"
             >
               {syncing && <Spinner className="h-3.5 w-3.5" />}
               {syncing ? "Syncing…" : "Sync this league"}
-            </button>
+            </Button>
           </div>
 
           {syncMessage && <p className="mt-2 text-xs text-zinc-500">{syncMessage}</p>}
@@ -313,60 +323,53 @@ export default function LeaguesPage() {
           ) : (
             <>
               <p className="mt-3 text-xs text-zinc-500">
-                <InfoTooltip label="What does effective ownership mean here?">
-                  <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{OWNERSHIP_MODEL_NOTE}</p>
-                </InfoTooltip>{" "}
+                <ModelNote label="What does effective ownership mean here?">{OWNERSHIP_MODEL_NOTE}</ModelNote>{" "}
                 Effective ownership (EO) counts a captain twice and a bench pick zero — it can exceed 100% if
                 several members captain the same player.{" "}
-                <InfoTooltip label="What is Upside?">
-                  <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{UPSIDE_MODEL_NOTE}</p>
-                </InfoTooltip>
+                <ModelNote label="What is Upside?">{UPSIDE_MODEL_NOTE}</ModelNote>
               </p>
 
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                      <th className="py-2 pr-2">Player</th>
-                      <th className="px-2 py-2">Team</th>
-                      <th className="px-2 py-2">Pos</th>
-                      <th className="px-2 py-2">Owners</th>
-                      <th className="px-2 py-2">Own %</th>
-                      <th className="px-2 py-2">Captains</th>
-                      <th className="px-2 py-2">EO</th>
-                      <th className="px-2 py-2">You?</th>
-                      <th className="px-2 py-2">xP GW</th>
-                      <th className="px-2 py-2">Differential</th>
-                      <th className="px-2 py-2">Rank gain</th>
+                      <DataHeadCell className="py-2 pr-2">Player</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Team</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Pos</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Owners</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Own %</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Captains</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">EO</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">You?</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">xP GW</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Differential</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Rank gain</DataHeadCell>
                     </tr>
                   </thead>
                   <tbody>
                     {eoRows.map((row) => (
-                      <tr
-                        key={row.element}
-                        className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
-                      >
-                        <td className="py-1.5 pr-2 font-medium">{row.meta?.webName ?? `#${row.element}`}</td>
-                        <td className="px-2 py-1.5 text-zinc-500">{row.meta?.teamShort ?? "—"}</td>
-                        <td className="px-2 py-1.5 text-zinc-500">
+                      <DataRow key={row.element} className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
+                        <DataCell className="py-1.5 pr-2 font-medium">{row.meta?.webName ?? `#${row.element}`}</DataCell>
+                        <DataCell className="px-2 py-1.5 text-zinc-500">{row.meta?.teamShort ?? "—"}</DataCell>
+                        <DataCell className="px-2 py-1.5 text-zinc-500">
                           {row.meta ? POSITIONS[row.meta.elementType] : "—"}
-                        </td>
-                        <td className="px-2 py-1.5 tabular-nums">
+                        </DataCell>
+                        <DataCell className="px-2 py-1.5 tabular-nums">
                           {row.owners}/{standings.length}
-                        </td>
-                        <td className="px-2 py-1.5 tabular-nums">{(row.ownershipPct * 100).toFixed(1)}%</td>
-                        <td className="px-2 py-1.5 tabular-nums">
+                        </DataCell>
+                        <DataCell className="px-2 py-1.5 tabular-nums">{(row.ownershipPct * 100).toFixed(1)}%</DataCell>
+                        <DataCell className="px-2 py-1.5 tabular-nums">
                           {row.captains}
                           {row.tripleCaptains > 0 ? ` (+${row.tripleCaptains} TC)` : ""}
-                        </td>
-                        <td className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-primary">
+                        </DataCell>
+                        <DataCell className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-primary">
                           {(row.eo * 100).toFixed(0)}%
-                        </td>
-                        <td className="px-2 py-1.5">{row.youOwn ? "✓" : ""}</td>
-                        <td className="px-2 py-1.5 tabular-nums">{row.meta?.xp1?.toFixed(1) ?? "—"}</td>
-                        <td className="px-2 py-1.5 tabular-nums">{row.differential.toFixed(1)}</td>
-                        <td className="px-2 py-1.5 tabular-nums">{row.rankGain.toFixed(1)}</td>
-                      </tr>
+                        </DataCell>
+                        <DataCell className="px-2 py-1.5">{row.youOwn ? "✓" : ""}</DataCell>
+                        <DataCell className="px-2 py-1.5 tabular-nums">{row.meta?.xp1?.toFixed(1) ?? "—"}</DataCell>
+                        <DataCell className="px-2 py-1.5 tabular-nums">{row.differential.toFixed(1)}</DataCell>
+                        <DataCell className="px-2 py-1.5 tabular-nums">{row.rankGain.toFixed(1)}</DataCell>
+                      </DataRow>
                     ))}
                   </tbody>
                 </table>

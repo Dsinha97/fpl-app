@@ -1,5 +1,8 @@
 "use client";
 
+import { Pin } from "lucide-react";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
@@ -10,7 +13,7 @@ import {
   type ActualsSource,
   type ScenarioActuals,
 } from "@/lib/scenario-actuals";
-import { FdrLegendContent, InfoTooltip, TapToReveal } from "@/components/info-tooltip";
+import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { Spinner } from "@/components/ui/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
@@ -42,8 +45,11 @@ import {
 import { optimiseLineup, type LineupCandidate } from "@/lib/lineup";
 import { totalSpend } from "@/lib/squad-budget";
 import { benchBoostAt, tripleCaptainAt, type ChipValuation } from "@/lib/chips";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { SlideOver } from "@/components/ui/slide-over";
+import { AnnotatedLabel, ModelNote } from "@/components/ui/model-note";
 import {
-  HORIZONS,
   horizonLabel,
   seasonHorizonNote,
   validateSquad,
@@ -54,8 +60,10 @@ import {
   type TeamState,
   DEFAULT_RULES,
 } from "@/lib/team-state";
+import { signed } from "@/lib/utils";
+import { HorizonControl } from "@/components/horizon-control";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
-const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
 interface PlayerRow {
   id: number;
@@ -113,6 +121,9 @@ export default function ScenariosPage() {
   const [view, setView] = useState<"xp" | "actual">("xp");
   const [actualsSource, setActualsSource] = useState<ActualsSource | null>(null);
   const [nextEvent, setNextEvent] = useState<number | null>(null);
+
+  /** "Points scored" needs at least one finished gameweek to mean anything. */
+  const hasActuals = (actualsSource?.events.length ?? 0) > 0;
 
   const [horizon, setHorizon] = useState<Horizon>(5);
   const [selected, setSelected] = useState<string[]>([]);
@@ -588,7 +599,65 @@ export default function ScenariosPage() {
   // below the card grid with no way to jump to it — this ref plus the
   // sticky bar below fix that, mirroring the pattern app/players/page.tsx
   // already uses for its own bottom bar.
-  const comparisonRef = useRef<HTMLElement>(null);
+  /**
+   * The comparison panel's ranking: every chosen draft by SquadScore, each
+   * with the one term that actually separates it from the leader.
+   *
+   * The term is chosen by the largest absolute gap across the breakdown, so
+   * it is a reading of the numbers already on the table rather than a second
+   * opinion about them — and when two drafts are genuinely identical it says
+   * so instead of inventing a difference (which is the common case here:
+   * cloning a draft is one click).
+   */
+  const chosenRanking = useMemo(() => {
+    const rows = chosen
+      .map((draft) => ({ draft, score: scores.get(draft.draftId) }))
+      .filter((r): r is { draft: TeamState; score: SquadScoreBreakdown } => r.score !== undefined)
+      .sort((a, b) => b.score.total - a.score.total);
+
+    const TERMS: { key: keyof SquadScoreBreakdown; label: string }[] = [
+      { key: "expectedPoints", label: "projected points" },
+      { key: "fixtureQuality", label: "fixtures" },
+      { key: "benchStrength", label: "bench" },
+      { key: "value", label: "value per £m" },
+      { key: "risk", label: "squad risk" },
+    ];
+
+    const leader = rows[0];
+    return rows.map((row, i) => {
+      const against = i === 0 ? rows[1] : leader;
+      if (!against) {
+        return { draft: row.draft, total: row.score.total, verdict: "The only draft scored." };
+      }
+
+      const gap = row.score.total - against.score.total;
+      const biggest = TERMS.map((t) => ({
+        ...t,
+        delta: (row.score[t.key] as number) - (against.score[t.key] as number),
+      })).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0];
+
+      const who = i === 0 ? "the next best draft" : against.draft.name;
+      if (Math.abs(gap) < 0.05 && Math.abs(biggest.delta) < 0.05) {
+        return {
+          draft: row.draft,
+          total: row.score.total,
+          verdict: `Identical to ${who} on every term.`,
+        };
+      }
+
+      return {
+        draft: row.draft,
+        total: row.score.total,
+        verdict: `${signed(gap)} against ${who} — mostly ${biggest.label} (${signed(biggest.delta)}).`,
+      };
+    });
+  }, [chosen, scores]);
+
+  /** The comparison is a side panel, the same shape /players uses for its own
+   *  comparison — it used to be a section further down the page that the tray
+   *  scrolled to, which meant the drafts you were comparing scrolled away. */
+  const [compareOpen, setCompareOpen] = useState(false);
+  const compareTrigger = useRef<HTMLButtonElement>(null);
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 pb-24">
@@ -605,54 +674,49 @@ export default function ScenariosPage() {
             side by side.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-          {/* Projection vs what actually happened. Same inline button-group
-              recipe as /transfers' and /news' pills — there is no shared
-              segmented control in this codebase and one toggle does not
-              justify introducing one. */}
+        {/* min-w-0: this is a flex item holding a horizontally scrollable
+            control. Without it `min-width: auto` refuses to shrink and the
+            segments push the page body past the viewport on a phone. */}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+          {/* Projection vs what actually happened. This used to carry a comment
+              saying no shared segmented control existed and one toggle did not
+              justify introducing one — SegmentedControl exists now, and this is
+              the same "pick a side" shape as the horizon beside it. */}
           <div className="flex items-center gap-2">
             <span className="text-zinc-500">Show</span>
-            {(["xp", "actual"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                aria-pressed={view === v}
-                disabled={v === "actual" && (actualsSource?.events.length ?? 0) === 0}
-                title={
-                  v === "actual" && (actualsSource?.events.length ?? 0) === 0
-                    ? "No gameweek has finished yet this season."
-                    : undefined
-                }
-                className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
-                  view === v
-                    ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
-                    : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
-                }`}
-              >
-                {v === "xp" ? "xP" : "Points scored"}
-              </button>
-            ))}
+            <SegmentedControl
+              label="Show"
+              semantics="radio"
+              size="sm"
+              value={view}
+              onValueChange={(v) => setView(v as "xp" | "actual")}
+              options={[
+                { value: "xp", label: "xP" },
+                { value: "actual", label: "Points scored", disabled: !hasActuals },
+              ]}
+            />
             <InfoTooltip label="About points scored">{SCENARIO_ACTUALS_NOTE}</InfoTooltip>
           </div>
-          <div className="flex items-center gap-2">
-          <span className="text-zinc-500">Horizon</span>
-          {HORIZONS.map((h) => (
-            <button
-              key={h}
-              onClick={() => setHorizon(h)}
-              title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-              className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                horizon === h
-                  ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
-                  : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
-              }`}
-            >
-              {horizonLabel(h)}
-            </button>
-          ))}
-          </div>
+          <HorizonControl value={horizon} onValueChange={setHorizon} />
         </div>
       </div>
+
+      {/* The old per-segment `title=` on "Season" went with the hand-rolled
+          buttons; the note belongs on the page anyway, where `/players` and
+          `/transfers` already put it. */}
+      {horizon === "season" && (
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+          {seasonHorizonNote(seasonWindow)}
+        </p>
+      )}
+
+      {/* Replaces the `title=` the disabled "Points scored" button used to
+          carry: a disabled control that never says why is just a dead end. */}
+      {!hasActuals && (
+        <p className="mt-2 text-xs text-zinc-500">
+          No gameweek has finished yet this season, so there are no points scored to show.
+        </p>
+      )}
 
       {view === "actual" && (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
@@ -674,19 +738,13 @@ export default function ScenariosPage() {
       {/* backup — drafts live in this browser's localStorage only */}
       <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
         {drafts.length > 0 && (
-          <button
-            onClick={handleExport}
-            className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-600 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
-          >
+          <Button variant="outline" size="xs" onClick={handleExport}>
             Export drafts
-          </button>
+          </Button>
         )}
-        <button
-          onClick={() => importInputRef.current?.click()}
-          className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-600 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
-        >
+        <Button variant="outline" size="xs" onClick={() => importInputRef.current?.click()}>
           Import drafts
-        </button>
+        </Button>
         <input
           ref={importInputRef}
           type="file"
@@ -740,24 +798,26 @@ export default function ScenariosPage() {
               : "Drafts or horizon changed since these scores were computed."}
           </span>
           {!computing && (
-            <button
+            <Button
               type="button"
               onClick={runCompute}
-              className="shrink-0 rounded-md border border-warning-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-warning-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              variant="outline"
+              size="xs"
+              className="shrink-0 border-warning-border px-2.5 hover:bg-warning-surface/70"
             >
               Re-run
-            </button>
+            </Button>
           )}
         </div>
       )}
 
       {drafts.length === 0 && !loading && (
-        <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 text-center dark:border-purple-900/40 dark:bg-[#1E0234]">
+        <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 text-center dark:border-purple-900/40 dark:bg-card">
           <p className="text-sm text-zinc-500">
             No drafts saved yet. Build a squad in the{" "}
             <Link
               href="/builder"
-              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+              className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
             >
               Team Builder
             </Link>{" "}
@@ -805,8 +865,8 @@ export default function ScenariosPage() {
                 key={draft.draftId}
                 className={`rounded-xl border p-4 transition-colors ${
                   picked
-                    ? "border-purple-600 bg-purple-50/60 dark:border-[#00FF87] dark:bg-[#25063f]"
-                    : "border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]"
+                    ? "border-purple-600 bg-primary/5 dark:border-primary dark:bg-primary/10"
+                    : "border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -829,7 +889,7 @@ export default function ScenariosPage() {
                             }
                           }}
                           aria-label="Draft name"
-                          className="w-full rounded border border-purple-400 bg-white px-1.5 py-0.5 text-sm font-semibold text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-[#00FF87] dark:bg-[#2A0A45] dark:text-zinc-100"
+                          className="w-full rounded border border-purple-400 bg-white px-1.5 py-0.5 text-sm font-semibold text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary dark:bg-surface-3 dark:text-zinc-100"
                         />
                         {renameError && (
                           <p className="mt-1 text-xs text-red-600 dark:text-red-400">{renameError}</p>
@@ -843,7 +903,10 @@ export default function ScenariosPage() {
                           setRenameError(null);
                         }}
                         title="Rename"
-                        className="max-w-full truncate text-left text-sm font-semibold text-zinc-900 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-zinc-100"
+                        /* line-clamp-2, not truncate (DSI-123): draft names
+                           differ in their tail ("… +3 transfers"), which is
+                           exactly what a single-line ellipsis eats. */
+                        className="max-w-full text-left text-sm font-semibold text-zinc-900 underline-offset-2 [overflow-wrap:anywhere] line-clamp-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-zinc-100"
                       >
                         {draft.name}
                       </button>
@@ -851,17 +914,22 @@ export default function ScenariosPage() {
                     <p className="mt-0.5 text-[11px] text-zinc-500">
                       #{rank + 1} · saved {formatWhen(draft.updatedAt)}
                       {draft.pinned && (
-                        <span
-                          className="ml-1.5 rounded bg-amber-100 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                        <Badge
+                          tone="warning"
+                          variant="solid"
+                          className="ml-1.5"
                           title="Every draft-aware page opens on this squad by default"
+                          aria-label="Pinned — every draft-aware page opens on this squad by default"
                         >
                           pinned
-                        </span>
+                        </Badge>
                       )}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
                       type="button"
                       onClick={() => {
                         setPinnedDraft(draft.pinned ? null : draft.draftId);
@@ -872,7 +940,7 @@ export default function ScenariosPage() {
                           ? "Unpin — stop opening this squad by default"
                           : "Pin — open this squad by default everywhere"
                       }
-                      className={`text-[13px] leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                      className={`text-[13px] leading-none transition-colors ${
                         draft.pinned
                           ? "text-amber-600 dark:text-amber-400"
                           : "text-zinc-300 hover:text-amber-600 dark:text-zinc-600 dark:hover:text-amber-400"
@@ -880,15 +948,18 @@ export default function ScenariosPage() {
                       aria-pressed={draft.pinned === true}
                       aria-label={draft.pinned ? `Unpin ${draft.name}` : `Pin ${draft.name}`}
                     >
-                      📌
-                    </button>
-                    <label className="flex cursor-pointer items-center gap-1 text-[11px] text-zinc-500">
-                      <input
-                        type="checkbox"
+                      <Pin className="h-3.5 w-3.5" aria-hidden />
+                    </Button>
+                    {/* The box itself was 13px — under the 24px minimum, and a
+                        fiddly target on a card you are trying to tick quickly.
+                        The label already wraps both box and word, so padding
+                        it turns the whole "☐ compare" pair into one target
+                        (DSI-123). */}
+                    <label className="-m-1 flex cursor-pointer items-center gap-1.5 rounded p-1 text-[11px] text-zinc-500 transition-colors hover:bg-zinc-100 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring dark:hover:bg-purple-950/50">
+                      <Checkbox
                         checked={picked}
                         onChange={() => toggleSelect(draft.draftId)}
                         disabled={!picked && selected.length >= MAX_COMPARE}
-                        className="accent-purple-800 dark:accent-[#00FF87]"
                       />
                       compare
                     </label>
@@ -901,7 +972,7 @@ export default function ScenariosPage() {
                     <div className="text-[10px] uppercase tracking-wide text-zinc-500">
                       SquadScore
                     </div>
-                    <div className="text-2xl font-extrabold tabular-nums text-purple-900 dark:text-[#00FF87]">
+                    <div className="text-2xl font-extrabold tabular-nums text-purple-900 dark:text-primary">
                       {score ? score.total.toFixed(1) : "—"}
                     </div>
                   </div>
@@ -959,28 +1030,45 @@ export default function ScenariosPage() {
 
                 {/* actions */}
                 <div className="mt-3 flex flex-wrap gap-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
+                  {/* Outline, not solid accent (DSI-123). One filled accent
+                      button is a call to action; one per card in a grid of
+                      seven is wallpaper, and the eye has nowhere to land. The
+                      accent survives as the border and the label, which is
+                      enough to read Open as the primary of the four. Not the
+                      audit's "make the whole card clickable" — the card
+                      already holds a rename-on-click title, a compare
+                      checkbox and three other actions, so a surface-wide
+                      target would swallow all four. */}
                   <Link
                     href={`/builder?draft=${draft.draftId}`}
-                    className="rounded bg-purple-950 px-2 py-1 font-medium text-white transition-colors hover:bg-purple-800 dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e67a]"
+                    /* buttonVariants, not <Button>: this is a link, and a link
+                       that renders as a button still has to be an anchor for
+                       middle-click and open-in-new-tab to work. */
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "xs",
+                      className:
+                        "border-purple-950 text-purple-950 hover:bg-purple-950 hover:text-white dark:border-primary dark:text-primary dark:hover:bg-primary dark:hover:text-slate-950",
+                    })}
                   >
                     Open
                   </Link>
-                  <button
+                  <Button
+                    variant="outline"
+                    size="xs"
                     onClick={() => {
                       cloneDraft(draft);
                       refresh();
                     }}
-                    className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
                   >
                     Clone
-                  </button>
-                  <button
-                    onClick={() => openTimeline(draft.draftId)}
-                    className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/60 dark:hover:border-[#00FF87] dark:hover:text-[#00FF87]"
-                  >
+                  </Button>
+                  <Button variant="outline" size="xs" onClick={() => openTimeline(draft.draftId)}>
                     Timeline
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
                     onClick={() => {
                       if (confirmDelete !== draft.draftId) {
                         setConfirmDelete(draft.draftId);
@@ -993,14 +1081,14 @@ export default function ScenariosPage() {
                       refresh();
                     }}
                     onBlur={() => setConfirmDelete(null)}
-                    className={`rounded border px-2 py-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    className={`rounded border px-2 py-1 font-medium transition-colors ${
                       confirmDelete === draft.draftId
                         ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
                         : "border-zinc-300 text-red-600 hover:border-red-500 dark:border-purple-800/60 dark:text-red-400"
                     }`}
                   >
                     {confirmDelete === draft.draftId ? "Confirm delete?" : "Delete"}
-                  </button>
+                  </Button>
                 </div>
               </article>
             );
@@ -1019,20 +1107,79 @@ export default function ScenariosPage() {
       )}
 
       {/* comparison */}
-      {chosen.length >= 2 && (
-        <section ref={comparisonRef} className="mt-8 scroll-mt-4">
-          <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+      <SlideOver
+        open={compareOpen && chosen.length >= 2}
+        onClose={() => setCompareOpen(false)}
+        side="right"
+        label="Draft comparison"
+        width="min(56rem, 96vw)"
+        triggerRef={compareTrigger}
+      >
+        <section className="p-2">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
             Comparing {chosen.length} drafts
+            {/* DSI-126/129 #2: these two notes were a stack of bare grey
+                paragraphs under the table. They qualify how every figure in
+                it is computed, so they belong on the table, not after it. */}
+            <ModelNote label="How are these metrics calculated?">
+              <span className="block">{SQUAD_SCORE_NOTE}</span>
+              <span className="block">{RISK_MODEL_NOTE}</span>
+            </ModelNote>
+            <Button
+              onClick={() => setCompareOpen(false)}
+              aria-label="Close comparison"
+              variant="ghost"
+              size="icon-sm"
+              className="ml-auto shrink-0 text-xl leading-none text-zinc-500"
+            >
+              ×
+            </Button>
           </h2>
-          <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-[#1E0234]">
+          {/* The verdict before the evidence, the same way the player
+              comparison now leads with its ranking: the table is the working,
+              and on a phone it used to be sixteen rows of working before any
+              conclusion. The separating term is derived from the breakdown
+              rather than asserted — "ahead on fixtures" is the largest single
+              gap between two scores, not a label someone chose. */}
+          <ol className="mt-3 space-y-2">
+            {chosenRanking.map((r, i) => (
+              <li
+                key={r.draft.draftId}
+                className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-card"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {i + 1}. {r.draft.name}
+                  </span>
+                  <span className="text-xs tabular-nums text-zinc-500">
+                    SquadScore {r.total.toFixed(1)}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{r.verdict}</p>
+              </li>
+            ))}
+          </ol>
+
+          {/* The draft names have to stay visible while reading 16 metric rows
+              (DSI-123). `sticky top-0` alone is inert here: `overflow-x-auto`
+              computes overflow-y to auto, which makes this wrapper the
+              scrollport, and a wrapper with no height never scrolls — measured
+              at a 560px viewport, the header left the screen at -181px with
+              sticky applied. Capping the height makes the table its own scroll
+              region, which is the thing sticky can actually stick to. */}
+          <div className="mt-3 max-h-[70vh] overflow-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                  <th className="px-3 py-2">Metric</th>
+                <tr className="text-left text-xs uppercase tracking-wide text-zinc-500">
+                  <DataHeadCell className="sticky top-0 z-10 border-b border-zinc-200 bg-white px-3 py-2 dark:border-purple-900/40 dark:bg-card">
+                    Metric
+                  </DataHeadCell>
                   {chosen.map((d) => (
-                    <th key={d.draftId} className="px-3 py-2">
+                    // Right-aligned to sit over the numbers beneath it, now
+                    // that the metric cells align right.
+                    <DataHeadCell key={d.draftId} className="sticky top-0 z-10 border-b border-zinc-200 bg-white px-3 py-2 dark:border-purple-900/40 dark:bg-card" numeric>
                       {d.name}
-                    </th>
+                    </DataHeadCell>
                   ))}
                 </tr>
               </thead>
@@ -1052,21 +1199,19 @@ export default function ScenariosPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-[11px] leading-relaxed text-zinc-400">{SQUAD_SCORE_NOTE}</p>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">{RISK_MODEL_NOTE}</p>
           <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
             Bench Boost and Triple Captain above are for the next gameweek only. Free Hit and
             Wildcard are full-squad rebuilds, valued for every playable gameweek on the{" "}
             <Link
               href={chosen[0] ? `/transfers?tab=chips&draft=${chosen[0].draftId}` : "/transfers?tab=chips"}
-              className="text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+              className="text-purple-700 underline-offset-2 hover:underline dark:text-primary"
             >
               Chip Strategy
             </Link>{" "}
             page.
           </p>
         </section>
-      )}
+      </SlideOver>
 
       {chosen.length === 1 && (
         <p className="mt-6 text-sm text-zinc-500">
@@ -1075,26 +1220,23 @@ export default function ScenariosPage() {
       )}
 
       {chosen.length >= 2 && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-[#1E0234]/95">
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-card/95">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
               Comparing {chosen.length} draft{chosen.length === 1 ? "" : "s"}
             </span>
             <span className="flex items-center gap-3">
-              <button
-                onClick={() => setSelected([])}
-                className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-[#00FF87]"
-              >
+              <Button variant="link" size="md" onClick={() => setSelected([])}>
                 Clear
-              </button>
-              <button
-                onClick={() =>
-                  comparisonRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-                }
-                className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[#00FF87] dark:text-slate-950 dark:hover:bg-[#00e078]"
+              </Button>
+              <Button
+                ref={compareTrigger}
+                onClick={() => setCompareOpen((v) => !v)}
+                aria-expanded={compareOpen}
+                size="md"
               >
-                Compare {chosen.length} drafts ↓
-              </button>
+                {compareOpen ? "Hide comparison" : `Compare ${chosen.length}`}
+              </Button>
             </span>
           </div>
         </div>
@@ -1269,46 +1411,67 @@ function ComparisonRows({
               ? Math.max(...nums)
               : Math.min(...nums);
         return (
-          <tr
-            key={row.label}
-            className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
-          >
-            <th className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
+          <DataRow key={row.label} className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
+            <DataHeadCell className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
+              {/* AnnotatedLabel rather than a hand-rolled TapToReveal trigger
+                  (DSI-123). These labels really do open a note, but this call
+                  site drew the dotted underline without the cursor-help that
+                  AnnotatedLabel pairs it with, so the one signifier the design
+                  system reserves for "this opens something" was reading as
+                  decoration. Same component every other annotated label uses. */}
               {row.note ? (
-                <TapToReveal
-                  label={`What does ${row.label} mean?`}
-                  triggerClassName="underline decoration-dotted underline-offset-2"
-                  trigger={row.label}
-                >
-                  <p>{row.note}</p>
-                </TapToReveal>
+                <AnnotatedLabel label={`What does ${row.label} mean?`} note={row.note}>
+                  {row.label}
+                </AnnotatedLabel>
               ) : (
                 row.label
               )}
-            </th>
-            {nums.map((v, i) => (
-              <td key={i} className="px-3 py-2 tabular-nums">
-                <span
-                  className={
-                    best !== null && v === best && nums.length > 1
-                      ? "font-semibold text-purple-800 dark:text-[#00FF87]"
-                      : ""
-                  }
+            </DataHeadCell>
+            {nums.map((v, i) => {
+              const wins = best !== null && v === best && nums.length > 1;
+              return (
+                // DSI-123, two defects in one cell.
+                //
+                // The arrow was hardcoded `▲` for every winner, so "mean player
+                // risk" — where `dir` is already correctly "low", and the
+                // selection was already right — rendered its lowest value as
+                // `24 ▲`. An up-arrow beside the smallest number reads as a
+                // contradiction. The glyph now follows the same `row.dir` the
+                // winner was chosen by, so the two can never disagree.
+                //
+                // And every row's winner was primary green, which is what the
+                // audit calls "green up-triangles overload": with a winner in a
+                // different column on every line, nothing tells you which draft
+                // wins overall. Row winners are now a tinted cell and weight;
+                // the accent stays for the composite verdict above the table.
+                <DataCell
+                  key={i}
+                  numeric
+                  className={`px-3 py-2 ${wins ? "bg-primary/[0.06]" : ""}`}
                 >
-                  {row.format(v)}
-                  {best !== null && v === best && nums.length > 1 ? " ▲" : ""}
-                </span>
-              </td>
-            ))}
-          </tr>
+                  <span className={wins ? "font-semibold text-foreground" : ""}>
+                    {row.format(v)}
+                    {wins && (
+                      <span
+                        aria-label={row.dir === "low" ? "lowest, best" : "highest, best"}
+                        className="ml-1 text-[0.85em] text-muted-foreground"
+                      >
+                        {row.dir === "low" ? "▼" : "▲"}
+                      </span>
+                    )}
+                  </span>
+                </DataCell>
+              );
+            })}
+          </DataRow>
         );
       })}
-      <tr className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
-        <th className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
+      <DataRow className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
+        <DataHeadCell className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
           Unique to this draft
-        </th>
+        </DataHeadCell>
         {uniquePlayers.map((ids, i) => (
-          <td key={i} className="px-3 py-2 text-xs">
+          <DataCell key={i} className="px-3 py-2 text-xs">
             {ids.length === 0 ? (
               <span className="text-zinc-400">none — identical squads</span>
             ) : (
@@ -1321,9 +1484,9 @@ function ComparisonRows({
                 {ids.length > 4 ? ` +${ids.length - 4}` : ""}
               </span>
             )}
-          </td>
+          </DataCell>
         ))}
-      </tr>
+      </DataRow>
     </>
   );
 }

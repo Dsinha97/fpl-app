@@ -101,3 +101,20 @@ export function useDismissablePopover(open: boolean, onDismiss: () => void, cont
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, onDismiss]);
 }
+
+/**
+ * Bottom edge of the app's sticky header stack, in viewport coordinates.
+ *
+ * `app/layout.tsx` pins one `<header>` (nav + ContextBar) at `top-0 z-40`, and
+ * every floating panel in the app is a sibling of the page content at the same
+ * z-index or lower — so a panel placed by viewport maths alone will paint over
+ * the header the moment the page scrolls under it. Panels clamp their top to
+ * this instead of to 0. Returns 0 before hydration and on any page without the
+ * header, so the clamp degrades to "the top of the viewport".
+ */
+export function stickyHeaderBottom(): number {
+  if (typeof document === "undefined") return 0;
+  const header = document.querySelector("header");
+  if (!header) return 0;
+  return Math.max(0, header.getBoundingClientRect().bottom);
+}

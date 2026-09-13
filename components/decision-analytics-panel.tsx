@@ -8,8 +8,10 @@ import {
   DECISION_ANALYTICS_NOTE,
   type DecisionAnalytics,
 } from "@/lib/decision-analytics";
-import { HORIZONS, horizonLabel, type Horizon } from "@/lib/team-state";
+import { horizonLabel, type Horizon } from "@/lib/team-state";
 import type { PlayerRow } from "@/components/gameweek-review-panel";
+import { signed } from "@/lib/utils";
+import { HorizonControl } from "@/components/horizon-control";
 
 function nameOf(players: Map<number, PlayerRow>, element: number): string {
   return players.get(element)?.web_name ?? `#${element}`;
@@ -21,7 +23,6 @@ const CARD =
 /** A signed points figure that keeps its sign visible — never a bare number.
  *  Uses a real minus sign, matching the − the surrounding copy uses for its
  *  own operators; a hyphen next to one reads as a different character. */
-const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : "0");
 
 /**
  * The season's rank arc.
@@ -63,15 +64,21 @@ function RankArc({ points }: { points: Array<{ event: number; overallRank: numbe
         role="img"
         aria-label={`Overall rank from gameweek ${xy[0].event} to ${xy[xy.length - 1].event}, best ${fmt(best)}, worst ${fmt(worst)}. Higher on the chart is a better rank.`}
       >
-        <path d={path} fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinejoin="round" />
+        {/* chart-1, not primary: the CTA colour on a static data mark dilutes
+            the buttons it is supposed to distinguish. PercentileBar already
+            moved for this reason; the arc was missed. */}
+        <path d={path} fill="none" stroke="var(--chart-1)" strokeWidth="2" strokeLinejoin="round" />
         {xy.map((p) => (
-          <circle key={p.event} cx={p.x} cy={p.y} r="2.5" fill="var(--primary)" />
+          <circle key={p.event} cx={p.x} cy={p.y} r="2.5" fill="var(--chart-1)" />
         ))}
       </svg>
       <p className="mt-1 flex justify-between text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
         <span>GW{xy[0].event}</span>
+        {/* "lower is better" is true of the rank number and the opposite of
+            what the rising line appears to say (DSI-120). Describe the chart,
+            since the chart is what is being read. */}
         <span>
-          best {fmt(best)} · worst {fmt(worst)} · lower is better
+          best {fmt(best)} · worst {fmt(worst)} · the line rises as your rank improves
         </span>
         <span>GW{xy[xy.length - 1].event}</span>
       </p>
@@ -139,28 +146,14 @@ export function DecisionAnalyticsPanel({
             What the calls you already made actually returned.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <label
-            htmlFor="da-horizon"
-            className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
-          >
-            Transfer horizon
-          </label>
-          <select
-            id="da-horizon"
-            value={String(horizon)}
-            onChange={(e) => {
-              const v = e.target.value;
-              setHorizon(v === "season" ? "season" : (Number(v) as Horizon));
-            }}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 dark:border-purple-900/40 dark:bg-input dark:text-zinc-100"
-          >
-            {HORIZONS.map((h) => (
-              <option key={String(h)} value={String(h)}>
-                {horizonLabel(h)}
-              </option>
-            ))}
-          </select>
+        {/* min-w-0 here too, not just inside HorizonControl. The control
+            explains in its own source why it needs it — a flex item defaults
+            to min-width:auto and refuses to shrink below its content — and
+            that reasoning applies to every wrapper above it as well. Without
+            it this row measured 406px inside a 375px viewport and scrolled
+            the whole document sideways. */}
+        <div className="flex min-w-0 items-center gap-2">
+          <HorizonControl value={horizon} onValueChange={setHorizon} label="Transfer horizon" />
           <InfoTooltip label="About these figures">{DECISION_ANALYTICS_NOTE}</InfoTooltip>
         </div>
       </div>
@@ -264,7 +257,7 @@ export function DecisionAnalyticsPanel({
                     <span className="font-medium tabular-nums">{data.transfers.outPoints} out</span>{" "}
                     − <span className="font-medium tabular-nums">{data.transfers.hits} hit</span> ={" "}
                     <span className="font-medium tabular-nums">
-                      {signed(data.transfers.inPoints - data.transfers.outPoints - data.transfers.hits)}
+                      {signed(data.transfers.inPoints - data.transfers.outPoints - data.transfers.hits, 0)}
                     </span>
                   </p>
                   {data.transfers.inProgress && (
@@ -295,7 +288,7 @@ export function DecisionAnalyticsPanel({
                                       : "text-red-600 dark:text-red-400"
                                   }
                                 >
-                                  {signed(o.inPoints - o.outPoints)}
+                                  {signed(o.inPoints - o.outPoints, 0)}
                                 </span>
                               </span>
                               {o.inProgress && (
@@ -330,7 +323,7 @@ export function DecisionAnalyticsPanel({
                       </span>
                       {c.earned !== null ? (
                         <span className="ml-2 tabular-nums text-emerald-600 dark:text-primary">
-                          {signed(c.earned)} pts
+                          {signed(c.earned, 0)} pts
                         </span>
                       ) : (
                         <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{c.why}</p>

@@ -12,6 +12,7 @@ import type { PlayerData } from "@/components/player-card";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { ChipPlanEditor } from "@/components/chip-plan-editor";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
+import { FeedRowItem } from "@/components/feed-row";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { TransferPath } from "@/components/transfer-path";
@@ -38,10 +39,9 @@ import {
 } from "@/components/live-fixtures";
 import {
   hasConsistentLineup,
-  HORIZONS,
-  horizonLabel,
   horizonLength,
-  seasonHorizonNote,
+  setCaptain,
+  setViceCaptain,
   validateSquad,
   type ChipKind,
   type ChipPlan,
@@ -67,15 +67,19 @@ import {
   type EventPrediction,
   type PredAt,
 } from "@/lib/chips";
+import { Badge } from "@/components/ui/badge";
 import {
   DEFAULT_DECISION_MARGIN,
   type WildcardWindow,
   type XpByEvent,
 } from "@/lib/transfer-optimizer";
 import { freeTransfersDisplay, MAX_FREE_TRANSFERS, TRANSFER_MODEL_NOTE } from "@/lib/transfers";
-import { ago, describe, type FeedRow } from "@/lib/change-feed";
+import { ago, type FeedRow } from "@/lib/change-feed";
 import { confidentEntities, dedupeByUrl, sourceBadge, type NewsRow } from "@/lib/news-feed";
 import { loadPastResults, type PastResult } from "@/lib/player-history";
+import { signed } from "@/lib/utils";
+import { Alert } from "@/components/ui/alert";
+import { HorizonControl } from "@/components/horizon-control";
 
 interface PlayerRow {
   id: number;
@@ -108,7 +112,6 @@ interface XpRow {
   xp_total: number | null;
 }
 
-const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
 const STATUS_SEVERITY: Record<string, number> = { s: 0, i: 0, u: 0, n: 0, d: 1, a: 2 };
 
@@ -789,6 +792,16 @@ export default function DeadlinePage() {
       );
   }, [team, rowById]);
 
+  /**
+   * Nothing to report: the squad is legal and every player is fully available.
+   *
+   * When this holds, the two right-rail cards that said so collapse to one
+   * line above the pitch (DSI-119) — they were ~140px of passive green text
+   * sitting directly above the captaincy and transfer calls, which is what a
+   * manager actually opens this page for.
+   */
+  const allClear = validation !== null && validation.isLegal && alerts.length === 0;
+
   const lineup: LineupResult | null = useMemo(() => {
     if (!team || !ctx || predsByPlayer.size === 0) return null;
     const candidates = candidatesAt(team.players, ctx.nextEvent, predAt, lookup, isPenaltyTaker);
@@ -1128,7 +1141,7 @@ export default function DeadlinePage() {
                 chosen.current = true;
                 setDraftId(e.target.value);
               }}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
             >
               {drafts.map((d) => (
                 <option key={d.draftId} value={d.draftId}>
@@ -1159,11 +1172,11 @@ export default function DeadlinePage() {
         <div className={`mt-6 ${card} text-center`}>
           <p className="text-sm text-zinc-500">
             No saved squads yet. Build one in the{" "}
-            <Link href="/builder" className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]">
+            <Link href="/builder" className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary">
               Team Builder
             </Link>{" "}
             or paste your real squad in{" "}
-            <Link href="/settings/?tab=import" className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]">
+            <Link href="/settings/?tab=import" className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary">
               Settings → Import squad
             </Link>
             .
@@ -1203,9 +1216,9 @@ export default function DeadlinePage() {
                 rather than the green a recommendation would use — this is a
                 fact about the squad, not advice. */}
             {activeChip && (
-              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+              <Badge tone="warning" variant="solid">
                 {CHIP_LABELS[activeChip]} active · GW{team.activeChipEvent ?? team.gameweek}
-              </span>
+              </Badge>
             )}
             {team.source === "fpl" && (
               <span className="flex items-center gap-1 text-xs text-zinc-500">
@@ -1248,14 +1261,14 @@ export default function DeadlinePage() {
                         the pair of controls that used to sit beside it. */}
                     <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
                       {gwState?.provisional && (
-                        <span className="mr-auto rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                        <Badge tone="warning" variant="solid" className="mr-auto">
                           Provisional
-                        </span>
+                        </Badge>
                       )}
                       <div className="flex items-center gap-3">
                         <Link
                           href="/team/"
-                          className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                          className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
                         >
                           View in My Team →
                         </Link>
@@ -1395,18 +1408,9 @@ export default function DeadlinePage() {
                 >
                   {!feedLoading && feedRows.length > 0 && (
                     <ul className="divide-y divide-zinc-100 dark:divide-purple-900/30">
-                      {feedRows.slice(0, 20).map((row, i) => {
-                        const { icon, text } = describe(row);
-                        return (
-                          <li key={i} className="flex items-start gap-2 py-2 text-sm">
-                            <span aria-hidden="true">{icon}</span>
-                            <span className="min-w-0 flex-1">
-                              {row.web_name && <span className="font-medium">{row.web_name}</span>} {text}
-                            </span>
-                            <span className="shrink-0 text-xs text-zinc-400">{ago(row.observed_at)}</span>
-                          </li>
-                        );
-                      })}
+                      {feedRows.slice(0, 20).map((row, i) => (
+                        <FeedRowItem key={i} row={row} className="px-0 py-2" />
+                      ))}
                     </ul>
                   )}
                   <p className="mt-2 text-xs text-zinc-500">
@@ -1497,22 +1501,54 @@ export default function DeadlinePage() {
                       </h2>
                       <Link
                         href={`/builder/?draft=${team.draftId}`}
-                        className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-[#00FF87]"
+                        className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
                       >
                         Edit in Builder →
                       </Link>
                     </div>
+                    {/* DSI-119: when there is nothing wrong, "Squad readiness"
+                        and "Availability" were two cards of passive green text
+                        costing ~140px of the right rail — the most valuable
+                        space on the page, directly above captaincy and
+                        transfers. An all-clear is worth one line; it only
+                        earns a card when it has something to say, and the two
+                        cards below now render only in that case. */}
+                    {allClear && (
+                      <Alert tone="positive" compact className="mb-2" icon="✓">
+                        Squad legal · {team.players.length}/{ctx.rules.squadSize} available
+                      </Alert>
+                    )}
                     {predsLoading && (
                       <p role="status" className="mb-2 flex items-center gap-2 text-xs text-zinc-500">
                         <Spinner /> Calculating expected points…
                       </p>
                     )}
-                    {/* Read-only: no armband or remove handlers, so the detail panel
-                        opens as information only. Editing stays in /builder. */}
+                    {/* The armband is editable here, because this page is the
+                        one asking "who captains this week" and the answer used
+                        to require a trip to /builder and back. It writes to the
+                        same draft the chip plan and free-transfer count above
+                        already write to — `saveDraft` then re-read, the pattern
+                        those two established.
+
+                        Removing a player is NOT offered: on this page the squad
+                        is the real team before a deadline, and a removal with no
+                        replacement is not a move FPL allows. "Replace" hands the
+                        job to /transfers, which knows about budget and hits. */}
                     <PitchView
                       squad={squadCards}
                       quota={ctx.rules.positionQuota}
                       layout={squadLayout}
+                      onSetCaptain={(id) => {
+                        saveDraft(setCaptain(team, id));
+                        setDrafts(listDrafts());
+                      }}
+                      onSetVice={(id) => {
+                        saveDraft(setViceCaptain(team, id));
+                        setDrafts(listDrafts());
+                      }}
+                      onFindReplacement={(id) =>
+                        router.push(`/transfers/?draft=${team.draftId}&replace=${id}`)
+                      }
                     />
                     <p className="mt-2 text-xs text-zinc-500">
                       {team.name}
@@ -1524,14 +1560,10 @@ export default function DeadlinePage() {
                   </section>
 
                   <div className="min-w-0 space-y-4">
-                {validation && (
+                {validation && !validation.isLegal && (
                   <section className={cardSupporting}>
                     <h2 className={supportingHeading}>Squad readiness</h2>
-                    {validation.isLegal ? (
-                      <p className="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                        This squad is legal and ready to enter.
-                      </p>
-                    ) : (
+                    {(
                       <ul className="mt-2 space-y-1.5 text-sm">
                         {!validation.squadFull && (
                           <li className="text-amber-700 dark:text-amber-400">
@@ -1575,13 +1607,10 @@ export default function DeadlinePage() {
                 )}
 
                 {/* --------------------------------------------------- availability */}
+                {alerts.length > 0 && (
                 <section className={cardSupporting}>
                   <h2 className={supportingHeading}>Availability</h2>
-                  {alerts.length === 0 ? (
-                    <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
-                      Nothing flagged — every player in this squad is fully available.
-                    </p>
-                  ) : (
+                  {(
                     <ul className="mt-2 space-y-2">
                       {alerts.map((p) => (
                         <li key={p.id} className="flex items-start gap-2 text-sm">
@@ -1595,6 +1624,7 @@ export default function DeadlinePage() {
                     </ul>
                   )}
                 </section>
+                )}
 
                 <section className={card}>
                   <div className="flex items-center gap-2">
@@ -1618,7 +1648,7 @@ export default function DeadlinePage() {
                       </p>
                       <p className="mt-1 text-sm">
                         Recommended captain:{" "}
-                        <span className="font-semibold text-purple-900 dark:text-[#00FF87]">
+                        <span className="font-semibold text-purple-900 dark:text-primary">
                           {lineup.captain?.webName ?? "—"}
                         </span>
                         {lineup.captain && (
@@ -1630,6 +1660,33 @@ export default function DeadlinePage() {
                           <span className="ml-2 text-xs text-zinc-500">Vice: {lineup.vice.webName}</span>
                         )}
                       </p>
+                      {/* DSI-119: this comparison is the actionable part of the
+                          card — the projected gain from changing the armband —
+                          and it sat below the reasons list, pushed out of
+                          sight. It belongs immediately under the
+                          recommendation it argues against. The accent border
+                          marks it as the thing to act on rather than another
+                          note. */}
+                      {captainDiff && (
+                        <Alert
+                          tone="warning"
+                          className="mt-2 border-l-4 border-l-warning"
+                        >
+                          Your draft has <span className="font-medium">{captainDiff.currentName}</span> captained
+                          {captainDiff.gain !== null ? (
+                            <>
+                              {" "}
+                              ({(captainDiff.currentXp ?? 0).toFixed(1)} xP) vs{" "}
+                              <span className="font-medium">{captainDiff.recommendedName}</span> (
+                              {(captainDiff.recommendedXp ?? 0).toFixed(1)} xP) ={" "}
+                              <span className="font-semibold">{signed(captainDiff.gain)} xP</span>.
+                            </>
+                          ) : (
+                            <> — the model recommends {captainDiff.recommendedName} instead.</>
+                          )}
+                        </Alert>
+                      )}
+
                       {lineup.captain && lineup.captain.reasons.length > 0 && (
                         <ul className="mt-1 space-y-0.5 text-[11px] text-zinc-500">
                           {lineup.captain.reasons.map((r) => (
@@ -1638,31 +1695,15 @@ export default function DeadlinePage() {
                         </ul>
                       )}
 
-                      {captainDiff && (
-                        <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
-                          Your draft has <span className="font-medium">{captainDiff.currentName}</span> captained
-                          {captainDiff.gain !== null ? (
-                            <>
-                              {" "}
-                              ({(captainDiff.currentXp ?? 0).toFixed(1)} xP) vs{" "}
-                              <span className="font-medium">{captainDiff.recommendedName}</span> (
-                              {(captainDiff.recommendedXp ?? 0).toFixed(1)} xP) = {signed(captainDiff.gain)}.
-                            </>
-                          ) : (
-                            <> — the model recommends {captainDiff.recommendedName} instead.</>
-                          )}
-                        </p>
-                      )}
-
                       {xiDiff && (
-                        <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+                        <Alert tone="warning" className="mt-2">
                           {xiDiff.bringIn.length > 0 && (
                             <>Bring in: {xiDiff.bringIn.map((id) => lookup(id)?.webName ?? id).join(", ")}. </>
                           )}
                           {xiDiff.benchInstead.length > 0 && (
                             <>Bench: {xiDiff.benchInstead.map((id) => lookup(id)?.webName ?? id).join(", ")}.</>
                           )}
-                        </p>
+                        </Alert>
                       )}
                     </>
                   )}
@@ -1693,17 +1734,31 @@ export default function DeadlinePage() {
                                 own words, rather than netted into a headline
                                 that reads as a recommendation. */}
                             {v.chip === activeChip ? (
-                              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                              <Badge tone="warning" variant="solid">
                                 Active
-                              </span>
+                              </Badge>
                             ) : (
                               v.blocked === null && (
-                                <span
-                                  className={`text-sm font-bold tabular-nums ${
-                                    v.gain > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-zinc-500"
-                                  }`}
-                                >
+                                // DSI-119 asked for a positive-but-not-worth-playing
+                                // chip to be styled as a hold, on the grounds that a
+                                // double-gameweek Triple Captain "yields +12 to +18
+                                // xP". That range is measured nowhere in this repo, and
+                                // CLAUDE.md is explicit that an invented threshold is
+                                // not evidence — so it is not hardcoded here.
+                                //
+                                // The underlying complaint is real: green reads as "do
+                                // this", and ChipValuation carries only this
+                                // gameweek's gain, with no signal about whether this is
+                                // a good week to spend the chip. Since the page cannot
+                                // support a recommendation, it stops implying one. The
+                                // figure is a measurement in foreground, with its unit,
+                                // and the comparison that *is* evidence — every
+                                // gameweek ranked — is one link below.
+                                <span className="text-sm font-bold tabular-nums text-foreground">
                                   {signed(v.gain)}
+                                  <span className="ml-0.5 text-[10px] font-normal text-muted-foreground">
+                                    xP
+                                  </span>
                                 </span>
                               )
                             )}
@@ -1728,11 +1783,14 @@ export default function DeadlinePage() {
                     )}
                   </div>
                   <p className="mt-2 text-xs text-zinc-500">
-                    This gameweek only —{" "}
-                    <Link href={`/transfers/?tab=chips&draft=${team.draftId}`} className="underline-offset-2 hover:underline">
-                      see the full season schedule
-                    </Link>
-                    .
+                    These are this gameweek&apos;s values, not a recommendation to play —{" "}
+                    <Link
+                      href={`/transfers/?tab=chips&draft=${team.draftId}`}
+                      className="font-medium underline underline-offset-2"
+                    >
+                      compare every gameweek
+                    </Link>{" "}
+                    to see whether this is the week.
                   </p>
                 </section>
                   </div>
@@ -1758,22 +1816,12 @@ export default function DeadlinePage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Transfer call</h2>
                     <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <div className="flex gap-1.5">
-                        {HORIZONS.map((h) => (
-                          <button
-                            key={h}
-                            onClick={() => setHorizon(h)}
-                            title={h === "season" ? seasonHorizonNote(ctx.seasonWindow) : undefined}
-                            className={`rounded-md px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                              horizon === h
-                                ? "bg-purple-950 text-white dark:bg-[#00FF87] dark:text-slate-950"
-                                : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
-                            }`}
-                          >
-                            {horizonLabel(h)}
-                          </button>
-                        ))}
-                      </div>
+                      <HorizonControl
+                        value={horizon}
+                        onValueChange={setHorizon}
+                        label="Planning horizon"
+                        showLabel={false}
+                      />
                       <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
                         Free transfers
                         <select
@@ -1789,7 +1837,7 @@ export default function DeadlinePage() {
                             saveDraft({ ...team, freeTransfers: n });
                             setDrafts(listDrafts());
                           }}
-                          className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-[#2A0A45] dark:text-zinc-100"
+                          className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
                         >
                           {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
                             <option key={i} value={i}>
