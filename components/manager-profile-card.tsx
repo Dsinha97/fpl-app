@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
+import { DataCell, DataHeadCell, DataRow, DataTable } from "@/components/ui/data-table";
 import type { ManagerProfile, RivalRow } from "@/lib/manager-profile";
 import { TapToReveal } from "@/components/info-tooltip";
 import { AnnotatedLabel } from "@/components/ui/model-note";
@@ -226,7 +226,16 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
 
       {tab === "season" ? (
         anySeasonData ? (
-          <table className="mt-3 w-full text-sm">
+          /* DSI-141: these two tables were bare `<table>`s inside the card, so
+             their min-content width pushed the *document* sideways on a phone
+             rather than scrolling themselves — the career half, at six columns,
+             is where it showed. DataTable is exactly this wrapper; the border
+             and background are dropped because the card already draws them. */
+          <DataTable
+            minWidth="30rem"
+            label="Rivals this season"
+            wrapperClassName="mt-3 rounded-none border-0 bg-transparent"
+          >
             <thead>
               <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
                 <DataHeadCell className="py-1.5">Manager</DataHeadCell>
@@ -275,7 +284,7 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
                   </DataRow>
                 ))}
             </tbody>
-          </table>
+          </DataTable>
         ) : (
           <p className="mt-3 text-xs text-zinc-500">
             Nobody has played a gameweek yet — this-season comparisons appear once GW1 results
@@ -285,7 +294,11 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
       ) : (
         <>
           <p className="mt-1 text-xs text-zinc-500">Full career records, oldest to newest.</p>
-          <table className="mt-3 w-full text-sm">
+          <DataTable
+            minWidth="34rem"
+            label="Rivals career records"
+            wrapperClassName="mt-3 rounded-none border-0 bg-transparent"
+          >
             <thead>
               <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
                 <DataHeadCell className="py-1.5">Manager</DataHeadCell>
@@ -331,14 +344,14 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
                         <GapCell gap={r.career.gap} />
                       </>
                     ) : (
-                      <DataCell colSpan={4} className="py-1.5 text-xs text-zinc-400" numeric>
+                      <DataCell colSpan={5} className="py-1.5 text-xs text-zinc-400" numeric>
                         First season
                       </DataCell>
                     )}
                   </DataRow>
                 ))}
             </tbody>
-          </table>
+          </DataTable>
         </>
       )}
     </div>

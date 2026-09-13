@@ -1937,7 +1937,15 @@ export default function TeamPage() {
               <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
                 Manager Profile
               </h2>
-              <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+              {/* `minmax(0,…)` on the lg columns but nothing on the single-column
+                  base case, so below lg a grid item kept its default
+                  `min-width: auto` and refused to shrink below its content —
+                  which is how the career rivals table (six columns, min-width
+                  34rem) pushed the whole document sideways even after being
+                  given its own scroll container. Same lesson DSI-138 recorded
+                  for SegmentedControl: the wrapper's own overflow rule cannot
+                  engage unless every ancestor is allowed to shrink. */}
+              <div className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
                 {data.profile ? (
                   <ManagerProfileCard profile={data.profile} />
                 ) : (
@@ -1946,7 +1954,7 @@ export default function TeamPage() {
                     least one completed season.
                   </div>
                 )}
-                <div>
+                <div className="min-w-0">
                   <RivalTable rivals={data.rivals} />
 
                   {/* The comparison set is whichever rivals you've chosen —

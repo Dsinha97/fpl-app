@@ -124,3 +124,16 @@ outside the Feeds tab itself — a wrong headline attached to a squad player is 
   `/deadline`'s squad-scoped Team News card read the same `news_feed` rows without that filter.
   Extracted into a shared `dedupeByUrl` (`lib/news-feed.ts`) and applied in both places instead of
   the dedup living only where it happened to be built first.
+
+## "My squad only" (M9 Sprint C2, 2026-09-12)
+
+`/news` held no squad state at all until this. The filter is not a text match: `change_feed.player_code`
+and `news_feed`'s player entity ids are FPL **codes**, while a draft stores **element ids**, so one
+id-scoped query bridges the two. On the owner's squad it cut the change feed 200 rows → 5 and
+headlines 145 → 17.
+
+It is offered only when there is a squad to filter to — *a toggle that can only ever empty the page
+is not a filter, it is a trap*, and a visitor with no draft is exactly the person who would try it.
+DSI-141 moved it out of the change-type filter row (where it wrapped onto its own line on a phone
+and read as a fourth filter pill in a different shape) and up beside the page title, because it
+scopes the page rather than the row. — [sprints/m9.md](../sprints/m9.md)

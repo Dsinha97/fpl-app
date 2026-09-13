@@ -118,3 +118,25 @@ the signal exists.
 Generation 2 is **display-only forever** (no history to backtest against, ever). Generation 3 is
 **unshipped pending one specific measurement** that becomes possible around GW10. Those are
 different states, and [blocked-and-data-gaps.md](blocked-and-data-gaps.md) lists them separately.
+
+## Reading the matrix: venue encoding and the settings card (M9, 2026-09-12/13)
+
+The audit asked for the difficulty ramp to be desaturated. Measured instead (Machado 2009, severity
+1.0, linear-RGB separation), the ramp holds ≥ 0.32 between adjacent steps under all three CVD
+conditions — sometimes wider than at normal vision. **The broken channel was venue**: a green ring
+for home against a red ring for away scores 1.039 at normal vision and 0.204 under deuteranopia.
+Desaturating would have thrown away a working channel to fix a different one. Venue moved off hue
+(`venueRing()`, one ring, away only — a "home" swatch would be a picture of the absence of a thing),
+and the same helper now backs `PlayerCard`, which had been drawing its own green/red ring.
+
+A stale explainer outlived the change in three places at once — the matrix caption, five popups
+sharing one component, and a column legend on `/players`. Encoding and prose live in different
+files and nothing links them but habit.
+
+The controls were reorganised in DSI-141: window, search, sort and rating source sit in an **FDR
+settings** `CollapsibleCard` summarising its own values (`8 GWs · Easiest run`), and the six-swatch
+legend became a **How to read FDR** link beside the sort caption — it explains the grid rather than
+changing it. The **Sort** control deliberately stays a `<select>`: one of its options is
+conditionally disabled with a *"(not published yet)"* suffix that a segmented control has nowhere to
+put. See [design-system.md](design-system.md#the-settings-card-a-control-row-that-states-its-own-values).
+— [sprints/m9.md](../sprints/m9.md)

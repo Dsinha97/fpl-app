@@ -2,6 +2,18 @@
 
 One line per entry, most recent first.
 
+- 2026-09-13 — Ingested M9 (the design audit, never previously ingested) and DSI-141 on top of it.
+  New sections on `design-system.md` (the primitives layer and its real adoption counts,
+  `SegmentedControl` as the one pick-one control, the accent question settled in two passes, the
+  settings-card pattern, `IconSwap`, the overflow affordance, the `+N` chip's two bugs),
+  `frontend-conventions.md` (two hard rules: the ancestor chain a scroll container depends on, and
+  motion never being load-bearing for reachability), `fixture-difficulty.md` (the CVD measurement
+  that redirected the desaturation ask to the venue channel, and the FDR settings card),
+  `database-and-rls.md` (DSI-139 — an immutable table plus an upsert), `news-feed.md` ("My squad
+  only"), `deadline-and-matchday.md`, `chip-plan.md`, and `decision-analytics.md` (the horizon →
+  **Transfers lookback** rename and why identical figures were correct). Two timeline rows. No new
+  page — every topic had a home.
+
 - 2026-09-13 — Signed-in testing got a mechanism. Updated `database-and-rls.md` (new "The test
   account" section: the `test@fpldecision.com` fixture, why it's ad hoc SQL and never a migration,
   the Cloudflare Email Routing alias, and the three traps on the magic-link hop) and `CLAUDE.md`

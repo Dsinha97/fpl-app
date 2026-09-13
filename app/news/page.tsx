@@ -296,7 +296,31 @@ export default function NewsPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground">What Changed?</h1>
+      {/* DSI-141: "My squad only" scopes the whole page, not the change-type
+          row it used to sit in — where it wrapped onto its own line on a phone
+          and read as a fourth filter pill in a different shape. A page setting
+          belongs with the page title. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">What Changed?</h1>
+        {/* Only offered when there is a squad to filter to. A toggle that can
+            only ever empty the page is not a filter, it is a trap -- and a
+            visitor with no draft is exactly the person who would try it. */}
+        {squadCodes && squadCodes.size > 0 && (
+          <Button
+            variant="toggle"
+            size="md"
+            aria-pressed={mySquadOnly}
+            onClick={() => setMySquadOnly((v) => !v)}
+            title={
+              mySquadOnly
+                ? "Show every club's news again"
+                : `Only news about players in "${squadName}" -- and fixture moves for their clubs`
+            }
+          >
+            My squad only
+          </Button>
+        )}
+      </div>
       <p className="mt-1 text-sm text-muted-foreground">
         Price moves, availability, injury news, fixture changes, and now the reporting behind
         them — most recent first.
@@ -317,24 +341,6 @@ export default function NewsPage() {
             ),
           }))}
         />
-        {/* Only offered when there is a squad to filter to. A toggle that can
-            only ever empty the page is not a filter, it is a trap -- and a
-            visitor with no draft is exactly the person who would try it. */}
-        {squadCodes && squadCodes.size > 0 && (
-          <Button
-            variant="toggle"
-            size="md"
-            aria-pressed={mySquadOnly}
-            onClick={() => setMySquadOnly((v) => !v)}
-            title={
-              mySquadOnly
-                ? "Show every club's news again"
-                : `Only news about players in "${squadName}" -- and fixture moves for their clubs`
-            }
-          >
-            My squad only
-          </Button>
-        )}
       </div>
 
       {filter !== "feeds" && (

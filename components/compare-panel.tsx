@@ -272,9 +272,12 @@ export function ComparePanel({
           numbers illegibly small instead of scrolling. Same overflow-x-auto +
           min-w + sticky-first-column pattern app/players/page.tsx uses. */}
       <div className="mt-6 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
-        <table className="w-full min-w-[40rem] text-sm">
+        <table className="w-full min-w-[36rem] text-sm">
           <colgroup>
-            <col style={{ width: "9rem" }} />
+            {/* DSI-141: the frozen metric column was 9rem — 38% of a 375px
+                viewport spent on labels that wrap perfectly well one size
+                smaller, leaving a sliver for the players being compared. */}
+            <col style={{ width: "7.5rem" }} />
             {chosen.map((p) => (
               <col key={p.id} style={{ width: "8rem" }} />
             ))}
@@ -395,6 +398,7 @@ export function ComparePanel({
                   <DataCell key={p.id} className="px-3 py-2">
                     {hasRole ? (
                       <RoleBadges
+                        revealable
                         penaltyOrder={row.penalties_order}
                         freeKickOrder={row.direct_freekicks_order}
                         cornerOrder={row.corners_and_indirect_freekicks_order}

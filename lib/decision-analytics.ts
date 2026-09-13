@@ -42,8 +42,10 @@ export const DECISION_ANALYTICS_NOTE =
   "the eleven you actually started, which nobody could have known in advance. It deliberately " +
   "excludes your bench — captaining a benched player earns nothing unless FPL substitutes them on, " +
   "so a bench-inclusive benchmark would quietly blame the armband for a starting decision. " +
-  "Transfer returns are measured over a horizon you choose, because FPL records no intended one; " +
-  "change it and the same transfers are judged over a different window. Points in and points out " +
+  "Transfer returns are measured over a lookback you choose, because FPL records no intended one; " +
+  "change it and the same transfers are judged over a different window — though only gameweeks that " +
+  "have been scored ever count, so a longer lookback changes nothing until more finish. " +
+  "Points in and points out " +
   "are separate terms and the hit is FPL's own recorded cost, never netted into one figure. Chip " +
   "returns are given only where the counterfactual is real — Free Hit and Wildcard are not scored " +
   "at all, because the squad that would otherwise have played was never recorded anywhere. Ranks " +

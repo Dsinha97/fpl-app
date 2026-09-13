@@ -196,6 +196,19 @@ or `tsc --noEmit` breaks on Deno globals.
   with a fixed `w-[calc(...)]` basis per card is only half the fix — flex rows default to
   `align-items: stretch` too, so an expanded card still inflates its still-collapsed row-mate.
   Add `self-start` on the card itself alongside the `w-[calc(...)]` basis.
+- **A scroll container only works if every ancestor may shrink.** Flex *and* grid
+  items default to `min-width: auto`, which refuses to go below their content — so a
+  child's own `overflow-x-auto` / `max-w-full` never engages and the page scrolls
+  sideways instead. This has now cost two sprints (`SegmentedControl` in a flex row,
+  DSI-138; the career rivals table in a `grid` whose `minmax(0,1fr)` was only on the
+  `lg:` columns, DSI-141). Fix the chain — `min-w-0` on flex items, `minmax(0,…)` on
+  grid tracks at *every* breakpoint — not just the leaf. Verify with
+  `document.body.scrollWidth === window.innerWidth`, not by eye.
+- **`behavior: "smooth"` does nothing on a hidden document** — no rAF callbacks, so
+  the scroll is silently dropped and whatever you were scrolling to stays off screen.
+  The preview pane reports `document.hidden === true`, and so does any backgrounded
+  tab. Fall back to `"auto"` when hidden (and when motion is reduced): motion must
+  never be load-bearing for whether a control is reachable.
 
 ## Communication style
 

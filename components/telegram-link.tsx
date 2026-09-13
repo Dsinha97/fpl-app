@@ -17,6 +17,8 @@ import {
   type NotifyKind,
 } from "@/lib/notifications";
 import { useAuth } from "@/components/auth-provider";
+import { TelegramIcon } from "@/components/icons/telegram";
+import { useAnchoredPanel, useDismissablePopover } from "@/components/ui/use-anchored-panel";
 
 /**
  * The Telegram link control, in two sizes.
@@ -120,8 +122,8 @@ export function TelegramLink({ variant = "full" }: { variant?: "compact" | "full
 
   const linked = (prefs ?? DEFAULT_PREFS).telegramChatId !== null;
 
-  return (
-    <div className="text-sm">
+  const controls = (
+    <>
       <div className="flex flex-wrap items-center gap-2">
         {linked ? (
           <>
@@ -188,6 +190,30 @@ export function TelegramLink({ variant = "full" }: { variant?: "compact" | "full
       )}
 
       {error && <p className="mt-2 text-xs text-red-700 dark:text-red-400">{error}</p>}
+    </>
+  );
+
+  // DSI-141: compact used to contribute a status sentence *and* a button to
+  // /team's header row, which is why four actions wrapped raggedly on a phone.
+  // One icon carries the state; everything else moves into the panel behind it.
+  if (variant === "compact") {
+    return (
+      <CompactTelegram linked={linked}>
+        {/* Linked, the status row inside `controls` already says so. Unlinked,
+            a bare "Link Telegram" button never says what the alerts are. */}
+        {!linked && (
+          <p className="mb-2 text-xs text-zinc-600 dark:text-zinc-400">
+            Link a Telegram chat to get deadline, price and availability alerts.
+          </p>
+        )}
+        {controls}
+      </CompactTelegram>
+    );
+  }
+
+  return (
+    <div className="text-sm">
+      {controls}
 
       {variant === "full" && (
         <div className="mt-4">
@@ -226,6 +252,56 @@ export function TelegramLink({ variant = "full" }: { variant?: "compact" | "full
             transfer suggestions and chip advice stay on the site, so there is only ever one
             implementation of them.
           </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The `/team` header affordance: one icon button whose colour and accessible
+ * name both carry the link state, opening the controls in an anchored panel.
+ *
+ * Positioning and dismissal come from `useAnchoredPanel` /
+ * `useDismissablePopover` — the same pair `TapToReveal` and `FilterDisclosure`
+ * use, so there is one implementation of "floating panel that stays on screen".
+ */
+function CompactTelegram({ linked, children }: { linked: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const { triggerRef, panelRef, coords } = useAnchoredPanel<HTMLButtonElement, HTMLDivElement>(
+    open,
+    { align: "right" },
+  );
+
+  useDismissablePopover(open, () => setOpen(false), [triggerRef, panelRef]);
+
+  return (
+    <div className="relative inline-flex">
+      <Button
+        ref={triggerRef}
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-expanded={open}
+        aria-label={linked ? "Telegram linked — open Telegram settings" : "Telegram not linked — open Telegram settings"}
+        title={linked ? "Telegram linked" : "Telegram not linked"}
+        onClick={() => setOpen((v) => !v)}
+        /* Colour is never the only channel: the aria-label and the title both
+           say the state in words, the way the venue rings do. */
+        className={linked ? "text-emerald-700 dark:text-primary" : "text-muted-foreground"}
+      >
+        <TelegramIcon size={16} />
+      </Button>
+
+      {open && (
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-label="Telegram alerts"
+          style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
+          className="fixed z-30 w-[calc(100vw-1rem)] max-w-[20rem] rounded-lg border border-border bg-popover p-3 text-left text-sm text-popover-foreground shadow-lg dark:shadow-[0_10px_30px_rgba(0,0,0,0.55)]"
+        >
+          {children}
         </div>
       )}
     </div>

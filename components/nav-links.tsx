@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Menu } from "@base-ui/react/menu";
-import { ChevronDown } from "lucide-react";
+// `Menu` is Base UI's menu primitive in this file, so the icon takes the alias.
+import { ChevronDown, Menu as MenuIcon, X as XIcon } from "lucide-react";
+import { IconSwap } from "@/components/ui/icon-swap";
 import { SlideOver } from "@/components/ui/slide-over";
 import { Monogram, Wordmark } from "@/components/brand";
 
@@ -241,6 +243,11 @@ function MobileNavGroup({
   );
 }
 
+/** Shared by the header trigger and the drawer's close button, which have to
+ *  land in the same place for the swap between them to read as one control. */
+const TRIGGER_CLASS =
+  "size-11 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-purple-950/60";
+
 /** The `lg:hidden` hamburger trigger + left-side drawer. See `DesktopNav` above for why this is a separate component. */
 export function MobileNav() {
   const pathname = normalize(usePathname() ?? "/");
@@ -276,9 +283,9 @@ export function MobileNav() {
         onClick={() => setOpen((v) => !v)}
         variant="ghost"
         size="icon"
-        className="size-11 text-xl leading-none text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+        className={TRIGGER_CLASS}
       >
-        <span aria-hidden="true">{open ? "×" : "☰"}</span>
+        <IconSwap showSecond={open} first={<MenuIcon className="size-5" />} second={<XIcon className="size-5" />} />
       </Button>
 
       {/* A trigger at the header's left edge is one tap; docking the drawer
@@ -293,19 +300,45 @@ export function MobileNav() {
         width="min(20rem, 85vw)"
         triggerRef={wrapper}
       >
-        {/* Sprint 25: the app's own wordmark, Gmail-sidebar style, rather
-            than a plain "Navigation" label — and no dedicated close button,
-            since a backdrop tap, Escape, or the hamburger itself (which is
-            already an "×" while open) all close this drawer; a fourth
-            affordance was redundant. */}
-        <Link
-          href="/"
-          onClick={() => setOpen(false)}
-          className="flex items-center gap-2.5 border-b border-zinc-200 px-2 py-3 dark:border-purple-800/50"
-        >
-          <Monogram size={24} />
-          <Wordmark />
-        </Link>
+        {/* Sprint 25 put the app's wordmark here, Gmail-sidebar style, and
+            argued against a close button on the grounds that the hamburger
+            "is already an × while open". It is — but the drawer is `z-50`
+            over a `z-40` header, so that × is *underneath this panel* and
+            nobody has ever seen it. The affordance was not redundant, it was
+            invisible.
+
+            So the row reproduces the header it covers, to the pixel: the
+            drawer's `p-2` plus this `px-2` puts the close button's left edge
+            at the 16px the header's `px-4` gives the hamburger, `h-14`
+            matches the header's height, and the gap and monogram size are
+            the header's own. The wordmark therefore does not move when the
+            drawer opens — only the icon inside the button changes, and it
+            morphs rather than cutting. */}
+        <div className="-mt-2 flex h-14 shrink-0 items-center gap-3 border-b border-zinc-200 px-2 dark:border-purple-800/50">
+          <Button
+            type="button"
+            aria-label="Close navigation menu"
+            onClick={() => setOpen(false)}
+            variant="ghost"
+            size="icon"
+            className={TRIGGER_CLASS}
+          >
+            {/* Two elements, one swap: this button mounts already meaning
+                "close", so it starts on the hamburger for a frame and
+                transitions from there — otherwise the morph is over before
+                the panel is painted. */}
+            <IconSwap
+              showSecond
+              animateOnMount
+              first={<MenuIcon className="size-5" />}
+              second={<XIcon className="size-5" />}
+            />
+          </Button>
+          <Link href="/" onClick={() => setOpen(false)} className="flex items-center gap-2.5">
+            <Monogram size={30} />
+            <Wordmark />
+          </Link>
+        </div>
         <div className="space-y-0.5 pt-1">
           {NAV_GROUPS.map((group) => (
             <MobileNavGroup

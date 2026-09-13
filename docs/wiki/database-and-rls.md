@@ -71,6 +71,26 @@ authenticated. Verified live, not just read from the policy text: two throwaway 
 a rolled-back transaction, user B's `select count(*)` against all three tables returned 0, and B's
 `update … where draft_id = <A's id>` affected 0 rows.
 
+**An immutable table plus an upsert is a silent failure waiting (DSI-139, 2026-09-13).**
+`draft_snapshots` was given select/insert/delete and deliberately **no** UPDATE policy, because a
+snapshot is a point in time. A unique index on `(draft_id, at)` arrived in a later migration, and
+`lib/draft-sync.ts` upserted against it — which takes the UPDATE path on conflict, which RLS refused
+with a 403 (`42501 … USING expression`) for the table's whole lifetime. The fingerprint was in the
+data: 7 snapshots across 7 drafts, the first insert per draft landing and every push after it dying.
+
+The fix is `ignoreDuplicates: true` (`ON CONFLICT DO NOTHING`), which needs no UPDATE policy and is
+the correct *semantics* rather than a workaround: the same `(draft_id, at)` is the same snapshot, so
+there was never anything to overwrite. The `team_drafts` upsert immediately above keeps
+`merge-duplicates` and its UPDATE policy — a draft's payload genuinely does change. Verified against
+the live database by forcing a conflicting row: `merge-duplicates` 403, `ignore-duplicates` 201.
+
+Two things generalise. **A fire-and-forget sync path must still report.** The snapshot failure set no
+`error` at all and only ever reached `console.error`, so cloud replication could stop indefinitely
+while the UI looked healthy; the outcome is now published and surfaced on screen
+([design-system.md](design-system.md)'s `Alert`). And it was **the signed-in test account that found
+it** — the first thing to exercise repeated draft sync for a signed-in user, on a page every prior
+pass had only ever seen signed out. — [sprints/m9.md](../sprints/m9.md)
+
 Sprint 36 added three more in the same shape — `user_notification_prefs`, `notification_outbox` and
 `telegram_link_codes` — verified with twelve checks in a rolled-back transaction across two
 authenticated users and `anon`. One of them is worth singling out because it is not an RLS check at

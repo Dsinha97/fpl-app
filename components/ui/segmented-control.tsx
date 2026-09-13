@@ -57,12 +57,18 @@ export function SegmentedControl<T extends string>({
   className?: string;
   semantics?: "tabs" | "radio";
 }) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef(new Map<T, HTMLButtonElement>());
   const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
   // Suppresses the tween for the first measurement and for resizes, so the
   // indicator snaps into place instead of sliding in from the left edge.
   const [animate, setAnimate] = useState(false);
+  // Which sides still have segments scrolled out of view. DSI-141: six segments
+  // on a phone overflow the scroller silently — nothing is clipped, so the
+  // layout looks correct, and the hidden options are unreachable because there
+  // is no sign they exist. These fades are that sign.
+  const [overflow, setOverflow] = useState({ left: false, right: false });
 
   const measure = useCallback(() => {
     const el = itemRefs.current.get(value);
@@ -71,20 +77,71 @@ export function SegmentedControl<T extends string>({
     setIndicator({ left: el.offsetLeft, width: el.offsetWidth });
   }, [value]);
 
+  /** Recompute which sides still have hidden segments. */
+  const measureOverflow = useCallback(() => {
+    const sc = scrollerRef.current;
+    if (!sc) return;
+    // 1px of slack: fractional layout widths make an unscrollable row report a
+    // remainder of a few hundredths, which would flicker a fade on and off.
+    const max = sc.scrollWidth - sc.clientWidth;
+    setOverflow({ left: sc.scrollLeft > 1, right: sc.scrollLeft < max - 1 });
+  }, []);
+
   useLayoutEffect(() => {
     measure();
-  }, [measure, options]);
+    measureOverflow();
+  }, [measure, measureOverflow, options]);
 
   useEffect(() => {
     const list = listRef.current;
-    if (!list || typeof ResizeObserver === "undefined") return;
+    const sc = scrollerRef.current;
+    if (!list || !sc || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(() => {
       setAnimate(false);
       measure();
+      measureOverflow();
     });
     ro.observe(list);
+    // The list and the scroller resize independently — the list when its
+    // options change, the scroller when the viewport does — and only the pair
+    // decides whether anything is hidden.
+    ro.observe(sc);
     return () => ro.disconnect();
-  }, [measure]);
+  }, [measure, measureOverflow]);
+
+  /**
+   * Keep the selected segment on screen.
+   *
+   * Deliberately not `scrollIntoView`: with a horizontal scroller nested in a
+   * scrolling page, that walks every ancestor and can move the page vertically
+   * as a side effect of a horizontal correction. Scrolling this one element is
+   * the whole job.
+   */
+  useEffect(() => {
+    const el = itemRefs.current.get(value);
+    const sc = scrollerRef.current;
+    if (!el || !sc) return;
+    // Smooth when it can be seen, instant otherwise — and `document.hidden`
+    // is not paranoia here. A hidden document runs no rAF callbacks, so a
+    // `smooth` scroll issued to one simply never happens: measured in the
+    // preview browser, the selected segment stayed off-screen at scrollLeft 0
+    // forever while the same call with `auto` landed. Motion must never be
+    // load-bearing for whether a control is reachable (the same rule
+    // `SlideOver` states about its own entry animation).
+    const instant =
+      typeof window === "undefined" ||
+      document.hidden ||
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const behavior: ScrollBehavior = instant ? "auto" : "smooth";
+    const pad = 12;
+    const left = el.offsetLeft;
+    const right = left + el.offsetWidth;
+    if (left - pad < sc.scrollLeft) {
+      sc.scrollTo({ left: Math.max(0, left - pad), behavior });
+    } else if (right + pad > sc.scrollLeft + sc.clientWidth) {
+      sc.scrollTo({ left: right + pad - sc.clientWidth, behavior });
+    }
+  }, [value]);
 
   // Enable the tween only after the first paint has placed the indicator.
   useEffect(() => {
@@ -112,71 +169,85 @@ export function SegmentedControl<T extends string>({
 
   const pad = size === "sm" ? "p-0.5" : "p-1";
   const item = size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm";
+  // Drawn in the track's own colour, so it reads as pills sliding under the
+  // edge rather than as a shadow laid over them.
+  const fade = "pointer-events-none absolute inset-y-0 z-20 w-8 from-muted to-muted/0";
 
   return (
-    // A control with six segments overflows a phone, and the page body must
-    // never scroll horizontally — so the overflow is contained here rather
-    // than pushed onto whatever page adopts it. `offsetLeft` stays relative to
-    // the list, so the indicator keeps tracking correctly inside the scroller.
-    // `max-w-full` lets the wrapper shrink; `w-max` keeps the list at its
-    // natural width inside it.
-    <div className={cn("max-w-full overflow-x-auto", className)}>
-      <div
-        ref={listRef}
-        role={semantics === "tabs" ? "tablist" : "radiogroup"}
-        aria-label={label}
-        onKeyDown={onKeyDown}
-        className={cn(
-          "relative flex w-max items-center gap-0.5 rounded-full bg-muted",
-          pad,
-        )}
-      >
-      {indicator && (
-        <span
-          aria-hidden
-          style={{ transform: `translateX(${indicator.left}px)`, width: indicator.width }}
+    // The caller's className lands on this wrapper rather than the scroller, so
+    // the `min-w-0` several flex-row call sites pass still governs shrinking —
+    // components/horizon-control.tsx documents why that is load-bearing.
+    <div className={cn("relative max-w-full", className)}>
+      {/* A control with six segments overflows a phone, and the page body must
+          never scroll horizontally — so the overflow is contained here rather
+          than pushed onto whatever page adopts it. `offsetLeft` stays relative
+          to the list, so the indicator keeps tracking correctly inside the
+          scroller. `w-max` keeps the list at its natural width inside it. */}
+      <div ref={scrollerRef} onScroll={measureOverflow} className="max-w-full overflow-x-auto">
+        <div
+          ref={listRef}
+          role={semantics === "tabs" ? "tablist" : "radiogroup"}
+          aria-label={label}
+          onKeyDown={onKeyDown}
           className={cn(
-            "pointer-events-none absolute inset-y-1 left-0 z-0 rounded-full bg-card shadow-sm",
-            size === "sm" && "inset-y-0.5",
-            animate &&
-              "transition-[transform,width] duration-base ease-slide motion-reduce:transition-none",
+            "relative flex w-max items-center gap-0.5 rounded-full bg-muted",
+            pad,
           )}
-        />
-      )}
-      {options.map((o) => {
-        const selected = o.value === value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            ref={(el) => {
-              if (el) itemRefs.current.set(o.value, el);
-              else itemRefs.current.delete(o.value);
-            }}
-            role={semantics === "tabs" ? "tab" : "radio"}
-            aria-selected={semantics === "tabs" ? selected : undefined}
-            aria-checked={semantics === "radio" ? selected : undefined}
-            // Only the active segment is in the tab order; arrow keys move
-            // within the group. Standard roving-tabindex for both roles.
-            tabIndex={selected ? 0 : -1}
-            disabled={o.disabled}
-            onClick={() => onValueChange(o.value)}
-            className={cn(
-              "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full font-medium transition-colors duration-base ease-slide motion-reduce:transition-none",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              "disabled:pointer-events-none disabled:opacity-50",
-              item,
-              selected ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {o.label}
-            {o.badge !== undefined && (
-              <span className="text-[0.85em] tabular-nums text-muted-foreground">{o.badge}</span>
-            )}
-            </button>
-          );
-        })}
+        >
+          {indicator && (
+            <span
+              aria-hidden
+              style={{ transform: `translateX(${indicator.left}px)`, width: indicator.width }}
+              className={cn(
+                "pointer-events-none absolute inset-y-1 left-0 z-0 rounded-full bg-card shadow-sm",
+                size === "sm" && "inset-y-0.5",
+                animate &&
+                  "transition-[transform,width] duration-base ease-slide motion-reduce:transition-none",
+              )}
+            />
+          )}
+          {options.map((o) => {
+            const selected = o.value === value;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                ref={(el) => {
+                  if (el) itemRefs.current.set(o.value, el);
+                  else itemRefs.current.delete(o.value);
+                }}
+                role={semantics === "tabs" ? "tab" : "radio"}
+                aria-selected={semantics === "tabs" ? selected : undefined}
+                aria-checked={semantics === "radio" ? selected : undefined}
+                // Only the active segment is in the tab order; arrow keys move
+                // within the group. Standard roving-tabindex for both roles.
+                tabIndex={selected ? 0 : -1}
+                disabled={o.disabled}
+                onClick={() => onValueChange(o.value)}
+                className={cn(
+                  "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full font-medium transition-colors duration-base ease-slide motion-reduce:transition-none",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "disabled:pointer-events-none disabled:opacity-50",
+                  item,
+                  selected ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {o.label}
+                {o.badge !== undefined && (
+                  <span className="text-[0.85em] tabular-nums text-muted-foreground">{o.badge}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      {overflow.left && (
+        <span aria-hidden className={cn(fade, "left-0 rounded-l-full bg-gradient-to-r")} />
+      )}
+      {overflow.right && (
+        <span aria-hidden className={cn(fade, "right-0 rounded-r-full bg-gradient-to-l")} />
+      )}
     </div>
   );
 }

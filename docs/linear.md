@@ -83,8 +83,9 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | M9 C1 Per-screen visual work | DSI-136 | M9 | [sprints/m9.md](sprints/m9.md) |
 | M9 C2 Feature-shaped audit items | DSI-137 | M9 | [sprints/m9.md](sprints/m9.md) |
 | Design audit, per screen | DSI-118 … DSI-129 | M9 | [sprints/m9.md](sprints/m9.md) |
-| draft_snapshots sync hits a missing UPDATE policy | DSI-139 | M9 | [sprints/m9.md](sprints/m9.md) — half open, see below |
+| draft_snapshots sync hits a missing UPDATE policy | DSI-139 | M9 | [sprints/m9.md](sprints/m9.md) — both halves, the surface closed by DSI-141 |
 | Long methodology explainers render inline | DSI-140 | M9 | [sprints/m9.md](sprints/m9.md) |
+| Mobile defects found testing M9, and M9's two parked items | DSI-141 | M9 | [sprints/m9.md](sprints/m9.md) |
 | 17 part 1 Historical decision analytics | DSI-66 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §1 |
 | Rivals from a league's standings | DSI-61 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §2 |
 | 16 Notifications — the Telegram bot | DSI-65 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §3 |

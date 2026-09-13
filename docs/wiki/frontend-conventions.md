@@ -195,7 +195,7 @@ vocabulary, the busy-state pattern, and the disclosure rule) is
   with anything above the cap — the sentinel — falling back to the documented default of 1. See
   [mobile-reachability.md](../sprints/mobile-reachability.md).
 
-## `NavLinks` split into `DesktopNav`/`MobileNav` (2026-08-22)
+## `NavLinks` split into `DesktopNav`/`MobileNav` (2026-08-22, drawer header 2026-09-13)
 
 One component used to return a two-element fragment: the `hidden lg:flex` desktop row and the
 `lg:hidden` mobile trigger. That's fine as long as both siblings' relative position in the header
@@ -291,3 +291,33 @@ not shared purpose*), `/news` into `/deadline` (the hub already embeds the feed;
 is the archive view), and `/leagues` into `/team` (manager-scoped in common and nothing else — two
 lib imports, no draft, `TeamState` or horizon coupling).
 — [sprints/sprint-33.md](../sprints/sprint-33.md)
+
+## A scroll container only works if every ancestor may shrink (2026-09-13)
+
+Flex **and** grid items default to `min-width: auto`, which refuses to go below their content. A
+child's own `overflow-x-auto` / `max-w-full` therefore never engages, and the page scrolls sideways
+instead of the box doing it.
+
+This has now cost two sprints for the same reason. `SegmentedControl` inside a flex row pushed the
+body to 395px inside a 375px viewport until `min-w-0` was added to the row, the control, and the two
+page-level containers holding one (DSI-138). Then the career rivals table — already given the
+`DataTable` scroll shell — widened the document anyway, because its grid item sat under a
+`lg:grid-cols-[minmax(0,1fr)_…]` that said nothing about the single-column base case: 529 → **593**
+on switching to Career, and 375 = 375 once the base track became `minmax(0,1fr)` too (DSI-141).
+
+Fix the chain, not the leaf: `min-w-0` on flex items, `minmax(0,…)` on grid tracks at *every*
+breakpoint. Verify with `document.body.scrollWidth === window.innerWidth`, not by eye — both bugs
+looked fine in a screenshot. — [sprints/m9.md](../sprints/m9.md)
+
+## Motion is never load-bearing for reachability (2026-09-13)
+
+`scrollTo({ behavior: "smooth" })` does nothing on a hidden document: no rAF callbacks run, so the
+scroll is silently dropped and whatever you were scrolling to stays off screen. `/settings`' Pipeline
+tab sat at `scrollLeft 0` with the tab invisible, while the identical call with `"auto"` landed at
+92. The preview pane reports `document.hidden === true`, which is how it surfaced — but so does any
+backgrounded tab.
+
+So `SegmentedControl` scrolls instantly when the document is hidden or motion is reduced, and
+smoothly otherwise. This is the same rule `SlideOver` already states about its own entry animation:
+it deliberately sets no `fill-mode`, so an animation that never runs leaves a usable panel rather
+than one pinned invisible at its `from` frame. — [sprints/m9.md](../sprints/m9.md)

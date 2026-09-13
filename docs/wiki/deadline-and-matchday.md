@@ -342,3 +342,25 @@ this page), [frontend-conventions.md](frontend-conventions.md#player-detail-pane
 (the player detail panel's own GW1-follow-up additions, built alongside this),
 [design-system.md](design-system.md#expandable-card-stretch-2026-08-22) (`LiveFixtureCard`'s and
 `ClubTacticsGrid`'s row-stretch fix, found using this page's own real GW1 cards).
+
+## What M9 changed on these two screens (2026-09-12/13)
+
+The audit's `/deadline` items, with the measurements that decided them — [sprints/m9.md](../sprints/m9.md):
+
+- **Two all-clear cards became one strip.** "This squad is legal" and "Nothing flagged" spent ~140px
+  of the fold saying nothing was wrong; they now render only when they have something to say.
+- **The armband was hard to see on the kit.** Contrast measured and fixed: **7.80:1 → 15.03:1** for
+  the captain badge, 12.16 → 16.12 for the vice.
+- **The pitch's bare xP number gained its unit**, and the amber captain comparison moved directly
+  under the recommendation it qualifies, stating `= +0.5 xP` rather than a bare figure.
+- **Chip figures stopped implying a recommendation the page cannot support.** The audit wanted a
+  positive-but-not-worth-playing chip styled `(Hold for DGW)` on the grounds that a double-gameweek
+  Triple Captain "yields +12 to +18 xP" — a range measured nowhere in this repo, and
+  `ChipValuation` carries no signal about whether *this* is the week. The figure now renders as a
+  measurement with its unit, captioned that these are this gameweek's values and not a
+  recommendation, linking to the ranking that is real evidence. See
+  [chip-strategy.md](chip-strategy.md) and
+  [methodology.md](methodology.md#an-acceptance-threshold-you-invented-is-not-evidence).
+- **Player panel actions** (Sprint C2): Set C / Set VC write to the draft. Remove is deliberately
+  not offered — on this page the squad is the real team before a deadline, and a removal with no
+  replacement is not a move FPL allows.

@@ -130,6 +130,23 @@ export function DecisionAnalyticsPanel({
     };
   }, [season, entryId, horizon]);
 
+  /**
+   * How much of the chosen lookback actually has results behind it, summed
+   * over the gameweeks transfers were made in. One window per group: every
+   * transfer in a gameweek shares that gameweek's window.
+   */
+  const { scoredGws, windowGws } = useMemo(() => {
+    let scored = 0;
+    let total = 0;
+    for (const g of data?.transfers.groups ?? []) {
+      const first = g.transfers[0];
+      if (!first) continue;
+      scored += first.scoredGws;
+      total += first.horizonGws;
+    }
+    return { scoredGws: scored, windowGws: total };
+  }, [data]);
+
   const captainAccuracy = useMemo(() => {
     if (!data || data.captain.scored === 0) return null;
     return Math.round((data.captain.hits / data.captain.scored) * 100);
@@ -153,7 +170,9 @@ export function DecisionAnalyticsPanel({
             it this row measured 406px inside a 375px viewport and scrolled
             the whole document sideways. */}
         <div className="flex min-w-0 items-center gap-2">
-          <HorizonControl value={horizon} onValueChange={setHorizon} label="Transfer horizon" />
+          {/* DSI-141: called "Transfer horizon", which borrows the word every other
+              screen uses for a projection — this one measures the past. */}
+          <HorizonControl value={horizon} onValueChange={setHorizon} label="Transfers lookback" />
           <InfoTooltip label="About these figures">{DECISION_ANALYTICS_NOTE}</InfoTooltip>
         </div>
       </div>
@@ -261,8 +280,17 @@ export function DecisionAnalyticsPanel({
                     </span>
                   </p>
                   {data.transfers.inProgress && (
+                    /* DSI-141: the owner read two lookbacks returning the same
+                       figure as a broken control. It is not — a window only
+                       counts gameweeks that have been *scored*, so early in the
+                       season 1 GW and 3 GW cover the same finished football.
+                       The unchanged number was right and said nothing about why,
+                       which is the defect. Now it states its own coverage. */
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      Some transfers are still inside their horizon — those verdicts are not final.
+                      <span className="tabular-nums">{scoredGws}</span> of{" "}
+                      <span className="tabular-nums">{windowGws}</span> gameweeks in these lookback
+                      windows have been scored, so the verdicts are not final — and a longer
+                      lookback cannot change them until more gameweeks finish.
                     </p>
                   )}
                   <ul className="mt-3 space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
