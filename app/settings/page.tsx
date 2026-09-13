@@ -132,10 +132,20 @@ function AccountTab() {
             placeholder="e.g. 1234567"
             className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
           />
+          {/* Outline once a manager is already linked, and inert until the
+              value actually changes (DSI-128). Linking is a one-time setup
+              step; a solid accent button that stays live forever asks to be
+              pressed on every visit to a page nobody came here to act on.
+              The first link keeps the filled treatment — there it is the
+              point of the screen. */}
           <button
             type="submit"
-            disabled={busy}
-            className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
+            disabled={busy || (entryId !== null && input.trim() === String(entryId))}
+            className={
+              entryId
+                ? "rounded-md border border-purple-950 px-4 py-1.5 text-sm font-medium text-purple-950 transition-colors hover:bg-purple-950 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 dark:border-primary dark:text-primary dark:hover:bg-primary dark:hover:text-slate-950"
+                : "rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
+            }
           >
             {busy ? "Linking…" : entryId ? "Update" : "Link"}
           </button>

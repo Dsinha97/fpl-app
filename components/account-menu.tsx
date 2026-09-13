@@ -89,6 +89,22 @@ export function AccountMenu() {
             </div>
           )}
 
+          {/* Sign in leads, and looks like the action it is (DSI-128). It used
+              to sit last, below the theme picker, as a text link — for a
+              visitor who opens this menu while signed out it is the only
+              reason they opened it, and it was the least prominent thing in
+              there. Theme and Pipeline health stay below as utilities. */}
+          {!user && (
+            <Link
+              href="/signin/"
+              onClick={() => setOpen(false)}
+              role="menuitem"
+              className="mt-2 block rounded-md bg-purple-950 px-2 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
+            >
+              Sign in
+            </Link>
+          )}
+
           {user && (
             <Link
               href="/settings/?tab=account"
@@ -122,7 +138,7 @@ export function AccountMenu() {
             role="menuitem"
             className="block rounded-md px-2 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-purple-950/40"
           >
-            Status
+            Pipeline health
           </Link>
 
           <div className="px-2 pt-2 pb-1 text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
@@ -161,16 +177,7 @@ export function AccountMenu() {
             >
               Sign out
             </button>
-          ) : (
-            <Link
-              href="/signin/"
-              onClick={() => setOpen(false)}
-              role="menuitem"
-              className="mt-1 block rounded-md px-2 py-2 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-50 dark:text-primary dark:hover:bg-purple-950/40"
-            >
-              Sign in
-            </Link>
-          )}
+          ) : null}
         </div>
       )}
     </div>
