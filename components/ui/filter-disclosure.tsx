@@ -47,7 +47,7 @@ export function FilterDisclosure({
           ref={panelRef}
           role="dialog"
           style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
-          className="fixed z-30 w-[calc(100vw-1rem)] max-w-[26rem] rounded-lg border border-border bg-popover p-3 text-sm text-popover-foreground shadow-lg"
+          className="fixed z-30 w-[calc(100vw-1rem)] max-w-[26rem] rounded-lg border border-border bg-popover p-3 text-sm text-popover-foreground shadow-lg dark:shadow-[0_10px_30px_rgba(0,0,0,0.55)]"
         >
           {children}
         </div>

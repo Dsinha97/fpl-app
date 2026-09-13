@@ -756,8 +756,11 @@ export default function PlayersPage() {
                 <th className="px-2 py-2 uppercase tracking-wide">Team</th>
                 <th className="px-2 py-2 uppercase tracking-wide">Pos</th>
                 {header("Price", "price")}
-                <th className="px-2 py-2">
-                  <span className="flex items-center gap-1.5">
+                {/* Right, like every numeric column's cells (DSI-120 sibling
+                    finding in DSI-126): these two headers were the only ones
+                    left-aligned over right-aligned data. */}
+                <th className="px-2 py-2 text-right">
+                  <span className="flex items-center justify-end gap-1.5">
                     <span className="uppercase tracking-wide">Price watch</span>
                     <InfoTooltip label="What is Price watch?">
                       <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
@@ -775,8 +778,8 @@ export default function PlayersPage() {
                 {header(`xG/90`, "xgCur", "Expected goals per 90 minutes played this season — a rate, not a total, so a substitute is comparable to a starter. Dimmed below 450 minutes, where the rate is real but not yet stable.")}
                 {header(`xA/90`, "xaCur", "Expected assists per 90 minutes played this season. Same rate basis and same thin-sample dimming as xG/90.")}
                 {header("xMins", "xmins")}
-                <th className="px-2 py-2">
-                  <span className="flex items-center gap-1.5">
+                <th className="px-2 py-2 text-right">
+                  <span className="flex items-center justify-end gap-1.5">
                     <button
                       onClick={() => {
                         if (sortKey === "xdc") setSortDesc(!sortDesc);

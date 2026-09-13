@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { FixtureCell } from "@/components/fdr-badge";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
+import { Badge } from "@/components/ui/badge";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import {
   comparePlayers,
@@ -292,8 +293,26 @@ export function ComparePanel({
                         }`}
                       >
                         {m.format(v)}
-                        {isBest && <span className="ml-1 text-[10px]">▲</span>}
-                        {isTiedBest && <span className="ml-1 text-[10px]">–</span>}
+                        {/* The glyph follows the metric's own direction
+                            (DSI-126). A ▲ beside the cheapest price said two
+                            wrong things at once: that low is up, and that cheap
+                            is better — price is a cost, not a performance
+                            score. Low-is-best rows now point down and the
+                            title names the superlative rather than implying
+                            a winner. */}
+                        {isBest && (
+                          <span
+                            className="ml-1 text-[10px]"
+                            title={`${m.dir === "high" ? "Highest" : "Lowest"} ${m.label.toLowerCase()} of those compared`}
+                          >
+                            {m.dir === "high" ? "▲" : "▼"}
+                          </span>
+                        )}
+                        {isTiedBest && (
+                          <span className="ml-1 text-[10px]" title="Tied — no clear best">
+                            –
+                          </span>
+                        )}
                       </td>
                     );
                   })}
@@ -390,16 +409,20 @@ export function ComparePanel({
                   score {r.score.toFixed(3)}
                 </span>
               </div>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+              {/* Badges rather than coloured text with a ✓/! glyph in front
+                  (DSI-126): a caution about a player's minutes reads as a flag
+                  to weigh, not as a coloured sentence, and the badge's own
+                  tone carries what the glyph was doing. */}
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {r.strengths.map((s) => (
-                  <span key={s} className="text-emerald-700 dark:text-emerald-400">
-                    ✓ {s}
-                  </span>
+                  <Badge key={s} tone="positive" variant="outline" size="sm" className="normal-case">
+                    {s}
+                  </Badge>
                 ))}
                 {r.weaknesses.map((w) => (
-                  <span key={w} className="text-amber-700 dark:text-amber-400">
-                    ! {w}
-                  </span>
+                  <Badge key={w} tone="warning" variant="outline" size="sm" className="normal-case">
+                    {w}
+                  </Badge>
                 ))}
               </div>
             </li>

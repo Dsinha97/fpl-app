@@ -182,17 +182,30 @@ export function PlayerFilters({
 
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 border-l border-zinc-200 pl-3 dark:border-purple-900/40">
             <span className="text-xs uppercase tracking-wide text-zinc-500">Special</span>
-            {SPECIAL_ORDER.map((f) => (
-              <label key={f} className="flex items-center gap-1.5 text-xs">
-                <input
-                  type="checkbox"
-                  checked={value.special.has(f)}
-                  onChange={() => toggleSpecial(f)}
-                  className="h-3.5 w-3.5 rounded border-zinc-300 text-purple-700 focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-purple-800/50 dark:text-primary"
-                />
-                {SPECIAL_LABELS[f]}
-              </label>
-            ))}
+            {/* Toggle pills, not a checkbox list (DSI-126). These are six
+                mutually-compatible filters that get flipped on and off
+                repeatedly, and a 14px checkbox is both a small target and the
+                wrong signal — a checkbox reads as a form field to submit,
+                where these apply immediately. aria-pressed keeps the toggle
+                semantics a checkbox was carrying. */}
+            {SPECIAL_ORDER.map((f) => {
+              const on = value.special.has(f);
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => toggleSpecial(f)}
+                  aria-pressed={on}
+                  className={`rounded-full border px-2.5 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    on
+                      ? "border-purple-700 bg-purple-700 text-white dark:border-primary dark:bg-primary dark:text-slate-950"
+                      : "border-zinc-300 text-zinc-600 hover:border-purple-500 hover:text-purple-700 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:border-primary dark:hover:text-primary"
+                  }`}
+                >
+                  {SPECIAL_LABELS[f]}
+                </button>
+              );
+            })}
             <InfoTooltip label="What do these special options mean?">
               <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
                 Matches any player with any of the ticked properties — not all of them.{" "}
