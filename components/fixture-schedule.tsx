@@ -345,7 +345,13 @@ function FixtureRow({
       >
         <div className="overflow-hidden">
           <div className="bg-surface-1 px-4 py-3">
-            <FixtureStatBreakdown stats={stats!} playersById={playersById!} provisional={!complete} />
+            <FixtureStatBreakdown
+              stats={stats!}
+              playersById={playersById!}
+              homeShort={home?.short_name}
+              awayShort={away?.short_name}
+              provisional={!complete}
+            />
           </div>
         </div>
       </div>

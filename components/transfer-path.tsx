@@ -7,6 +7,7 @@ import type { TransferMove } from "@/lib/transfers";
 import type { TransferPathResult, TransferPathStep } from "@/lib/transfer-path";
 import { Spinner } from "@/components/ui/spinner";
 import { signed } from "@/lib/utils";
+import { TapToReveal } from "@/components/info-tooltip";
 
 interface TransferPathProps {
   result: TransferPathResult | null;
@@ -92,9 +93,32 @@ export function TransferPath({
         )}
         {onDecisionMarginChange && decisionMargin !== undefined && (
           <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-            <span title="Rolling is only worth something the model cannot see: injury news, price moves, rotation hints. That value is yours to assert, not the model's to claim.">
-              Value of waiting for news
-            </span>
+            {/* DSI-119: "this input lacks context — is 1 an xP penalty, a rank
+                risk weight, or days before the deadline?" It is expected
+                points, and that was nowhere on screen; the native title said
+                why the input exists but never what its unit was. A one-off
+                control carrying multi-sentence reasoning is exactly the case
+                TapToReveal is for — unlike the per-row badges, there is one of
+                these on the page, so it costs one tab stop. */}
+            <TapToReveal
+              label="What does Value of waiting for news mean?"
+              triggerClassName="cursor-help underline decoration-dotted decoration-from-font underline-offset-2"
+              trigger="Value of waiting for news"
+            >
+              <span className="block font-semibold text-zinc-900 dark:text-zinc-100">
+                Measured in expected points
+              </span>
+              <span className="mt-1.5 block">
+                How many xP a gameweek of press conferences, price moves and rotation hints is
+                worth to you. It is added to the case for rolling a transfer rather than spending
+                it now.
+              </span>
+              <span className="mt-1.5 block">
+                Rolling is only worth something the model cannot see, so this value is yours to
+                assert rather than the model&apos;s to claim. Set it to 0 to see the pure
+                arithmetic.
+              </span>
+            </TapToReveal>
             <input
               type="number"
               min={0}

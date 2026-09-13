@@ -67,6 +67,15 @@ interface FixtureStatBreakdownProps {
   squadElementIds?: Set<number>;
   /** Bonus is provisional until FPL confirms it post-match. */
   provisional: boolean;
+  /**
+   * Club codes for the two columns. Optional so existing mounts keep working,
+   * but both callers pass them: without a column heading the layout is two
+   * unlabelled lists, and an em-dash for "no events this side" floats with
+   * nothing to attach it to — DSI-119 and DSI-127 report the same confusion
+   * from opposite pages.
+   */
+  homeShort?: string;
+  awayShort?: string;
 }
 
 /**
@@ -80,6 +89,8 @@ export function FixtureStatBreakdown({
   playersById,
   squadElementIds,
   provisional,
+  homeShort,
+  awayShort,
 }: FixtureStatBreakdownProps) {
   const lines = DISPLAY_STAT_ORDER
     .map((id) => ({ id, line: stats.get(id) }))
@@ -117,6 +128,12 @@ export function FixtureStatBreakdown({
 
   return (
     <div className="space-y-3">
+      {(homeShort || awayShort) && (
+        <div className="grid grid-cols-2 gap-x-3 border-b border-border pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="pr-3 text-right">{homeShort}</span>
+          <span className="pl-3">{awayShort}</span>
+        </div>
+      )}
       {lines.map(({ id, line }) => (
         <div key={id}>
           <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
@@ -127,9 +144,11 @@ export function FixtureStatBreakdown({
               </Badge>
             )}
           </p>
-          <div className="mt-1 grid grid-cols-2 gap-x-3 text-sm">
-            <ul className="space-y-0.5 text-right">{side(line.h, id)}</ul>
-            <ul className="space-y-0.5">{side(line.a, id)}</ul>
+          {/* A real divider between the sides, so the columns read as home and
+              away rather than as one centred list. */}
+          <div className="mt-1 grid grid-cols-2 gap-x-3 divide-x divide-border text-sm">
+            <ul className="space-y-0.5 pr-3 text-right">{side(line.h, id)}</ul>
+            <ul className="space-y-0.5 pl-3">{side(line.a, id)}</ul>
           </div>
         </div>
       ))}
@@ -240,6 +259,8 @@ export function LiveFixtureCard({ fixture, teams, playersById, squadElementIds }
               <FixtureStatBreakdown
                 stats={stats}
                 playersById={playersById}
+                homeShort={home?.short_name}
+                awayShort={away?.short_name}
                 squadElementIds={squadElementIds}
                 provisional={provisionalBonus}
               />

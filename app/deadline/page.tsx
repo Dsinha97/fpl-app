@@ -13,6 +13,7 @@ import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { ChipPlanEditor } from "@/components/chip-plan-editor";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { FeedRowItem } from "@/components/feed-row";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { TransferPath } from "@/components/transfer-path";
@@ -1640,28 +1641,39 @@ export default function DeadlinePage() {
                           <span className="ml-2 text-xs text-zinc-500">Vice: {lineup.vice.webName}</span>
                         )}
                       </p>
-                      {lineup.captain && lineup.captain.reasons.length > 0 && (
-                        <ul className="mt-1 space-y-0.5 text-[11px] text-zinc-500">
-                          {lineup.captain.reasons.map((r) => (
-                            <li key={r}>{r}</li>
-                          ))}
-                        </ul>
-                      )}
-
+                      {/* DSI-119: this comparison is the actionable part of the
+                          card — the projected gain from changing the armband —
+                          and it sat below the reasons list, pushed out of
+                          sight. It belongs immediately under the
+                          recommendation it argues against. The accent border
+                          marks it as the thing to act on rather than another
+                          note. */}
                       {captainDiff && (
-                        <Alert tone="warning" className="mt-2">
+                        <Alert
+                          tone="warning"
+                          className="mt-2 border-l-4 border-l-warning"
+                        >
                           Your draft has <span className="font-medium">{captainDiff.currentName}</span> captained
                           {captainDiff.gain !== null ? (
                             <>
                               {" "}
                               ({(captainDiff.currentXp ?? 0).toFixed(1)} xP) vs{" "}
                               <span className="font-medium">{captainDiff.recommendedName}</span> (
-                              {(captainDiff.recommendedXp ?? 0).toFixed(1)} xP) = {signed(captainDiff.gain)}.
+                              {(captainDiff.recommendedXp ?? 0).toFixed(1)} xP) ={" "}
+                              <span className="font-semibold">{signed(captainDiff.gain)} xP</span>.
                             </>
                           ) : (
                             <> — the model recommends {captainDiff.recommendedName} instead.</>
                           )}
                         </Alert>
+                      )}
+
+                      {lineup.captain && lineup.captain.reasons.length > 0 && (
+                        <ul className="mt-1 space-y-0.5 text-[11px] text-zinc-500">
+                          {lineup.captain.reasons.map((r) => (
+                            <li key={r}>{r}</li>
+                          ))}
+                        </ul>
                       )}
 
                       {xiDiff && (
@@ -1708,12 +1720,26 @@ export default function DeadlinePage() {
                               </Badge>
                             ) : (
                               v.blocked === null && (
-                                <span
-                                  className={`text-sm font-bold tabular-nums ${
-                                    v.gain > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-zinc-500"
-                                  }`}
-                                >
+                                // DSI-119 asked for a positive-but-not-worth-playing
+                                // chip to be styled as a hold, on the grounds that a
+                                // double-gameweek Triple Captain "yields +12 to +18
+                                // xP". That range is measured nowhere in this repo, and
+                                // CLAUDE.md is explicit that an invented threshold is
+                                // not evidence — so it is not hardcoded here.
+                                //
+                                // The underlying complaint is real: green reads as "do
+                                // this", and ChipValuation carries only this
+                                // gameweek's gain, with no signal about whether this is
+                                // a good week to spend the chip. Since the page cannot
+                                // support a recommendation, it stops implying one. The
+                                // figure is a measurement in foreground, with its unit,
+                                // and the comparison that *is* evidence — every
+                                // gameweek ranked — is one link below.
+                                <span className="text-sm font-bold tabular-nums text-foreground">
                                   {signed(v.gain)}
+                                  <span className="ml-0.5 text-[10px] font-normal text-muted-foreground">
+                                    xP
+                                  </span>
                                 </span>
                               )
                             )}
@@ -1738,11 +1764,14 @@ export default function DeadlinePage() {
                     )}
                   </div>
                   <p className="mt-2 text-xs text-zinc-500">
-                    This gameweek only —{" "}
-                    <Link href={`/transfers/?tab=chips&draft=${team.draftId}`} className="underline-offset-2 hover:underline">
-                      see the full season schedule
-                    </Link>
-                    .
+                    These are this gameweek&apos;s values, not a recommendation to play —{" "}
+                    <Link
+                      href={`/transfers/?tab=chips&draft=${team.draftId}`}
+                      className="font-medium underline underline-offset-2"
+                    >
+                      compare every gameweek
+                    </Link>{" "}
+                    to see whether this is the week.
                   </p>
                 </section>
                   </div>
@@ -1769,20 +1798,17 @@ export default function DeadlinePage() {
                     <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Transfer call</h2>
                     <div className="flex flex-wrap items-center gap-2 text-sm">
                       <div className="flex gap-1.5">
-                        {HORIZONS.map((h) => (
-                          <button
-                            key={h}
-                            onClick={() => setHorizon(h)}
-                            title={h === "season" ? seasonHorizonNote(ctx.seasonWindow) : undefined}
-                            className={`rounded-md px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                              horizon === h
-                                ? "bg-purple-950 text-white dark:bg-primary dark:text-slate-950"
-                                : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
-                            }`}
-                          >
-                            {horizonLabel(h)}
-                          </button>
-                        ))}
+                        <SegmentedControl
+                          label="Planning horizon"
+                          semantics="radio"
+                          size="sm"
+                          value={String(horizon)}
+                          onValueChange={(v) => setHorizon(v === "season" ? "season" : (Number(v) as Horizon))}
+                          options={HORIZONS.map((h) => ({
+                            value: String(h),
+                            label: horizonLabel(h),
+                          }))}
+                        />
                       </div>
                       <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
                         Free transfers
