@@ -3,6 +3,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { InteractivePitch } from "./pitch";
 import { EmptySlot, PlayerCard, type PlayerData } from "./player-card";
+import { SlideOver } from "@/components/ui/slide-over";
+import { SM, useMinWidth } from "@/components/ui/use-viewport";
 import { PANEL_MAX_HEIGHT, PANEL_WIDTH, PlayerDetail } from "./player-detail";
 import type { LineupResult } from "@/lib/lineup";
 
@@ -103,6 +105,9 @@ export function PitchView({
       closingId.current = null;
     }, 0);
   }, [menu]);
+
+  /** Below `sm` the player panel is a sheet, not an anchored popover. */
+  const isDesktop = useMinWidth(SM);
 
   /** Place the panel beside the clicked card, clamped inside the pitch card. */
   const openMenu = (player: PlayerData, anchor: HTMLElement) => {
@@ -230,10 +235,14 @@ export function PitchView({
                     {card(p, i)}
                     {used !== undefined && (
                       <span
+                        // DSI-121: "64% used" was read as ownership or as
+                        // effective minutes. It is the chance an auto-sub
+                        // brings this slot on, so it says so.
                         className="text-[9px] tabular-nums text-purple-300"
-                        title="Probability this slot is used by an auto-sub"
+                        title="Probability this bench slot is used by an auto-sub"
+                        aria-label={`${Math.round(used * 100)} percent chance of being auto-subbed on`}
                       >
-                        {Math.round(used * 100)}% used
+                        {Math.round(used * 100)}% auto-sub
                       </span>
                     )}
                   </span>
@@ -244,7 +253,43 @@ export function PitchView({
         )}
       </div>
 
-      {selected && menu && (
+      {/* Below `sm` the player panel becomes a bottom sheet rather than a
+          floating popover pinned near the card. On a phone a floating panel
+          lands wherever the card happens to be — often half off the pitch,
+          and always away from the thumb — while the pitch itself is the thing
+          you are reading. The sheet rises from the thumb zone and leaves the
+          pitch visible above it, so you can still see which player you opened.
+          Desktop keeps the anchored popover: there the pointer is already at
+          the card and a sheet would be a long way from it. */}
+      {selected && menu && !isDesktop && (
+        <SlideOver
+          open
+          onClose={closeMenu}
+          side="bottom"
+          label={`${selected.web_name} details`}
+        >
+          <PlayerDetail
+            player={
+              layout
+                ? { ...selected, sub_probability: layout.subProbability.get(selected.id) ?? null }
+                : selected
+            }
+            inline
+            onClose={closeMenu}
+            onSetCaptain={onSetCaptain}
+            onSetVice={onSetVice}
+            onRemove={onRemove}
+            onFindReplacement={
+              onFindReplacement &&
+              ((id) => {
+                closeMenu();
+                onFindReplacement(id);
+              })
+            }
+          />
+        </SlideOver>
+      )}
+      {selected && menu && isDesktop && (
         <PlayerDetail
           player={
             layout

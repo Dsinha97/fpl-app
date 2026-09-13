@@ -39,9 +39,18 @@ export const PANEL_MAX_HEIGHT = 340;
 
 interface PlayerDetailProps {
   player: PlayerData;
-  /** Position within the anchoring container, in pixels. */
-  top: number;
-  left: number;
+  /**
+   * Position within the anchoring container, in pixels. Omitted when `inline`
+   * — a sheet positions the panel, so the panel does not position itself.
+   */
+  top?: number;
+  left?: number;
+  /**
+   * Render as plain content rather than a positioned dialog, for when
+   * something else already owns the surface (the mobile bottom sheet, which
+   * is itself a dialog — nesting a second one would announce twice).
+   */
+  inline?: boolean;
   onClose: () => void;
   /** Omitted on a read-only panel — each action's button renders only when its handler is given. */
   onSetCaptain?: (playerId: number) => void;
@@ -81,6 +90,7 @@ export function PlayerDetail({
   addLabel = "Add to squad",
   onFindReplacement,
   fixed = false,
+  inline = false,
 }: PlayerDetailProps) {
   const panel = useRef<HTMLDivElement>(null);
   const [showAll, setShowAll] = useState(false);
@@ -123,12 +133,16 @@ export function PlayerDetail({
   return (
     <div
       ref={panel}
-      role="dialog"
-      aria-label={`${player.web_name} details`}
-      style={{ top, left, width: PANEL_WIDTH, maxHeight: PANEL_MAX_HEIGHT }}
-      className={`z-40 overflow-y-auto rounded-lg border border-zinc-200 bg-card p-3 shadow-2xl dark:border-purple-700 ${
-        fixed ? "fixed" : "absolute"
-      }`}
+      role={inline ? undefined : "dialog"}
+      aria-label={inline ? undefined : `${player.web_name} details`}
+      style={inline ? undefined : { top, left, width: PANEL_WIDTH, maxHeight: PANEL_MAX_HEIGHT }}
+      className={
+        inline
+          ? "min-h-0 overflow-y-auto px-1"
+          : `z-40 overflow-y-auto rounded-lg border border-zinc-200 bg-card p-3 shadow-2xl dark:border-purple-700 ${
+              fixed ? "fixed" : "absolute"
+            }`
+      }
     >
       {/* header */}
       <div className="flex items-start gap-2">

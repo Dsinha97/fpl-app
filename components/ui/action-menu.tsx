@@ -27,6 +27,15 @@ interface ActionMenuProps {
   items: ActionItem[];
   /** Announced on the caret trigger. */
   menuLabel?: string;
+  /**
+   * `"outline"` demotes the split button to a bordered ghost.
+   *
+   * DSI-129 #1: --primary is for the page's actual moves. On /builder that is
+   * "Fill remaining" and "Apply GW4 XI" — the solver actions. Save is
+   * housekeeping, and when all three carried the same neon fill none of them
+   * read as the primary one.
+   */
+  tone?: "primary" | "outline";
 }
 
 /**
@@ -44,6 +53,7 @@ export function ActionMenu({
   primaryDisabledReason,
   items,
   menuLabel = "More actions",
+  tone = "primary",
 }: ActionMenuProps) {
   const [confirming, setConfirming] = useState<string | null>(null);
   /**
@@ -56,7 +66,7 @@ export function ActionMenu({
   const [open, setOpen] = useState(false);
 
   return (
-    <span className="inline-flex overflow-hidden rounded-md">
+    <span className={`inline-flex overflow-hidden rounded-md ${tone === "outline" ? "border border-input" : ""}`}>
       <button
         type="button"
         onClick={() => {
@@ -67,7 +77,11 @@ export function ActionMenu({
         // screen-reader user would never reach primaryDisabledReason at all.
         aria-disabled={primaryDisabled}
         title={primaryDisabled ? primaryDisabledReason : undefined}
-        className="bg-primary px-3 py-1.5 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
+        className={`px-3 py-1.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-40 ${
+          tone === "outline"
+            ? "text-foreground hover:bg-muted"
+            : "bg-primary text-primary-foreground hover:bg-primary-hover"
+        }`}
       >
         {primaryLabel}
       </button>
@@ -83,7 +97,11 @@ export function ActionMenu({
           aria-label={menuLabel}
           openOnHover={false}
           onClick={() => setOpen((prev) => !prev)}
-          className="border-l border-primary-foreground/25 bg-primary px-2 py-1.5 text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={`border-l px-2 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            tone === "outline"
+              ? "border-input text-foreground hover:bg-muted"
+              : "border-primary-foreground/25 bg-primary text-primary-foreground hover:bg-primary-hover"
+          }`}
         >
           <span aria-hidden="true" className="text-[10px]">
             ▾

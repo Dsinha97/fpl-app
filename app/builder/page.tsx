@@ -22,6 +22,9 @@ import {
   setPinnedDraft,
 } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
+import { Pencil } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Delta } from "@/components/ui/delta";
 import { Pager } from "@/components/ui/pager";
 import { SlideOver } from "@/components/ui/slide-over";
 import { SM, useMinWidth } from "@/components/ui/use-viewport";
@@ -1302,6 +1305,7 @@ export default function BuilderPage() {
    * because the two modes are mutually exclusive but each needs its own
    * "what to restore".
    */
+  const [renaming, setRenaming] = useState(false);
   const [addingPosition, setAddingPosition] = useState<number | null>(null);
   /** The slot button the picker is anchored to on desktop. */
   const [addAnchor, setAddAnchor] = useState<HTMLElement | null>(null);
@@ -1676,9 +1680,16 @@ export default function BuilderPage() {
           >
             {validation.isLegal ? "✓ Legal squad" : "Incomplete squad"}
           </span>
-          <span className="text-zinc-500">
-            {team.players.length}/{rules.squadSize} · {money(validation.budgetRemaining)} left
-          </span>
+          {/* DSI-121: this said "15/15 · £0.4m left", both of which are already
+              stated twelve pixels above — the squad count in the header line
+              and the bank in the bar's own right-hand figure. What the summary
+              actually needs to carry when collapsed is what is still wrong,
+              not a second copy of what is fine. */}
+          {!validation.isLegal && (
+            <span className="text-zinc-500">
+              {team.players.length}/{rules.squadSize} selected
+            </span>
+          )}
           <span className="ml-auto text-zinc-400 group-open:hidden">show requirements ▾</span>
           <span className="ml-auto hidden text-zinc-400 group-open:inline">hide ▴</span>
         </summary>
@@ -1793,13 +1804,37 @@ export default function BuilderPage() {
               ))}
             </select>
           )}
-          <input
-            value={team.name}
-            onChange={(e) => persist({ ...team, name: e.target.value })}
-            aria-label="Draft name"
-            className="w-36 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
-          />
+          {/* DSI-121: the select above and this field both showed the draft
+              name, side by side — "two adjacent boxes with identical text
+              [that] looks like a duplicate UI bug". They are different actions
+              (switch vs rename) and only one is wanted at a time, so renaming
+              is now a mode: the pencil swaps the selector for the field, and
+              Enter or blur ends it. */}
+          {renaming ? (
+            <input
+              value={team.name}
+              onChange={(e) => persist({ ...team, name: e.target.value })}
+              onBlur={() => setRenaming(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === "Escape") setRenaming(false);
+              }}
+              aria-label="Draft name"
+              autoFocus
+              className="w-36 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setRenaming(true)}
+              aria-label={`Rename draft "${team.name}"`}
+              title="Rename this draft"
+              className="rounded-md border border-input px-2 py-1.5 text-zinc-500 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Pencil className="size-3.5" aria-hidden />
+            </button>
+          )}
           <ActionMenu
+            tone="outline"
             primaryLabel="Save"
             onPrimary={onSave}
             primaryDisabled={!isDirty}
@@ -2409,12 +2444,55 @@ export default function BuilderPage() {
                             </span>
                             <GemBadge verdict={gemsById.get(r.player.id)} />
                           </p>
+                          {/* DSI-121: the trade-off was one dense string
+                              ("-3.8 xP — a downgrade · better fixtures · frees
+                              £0.5m"), so a manager hunting for a budget
+                              enabler had to read every line. The two deltas
+                              that drive the decision — points and cash — lead
+                              as badges; the rest stays as supporting prose.
+                              Cash is computed from the two prices rather than
+                              parsed back out of the sentence. */}
+                          <p className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <Badge
+                              tone={r.xpDelta >= 0 ? "positive" : "negative"}
+                              size="sm"
+                              className="tabular-nums"
+                            >
+                              <Delta value={r.xpDelta} unit="xP" showArrow={false} className="text-inherit" />
+                            </Badge>
+                            {(() => {
+                              const out = replaceFor !== null ? lookup(replaceFor) : undefined;
+                              if (!out) return null;
+                              const freed = (out.nowCost ?? 0) - r.player.price;
+                              if (freed === 0) {
+                                return (
+                                  <Badge tone="neutral" size="sm">
+                                    price-neutral
+                                  </Badge>
+                                );
+                              }
+                              return (
+                                <Badge tone="warning" size="sm" className="tabular-nums">
+                                  {freed > 0 ? "frees" : "costs"} £{(Math.abs(freed) / 10).toFixed(1)}m
+                                </Badge>
+                              );
+                            })()}
+                          </p>
+                          {/* The two entries the badges above now carry are
+                              dropped from the prose, or the card says "frees
+                              £0.5m" twice — the duplicate-UI defect this item
+                              is about, reintroduced one line down. Coupled to
+                              the exact phrases lib/scoring.ts builds; the
+                              durable fix is for `Replacement` to expose the
+                              parts as fields and let every surface compose its
+                              own sentence. Noted on DSI-121. */}
                           <p className="mt-0.5 text-[11px] text-zinc-500">
-                            {r.rationale.join(" · ")}
+                            {r.rationale
+                              .filter((t) => !t.includes("xP") && !t.startsWith("frees £"))
+                              .join(" · ")}
                           </p>
                           <p className="mt-0.5 text-[10px] tabular-nums text-zinc-400">
-                            xP {r.xpDelta >= 0 ? "+" : ""}
-                            {r.xpDelta.toFixed(1)} · risk {r.riskDelta >= 0 ? "+" : ""}
+                            risk {r.riskDelta >= 0 ? "+" : ""}
                             {r.riskDelta} · fit {r.teamFit.toFixed(1)}
                             {r.exitRoutes !== undefined && (
                               <>
