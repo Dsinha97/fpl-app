@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import type { ManagerProfile, RivalRow } from "@/lib/manager-profile";
 import { TapToReveal } from "@/components/info-tooltip";
 import { AnnotatedLabel } from "@/components/ui/model-note";
@@ -174,7 +175,7 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
 /** A gap that may not exist yet (no career record on one side, or no gameweeks played) — never fabricated as 0. */
 function GapCell({ gap, decimals = 1 }: { gap: number | null; decimals?: number }) {
   if (gap === null) {
-    return <td className="py-1.5 text-right tabular-nums text-zinc-400">—</td>;
+    return <DataCell className="py-1.5 text-zinc-400" numeric>—</DataCell>;
   }
   return (
     <td
@@ -227,15 +228,15 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
           <table className="mt-3 w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                <th className="py-1.5">Manager</th>
-                <th className="py-1.5 text-right">GW pts</th>
-                <th className="py-1.5 text-right">Total</th>
-                <th className="py-1.5 text-right">Rank</th>
+                <DataHeadCell className="py-1.5">Manager</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>GW pts</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>Total</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>Rank</DataHeadCell>
                 {/* "Gap" alone never said whose (DSI-120). The sign is right —
                     it is mine minus theirs, so green is genuinely ahead — but a
                     reader seeing a negative number had no way to learn that from
                     the screen. The direction now travels with the column. */}
-                <th className="py-1.5 text-right">
+                <DataHeadCell className="py-1.5" numeric>
                   <AnnotatedLabel
                     label="What the Gap column means"
                     align="right"
@@ -243,37 +244,34 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
                   >
                     Gap
                   </AnnotatedLabel>
-                </th>
+                </DataHeadCell>
               </tr>
             </thead>
             <tbody>
               {[...rivals]
                 .sort((a, b) => (b.season?.pointsGap ?? -Infinity) - (a.season?.pointsGap ?? -Infinity))
                 .map((r) => (
-                  <tr
-                    key={r.entryId}
-                    className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
-                  >
-                    <td className="py-1.5 text-zinc-800 dark:text-zinc-200">{r.teamName}</td>
+                  <DataRow key={r.entryId} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                    <DataCell className="py-1.5 text-zinc-800 dark:text-zinc-200">{r.teamName}</DataCell>
                     {r.season ? (
                       <>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-800 dark:text-zinc-200">
+                        <DataCell className="py-1.5 text-zinc-800 dark:text-zinc-200" numeric>
                           {r.season.lastEventPoints}
-                        </td>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                        </DataCell>
+                        <DataCell className="py-1.5 text-zinc-500" numeric>
                           {r.season.totalPoints}
-                        </td>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                        </DataCell>
+                        <DataCell className="py-1.5 text-zinc-500" numeric>
                           {r.season.overallRank?.toLocaleString() ?? "—"}
-                        </td>
+                        </DataCell>
                         <GapCell gap={r.season.pointsGap} decimals={0} />
                       </>
                     ) : (
-                      <td colSpan={4} className="py-1.5 text-right text-xs text-zinc-400">
+                      <DataCell colSpan={4} className="py-1.5 text-xs text-zinc-400" numeric>
                         No gameweeks played yet
-                      </td>
+                      </DataCell>
                     )}
-                  </tr>
+                  </DataRow>
                 ))}
             </tbody>
           </table>
@@ -289,16 +287,16 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
           <table className="mt-3 w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                <th className="py-1.5">Manager</th>
-                <th className="py-1.5 text-right">Seasons</th>
-                <th className="py-1.5 text-right">Median</th>
-                <th className="py-1.5 text-right">Best</th>
-                <th className="py-1.5 text-right">Worst</th>
+                <DataHeadCell className="py-1.5">Manager</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>Seasons</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>Median</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>Best</DataHeadCell>
+                <DataHeadCell className="py-1.5" numeric>Worst</DataHeadCell>
                 {/* "Gap" alone never said whose (DSI-120). The sign is right —
                     it is mine minus theirs, so green is genuinely ahead — but a
                     reader seeing a negative number had no way to learn that from
                     the screen. The direction now travels with the column. */}
-                <th className="py-1.5 text-right">
+                <DataHeadCell className="py-1.5" numeric>
                   <AnnotatedLabel
                     label="What the Gap column means"
                     align="right"
@@ -306,40 +304,37 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
                   >
                     Gap
                   </AnnotatedLabel>
-                </th>
+                </DataHeadCell>
               </tr>
             </thead>
             <tbody>
               {[...rivals]
                 .sort((a, b) => (b.career?.gap ?? -Infinity) - (a.career?.gap ?? -Infinity))
                 .map((r) => (
-                  <tr
-                    key={r.entryId}
-                    className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
-                  >
-                    <td className="py-1.5 text-zinc-800 dark:text-zinc-200">{r.teamName}</td>
+                  <DataRow key={r.entryId} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                    <DataCell className="py-1.5 text-zinc-800 dark:text-zinc-200">{r.teamName}</DataCell>
                     {r.career ? (
                       <>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                        <DataCell className="py-1.5 text-zinc-500" numeric>
                           {r.career.seasons}
-                        </td>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-800 dark:text-zinc-200">
+                        </DataCell>
+                        <DataCell className="py-1.5 text-zinc-800 dark:text-zinc-200" numeric>
                           {r.career.median.toFixed(1)}
-                        </td>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                        </DataCell>
+                        <DataCell className="py-1.5 text-zinc-500" numeric>
                           {r.career.best.toFixed(0)}
-                        </td>
-                        <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                        </DataCell>
+                        <DataCell className="py-1.5 text-zinc-500" numeric>
                           {r.career.worst.toFixed(0)}
-                        </td>
+                        </DataCell>
                         <GapCell gap={r.career.gap} />
                       </>
                     ) : (
-                      <td colSpan={4} className="py-1.5 text-right text-xs text-zinc-400">
+                      <DataCell colSpan={4} className="py-1.5 text-xs text-zinc-400" numeric>
                         First season
-                      </td>
+                      </DataCell>
                     )}
-                  </tr>
+                  </DataRow>
                 ))}
             </tbody>
           </table>

@@ -6,6 +6,7 @@
    inherits currentColor, which is what those classes were written for. Same
    reason /news dropped its emoji pills (DSI-122/DSI-125). */
 import { Button } from "@/components/ui/button";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { Pin } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -923,34 +924,27 @@ export function ChipTiming({
             <table className="w-full min-w-[420px] text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-[10px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                  <th className="py-1.5 pr-2">GW</th>
+                  <DataHeadCell className="py-1.5 pr-2">GW</DataHeadCell>
                   {CHIP_ORDER.map((chip) => (
-                    <th key={chip} className="py-1.5 pr-2 text-right">
+                    <DataHeadCell key={chip} className="py-1.5 pr-2" numeric>
                       {CHIP_LABELS[chip]}
-                    </th>
+                    </DataHeadCell>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {events.map((event) => (
-                  <tr
-                    key={event}
-                    className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
-                  >
-                    <td className="py-1 pr-2 text-zinc-500">{event}</td>
+                  <DataRow key={event} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                    <DataCell className="py-1 pr-2 text-zinc-500">{event}</DataCell>
                     {CHIP_ORDER.map((chip) => {
                       const v = byChipEvent.get(chip)?.get(event);
                       return (
-                        <td
-                          key={chip}
-                          className="py-1 pr-2 text-right tabular-nums text-zinc-700 dark:text-zinc-300"
-                          title={v?.blocked ?? undefined}
-                        >
+                        <DataCell key={chip} className="py-1 pr-2 text-zinc-700 dark:text-zinc-300" title={v?.blocked ?? undefined} numeric>
                           {v && !v.blocked ? signed(v.gain) : "—"}
-                        </td>
+                        </DataCell>
                       );
                     })}
-                  </tr>
+                  </DataRow>
                 ))}
               </tbody>
             </table>

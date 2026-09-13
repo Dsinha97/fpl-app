@@ -1,6 +1,7 @@
 "use client";
 
 import { Pin } from "lucide-react";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -1170,18 +1171,15 @@ export default function ScenariosPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-zinc-500">
-                  <th className="sticky top-0 z-10 border-b border-zinc-200 bg-white px-3 py-2 dark:border-purple-900/40 dark:bg-card">
+                  <DataHeadCell className="sticky top-0 z-10 border-b border-zinc-200 bg-white px-3 py-2 dark:border-purple-900/40 dark:bg-card">
                     Metric
-                  </th>
+                  </DataHeadCell>
                   {chosen.map((d) => (
                     // Right-aligned to sit over the numbers beneath it, now
                     // that the metric cells align right.
-                    <th
-                      key={d.draftId}
-                      className="sticky top-0 z-10 border-b border-zinc-200 bg-white px-3 py-2 text-right dark:border-purple-900/40 dark:bg-card"
-                    >
+                    <DataHeadCell key={d.draftId} className="sticky top-0 z-10 border-b border-zinc-200 bg-white px-3 py-2 dark:border-purple-900/40 dark:bg-card" numeric>
                       {d.name}
-                    </th>
+                    </DataHeadCell>
                   ))}
                 </tr>
               </thead>
@@ -1413,11 +1411,8 @@ function ComparisonRows({
               ? Math.max(...nums)
               : Math.min(...nums);
         return (
-          <tr
-            key={row.label}
-            className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
-          >
-            <th className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
+          <DataRow key={row.label} className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
+            <DataHeadCell className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
               {/* AnnotatedLabel rather than a hand-rolled TapToReveal trigger
                   (DSI-123). These labels really do open a note, but this call
                   site drew the dotted underline without the cursor-help that
@@ -1431,7 +1426,7 @@ function ComparisonRows({
               ) : (
                 row.label
               )}
-            </th>
+            </DataHeadCell>
             {nums.map((v, i) => {
               const wins = best !== null && v === best && nums.length > 1;
               return (
@@ -1467,15 +1462,15 @@ function ComparisonRows({
                 </td>
               );
             })}
-          </tr>
+          </DataRow>
         );
       })}
-      <tr className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
-        <th className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
+      <DataRow className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
+        <DataHeadCell className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
           Unique to this draft
-        </th>
+        </DataHeadCell>
         {uniquePlayers.map((ids, i) => (
-          <td key={i} className="px-3 py-2 text-xs">
+          <DataCell key={i} className="px-3 py-2 text-xs">
             {ids.length === 0 ? (
               <span className="text-zinc-400">none — identical squads</span>
             ) : (
@@ -1488,9 +1483,9 @@ function ComparisonRows({
                 {ids.length > 4 ? ` +${ids.length - 4}` : ""}
               </span>
             )}
-          </td>
+          </DataCell>
         ))}
-      </tr>
+      </DataRow>
     </>
   );
 }

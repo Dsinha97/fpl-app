@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { useRouter } from "next/navigation";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
@@ -1840,29 +1841,26 @@ export default function TeamPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                      <th className="px-3 py-2">GW</th>
-                      <th className="px-3 py-2">Points</th>
-                      <th className="px-3 py-2">Total</th>
-                      <th className="px-3 py-2">Overall Rank</th>
-                      <th className="px-3 py-2">Bench</th>
-                      <th className="px-3 py-2">Value</th>
-                      <th className="px-3 py-2">Chip</th>
+                      <DataHeadCell className="px-3 py-2">GW</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Points</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Total</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Overall Rank</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Bench</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Value</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Chip</DataHeadCell>
                     </tr>
                   </thead>
                   <tbody>
                     {data.gwHistory.map((g) => (
-                      <tr
-                        key={g.event}
-                        className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
-                      >
-                        <td className="px-3 py-2 tabular-nums">{g.event}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtNum(g.points)}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtNum(g.total_points)}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtNum(g.overall_rank)}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtNum(g.points_on_bench)}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtMoney(g.value)}</td>
-                        <td className="px-3 py-2">{g.active_chip ?? ""}</td>
-                      </tr>
+                      <DataRow key={g.event} className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
+                        <DataCell className="px-3 py-2 tabular-nums">{g.event}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtNum(g.points)}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtNum(g.total_points)}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtNum(g.overall_rank)}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtNum(g.points_on_bench)}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtMoney(g.value)}</DataCell>
+                        <DataCell className="px-3 py-2">{g.active_chip ?? ""}</DataCell>
+                      </DataRow>
                     ))}
                   </tbody>
                 </table>
@@ -1880,22 +1878,19 @@ export default function TeamPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                      <th className="px-3 py-2">Season</th>
-                      <th className="px-3 py-2">Points</th>
-                      <th className="px-3 py-2">Rank</th>
-                      <th className="px-3 py-2">Percentile</th>
+                      <DataHeadCell className="px-3 py-2">Season</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Points</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Rank</DataHeadCell>
+                      <DataHeadCell className="px-3 py-2">Percentile</DataHeadCell>
                     </tr>
                   </thead>
                   <tbody>
                     {data.seasons.map((s) => (
-                      <tr
-                        key={s.season_name}
-                        className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
-                      >
-                        <td className="px-3 py-2">{s.season_name}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtNum(s.total_points)}</td>
-                        <td className="px-3 py-2 tabular-nums">{fmtNum(s.rank)}</td>
-                        <td className="px-3 py-2">
+                      <DataRow key={s.season_name} className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
+                        <DataCell className="px-3 py-2">{s.season_name}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtNum(s.total_points)}</DataCell>
+                        <DataCell className="px-3 py-2 tabular-nums">{fmtNum(s.rank)}</DataCell>
+                        <DataCell className="px-3 py-2">
                           {s.rank_percentage !== null ? (
                             <div className="flex items-center gap-2">
                               <span className="w-16 shrink-0 tabular-nums">
@@ -1915,8 +1910,8 @@ export default function TeamPage() {
                           ) : (
                             "—"
                           )}
-                        </td>
-                      </tr>
+                        </DataCell>
+                      </DataRow>
                     ))}
                   </tbody>
                 </table>

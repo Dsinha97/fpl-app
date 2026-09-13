@@ -7,6 +7,7 @@
 // invoked from the app. This page is that wiring — no new maths.
 
 import { Button } from "@/components/ui/button";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { supabase } from "@/lib/supabase/client";
@@ -336,46 +337,43 @@ export default function LeaguesPage() {
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                      <th className="py-2 pr-2">Player</th>
-                      <th className="px-2 py-2">Team</th>
-                      <th className="px-2 py-2">Pos</th>
-                      <th className="px-2 py-2">Owners</th>
-                      <th className="px-2 py-2">Own %</th>
-                      <th className="px-2 py-2">Captains</th>
-                      <th className="px-2 py-2">EO</th>
-                      <th className="px-2 py-2">You?</th>
-                      <th className="px-2 py-2">xP GW</th>
-                      <th className="px-2 py-2">Differential</th>
-                      <th className="px-2 py-2">Rank gain</th>
+                      <DataHeadCell className="py-2 pr-2">Player</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Team</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Pos</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Owners</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Own %</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Captains</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">EO</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">You?</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">xP GW</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Differential</DataHeadCell>
+                      <DataHeadCell className="px-2 py-2">Rank gain</DataHeadCell>
                     </tr>
                   </thead>
                   <tbody>
                     {eoRows.map((row) => (
-                      <tr
-                        key={row.element}
-                        className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
-                      >
-                        <td className="py-1.5 pr-2 font-medium">{row.meta?.webName ?? `#${row.element}`}</td>
-                        <td className="px-2 py-1.5 text-zinc-500">{row.meta?.teamShort ?? "—"}</td>
-                        <td className="px-2 py-1.5 text-zinc-500">
+                      <DataRow key={row.element} className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
+                        <DataCell className="py-1.5 pr-2 font-medium">{row.meta?.webName ?? `#${row.element}`}</DataCell>
+                        <DataCell className="px-2 py-1.5 text-zinc-500">{row.meta?.teamShort ?? "—"}</DataCell>
+                        <DataCell className="px-2 py-1.5 text-zinc-500">
                           {row.meta ? POSITIONS[row.meta.elementType] : "—"}
-                        </td>
-                        <td className="px-2 py-1.5 tabular-nums">
+                        </DataCell>
+                        <DataCell className="px-2 py-1.5 tabular-nums">
                           {row.owners}/{standings.length}
-                        </td>
-                        <td className="px-2 py-1.5 tabular-nums">{(row.ownershipPct * 100).toFixed(1)}%</td>
-                        <td className="px-2 py-1.5 tabular-nums">
+                        </DataCell>
+                        <DataCell className="px-2 py-1.5 tabular-nums">{(row.ownershipPct * 100).toFixed(1)}%</DataCell>
+                        <DataCell className="px-2 py-1.5 tabular-nums">
                           {row.captains}
                           {row.tripleCaptains > 0 ? ` (+${row.tripleCaptains} TC)` : ""}
-                        </td>
-                        <td className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-primary">
+                        </DataCell>
+                        <DataCell className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-primary">
                           {(row.eo * 100).toFixed(0)}%
-                        </td>
-                        <td className="px-2 py-1.5">{row.youOwn ? "✓" : ""}</td>
-                        <td className="px-2 py-1.5 tabular-nums">{row.meta?.xp1?.toFixed(1) ?? "—"}</td>
-                        <td className="px-2 py-1.5 tabular-nums">{row.differential.toFixed(1)}</td>
-                        <td className="px-2 py-1.5 tabular-nums">{row.rankGain.toFixed(1)}</td>
-                      </tr>
+                        </DataCell>
+                        <DataCell className="px-2 py-1.5">{row.youOwn ? "✓" : ""}</DataCell>
+                        <DataCell className="px-2 py-1.5 tabular-nums">{row.meta?.xp1?.toFixed(1) ?? "—"}</DataCell>
+                        <DataCell className="px-2 py-1.5 tabular-nums">{row.differential.toFixed(1)}</DataCell>
+                        <DataCell className="px-2 py-1.5 tabular-nums">{row.rankGain.toFixed(1)}</DataCell>
+                      </DataRow>
                     ))}
                   </tbody>
                 </table>
