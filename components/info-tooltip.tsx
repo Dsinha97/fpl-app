@@ -110,7 +110,16 @@ export function InfoTooltip({
   );
 }
 
-/** Shared explanation of the fixture colour + ring encoding. */
+/**
+ * Shared explanation of the fixture colour + ring encoding.
+ *
+ * Five popups render this one component (/fixtures, /players, /scenarios,
+ * /transfers, compare-panel), which is exactly why it is worth keeping
+ * correct in one place: when the venue encoding changed to away-only, this
+ * text went stale in five screens at once and stayed that way until someone
+ * read a tooltip. Any change to `venueRing` (lib/fdr.ts) has to land here in
+ * the same commit.
+ */
 export function FdrLegendContent() {
   return (
     <>
@@ -120,15 +129,14 @@ export function FdrLegendContent() {
         (easiest) through yellow to dark red (hardest).
       </p>
       <p className="mt-1.5">
-        <span className="font-medium">The ring</span> is the venue — a pale ring means{" "}
-        <span className="font-semibold">home</span>, a{" "}
-        <span className="font-semibold text-purple-600 dark:text-purple-400">purple ring</span>{" "}
-        means <span className="font-semibold">away</span>. Purple rather than red, so the two stay
-        apart under every form of colour blindness and never blend into the fixture colour beneath.
+        <span className="font-medium">A ring</span> means the fixture is{" "}
+        <span className="font-semibold">away</span>. Home carries none — one mark to look for
+        rather than two to tell apart, and a light/dark ring rather than a coloured one so it
+        holds under every form of colour blindness and never blends into the fill beneath.
       </p>
       <p className="mt-1.5">
-        The text is the opponent&apos;s three-letter code. Hover any fixture for the gameweek,
-        venue, and difficulty in words.
+        The text is the opponent&apos;s three-letter code. Every fixture also carries the
+        gameweek, venue and difficulty in words — on hover, and to a screen reader.
       </p>
       <p className="mt-1.5 text-zinc-500 dark:text-zinc-400">
         Ratings currently come from the official FPL difficulty scale; a custom analytical rating

@@ -45,7 +45,7 @@ interface FixtureCellProps {
 }
 
 /**
- * One fixture in a matrix or run: fill encodes difficulty, ring encodes venue,
+ * One fixture in a matrix or run: fill encodes difficulty, a ring marks away,
  * text names the opponent. Three independent channels, so neither colour
  * blindness nor a monochrome print loses the meaning.
  */
