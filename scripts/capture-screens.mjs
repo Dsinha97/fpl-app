@@ -143,7 +143,7 @@ const FRAMES = [
   { name: "MyTeam-Seasons", path: "/team/", steps: [wait(3000), scrollTo("This season")] },
   { name: "Players-Selected", path: "/players/", steps: [wait(2000), checkFirst(2)] },
   { name: "Players-Compare", path: "/players/", steps: [wait(2000), checkFirst(2), wait(600), click("Compare 2"), wait(2500)] },
-  { name: "Scenarios-Compare", path: "/scenarios/", steps: [wait(2500), checkFirst(4), wait(1500), scrollTo("Metric")] },
+  { name: "Scenarios-Compare", path: "/scenarios/", steps: [wait(2500), checkFirst(4), wait(1500), click("Compare"), wait(1200)] },
   { name: "Fixtures-ClubView", path: "/fixtures/", steps: [click("Clubs"), wait(1500), clickNth("Arsenal", 0), wait(900)] },
   { name: "Transfers-ChipPlan", path: "/transfers/", steps: [wait(6000), click("Chip plan"), wait(1200)] },
 

@@ -46,6 +46,7 @@ import { totalSpend } from "@/lib/squad-budget";
 import { benchBoostAt, tripleCaptainAt, type ChipValuation } from "@/lib/chips";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { SlideOver } from "@/components/ui/slide-over";
 import { AnnotatedLabel, ModelNote } from "@/components/ui/model-note";
 import {
   horizonLabel,
@@ -597,7 +598,11 @@ export default function ScenariosPage() {
   // below the card grid with no way to jump to it — this ref plus the
   // sticky bar below fix that, mirroring the pattern app/players/page.tsx
   // already uses for its own bottom bar.
-  const comparisonRef = useRef<HTMLElement>(null);
+  /** The comparison is a side panel, the same shape /players uses for its own
+   *  comparison — it used to be a section further down the page that the tray
+   *  scrolled to, which meant the drafts you were comparing scrolled away. */
+  const [compareOpen, setCompareOpen] = useState(false);
+  const compareTrigger = useRef<HTMLButtonElement>(null);
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 pb-24">
@@ -1047,8 +1052,15 @@ export default function ScenariosPage() {
       )}
 
       {/* comparison */}
-      {chosen.length >= 2 && (
-        <section ref={comparisonRef} className="mt-8 scroll-mt-4">
+      <SlideOver
+        open={compareOpen && chosen.length >= 2}
+        onClose={() => setCompareOpen(false)}
+        side="right"
+        label="Draft comparison"
+        width="min(56rem, 96vw)"
+        triggerRef={compareTrigger}
+      >
+        <section className="p-2">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
             Comparing {chosen.length} drafts
             {/* DSI-126/129 #2: these two notes were a stack of bare grey
@@ -1058,6 +1070,15 @@ export default function ScenariosPage() {
               <span className="block">{SQUAD_SCORE_NOTE}</span>
               <span className="block">{RISK_MODEL_NOTE}</span>
             </ModelNote>
+            <Button
+              onClick={() => setCompareOpen(false)}
+              aria-label="Close comparison"
+              variant="ghost"
+              size="icon-sm"
+              className="ml-auto shrink-0 text-xl leading-none text-zinc-500"
+            >
+              ×
+            </Button>
           </h2>
           {/* The draft names have to stay visible while reading 16 metric rows
               (DSI-123). `sticky top-0` alone is inert here: `overflow-x-auto`
@@ -1113,7 +1134,7 @@ export default function ScenariosPage() {
             page.
           </p>
         </section>
-      )}
+      </SlideOver>
 
       {chosen.length === 1 && (
         <p className="mt-6 text-sm text-zinc-500">
@@ -1132,16 +1153,12 @@ export default function ScenariosPage() {
                 Clear
               </Button>
               <Button
-                onClick={() =>
-                  comparisonRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-                }
+                ref={compareTrigger}
+                onClick={() => setCompareOpen((v) => !v)}
+                aria-expanded={compareOpen}
                 size="md"
               >
-                {/* It scrolls. "Compare N drafts" read as the action that
-                    produces the comparison, which is already on the page
-                    below (DSI-123) — so name the navigation, not a
-                    recalculation that never happens. */}
-                Jump to comparison ↓
+                {compareOpen ? "Hide comparison" : `Compare ${chosen.length}`}
               </Button>
             </span>
           </div>
