@@ -75,3 +75,32 @@ export function formatTime(iso: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return "—"
   return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
 }
+
+/**
+ * A number rendered with its sign, for a headline or a summary string.
+ *
+ * This existed **eight times** — in app/deadline, app/scenarios, app/transfers,
+ * components/chip-timing, components/transfer-path, components/transfer-plan,
+ * components/decision-analytics-panel and lib/transfer-optimizer — in three
+ * mutually incompatible versions. That is CLAUDE.md's "one quantity, one
+ * implementation" with a delay on it, and the delay had already produced a bug.
+ *
+ * Five of the copies read `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`, which
+ * signs the *unrounded* value: -0.04 renders as "-0.0", a fall that did not
+ * happen, and 0 renders as "+0.0", a gain that did not happen. Two copies had
+ * already fixed this by rounding first; this is that behaviour, so the fix
+ * reaches the other six.
+ *
+ * The minus is U+2212, not a hyphen — the convention transfer-plan.tsx already
+ * documented and `Delta` already follows, so a headline reads
+ * `+8.5 xP − 8 hit` with a real minus sign.
+ *
+ * Presentation only. `lib/transfer-optimizer.ts`'s single caller builds a
+ * summary line ("Kinsky → Leno: +14.0 xP, price-neutral"); no computed value
+ * passes through here, so no engine behaviour moves.
+ */
+export function signed(v: number, digits = 1): string {
+  const rounded = Number(v.toFixed(digits))
+  if (rounded === 0) return (0).toFixed(digits)
+  return `${rounded > 0 ? "+" : "\u2212"}${Math.abs(rounded).toFixed(digits)}`
+}

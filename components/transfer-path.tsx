@@ -6,6 +6,7 @@ import { horizonLabel, type Horizon } from "@/lib/team-state";
 import type { TransferMove } from "@/lib/transfers";
 import type { TransferPathResult, TransferPathStep } from "@/lib/transfer-path";
 import { Spinner } from "@/components/ui/spinner";
+import { signed } from "@/lib/utils";
 
 interface TransferPathProps {
   result: TransferPathResult | null;
@@ -29,11 +30,6 @@ interface TransferPathProps {
   onDecisionMarginChange?: (v: number) => void;
 }
 
-const signed = (v: number, digits = 1) => {
-  const rounded = Number(v.toFixed(digits));
-  if (rounded === 0) return (0).toFixed(digits);
-  return `${rounded > 0 ? "+" : ""}${rounded.toFixed(digits)}`;
-};
 
 /**
  * The forward transfer path — what should happen between now and the last

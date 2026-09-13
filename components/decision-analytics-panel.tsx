@@ -10,6 +10,7 @@ import {
 } from "@/lib/decision-analytics";
 import { HORIZONS, horizonLabel, type Horizon } from "@/lib/team-state";
 import type { PlayerRow } from "@/components/gameweek-review-panel";
+import { signed } from "@/lib/utils";
 
 function nameOf(players: Map<number, PlayerRow>, element: number): string {
   return players.get(element)?.web_name ?? `#${element}`;
@@ -21,7 +22,6 @@ const CARD =
 /** A signed points figure that keeps its sign visible — never a bare number.
  *  Uses a real minus sign, matching the − the surrounding copy uses for its
  *  own operators; a hyphen next to one reads as a different character. */
-const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : "0");
 
 /**
  * The season's rank arc.
@@ -264,7 +264,7 @@ export function DecisionAnalyticsPanel({
                     <span className="font-medium tabular-nums">{data.transfers.outPoints} out</span>{" "}
                     − <span className="font-medium tabular-nums">{data.transfers.hits} hit</span> ={" "}
                     <span className="font-medium tabular-nums">
-                      {signed(data.transfers.inPoints - data.transfers.outPoints - data.transfers.hits)}
+                      {signed(data.transfers.inPoints - data.transfers.outPoints - data.transfers.hits, 0)}
                     </span>
                   </p>
                   {data.transfers.inProgress && (
@@ -295,7 +295,7 @@ export function DecisionAnalyticsPanel({
                                       : "text-red-600 dark:text-red-400"
                                   }
                                 >
-                                  {signed(o.inPoints - o.outPoints)}
+                                  {signed(o.inPoints - o.outPoints, 0)}
                                 </span>
                               </span>
                               {o.inProgress && (
@@ -330,7 +330,7 @@ export function DecisionAnalyticsPanel({
                       </span>
                       {c.earned !== null ? (
                         <span className="ml-2 tabular-nums text-emerald-600 dark:text-primary">
-                          {signed(c.earned)} pts
+                          {signed(c.earned, 0)} pts
                         </span>
                       ) : (
                         <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{c.why}</p>

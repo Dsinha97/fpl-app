@@ -42,6 +42,7 @@ import {
 import { optimiseLineup, type LineupCandidate } from "@/lib/lineup";
 import { totalSpend } from "@/lib/squad-budget";
 import { benchBoostAt, tripleCaptainAt, type ChipValuation } from "@/lib/chips";
+import { Badge } from "@/components/ui/badge";
 import { ModelNote } from "@/components/ui/model-note";
 import {
   HORIZONS,
@@ -55,8 +56,8 @@ import {
   type TeamState,
   DEFAULT_RULES,
 } from "@/lib/team-state";
+import { signed } from "@/lib/utils";
 
-const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
 interface PlayerRow {
   id: number;
@@ -852,12 +853,15 @@ export default function ScenariosPage() {
                     <p className="mt-0.5 text-[11px] text-zinc-500">
                       #{rank + 1} · saved {formatWhen(draft.updatedAt)}
                       {draft.pinned && (
-                        <span
-                          className="ml-1.5 rounded bg-amber-100 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                        <Badge
+                          tone="warning"
+                          variant="solid"
+                          className="ml-1.5"
                           title="Every draft-aware page opens on this squad by default"
+                          aria-label="Pinned — every draft-aware page opens on this squad by default"
                         >
                           pinned
-                        </span>
+                        </Badge>
                       )}
                     </p>
                   </div>

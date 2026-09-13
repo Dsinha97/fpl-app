@@ -61,6 +61,7 @@ import {
   type TeamState,
 } from "@/lib/team-state";
 import { Alert } from "@/components/ui/alert";
+import { signed } from "@/lib/utils";
 
 interface PlayerRow {
   id: number;
@@ -100,7 +101,6 @@ const CANDIDATES = 8;
 type TransfersTab = "transfers" | "chips";
 
 const money = (tenths: number) => `£${(tenths / 10).toFixed(1)}m`;
-const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
 export default function TransfersPage() {
   const [drafts, setDrafts] = useState<TeamState[]>([]);

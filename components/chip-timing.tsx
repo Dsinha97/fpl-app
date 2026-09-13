@@ -28,6 +28,7 @@ import {
 } from "@/lib/team-state";
 import { availabilityFromStatus, type ScoredPlayer } from "@/lib/scoring";
 import { Alert } from "@/components/ui/alert";
+import { signed } from "@/lib/utils";
 
 interface PlayerRow {
   id: number;
@@ -44,7 +45,6 @@ interface PlayerRow {
 const FALLBACK_SEASON_WINDOW = 8;
 const CHIP_ORDER: ChipKind[] = ["wildcard", "freehit", "bboost", "3xc"];
 
-const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
 /**
  * The chip-timing engine — which gameweek each chip is worth the most, and by

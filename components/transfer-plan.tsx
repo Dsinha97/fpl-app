@@ -10,6 +10,7 @@ import { horizonLabel, type ChipKind, type Horizon } from "@/lib/team-state";
 import type { TransferMove } from "@/lib/transfers";
 import { CHIP_LABELS } from "@/lib/chip-plan";
 import { Spinner } from "@/components/ui/spinner";
+import { signed } from "@/lib/utils";
 
 interface TransferPlanProps {
   result: OptimizerResult | null;
@@ -38,11 +39,6 @@ export const signatureOf = (moves: TransferMove[]) =>
  * "0.0" rather than "-0.0" — which looks like a rendering bug and invites the
  * reader to distrust the rest of the row.
  */
-const signed = (v: number, digits = 1) => {
-  const rounded = Number(v.toFixed(digits));
-  if (rounded === 0) return (0).toFixed(digits);
-  return `${rounded > 0 ? "+" : ""}${rounded.toFixed(digits)}`;
-};
 
 /**
  * "Bench Boost GW5, Wildcard GW8" from whatever chip terms any branch's

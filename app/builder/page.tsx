@@ -23,6 +23,7 @@ import {
 } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
 import { Pager } from "@/components/ui/pager";
+import { ModelNote } from "@/components/ui/model-note";
 import { loadPredictionSeries } from "@/lib/player-pool";
 import { loadSquadHeadlines, type NewsHeadline } from "@/lib/news-feed";
 import {
@@ -1949,8 +1950,17 @@ export default function BuilderPage() {
               {lineup.captain && (
                 <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-purple-900/40">
                   <div className="flex items-baseline justify-between">
-                    <span className="text-xs uppercase tracking-wide text-zinc-500">
+                    <span className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-zinc-500">
                       Recommended captain
+                      {/* DSI-121: CAPTAIN_MODEL_NOTE was a bare grey footnote
+                          under the reasons list — internal weighting detail
+                          occupying decision space on the one card a manager
+                          reads to make a call. It qualifies the whole
+                          recommendation, so it hangs off the recommendation's
+                          own heading. */}
+                      <ModelNote label="How is the captain recommendation calculated?">
+                        {CAPTAIN_MODEL_NOTE}
+                      </ModelNote>
                     </span>
                     <TapToReveal
                       label="How is captain confidence calculated?"
@@ -1986,9 +1996,6 @@ export default function BuilderPage() {
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-2 text-[10px] leading-relaxed text-zinc-400">
-                    {CAPTAIN_MODEL_NOTE}
-                  </p>
                 </div>
               )}
             </div>

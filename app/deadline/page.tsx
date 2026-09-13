@@ -68,6 +68,7 @@ import {
   type EventPrediction,
   type PredAt,
 } from "@/lib/chips";
+import { Badge } from "@/components/ui/badge";
 import {
   DEFAULT_DECISION_MARGIN,
   type WildcardWindow,
@@ -77,6 +78,7 @@ import { freeTransfersDisplay, MAX_FREE_TRANSFERS, TRANSFER_MODEL_NOTE } from "@
 import { ago, type FeedRow } from "@/lib/change-feed";
 import { confidentEntities, dedupeByUrl, sourceBadge, type NewsRow } from "@/lib/news-feed";
 import { loadPastResults, type PastResult } from "@/lib/player-history";
+import { signed } from "@/lib/utils";
 import { Alert } from "@/components/ui/alert";
 
 interface PlayerRow {
@@ -110,7 +112,6 @@ interface XpRow {
   xp_total: number | null;
 }
 
-const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
 const STATUS_SEVERITY: Record<string, number> = { s: 0, i: 0, u: 0, n: 0, d: 1, a: 2 };
 
@@ -1205,9 +1206,9 @@ export default function DeadlinePage() {
                 rather than the green a recommendation would use — this is a
                 fact about the squad, not advice. */}
             {activeChip && (
-              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+              <Badge tone="warning" variant="solid">
                 {CHIP_LABELS[activeChip]} active · GW{team.activeChipEvent ?? team.gameweek}
-              </span>
+              </Badge>
             )}
             {team.source === "fpl" && (
               <span className="flex items-center gap-1 text-xs text-zinc-500">
@@ -1250,9 +1251,9 @@ export default function DeadlinePage() {
                         the pair of controls that used to sit beside it. */}
                     <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
                       {gwState?.provisional && (
-                        <span className="mr-auto rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                        <Badge tone="warning" variant="solid" className="mr-auto">
                           Provisional
-                        </span>
+                        </Badge>
                       )}
                       <div className="flex items-center gap-3">
                         <Link
@@ -1686,9 +1687,9 @@ export default function DeadlinePage() {
                                 own words, rather than netted into a headline
                                 that reads as a recommendation. */}
                             {v.chip === activeChip ? (
-                              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                              <Badge tone="warning" variant="solid">
                                 Active
-                              </span>
+                              </Badge>
                             ) : (
                               v.blocked === null && (
                                 <span

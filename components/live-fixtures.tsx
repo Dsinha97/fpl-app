@@ -10,6 +10,7 @@ import {
   STAT_LABELS,
   type FixtureStatLine,
 } from "@/lib/fixture-stats";
+import { Badge } from "@/components/ui/badge";
 
 export interface LiveFixtureTeam {
   id: number;
@@ -121,9 +122,9 @@ export function FixtureStatBreakdown({
           <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
             <span aria-hidden="true">{STAT_LABELS[id].icon}</span> {STAT_LABELS[id].label}
             {id === "bonus" && provisional && (
-              <span className="ml-1.5 rounded bg-amber-100 px-1 py-0.5 text-[9px] normal-case text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+              <Badge tone="warning" variant="solid" size="sm" className="ml-1.5 normal-case">
                 provisional
-              </span>
+              </Badge>
             )}
           </p>
           <div className="mt-1 grid grid-cols-2 gap-x-3 text-sm">

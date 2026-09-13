@@ -65,6 +65,7 @@ import {
   type TeamState,
   type XpByEvent,
 } from "./team-state";
+import { signed } from "./utils";
 
 // `XpByEvent`, `projectionAtEvent` and `projectAtEvent` live in team-state.ts
 // now — they mirror `computeProjection`, which is declared there — and are
@@ -477,7 +478,6 @@ function describe(sim: TransferSimulation, input: OptimizeTransfersInput): strin
   return out;
 }
 
-const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
 
 // ------------------------------------------------------------------- entry
 
