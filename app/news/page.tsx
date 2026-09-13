@@ -44,6 +44,14 @@ export default function NewsPage() {
   const [newsRows, setNewsRows] = useState<NewsRow[]>([]);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [source, setSource] = useState<(typeof SOURCE_PILLS)[number]["slug"]>("all");
+  /**
+   * One tagged player or club, when a chip has been used to narrow the feed
+   * (DSI-122). The chips already carried the entity resolution — they just
+   * weren't wired to anything, so they looked clickable and did nothing.
+   */
+  const [entityFilter, setEntityFilter] = useState<
+    { type: string; id: number; name: string } | null
+  >(null);
   const [loading, setLoading] = useState(true);
   const [newsLoading, setNewsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,11 +153,18 @@ export default function NewsPage() {
   }, [rows, filter]);
 
   const visibleNews = useMemo(() => {
-    const filtered = source === "all" ? newsRows : newsRows.filter((r) => r.source_slug === source);
+    let filtered = source === "all" ? newsRows : newsRows.filter((r) => r.source_slug === source);
+    if (entityFilter) {
+      filtered = filtered.filter((r) =>
+        confidentEntities(r).some(
+          (e) => e.entity_type === entityFilter.type && e.entity_id === entityFilter.id,
+        ),
+      );
+    }
     // newsRows is already published_at-descending, so dedupeByUrl keeps the
     // newest occurrence of a triplicated FFS item — see lib/news-feed.ts.
     return dedupeByUrl(filtered);
-  }, [newsRows, source]);
+  }, [newsRows, source, entityFilter]);
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
@@ -214,6 +229,23 @@ export default function NewsPage() {
             best guess at what a story is about, not a fact the way a price change is.
           </p>
 
+          {/* A filter with no visible state is a trap: scroll past the chip you
+              clicked and a short feed looks like a quiet news day rather than a
+              filter you left on. */}
+          {entityFilter && (
+            <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              Showing only headlines that mention{" "}
+              <span className="font-medium text-foreground">{entityFilter.name}</span>
+              <button
+                type="button"
+                onClick={() => setEntityFilter(null)}
+                className="rounded px-1.5 py-0.5 underline underline-offset-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                clear
+              </button>
+            </p>
+          )}
+
           {/* The filter row above this is already a SegmentedControl; these
               picked one source with `Button variant="toggle"`, so the page had
               two shapes for "pick exactly one". */}
@@ -274,14 +306,28 @@ export default function NewsPage() {
                         e.entity_type === "team"
                           ? teamNames.get(e.entity_id)
                           : playerNames.get(e.entity_id);
+                      const label = name ?? `${e.entity_type} #${e.entity_id}`;
+                      const active =
+                        entityFilter?.type === e.entity_type && entityFilter?.id === e.entity_id;
                       return (
-                        <span
+                        <button
                           key={i}
-                          className="rounded bg-accent px-1.5 py-0.5 text-[10px] text-accent-foreground"
-                          title={`${e.entity_type} match · ${Math.round(e.confidence * 100)}% confidence · ${e.matched_via}`}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() =>
+                            setEntityFilter(
+                              active ? null : { type: e.entity_type, id: e.entity_id, name: label },
+                            )
+                          }
+                          className={`rounded px-1.5 py-0.5 text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                            active
+                              ? "bg-primary text-slate-950"
+                              : "bg-accent text-accent-foreground hover:bg-primary/20"
+                          }`}
+                          title={`${active ? "Clear this filter" : `Show only headlines mentioning ${label}`} · ${e.entity_type} match · ${Math.round(e.confidence * 100)}% confidence · ${e.matched_via}`}
                         >
-                          {name ?? `${e.entity_type} #${e.entity_id}`}
-                        </span>
+                          {label}
+                        </button>
                       );
                     })}
                   </div>
@@ -289,7 +335,9 @@ export default function NewsPage() {
               ))}
               {visibleNews.length === 0 && (
                 <li className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  No headlines yet for this source — sync-news polls every 20 minutes.
+                  {entityFilter
+                    ? `No headlines mentioning ${entityFilter.name}${source === "all" ? "" : " from this source"}.`
+                    : "No headlines yet for this source — sync-news polls every 20 minutes."}
                 </li>
               )}
             </ul>
