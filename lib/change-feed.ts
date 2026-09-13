@@ -71,7 +71,56 @@ const signedMoney = (oldT: unknown, newT: unknown): string | undefined => {
   return `${delta > 0 ? "+" : "−"}£${Math.abs(delta).toFixed(1)}m`;
 };
 
-export function describe(row: FeedRow): FeedPresentation {
+/**
+ * How many fixtures a club has in a gameweek, for the round a fixture moved
+ * out of and into. `undefined` when the caller has no schedule loaded, which
+ * is the normal case on a page that only renders the feed.
+ *
+ * DSI-122/137: a cross-round move already said `GW20 -> GW21`, so the *fact*
+ * was shown -- but not the consequence, which is the part that rewrites chip
+ * strategy. A move only matters because of what it leaves behind: a blank in
+ * the round it left, a double in the round it joined.
+ */
+export type FixtureCountAt = (teamShort: string, event: number) => number | undefined;
+
+/**
+ * "SUN blank in GW20", "both doubled in GW21", or both -- omitting whichever
+ * half is not true, and the whole thing when the counts are unknown.
+ *
+ * Counts are post-move (the schedule as it now stands), so a club showing 0 in
+ * the old round is blank *because of* this move, and 2 in the new round is
+ * doubled. A club that still has another fixture in the old round is not
+ * mentioned: nothing happened to it worth a reader's attention.
+ */
+function roundEffect(
+  home: string | undefined,
+  away: string | undefined,
+  from: number,
+  to: number,
+  countAt: FixtureCountAt,
+): string | undefined {
+  const clubs = [home, away].filter((c): c is string => typeof c === "string" && c !== "?");
+  if (clubs.length === 0) return undefined;
+
+  const phrase = (event: number, want: (n: number) => boolean, word: string) => {
+    const hit = clubs.filter((c) => {
+      const n = countAt(c, event);
+      return n !== undefined && want(n);
+    });
+    if (hit.length === 0) return null;
+    const who = hit.length === clubs.length && clubs.length > 1 ? "both" : hit.join(" and ");
+    return `${who} ${word} in GW${event}`;
+  };
+
+  const parts = [
+    phrase(from, (n) => n === 0, "blank"),
+    phrase(to, (n) => n > 1, "doubled"),
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
+export function describe(row: FeedRow, countAt?: FixtureCountAt): FeedPresentation {
   const d = row.detail;
   switch (row.kind) {
     case "price_rise":
@@ -128,7 +177,13 @@ export function describe(row: FeedRow): FeedPresentation {
         headline: match,
         badge: movedRound ? `GW${d.old} → GW${d.new}` : "Time change",
         detail: movedRound
-          ? undefined
+          ? roundEffect(
+              typeof d.home === "string" ? d.home : undefined,
+              typeof d.away === "string" ? d.away : undefined,
+              Number(d.old),
+              Number(d.new),
+              countAt ?? (() => undefined),
+            )
           // Was `.slice(0, 16)` on the raw ISO string, which printed
           // `2027-01-06T20:00` — DSI-122's "looks like a raw backend log".
           : `${formatDateTime(d.old as string)} → ${formatDateTime(d.new as string)}`,

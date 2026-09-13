@@ -154,6 +154,52 @@ export default function NewsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
+  /**
+   * Fixtures per club per gameweek, so a fixture move can say what it did
+   * rather than only that it happened (DSI-122). Keyed by short name because
+   * that is the club identity `change_feed` carries; counts are read
+   * post-move, which is what makes "blank in GW20" true of the round the
+   * fixture left.
+   */
+  const [fixtureCounts, setFixtureCounts] = useState<Map<string, Map<number, number>>>(new Map());
+
+  useEffect(() => {
+    (async () => {
+      const { data: gw } = await supabase
+        .from("gameweeks")
+        .select("season")
+        .eq("is_next", true)
+        .limit(1)
+        .maybeSingle();
+      if (!gw?.season) return;
+      const [{ data: clubs }, { data: fixtures }] = await Promise.all([
+        supabase.from("teams").select("id, short_name").eq("season", gw.season),
+        supabase.from("fixtures").select("event, team_h, team_a").eq("season", gw.season),
+      ]);
+      const shortById = new Map((clubs ?? []).map((t) => [t.id as number, t.short_name as string]));
+      const counts = new Map<string, Map<number, number>>();
+      const bump = (teamId: number, event: number | null) => {
+        const short = shortById.get(teamId);
+        if (!short || event === null) return;
+        const byEvent = counts.get(short) ?? new Map<number, number>();
+        byEvent.set(event, (byEvent.get(event) ?? 0) + 1);
+        counts.set(short, byEvent);
+      };
+      for (const fx of fixtures ?? []) {
+        bump(fx.team_h as number, fx.event as number | null);
+        bump(fx.team_a as number, fx.event as number | null);
+      }
+      setFixtureCounts(counts);
+    })();
+  }, []);
+
+  /** 0 rather than undefined for a club we know about: a club with no fixture
+   *  in a gameweek has none, which is exactly the blank worth reporting. */
+  const fixtureCountAt = (teamShort: string, event: number) => {
+    const byEvent = fixtureCounts.get(teamShort);
+    return byEvent ? (byEvent.get(event) ?? 0) : undefined;
+  };
+
   const { entryId, teamName, profileLoading } = useAuth();
 
   useEffect(() => {
@@ -309,7 +355,7 @@ export default function NewsPage() {
           {!loading && !error && (
             <ul className="mt-4 divide-y divide-border rounded-lg border border-border bg-card">
               {visible.map((row, i) => (
-                <FeedRowItem key={i} row={row} />
+                <FeedRowItem key={i} row={row} fixtureCountAt={fixtureCountAt} />
               ))}
               {visible.length === 0 && (
                 <li className="px-4 py-8 text-center text-sm text-muted-foreground">

@@ -2,7 +2,7 @@ import { CalendarClock, Newspaper, TrendingDown, TrendingUp, TriangleAlert } fro
 import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { ago, describe, type FeedRow as Row } from "@/lib/change-feed";
+import { ago, describe, type FeedRow as Row, type FixtureCountAt } from "@/lib/change-feed";
 import { semanticText } from "@/lib/semantic-colors";
 import { cn } from "@/lib/utils";
 
@@ -32,13 +32,20 @@ export function FeedRowItem({
   row,
   className,
   trailing,
+  fixtureCountAt,
 }: {
   row: Row;
   className?: string;
   /** Overrides the default relative timestamp. */
   trailing?: ReactNode;
+  /**
+   * Lets a fixture move say what it *did* -- left a blank, made a double.
+   * Optional because it needs the season's schedule, which only a page that
+   * has loaded it can supply; without it the row renders exactly as before.
+   */
+  fixtureCountAt?: FixtureCountAt;
 }) {
-  const { tone, headline, badge, detail } = describe(row);
+  const { tone, headline, badge, detail } = describe(row, fixtureCountAt);
   const Icon = ICON[row.kind];
 
   return (
