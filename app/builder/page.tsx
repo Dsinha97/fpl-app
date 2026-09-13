@@ -24,6 +24,7 @@ import {
 import { loadSeasonContext } from "@/lib/season-context";
 import { Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Delta } from "@/components/ui/delta";
 import { Pager } from "@/components/ui/pager";
 import { SlideOver } from "@/components/ui/slide-over";
@@ -1371,14 +1372,16 @@ export default function BuilderPage() {
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           Add a {addingPosition !== null ? (POSITIONS[addingPosition] ?? "player") : "player"}
         </h2>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={stopAdding}
           aria-label="Close the player picker"
-          className="rounded p-1 text-zinc-500 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="text-zinc-500"
         >
           ✕
-        </button>
+        </Button>
       </div>
 
       {resolvedFilters && priceBounds && (
@@ -1736,14 +1739,15 @@ export default function BuilderPage() {
                 Import your FPL squad
               </Link>{" "}
               or{" "}
-              <button
+              <Button
                 type="button"
+                variant="link"
                 onClick={() => runOptimizer(true)}
                 disabled={optimizerRunning}
-                className="font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                className="h-auto p-0 text-inherit align-baseline"
               >
                 build one for me
-              </button>
+              </Button>
               .
             </p>
           )}
@@ -1806,15 +1810,17 @@ export default function BuilderPage() {
               className="w-36 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
             />
           ) : (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon-sm"
               onClick={() => setRenaming(true)}
               aria-label={`Rename draft "${team.name}"`}
               title="Rename this draft"
-              className="rounded-md border border-input px-2 py-1.5 text-zinc-500 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="text-zinc-500"
             >
               <Pencil className="size-3.5" aria-hidden />
-            </button>
+            </Button>
           )}
           <ActionMenu
             tone="outline"
@@ -2076,7 +2082,7 @@ export default function BuilderPage() {
                     ))}
                   </select>
                 </h2>
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     if (!lineupApplied) applyLineup();
@@ -2087,10 +2093,10 @@ export default function BuilderPage() {
                       ? "XI and armband already match the recommendation"
                       : `Apply the recommended XI, bench order, and armband for GW${effectiveEvent}`
                   }
-                  className="shrink-0 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
+                  className="shrink-0 px-3 aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
                 >
                   {lineupApplied ? "Applied" : `Apply GW${effectiveEvent} XI & armband`}
-                </button>
+                </Button>
               </div>
 
               {effectiveEvent !== nextEvent && (
@@ -2223,24 +2229,27 @@ export default function BuilderPage() {
               </label>
             </div>
             <div className="mt-3 flex gap-2 text-sm">
-              <button
+              <Button
                 type="button"
                 onClick={() => runOptimizer(false)}
                 disabled={optimizerRunning}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                variant="default"
+                size="md"
+                className="flex-1"
               >
                 {optimizerRunning && <Spinner />}
                 {optimizerRunning ? "Optimising…" : "Fill remaining"}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => runOptimizer(true)}
                 disabled={optimizerRunning}
-                className="flex items-center justify-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                variant="outline"
+                size="md"
               >
                 {optimizerRunning && <Spinner />}
                 {optimizerRunning ? "Optimising…" : "Rebuild"}
-              </button>
+              </Button>
             </div>
             <div className="mt-2 flex items-start justify-between gap-2 text-[11px]">
               <p className="text-zinc-500">
@@ -2250,17 +2259,19 @@ export default function BuilderPage() {
               {/* One-slot undo: the saved draft is untouched until Save, so
                   this restores exactly what a rebuild replaced. */}
               {previousTeam && (
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     setTeam(previousTeam);
                     setPreviousTeam(null);
                     setOptimizeNote("Reverted to the previous squad");
                   }}
-                  className="relative shrink-0 before:absolute before:-inset-2.5 before:content-[''] rounded border border-input px-2 py-0.5 font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  variant="outline"
+                  size="xs"
+                  className="relative shrink-0 px-2 text-[11px] before:absolute before:-inset-2.5 before:content-['']"
                 >
                   ↩ Revert
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -2287,14 +2298,16 @@ export default function BuilderPage() {
                       Compare all
                     </Link>
                   )}
-                  <button
+                  <Button
                     type="button"
                     onClick={() => stopReplacing()}
                     aria-label="Close"
-                    className="flex h-5 w-5 items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-purple-950/60"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="size-5 text-zinc-400"
                   >
                     ×
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -2337,13 +2350,14 @@ export default function BuilderPage() {
                         label="Maximum price"
                       />
                       {maxPriceOverride !== null && (
-                        <button
+                        <Button
                           type="button"
                           onClick={() => setMaxPriceOverride(null)}
-                          className="rounded text-purple-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-primary"
+                          variant="link"
+                          className="h-auto p-0 text-purple-700 dark:text-primary"
                         >
                           reset
-                        </button>
+                        </Button>
                       )}
                     </label>
                     <label className="flex items-center gap-1.5">
@@ -2492,16 +2506,17 @@ export default function BuilderPage() {
                             )}
                           </p>
                         </div>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => {
                             const meta = metaById.get(r.player.id);
                             if (meta) doSwap(replaceFor, meta);
                           }}
-                          className="shrink-0 rounded bg-primary px-2 py-1 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          size="xs"
+                          className="shrink-0"
                         >
                           Swap
-                        </button>
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -2540,13 +2555,14 @@ export default function BuilderPage() {
                   legal target{eligibleCount === 1 ? "" : "s"}, max{" "}
                   £{(replaceEligibility.priceCeiling / 10).toFixed(1)}m
                 </span>
-                <button
+                <Button
                   type="button"
                   onClick={() => stopReplacing()}
-                  className="shrink-0 rounded font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  variant="link"
+                  className="h-auto shrink-0 p-0 text-inherit"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             )}
             {addingPosition !== null && (
@@ -2555,13 +2571,14 @@ export default function BuilderPage() {
                   Adding a <strong>{POSITIONS[addingPosition]}</strong> — filtered to that
                   position
                 </span>
-                <button
+                <Button
                   type="button"
                   onClick={() => stopAdding()}
-                  className="shrink-0 rounded font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  variant="link"
+                  className="h-auto shrink-0 p-0 text-inherit"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             )}
             <div className="flex flex-wrap items-start gap-2 text-xs">
@@ -2701,7 +2718,7 @@ export default function BuilderPage() {
                             : "—"}
                         </td>
                         <td className="py-1 pr-1 text-right">
-                          <button
+                          <Button
                             type="button"
                             disabled={reason !== null}
                             title={reason ?? (replaceFor !== null ? `Swap in ${p.web_name}` : `Add ${p.web_name}`)}
@@ -2719,10 +2736,12 @@ export default function BuilderPage() {
                             // there adds the wrong player, not a harmless
                             // near-miss. Horizontal is safe: its neighbour is
                             // this same cell's own padding, not another row.
-                            className="relative before:absolute before:-inset-x-2 before:content-[''] rounded border border-input px-1.5 py-0.5 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-35 dark:hover:border-primary dark:hover:text-primary"
+                            variant="outline"
+                            size="xs"
+                            className="relative px-1.5 before:absolute before:-inset-x-2 before:content-[''] hover:border-purple-700 hover:text-purple-700 disabled:opacity-35 dark:hover:border-primary dark:hover:text-primary"
                           >
                             {replaceFor !== null ? "⇄" : "+"}
-                          </button>
+                          </Button>
                         </td>
                       </tr>
                     );
