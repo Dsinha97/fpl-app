@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { FixtureCell } from "@/components/fdr-badge";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
@@ -280,13 +281,13 @@ export function ComparePanel({
           </colgroup>
           <thead>
             <tr className="border-b border-zinc-200 dark:border-purple-900/40">
-              <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-card">
+              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-card">
                 Metric
-              </th>
+              </DataHeadCell>
               {chosen.map((p) => {
                 const row = rowById.get(p.id);
                 return (
-                  <th key={p.id} className="px-3 py-2 text-left">
+                  <DataHeadCell key={p.id} className="px-3 py-2 text-left">
                     <div className="flex min-w-0 items-center gap-1.5">
                       <span
                         className="min-w-0 truncate font-semibold text-zinc-900 dark:text-zinc-100"
@@ -315,7 +316,7 @@ export function ComparePanel({
                     <div className="text-xs font-normal text-zinc-500">
                       {p.teamShort} · {POSITIONS[p.elementType]}
                     </div>
-                  </th>
+                  </DataHeadCell>
                 );
               })}
             </tr>
@@ -325,16 +326,13 @@ export function ComparePanel({
               const values = chosen.map((p) => m.value(p));
               const { best, contested } = winnerOf(values, m.dir);
               return (
-                <tr
-                  key={m.label}
-                  className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
-                >
-                  <th className="sticky left-0 z-10 bg-white px-3 py-1.5 text-left text-xs font-medium text-zinc-500 dark:bg-card">
+                <DataRow key={m.label} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                  <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-1.5 text-left text-xs font-medium text-zinc-500 dark:bg-card">
                     <span className="flex items-center gap-1">
                       {m.label}
                       {m.hint && <InfoTooltip label={m.hint}>{m.hint}</InfoTooltip>}
                     </span>
-                  </th>
+                  </DataHeadCell>
                   {chosen.map((p, i) => {
                     const v = values[i];
                     const isBest = best !== null && v === best && !contested;
@@ -372,15 +370,15 @@ export function ComparePanel({
                       </td>
                     );
                   })}
-                </tr>
+                </DataRow>
               );
             })}
 
             {/* set-piece roles — informational only, no winner to highlight */}
-            <tr className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-              <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-card">
+            <DataRow className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-card">
                 Set pieces
-              </th>
+              </DataHeadCell>
               {chosen.map((p) => {
                 const row = rowById.get(p.id);
                 const hasRole =
@@ -389,7 +387,7 @@ export function ComparePanel({
                     row.direct_freekicks_order === 1 ||
                     row.corners_and_indirect_freekicks_order === 1);
                 return (
-                  <td key={p.id} className="px-3 py-2">
+                  <DataCell key={p.id} className="px-3 py-2">
                     {hasRole ? (
                       <RoleBadges
                         penaltyOrder={row.penalties_order}
@@ -400,23 +398,23 @@ export function ComparePanel({
                     ) : (
                       <span className="text-zinc-400">—</span>
                     )}
-                  </td>
+                  </DataCell>
                 );
               })}
-            </tr>
+            </DataRow>
 
             {/* fixture runs */}
-            <tr className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-              <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-card">
+            <DataRow className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-card">
                 <span className="flex items-center gap-1">
                   Fixtures
                   <InfoTooltip>
                     <FdrLegendContent />
                   </InfoTooltip>
                 </span>
-              </th>
+              </DataHeadCell>
               {chosen.map((p) => (
-                <td key={p.id} className="px-3 py-2">
+                <DataCell key={p.id} className="px-3 py-2">
                   <span className="flex flex-wrap gap-1">
                     {(upcoming.get(p.teamId) ?? [])
                       .slice(0, horizonLength(horizon, seasonWindow))
@@ -431,9 +429,9 @@ export function ComparePanel({
                         />
                       ))}
                   </span>
-                </td>
+                </DataCell>
               ))}
-            </tr>
+            </DataRow>
           </tbody>
         </table>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { NoteDisclosure } from "@/components/ui/note-disclosure";
 import {
   averageFdr,
@@ -211,31 +212,28 @@ export function FdrMatrix({
         <table className="w-full min-w-[36rem] border-collapse text-xs">
           <thead>
             <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-              <th className="sticky left-0 z-10 bg-white px-3 py-2 dark:bg-card">Team</th>
-              <th className="px-2 py-2 text-center">Avg</th>
+              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 dark:bg-card">Team</DataHeadCell>
+              <DataHeadCell className="px-2 py-2 text-center">Avg</DataHeadCell>
               {gwCols.map((g) => (
-                <th key={g} className="px-1 py-2 text-center">
+                <DataHeadCell key={g} className="px-1 py-2 text-center">
                   GW{g}
-                </th>
+                </DataHeadCell>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map(({ team, cells, avg }) => (
-              <tr
-                key={team.id}
-                className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
-              >
-                <td className="sticky left-0 z-10 bg-white px-3 py-1.5 font-medium text-zinc-800 dark:bg-card dark:text-zinc-200">
+              <DataRow key={team.id} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                <DataCell className="sticky left-0 z-10 bg-white px-3 py-1.5 font-medium text-zinc-800 dark:bg-card dark:text-zinc-200">
                   {team.short_name}
-                </td>
-                <td className="px-2 py-1.5 text-center tabular-nums text-zinc-500">
+                </DataCell>
+                <DataCell className="px-2 py-1.5 text-center tabular-nums text-zinc-500">
                   {avg !== null ? avg.toFixed(1) : "—"}
-                </td>
+                </DataCell>
                 {gwCols.map((g) => {
                   const cellFixtures = cells.get(g) ?? [];
                   return (
-                    <td key={g} className="px-1 py-1.5 text-center">
+                    <DataCell key={g} className="px-1 py-1.5 text-center">
                       {cellFixtures.length === 0 ? (
                         <span
                           className="block rounded bg-zinc-100 px-1 py-1 text-zinc-400 dark:bg-surface-3 dark:text-zinc-600"
@@ -264,17 +262,17 @@ export function FdrMatrix({
                           ))}
                         </span>
                       )}
-                    </td>
+                    </DataCell>
                   );
                 })}
-              </tr>
+              </DataRow>
             ))}
             {rows.length === 0 && (
-              <tr>
-                <td colSpan={gwCols.length + 2} className="px-3 py-6 text-center text-zinc-500">
+              <DataRow>
+                <DataCell colSpan={gwCols.length + 2} className="px-3 py-6 text-center text-zinc-500">
                   No team matches &quot;{search}&quot;.
-                </td>
-              </tr>
+                </DataCell>
+              </DataRow>
             )}
           </tbody>
         </table>
