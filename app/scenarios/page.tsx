@@ -10,7 +10,7 @@ import {
   type ActualsSource,
   type ScenarioActuals,
 } from "@/lib/scenario-actuals";
-import { FdrLegendContent, InfoTooltip, TapToReveal } from "@/components/info-tooltip";
+import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { Spinner } from "@/components/ui/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
@@ -43,7 +43,7 @@ import { optimiseLineup, type LineupCandidate } from "@/lib/lineup";
 import { totalSpend } from "@/lib/squad-budget";
 import { benchBoostAt, tripleCaptainAt, type ChipValuation } from "@/lib/chips";
 import { Badge } from "@/components/ui/badge";
-import { ModelNote } from "@/components/ui/model-note";
+import { AnnotatedLabel, ModelNote } from "@/components/ui/model-note";
 import {
   horizonLabel,
   seasonHorizonNote,
@@ -844,7 +844,10 @@ export default function ScenariosPage() {
                           setRenameError(null);
                         }}
                         title="Rename"
-                        className="max-w-full truncate text-left text-sm font-semibold text-zinc-900 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-zinc-100"
+                        /* line-clamp-2, not truncate (DSI-123): draft names
+                           differ in their tail ("… +3 transfers"), which is
+                           exactly what a single-line ellipsis eats. */
+                        className="max-w-full text-left text-sm font-semibold text-zinc-900 underline-offset-2 [overflow-wrap:anywhere] line-clamp-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-zinc-100"
                       >
                         {draft.name}
                       </button>
@@ -886,13 +889,18 @@ export default function ScenariosPage() {
                     >
                       📌
                     </button>
-                    <label className="flex cursor-pointer items-center gap-1 text-[11px] text-zinc-500">
+                    {/* The box itself was 13px — under the 24px minimum, and a
+                        fiddly target on a card you are trying to tick quickly.
+                        The label already wraps both box and word, so padding
+                        it turns the whole "☐ compare" pair into one target
+                        (DSI-123). */}
+                    <label className="-m-1 flex cursor-pointer items-center gap-1.5 rounded p-1 text-[11px] text-zinc-500 transition-colors hover:bg-zinc-100 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring dark:hover:bg-purple-950/50">
                       <input
                         type="checkbox"
                         checked={picked}
                         onChange={() => toggleSelect(draft.draftId)}
                         disabled={!picked && selected.length >= MAX_COMPARE}
-                        className="accent-purple-800 dark:accent-primary"
+                        className="h-4 w-4 accent-purple-800 dark:accent-primary"
                       />
                       compare
                     </label>
@@ -963,9 +971,18 @@ export default function ScenariosPage() {
 
                 {/* actions */}
                 <div className="mt-3 flex flex-wrap gap-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
+                  {/* Outline, not solid accent (DSI-123). One filled accent
+                      button is a call to action; one per card in a grid of
+                      seven is wallpaper, and the eye has nowhere to land. The
+                      accent survives as the border and the label, which is
+                      enough to read Open as the primary of the four. Not the
+                      audit's "make the whole card clickable" — the card
+                      already holds a rename-on-click title, a compare
+                      checkbox and three other actions, so a surface-wide
+                      target would swallow all four. */}
                   <Link
                     href={`/builder?draft=${draft.draftId}`}
-                    className="rounded bg-purple-950 px-2 py-1 font-medium text-white transition-colors hover:bg-purple-800 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
+                    className="rounded border border-purple-950 px-2 py-1 font-medium text-purple-950 transition-colors hover:bg-purple-950 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary dark:text-primary dark:hover:bg-primary dark:hover:text-slate-950"
                   >
                     Open
                   </Link>
@@ -1035,15 +1052,27 @@ export default function ScenariosPage() {
               <span className="block">{RISK_MODEL_NOTE}</span>
             </ModelNote>
           </h2>
-          <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
+          {/* The draft names have to stay visible while reading 16 metric rows
+              (DSI-123). `sticky top-0` alone is inert here: `overflow-x-auto`
+              computes overflow-y to auto, which makes this wrapper the
+              scrollport, and a wrapper with no height never scrolls — measured
+              at a 560px viewport, the header left the screen at -181px with
+              sticky applied. Capping the height makes the table its own scroll
+              region, which is the thing sticky can actually stick to. */}
+          <div className="mt-3 max-h-[70vh] overflow-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                  <th className="px-3 py-2">Metric</th>
+                <tr className="text-left text-xs uppercase tracking-wide text-zinc-500">
+                  <th className="sticky top-0 z-10 border-b border-zinc-200 bg-white px-3 py-2 dark:border-purple-900/40 dark:bg-card">
+                    Metric
+                  </th>
                   {chosen.map((d) => (
                     // Right-aligned to sit over the numbers beneath it, now
                     // that the metric cells align right.
-                    <th key={d.draftId} className="px-3 py-2 text-right">
+                    <th
+                      key={d.draftId}
+                      className="sticky top-0 z-10 border-b border-zinc-200 bg-white px-3 py-2 text-right dark:border-purple-900/40 dark:bg-card"
+                    >
                       {d.name}
                     </th>
                   ))}
@@ -1104,7 +1133,11 @@ export default function ScenariosPage() {
                 }
                 className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
               >
-                Compare {chosen.length} drafts ↓
+                {/* It scrolls. "Compare N drafts" read as the action that
+                    produces the comparison, which is already on the page
+                    below (DSI-123) — so name the navigation, not a
+                    recalculation that never happens. */}
+                Jump to comparison ↓
               </button>
             </span>
           </div>
@@ -1285,14 +1318,16 @@ function ComparisonRows({
             className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
           >
             <th className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
+              {/* AnnotatedLabel rather than a hand-rolled TapToReveal trigger
+                  (DSI-123). These labels really do open a note, but this call
+                  site drew the dotted underline without the cursor-help that
+                  AnnotatedLabel pairs it with, so the one signifier the design
+                  system reserves for "this opens something" was reading as
+                  decoration. Same component every other annotated label uses. */}
               {row.note ? (
-                <TapToReveal
-                  label={`What does ${row.label} mean?`}
-                  triggerClassName="underline decoration-dotted underline-offset-2"
-                  trigger={row.label}
-                >
-                  <p>{row.note}</p>
-                </TapToReveal>
+                <AnnotatedLabel label={`What does ${row.label} mean?`} note={row.note}>
+                  {row.label}
+                </AnnotatedLabel>
               ) : (
                 row.label
               )}
