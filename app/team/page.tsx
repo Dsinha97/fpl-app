@@ -57,6 +57,7 @@ import { DecisionAnalyticsPanel } from "@/components/decision-analytics-panel";
 import { TelegramLink } from "@/components/telegram-link";
 import { useAuth } from "@/components/auth-provider";
 import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 /**
  * How many rivals one "add from league" press will take on.
@@ -1415,31 +1416,26 @@ export default function TeamPage() {
                   of a 375px screen and made the whole document scroll
                   sideways. flex-wrap can only wrap what is allowed to shrink. */}
               <div className="flex min-w-0 flex-wrap items-start justify-end gap-2">
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="xs"
                   onClick={() => savedId && void connect(savedId)}
                   disabled={loading || !savedId}
-                  className="shrink-0 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/40"
                 >
                   {loading ? "Syncing…" : "Refresh"}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="xs"
                   onClick={() => setEditingId((v) => !v)}
                   aria-expanded={editingId}
-                  className="shrink-0 rounded-md px-2 py-1.5 text-xs text-zinc-500 underline-offset-2 transition-colors hover:text-zinc-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-zinc-200"
                 >
                   {editingId ? "Cancel" : "Change ID"}
-                </button>
+                </Button>
                 {data && data.picks.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => void handleImport()}
-                    disabled={importing}
-                    className="shrink-0 rounded-md bg-purple-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
-                  >
+                  <Button size="xs" onClick={() => void handleImport()} disabled={importing}>
                     {importing ? "Importing…" : "Import as draft →"}
-                  </button>
+                  </Button>
                 )}
                 <TelegramLink variant="compact" />
               </div>

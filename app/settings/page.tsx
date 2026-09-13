@@ -17,6 +17,7 @@ import {
   type SellPriceMismatch,
 } from "@/lib/fpl-squad";
 import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 
 // Sprint 14.3 — one settings page with two tabs, replacing the standalone
@@ -138,17 +139,14 @@ function AccountTab() {
               pressed on every visit to a page nobody came here to act on.
               The first link keeps the filled treatment — there it is the
               point of the screen. */}
-          <button
+          <Button
             type="submit"
+            variant={entryId ? "outline" : "default"}
+            size="md"
             disabled={busy || (entryId !== null && input.trim() === String(entryId))}
-            className={
-              entryId
-                ? "rounded-md border border-purple-950 px-4 py-1.5 text-sm font-medium text-purple-950 transition-colors hover:bg-purple-950 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 dark:border-primary dark:text-primary dark:hover:bg-primary dark:hover:text-slate-950"
-                : "rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
-            }
           >
             {busy ? "Linking…" : entryId ? "Update" : "Link"}
-          </button>
+          </Button>
         </form>
 
         {status && (

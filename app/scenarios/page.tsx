@@ -44,6 +44,7 @@ import { optimiseLineup, type LineupCandidate } from "@/lib/lineup";
 import { totalSpend } from "@/lib/squad-budget";
 import { benchBoostAt, tripleCaptainAt, type ChipValuation } from "@/lib/chips";
 import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { AnnotatedLabel, ModelNote } from "@/components/ui/model-note";
 import {
   horizonLabel,
@@ -676,19 +677,13 @@ export default function ScenariosPage() {
       {/* backup — drafts live in this browser's localStorage only */}
       <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
         {drafts.length > 0 && (
-          <button
-            onClick={handleExport}
-            className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-600 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
-          >
+          <Button variant="outline" size="xs" onClick={handleExport}>
             Export drafts
-          </button>
+          </Button>
         )}
-        <button
-          onClick={() => importInputRef.current?.click()}
-          className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-600 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
-        >
+        <Button variant="outline" size="xs" onClick={() => importInputRef.current?.click()}>
           Import drafts
-        </button>
+        </Button>
         <input
           ref={importInputRef}
           type="file"
@@ -983,25 +978,31 @@ export default function ScenariosPage() {
                       target would swallow all four. */}
                   <Link
                     href={`/builder?draft=${draft.draftId}`}
-                    className="rounded border border-purple-950 px-2 py-1 font-medium text-purple-950 transition-colors hover:bg-purple-950 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary dark:text-primary dark:hover:bg-primary dark:hover:text-slate-950"
+                    /* buttonVariants, not <Button>: this is a link, and a link
+                       that renders as a button still has to be an anchor for
+                       middle-click and open-in-new-tab to work. */
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "xs",
+                      className:
+                        "border-purple-950 text-purple-950 hover:bg-purple-950 hover:text-white dark:border-primary dark:text-primary dark:hover:bg-primary dark:hover:text-slate-950",
+                    })}
                   >
                     Open
                   </Link>
-                  <button
+                  <Button
+                    variant="outline"
+                    size="xs"
                     onClick={() => {
                       cloneDraft(draft);
                       refresh();
                     }}
-                    className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/60 dark:hover:border-primary dark:hover:text-primary"
                   >
                     Clone
-                  </button>
-                  <button
-                    onClick={() => openTimeline(draft.draftId)}
-                    className="rounded border border-zinc-300 px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/60 dark:hover:border-primary dark:hover:text-primary"
-                  >
+                  </Button>
+                  <Button variant="outline" size="xs" onClick={() => openTimeline(draft.draftId)}>
                     Timeline
-                  </button>
+                  </Button>
                   <button
                     onClick={() => {
                       if (confirmDelete !== draft.draftId) {
@@ -1122,12 +1123,9 @@ export default function ScenariosPage() {
               Comparing {chosen.length} draft{chosen.length === 1 ? "" : "s"}
             </span>
             <span className="flex items-center gap-3">
-              <button
-                onClick={() => setSelected([])}
-                className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
-              >
+              <Button variant="link" size="md" onClick={() => setSelected([])}>
                 Clear
-              </button>
+              </Button>
               <button
                 onClick={() =>
                   comparisonRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })

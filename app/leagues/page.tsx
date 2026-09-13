@@ -6,6 +6,7 @@
 // that nothing rendered them and sync-league-picks had never once been
 // invoked from the app. This page is that wiring — no new maths.
 
+import { Button } from "@/components/ui/button";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { supabase } from "@/lib/supabase/client";
@@ -279,8 +280,9 @@ export default function LeaguesPage() {
                 </p>
               )}
             </div>
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="md"
               onClick={() => void handleSync()}
               disabled={syncing}
               /* Outline, matching /team's Refresh (DSI-129): re-syncing a
@@ -290,11 +292,11 @@ export default function LeaguesPage() {
                  the app — /builder's Save is already outline-and-disabled
                  when clean, and /scenarios' Open and /settings' Update moved
                  in C1. */
-              className="flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:border-primary dark:hover:text-primary"
+              className="flex items-center gap-1.5"
             >
               {syncing && <Spinner className="h-3.5 w-3.5" />}
               {syncing ? "Syncing…" : "Sync this league"}
-            </button>
+            </Button>
           </div>
 
           {syncMessage && <p className="mt-2 text-xs text-zinc-500">{syncMessage}</p>}

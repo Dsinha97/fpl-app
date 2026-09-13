@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { CHIP_LABELS } from "@/lib/chip-plan";
 import { DEFAULT_DECISION_MARGIN } from "@/lib/transfer-optimizer";
 import { horizonLabel, type Horizon } from "@/lib/team-state";
@@ -257,13 +258,9 @@ function StepRow({
             = <span className="font-semibold text-zinc-700 dark:text-zinc-300">{signed(stepNet(step))}</span>
           </span>
           {onLoad && (
-            <button
-              type="button"
-              onClick={onLoad}
-              className="shrink-0 rounded-md border border-purple-700 px-2 py-0.5 text-[11px] font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary dark:text-primary dark:hover:bg-primary/10"
-            >
+            <Button variant="outline" size="xs" onClick={onLoad} className="shrink-0">
               Load into basket
-            </button>
+            </Button>
           )}
           {loaded && !onLoad && (
             <span className="shrink-0 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">

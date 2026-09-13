@@ -1,5 +1,6 @@
 "use client";
 
+import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
@@ -99,7 +100,7 @@ export function AccountMenu() {
               href="/signin/"
               onClick={() => setOpen(false)}
               role="menuitem"
-              className="mt-2 block rounded-md bg-purple-950 px-2 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
+              className={buttonVariants({ variant: "default", size: "md", className: "mt-2 w-full" })}
             >
               Sign in
             </Link>

@@ -2,6 +2,7 @@
 
 import { RangeSlider } from "@/components/ui/range-slider";
 import { FilterDisclosure } from "@/components/ui/filter-disclosure";
+import { Button } from "@/components/ui/button";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { matchesPlayerQuery, type SearchableName } from "@/lib/player-search";
 import { GEM_ARCHETYPE_LABELS, GEMS_MODEL_NOTE, type GemArchetype } from "@/lib/hidden-gems";
@@ -191,19 +192,16 @@ export function PlayerFilters({
             {SPECIAL_ORDER.map((f) => {
               const on = value.special.has(f);
               return (
-                <button
+                <Button
                   key={f}
-                  type="button"
+                  variant="toggle"
+                  size="xs"
+                  className="rounded-full"
                   onClick={() => toggleSpecial(f)}
                   aria-pressed={on}
-                  className={`rounded-full border px-2.5 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    on
-                      ? "border-purple-700 bg-purple-700 text-white dark:border-primary dark:bg-primary dark:text-slate-950"
-                      : "border-zinc-300 text-zinc-600 hover:border-purple-500 hover:text-purple-700 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:border-primary dark:hover:text-primary"
-                  }`}
                 >
                   {SPECIAL_LABELS[f]}
-                </button>
+                </Button>
               );
             })}
             <InfoTooltip label="What do these special options mean?">
