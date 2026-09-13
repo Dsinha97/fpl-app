@@ -6,6 +6,7 @@ import { FixtureCell } from "@/components/fdr-badge";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { ConfidenceBadge, RateBand } from "@/components/confidence-badge";
 import { Badge } from "@/components/ui/badge";
+import { Pager } from "@/components/ui/pager";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { GemBadge } from "@/components/gem-badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -166,6 +167,16 @@ type SortKey =
 const FALLBACK_SEASON_WINDOW = 8;
 
 /** Slider bounds in FPL's tenths-of-a-million units: £4.0m to £16.0m. */
+/**
+ * Rows per page on the explorer.
+ *
+ * /builder's picker uses 10 because it lives in a 360px rail; this is a
+ * full-width table, and the page previously showed 100 at once, so a small
+ * page would read as a regression in density rather than as access to the
+ * rest. 50 keeps the table dense and still makes all 657 reachable.
+ */
+const PAGE_SIZE = 50;
+
 const PRICE_MIN = 40;
 const PRICE_MAX = 160;
 
@@ -233,6 +244,7 @@ export default function PlayersPage() {
    */
   const [selected, setSelected] = useState<number[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [page, setPage] = useState(0);
   const compareTrigger = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -492,7 +504,7 @@ export default function PlayersPage() {
     return new Map(verdicts.map((v) => [v.playerId, v]));
   }, [gemCandidates, horizon, seasonWindow]);
 
-  const visible = useMemo(() => {
+  const sorted = useMemo(() => {
     const rows = players.filter((p) => matchesFilters(p, filters, gemsById));
 
     const value = (p: PlayerRow): number => {
@@ -538,9 +550,19 @@ export default function PlayersPage() {
     };
 
     rows.sort((a, b) => (sortDesc ? value(b) - value(a) : value(a) - value(b)));
-    return rows.slice(0, 100);
+    // Was `rows.slice(0, 100)` with no pager, so 557 of the 657 players were
+    // simply unreachable on the page whose entire job is exploring them —
+    // while /builder's picker, reading the same rows, could page to every one.
+    // A cap with no way past it is a missing feature wearing a default's
+    // clothes. Paged below instead.
+    return rows;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, history, runs, xp, filters, sortKey, sortDesc, horizon, seasonWindow, gemsById, predictions]);
+
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const visible = sorted.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
 
   /** Every sortable column here holds a number, so the header right-aligns to
    *  sit over its own decimals — a left-aligned label above a right-aligned
@@ -556,6 +578,7 @@ export default function PlayersPage() {
           if (sortKey === key) setSortDesc(!sortDesc);
           else {
             setSortKey(key);
+            setPage(0);
             setSortDesc(true);
           }
         }}
@@ -662,7 +685,7 @@ export default function PlayersPage() {
               silently gone stale when the venue encoding changed, which is the
               failure mode of explaining a column somewhere other than at it. */}
           <p className="mt-1 text-sm text-zinc-500">
-            Showing top 100 players
+            {sorted.length} players
             {historySeason ? ` · season stats from ${shortSeason(historySeason)}` : ""}
           </p>
         </div>
@@ -671,7 +694,10 @@ export default function PlayersPage() {
           {HORIZONS.map((h) => (
             <button
               key={h}
-              onClick={() => setHorizon(h)}
+              onClick={() => {
+                setHorizon(h);
+                setPage(0);
+              }}
               title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
               className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 horizon === h
@@ -692,7 +718,13 @@ export default function PlayersPage() {
       <div className="mt-4">
         <PlayerFilters
           value={filters}
-          onChange={setFilters}
+          onChange={(next) => {
+            setFilters(next);
+            // Changing what is listed returns to the first page — staying on
+            // page 12 of a filter that now matches three players shows an
+            // empty table.
+            setPage(0);
+          }}
           teamOptions={teamOptions}
           priceBounds={[PRICE_MIN, PRICE_MAX]}
           positionOptions={POSITIONS}
@@ -713,6 +745,7 @@ export default function PlayersPage() {
       )}
 
       {!loading && !error && (
+        <>
         <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
           <table className="w-full min-w-[56rem] text-sm">
             {/* NOT sticky, deliberately. `overflow-x-auto` on the wrapper above
@@ -988,7 +1021,18 @@ export default function PlayersPage() {
               )}
             </tbody>
           </table>
-        </div>
+          </div>
+          {/* Outside the overflow-x wrapper on purpose: inside it, the pager
+              scrolled sideways with the table and Prev/Page slid off-screen
+              the moment anyone panned to the right-hand columns. */}
+          <Pager
+            page={safePage}
+            pageCount={pageCount}
+            onPageChange={setPage}
+            total={sorted.length}
+            noun="player"
+          />
+        </>
       )}
 
       {/* The bar that used to link to /compare now opens it in place. It

@@ -22,6 +22,7 @@ import {
   setPinnedDraft,
 } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
+import { Pager } from "@/components/ui/pager";
 import { loadPredictionSeries } from "@/lib/player-pool";
 import { loadSquadHeadlines, type NewsHeadline } from "@/lib/news-feed";
 import {
@@ -2506,29 +2507,15 @@ export default function BuilderPage() {
               </table>
             </div>
 
-            {/* pager */}
-            <div className="mt-2 flex items-center justify-between border-t border-zinc-100 pt-2 text-xs dark:border-purple-900/30">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={safePage === 0}
-                className="relative before:absolute before:-inset-2.5 before:content-[''] rounded border border-input px-2 py-0.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-35"
-              >
-                ‹ Prev
-              </button>
-              <span className="text-zinc-500">
-                Page {safePage + 1} of {pageCount} · {filtered.length} player
-                {filtered.length === 1 ? "" : "s"}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-                disabled={safePage >= pageCount - 1}
-                className="relative before:absolute before:-inset-2.5 before:content-[''] rounded border border-input px-2 py-0.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-35"
-              >
-                Next ›
-              </button>
-            </div>
+            {/* This markup is where `Pager` came from — /players needed the
+                same control and copying it would have made two. */}
+            <Pager
+              page={safePage}
+              pageCount={pageCount}
+              onPageChange={setPage}
+              total={filtered.length}
+              noun="player"
+            />
 
             {/* Same detail panel the pitch uses, anchored to the picker row.
                 Actions differ by context: pool players get Add and Find
