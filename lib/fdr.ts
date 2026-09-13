@@ -74,42 +74,42 @@ export const fdrClasses = (n: number | null | undefined): string => {
 
 export const fdrLabel = (n: number | null | undefined): string => fdrConfig(n).label;
 
-// Venue is encoded by the PRESENCE of a neutral ring, not by its hue.
+// Venue is encoded by a ring on AWAY fixtures only, and never by hue.
 //
-// It used to be a green ring for home and a red ring for away, which put the
-// venue channel on the one axis red-green colour blindness destroys — and did
-// it on top of a fill that is itself red or green. Measured (M9, Machado 2009
-// severity 1.0, linear-RGB separation): green-400 vs red-400 scores 1.039 at
-// normal vision, 0.579 under protanopia and 0.204 under deuteranopia. An 80%
-// collapse, i.e. roughly 1 in 12 men could not read home from away at all.
+// History, because two of these decisions were measured and should not be
+// re-litigated by eye:
 //
-// Both venues now carry a ring, because presence-vs-absence alone made an away
-// fixture look like an unstyled one. Home is neutral (near-black on light,
-// near-white on dark); away is purple-400.
+//  - It was once a green ring for home and a red ring for away, which put the
+//    venue channel on the one axis red-green colour blindness destroys — on
+//    top of a fill that is itself red or green. Measured (M9, Machado 2009
+//    severity 1.0, linear-RGB separation): green-400 vs red-400 scores 1.039
+//    at normal vision, 0.579 under protanopia, 0.204 under deuteranopia. An
+//    80% collapse: roughly 1 in 12 men could not read home from away at all.
+//  - It then became two neutral rings, near-black/near-white for home and
+//    purple-400 for away, on the reasoning that presence-vs-absence alone made
+//    an away fixture look like an unstyled one.
 //
-// purple-400 is not a taste call. Re-measured across five candidates against
-// two constraints — separation from the home ring, and separation from all
-// five difficulty fills the ring is drawn on top of — under all three CVD
-// conditions. It is the only candidate clearing 0.35 on both axes in both
-// themes (worst vs home 0.676 light / 0.903 dark; worst vs any fill 0.505).
-// purple-600 and violet-500 both collapse against the dark-red 5 fill (0.155,
-// 0.287).
+// Two rings is what this replaces. Reported 2026-09-13 as simply hard to read,
+// and the reason is that both rings were chosen to be *quiet* — a 2px ring on
+// a 20px pill, separated from each other mostly by hue, at the size these
+// actually render. Distinguishing "which ring is this" is a harder task than
+// "is there a ring", and the second task is the one that carries the meaning.
 //
-// Red was checked first and rejected on the numbers: against a dark home ring
-// it falls to 0.058 under protanopia, and against the orange 4 fill it reaches
-// 0.029 — an away ring that disappears into the very cells it sits on. Purple
-// survives red-green CVD because it keeps the blue channel those conditions
-// leave intact, and it is already the brand hue, so it reads as chrome rather
-// than as a fourth status colour competing with the ramp.
+// So: home carries nothing, away carries a single high-contrast neutral ring.
+// Luminance, not hue, so it survives all three CVD conditions by construction
+// rather than by measurement, and it is the same near-black/near-white the
+// old home ring used — the value that already cleared every difficulty fill.
 //
 // The ramp itself was measured at the same time and KEPT: adjacent steps stay
 // >= 0.32 apart under all three conditions, sometimes wider than at normal
 // vision. The audit's blanket "desaturate the matrix" would have discarded a
 // working channel to fix a broken one.
+//
+// Anything relying on the ring alone must say so: `FdrMatrix`'s legend reads
+// "ring = away", and every `FixtureCell` carries the venue in its title and
+// aria-label regardless of width.
 export const venueRing = (home: boolean): string =>
-  home
-    ? "ring-2 ring-offset-1 ring-zinc-900/80 ring-offset-white dark:ring-white/80 dark:ring-offset-card"
-    : "ring-2 ring-offset-1 ring-purple-400 ring-offset-white dark:ring-offset-card";
+  home ? "" : "ring-2 ring-offset-1 ring-zinc-900 ring-offset-white dark:ring-white dark:ring-offset-card";
 
 // ------------------------------------------------------- fixture windows
 //

@@ -213,11 +213,64 @@ export function ComparePanel({
 
   return (
     <>
+      {/* ranking */}
+      <section>
+        <h2 className="flex items-center gap-1.5 text-sm font-medium uppercase tracking-wide text-zinc-500">
+          Ranking over {horizonLabel(horizon)}
+        
+          <ModelNote label="How is this ranking calculated?" align="right">
+            <span className="block">{COMPARISON_MODEL_NOTE}</span>
+            <span className="block">{RISK_MODEL_NOTE}</span>
+          </ModelNote>
+        </h2>
+        <ol className="mt-3 space-y-2">
+          {ranked.map((r, i) => (
+            <li
+              key={r.player.id}
+              className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-card"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                  {i + 1}. {r.player.webName}
+                </span>
+                <span
+                  className="text-xs tabular-nums text-zinc-500"
+                  title="Weighted comparison score"
+                >
+                  score {r.score.toFixed(3)}
+                </span>
+              </div>
+              {/* Badges rather than coloured text with a ✓/! glyph in front
+                  (DSI-126): a caution about a player's minutes reads as a flag
+                  to weigh, not as a coloured sentence, and the badge's own
+                  tone carries what the glyph was doing. */}
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {r.strengths.map((s) => (
+                  <Badge key={s} tone="positive" variant="outline" size="sm" className="normal-case">
+                    {s}
+                  </Badge>
+                ))}
+                {r.weaknesses.map((w) => (
+                  <Badge key={w} tone="warning" variant="outline" size="sm" className="normal-case">
+                    {w}
+                  </Badge>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ol>
+
+      </section>
+
+      {/* The verdict comes before the evidence: the ranking answers the
+          question the table only supplies the working for, and a reader who
+          wants the working scrolls past it. It used to sit under 16 metric
+          rows, which on a phone meant the conclusion was off the fold. */}
       {/* min-w rather than table-fixed's percentage columns — on a phone
           viewport, four equal-percentage columns squeeze player names and
           numbers illegibly small instead of scrolling. Same overflow-x-auto +
           min-w + sticky-first-column pattern app/players/page.tsx uses. */}
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
         <table className="w-full min-w-[40rem] text-sm">
           <colgroup>
             <col style={{ width: "9rem" }} />
@@ -385,54 +438,6 @@ export function ComparePanel({
         </table>
       </div>
 
-      {/* ranking */}
-      <section className="mt-6">
-        <h2 className="flex items-center gap-1.5 text-sm font-medium uppercase tracking-wide text-zinc-500">
-          Ranking over {horizonLabel(horizon)}
-        
-          <ModelNote label="How is this ranking calculated?" align="right">
-            <span className="block">{COMPARISON_MODEL_NOTE}</span>
-            <span className="block">{RISK_MODEL_NOTE}</span>
-          </ModelNote>
-        </h2>
-        <ol className="mt-3 space-y-2">
-          {ranked.map((r, i) => (
-            <li
-              key={r.player.id}
-              className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-card"
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                  {i + 1}. {r.player.webName}
-                </span>
-                <span
-                  className="text-xs tabular-nums text-zinc-500"
-                  title="Weighted comparison score"
-                >
-                  score {r.score.toFixed(3)}
-                </span>
-              </div>
-              {/* Badges rather than coloured text with a ✓/! glyph in front
-                  (DSI-126): a caution about a player's minutes reads as a flag
-                  to weigh, not as a coloured sentence, and the badge's own
-                  tone carries what the glyph was doing. */}
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {r.strengths.map((s) => (
-                  <Badge key={s} tone="positive" variant="outline" size="sm" className="normal-case">
-                    {s}
-                  </Badge>
-                ))}
-                {r.weaknesses.map((w) => (
-                  <Badge key={w} tone="warning" variant="outline" size="sm" className="normal-case">
-                    {w}
-                  </Badge>
-                ))}
-              </div>
-            </li>
-          ))}
-        </ol>
-
-      </section>
     </>
   );
 }

@@ -598,6 +598,60 @@ export default function ScenariosPage() {
   // below the card grid with no way to jump to it — this ref plus the
   // sticky bar below fix that, mirroring the pattern app/players/page.tsx
   // already uses for its own bottom bar.
+  /**
+   * The comparison panel's ranking: every chosen draft by SquadScore, each
+   * with the one term that actually separates it from the leader.
+   *
+   * The term is chosen by the largest absolute gap across the breakdown, so
+   * it is a reading of the numbers already on the table rather than a second
+   * opinion about them — and when two drafts are genuinely identical it says
+   * so instead of inventing a difference (which is the common case here:
+   * cloning a draft is one click).
+   */
+  const chosenRanking = useMemo(() => {
+    const rows = chosen
+      .map((draft) => ({ draft, score: scores.get(draft.draftId) }))
+      .filter((r): r is { draft: TeamState; score: SquadScoreBreakdown } => r.score !== undefined)
+      .sort((a, b) => b.score.total - a.score.total);
+
+    const TERMS: { key: keyof SquadScoreBreakdown; label: string }[] = [
+      { key: "expectedPoints", label: "projected points" },
+      { key: "fixtureQuality", label: "fixtures" },
+      { key: "benchStrength", label: "bench" },
+      { key: "value", label: "value per £m" },
+      { key: "risk", label: "squad risk" },
+    ];
+
+    const leader = rows[0];
+    return rows.map((row, i) => {
+      const against = i === 0 ? rows[1] : leader;
+      if (!against) {
+        return { draft: row.draft, total: row.score.total, verdict: "The only draft scored." };
+      }
+
+      const gap = row.score.total - against.score.total;
+      const biggest = TERMS.map((t) => ({
+        ...t,
+        delta: (row.score[t.key] as number) - (against.score[t.key] as number),
+      })).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0];
+
+      const who = i === 0 ? "the next best draft" : against.draft.name;
+      if (Math.abs(gap) < 0.05 && Math.abs(biggest.delta) < 0.05) {
+        return {
+          draft: row.draft,
+          total: row.score.total,
+          verdict: `Identical to ${who} on every term.`,
+        };
+      }
+
+      return {
+        draft: row.draft,
+        total: row.score.total,
+        verdict: `${signed(gap)} against ${who} — mostly ${biggest.label} (${signed(biggest.delta)}).`,
+      };
+    });
+  }, [chosen, scores]);
+
   /** The comparison is a side panel, the same shape /players uses for its own
    *  comparison — it used to be a section further down the page that the tray
    *  scrolled to, which meant the drafts you were comparing scrolled away. */
@@ -1080,6 +1134,31 @@ export default function ScenariosPage() {
               ×
             </Button>
           </h2>
+          {/* The verdict before the evidence, the same way the player
+              comparison now leads with its ranking: the table is the working,
+              and on a phone it used to be sixteen rows of working before any
+              conclusion. The separating term is derived from the breakdown
+              rather than asserted — "ahead on fixtures" is the largest single
+              gap between two scores, not a label someone chose. */}
+          <ol className="mt-3 space-y-2">
+            {chosenRanking.map((r, i) => (
+              <li
+                key={r.draft.draftId}
+                className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-card"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {i + 1}. {r.draft.name}
+                  </span>
+                  <span className="text-xs tabular-nums text-zinc-500">
+                    SquadScore {r.total.toFixed(1)}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{r.verdict}</p>
+              </li>
+            ))}
+          </ol>
+
           {/* The draft names have to stay visible while reading 16 metric rows
               (DSI-123). `sticky top-0` alone is inert here: `overflow-x-auto`
               computes overflow-y to auto, which makes this wrapper the

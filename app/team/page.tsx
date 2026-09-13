@@ -1579,6 +1579,21 @@ export default function TeamPage() {
                   {!pointsLoading && gwLayout && (
                     <PitchView squad={gwCards} quota={data.rules.positionQuota} layout={gwLayout} />
                   )}
+                  {/* The silent-empty path. `gwLayout` is null whenever the
+                      picks or the score for the selected gameweek are missing,
+                      and until now that rendered *nothing* — heading, gameweek
+                      selector, and then blank space, with no error and no
+                      explanation. Reported 2026-09-13 as "I can't see the squad
+                      view". Same defect the comment above this section records
+                      for the old "Current squad" mode: a short or absent squad
+                      with no error is worse than an error. */}
+                  {!pointsLoading && !pointsError && !gwLayout && pickedEvents.length > 0 && (
+                    <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-card">
+                      No squad to show for GW{selectedEvent} — FPL hasn&apos;t published picks for
+                      it, or they haven&apos;t synced yet. Try <strong>Refresh</strong> above, or
+                      pick another gameweek.
+                    </p>
+                  )}
                   {/* The points are that gameweek's; the rest of the card
                       isn't, and can't be — `players` holds one current row
                       per player, and FPL publishes no history for status,

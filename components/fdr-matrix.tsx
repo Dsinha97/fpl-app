@@ -122,7 +122,6 @@ export function FdrMatrix({
           {sort === "hardest" && `Sorted hardest ${horizon === 38 ? "season" : `${horizon}-GW`} run first`}
           {sort === "az" && "Sorted A–Z"}
           {sort === "position" && "Sorted by table position"}
-          {" · pale ring = home, purple ring = away"}
         </p>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-zinc-500">Window</span>
@@ -199,15 +198,11 @@ export function FdrMatrix({
             <FDRBadge key={r} rating={Number(r) as FdrRating} showLabel />
           ))}
         </span>
-        <span className="flex items-center gap-3 text-zinc-500">
-          <span className="flex items-center gap-1.5">
-            <span className={`inline-block h-3 w-3 rounded bg-zinc-300 dark:bg-purple-900 ${venueRing(true)}`} />
-            home
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className={`inline-block h-3 w-3 rounded bg-zinc-300 dark:bg-purple-900 ${venueRing(false)}`} />
-            away
-          </span>
+        {/* One swatch, not two: only away is marked now, so a "home" swatch
+            would be a picture of the absence of a thing. */}
+        <span className="flex items-center gap-1.5 text-zinc-500">
+          <span className={`inline-block h-3 w-3 rounded bg-zinc-300 dark:bg-purple-900 ${venueRing(false)}`} />
+          ring = away
         </span>
       </div>
 
