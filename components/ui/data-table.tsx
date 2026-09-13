@@ -13,9 +13,10 @@ import { cn } from "@/lib/utils";
  * sticky cell needs, which every copy re-typed as a literal `dark:bg-[#1E0234]`
  * and which is why the raw-hex ESLint count kept climbing.
  *
- * Two things are new rather than lifted. The header is `sticky top-0`: every
+ * Two things are new rather than lifted. The header can be `sticky top-0`: every
  * existing table only froze its first *column*, so scrolling down a long
- * comparison lost the column identities entirely (DSI-123). And numeric cells
+ * comparison lost the column identities entirely (DSI-123) — but that needs
+ * `maxHeight`, for the reason documented on it. And numeric cells
  * get a real right-alignment convention through `DataCell`, instead of
  * inheriting the default left alignment that made decimal points ragged
  * (DSI-126, DSI-129).
@@ -23,6 +24,7 @@ import { cn } from "@/lib/utils";
 export function DataTable({
   children,
   minWidth = "56rem",
+  maxHeight,
   className,
   wrapperClassName,
   label,
@@ -30,14 +32,28 @@ export function DataTable({
   children: ReactNode;
   /** Width below which the wrapper scrolls horizontally rather than crushing cells. */
   minWidth?: string;
+  /**
+   * Caps the wrapper's height and lets it scroll vertically — which is what
+   * actually makes `DataTableHead`'s sticky header work.
+   *
+   * This is not optional polish, it is the mechanism. `overflow-x: auto`
+   * computes `overflow-y: auto` as well, so this wrapper is already the
+   * vertical scroll container for everything inside it. Without a height cap
+   * it never scrolls, so a `sticky top-0` header has nothing to stick against
+   * and simply leaves with the page — the class is inert, which is worse than
+   * absent because it reads as done. Set a height and the header sticks.
+   */
+  maxHeight?: string;
   className?: string;
   wrapperClassName?: string;
   label?: string;
 }) {
   return (
     <div
+      style={maxHeight ? { maxHeight } : undefined}
       className={cn(
         "overflow-x-auto rounded-lg border border-border bg-card",
+        maxHeight && "overflow-y-auto",
         wrapperClassName,
       )}
     >
@@ -53,9 +69,12 @@ export function DataTable({
 }
 
 /**
- * Sticky header row. `top-0` is relative to the scroll container, so this
- * sticks within a page-scrolled table as well as a wrapper-scrolled one.
- * The background is opaque because rows scroll underneath it.
+ * Sticky header row.
+ *
+ * `top-0` is relative to the nearest scroll container, which for a `DataTable`
+ * is always the wrapper — so this only does anything when that wrapper has a
+ * `maxHeight`. Without one it is inert; see the note on `maxHeight`. The
+ * background is opaque because rows scroll underneath it.
  */
 export function DataTableHead({
   children,

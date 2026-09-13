@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { quantile } from "@/lib/stats";
 import { FdrLegendContent, InfoTooltip, TapToReveal } from "@/components/info-tooltip";
 import { Spinner } from "@/components/ui/spinner";
 import { AvailabilityBadge } from "@/components/player-status-icons";
@@ -533,6 +534,23 @@ export default function TransfersPage() {
         : null;
 
   const pool = useMemo(() => [...scoredById.values()], [scoredById]);
+
+  /**
+   * The squad's own 75th-percentile projection over the current horizon.
+   *
+   * Backs the accent on the squad table's xP column (DSI-124): every value used
+   * to be --primary, which meant none of them were emphasised. `null` when
+   * there is nothing to rank, so the column falls back to plain foreground
+   * rather than highlighting an empty squad.
+   */
+  const topQuartileXp = useMemo(() => {
+    if (!team) return null;
+    const xs = team.players
+      .map((pick) => scoredById.get(pick.playerId))
+      .filter((s): s is NonNullable<typeof s> => s !== undefined)
+      .map((s) => xpFor(s, horizon));
+    return xs.length >= 4 ? quantile(xs, 0.75) : null;
+  }, [team, scoredById, horizon]);
 
   /**
    * The weekly decision: roll, spend, take a hit, or wildcard. This is a real
@@ -1096,6 +1114,13 @@ export default function TransfersPage() {
               <tbody>
                 {team.players.map((pick) => {
                   const s = scoredById.get(pick.playerId);
+                  // DSI-124: this column painted every projection --primary, so
+                  // no value stood out and the accent stopped meaning anything.
+                  // The audit asked for "top quartile only", which is a real
+                  // statistic rather than a threshold someone picked — so it is
+                  // the squad's own P75, via lib/stats.ts's shared `quantile`.
+                  const isTopQuartile =
+                    s !== undefined && topQuartileXp !== null && xpFor(s, horizon) >= topQuartileXp;
                   const row = rowById.get(pick.playerId);
                   const move = movesByOut.get(pick.playerId);
                   const incoming = move ? scoredById.get(move.inId) : undefined;
@@ -1175,7 +1200,11 @@ export default function TransfersPage() {
                       <td className="hidden px-2 py-1.5 text-xs tabular-nums text-zinc-500 sm:table-cell">
                         {money(pick.purchasePrice)}
                       </td>
-                      <td className="px-1.5 py-1.5 tabular-nums font-semibold text-purple-800 dark:text-primary">
+                      <td
+                        className={`px-1.5 py-1.5 text-right tabular-nums font-semibold ${
+                          isTopQuartile ? "text-purple-800 dark:text-primary" : "text-foreground"
+                        }`}
+                      >
                         {s ? xpFor(s, horizon).toFixed(1) : "—"}
                       </td>
                       <td className="px-1.5 py-1.5 tabular-nums text-zinc-500">

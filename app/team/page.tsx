@@ -1593,7 +1593,15 @@ export default function TeamPage() {
                 ].map((tile) => (
                   <div key={tile.label} className={cardSupporting}>
                     <div className="text-xs text-zinc-500">{tile.label}</div>
-                    <div className="mt-1 text-lg font-semibold text-purple-900 dark:text-primary">
+                    {/* DSI-120: every tile in this 2x3 grid was primary-green —
+                        team value, bank, total points, rank, gameweek points,
+                        the deadline countdown. When six numbers share the
+                        accent, none of them is emphasised; the accent has
+                        simply become the body colour. These are standing
+                        totals, so they read as foreground. --primary is kept
+                        for actions and for a net-positive outcome, which is
+                        what DSI-129 #1 reserves it for. */}
+                    <div className="mt-1 text-lg font-semibold text-foreground">
                       {tile.value}
                     </div>
                   </div>

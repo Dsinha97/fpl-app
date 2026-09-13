@@ -173,7 +173,21 @@
   --danger-foreground: #b91c1c;
   --danger-surface: #fef2f2;
   --danger-border: #fca5a5;
-  --chart-1: oklch(0.87 0 0);
+  /*
+   * Data-visualisation colour, distinct from --primary on purpose.
+   *
+   * DSI-120: the career percentile bars used the CTA green. Spending the
+   * primary interactive colour on a static chart dilutes every button on the
+   * page — the eye stops reading that green as "this is actionable". A cyan
+   * sits apart from both the neon green and the purple chrome, and is the
+   * "purple-tinted cyan" the audit suggested.
+   *
+   * Only slot 1 is real. --chart-2..5 below are still shadcn's defaults
+   * (a greyscale ramp here, assorted purples in dark) because nothing
+   * consumes them yet, and a categorical ramp invented before it has a
+   * consumer is a palette nobody validated against real series.
+   */
+  --chart-1: #0891b2;
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
@@ -246,7 +260,8 @@
   --danger-foreground: #f87171;
   --danger-surface: oklch(0.28 0.09 25 / 40%);
   --danger-border: oklch(0.4 0.12 25 / 60%);
-  --chart-1: #00ff87;
+  /* Was #00ff87 — byte-identical to --primary, which is the defect. */
+  --chart-1: #22d3ee;
   --chart-2: oklch(0.7 0.18 300);
   --chart-3: oklch(0.62 0.17 320);
   --chart-4: oklch(0.55 0.16 280);

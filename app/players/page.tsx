@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { FixtureCell } from "@/components/fdr-badge";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { ConfidenceBadge, RateBand } from "@/components/confidence-badge";
+import { Badge } from "@/components/ui/badge";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { GemBadge } from "@/components/gem-badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -541,8 +542,15 @@ export default function PlayersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, history, runs, xp, filters, sortKey, sortDesc, horizon, seasonWindow, gemsById, predictions]);
 
-  const header = (label: string, key: SortKey) => (
-    <th className="px-2 py-2">
+  /** Every sortable column here holds a number, so the header right-aligns to
+   *  sit over its own decimals — a left-aligned label above a right-aligned
+   *  column reads as two different columns (DSI-126, DSI-129 #4). */
+  const header = (label: string, key: SortKey, note?: ReactNode) => (
+    <th className="px-2 py-2 text-right">
+      {/* Label first, then the "?" — these columns are right-aligned, so the
+          affordance belongs on the outer edge where the eye lands, not wedged
+          between the previous column and this one's name. */}
+      <span className="flex items-center justify-end gap-1.5">
       <button
         onClick={() => {
           if (sortKey === key) setSortDesc(!sortDesc);
@@ -558,6 +566,12 @@ export default function PlayersPage() {
         {label}
         {sortKey === key ? (sortDesc ? " ↓" : " ↑") : ""}
       </button>
+      {note && (
+        <InfoTooltip label={`What is ${label}?`} align="right">
+          <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{note}</p>
+        </InfoTooltip>
+      )}
+      </span>
     </th>
   );
 
@@ -642,10 +656,14 @@ export default function PlayersPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
             Player Explorer
           </h1>
+          {/* DSI-126: this was a five-part definition list running across the
+              page. Each definition now lives on the column it defines, where
+              it is actually needed — and one of them ("green ring = home") had
+              silently gone stale when the venue encoding changed, which is the
+              failure mode of explaining a column somewhere other than at it. */}
           <p className="mt-1 text-sm text-zinc-500">
-            xP = model-projected points (next gameweek, and over the horizon below) · xG/xA are
-            per 90 minutes{" "}
-            {historySeason ? `· stats from ${shortSeason(historySeason)}` : ""} · green ring = home · top 100 shown
+            Showing top 100 players
+            {historySeason ? ` · season stats from ${shortSeason(historySeason)}` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
@@ -697,6 +715,14 @@ export default function PlayersPage() {
       {!loading && !error && (
         <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
           <table className="w-full min-w-[56rem] text-sm">
+            {/* NOT sticky, deliberately. `overflow-x-auto` on the wrapper above
+                computes `overflow-y: auto` too, which makes that wrapper the
+                vertical scroll container — and with no height cap it never
+                scrolls, so `sticky top-0` has nothing to stick against and the
+                header just leaves with the page. Making it work needs a
+                max-height on the wrapper (see `DataTable`'s `maxHeight`), which
+                turns this into an inner-scrolling table; that is a layout
+                decision for the /players pass, not a class to sprinkle on. */}
             <thead>
               <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500 dark:border-purple-900/40">
                 {/* Sticky so the player being scanned stays visible while
@@ -720,14 +746,14 @@ export default function PlayersPage() {
                     </InfoTooltip>
                   </span>
                 </th>
-                {header("xP GW", "xp1")}
+                {header("xP GW", "xp1", "Model-projected points for the next gameweek. The column beside it projects over the horizon selected above.")}
                 {header(`xP ${horizonLabel(horizon)}`, "xpH")}
                 {header("Pts", "gwPoints")}
                 {header("G", "goals")}
                 {header("A", "assists")}
                 {header("Mins", "minutes")}
-                {header(`xG/90`, "xgCur")}
-                {header(`xA/90`, "xaCur")}
+                {header(`xG/90`, "xgCur", "Expected goals per 90 minutes played this season — a rate, not a total, so a substitute is comparable to a starter. Dimmed below 450 minutes, where the rate is real but not yet stable.")}
+                {header(`xA/90`, "xaCur", "Expected assists per 90 minutes played this season. Same rate basis and same thin-sample dimming as xG/90.")}
                 {header("xMins", "xmins")}
                 <th className="px-2 py-2">
                   <span className="flex items-center gap-1.5">
@@ -793,7 +819,17 @@ export default function PlayersPage() {
                 return (
                   <tr
                     key={p.id}
-                    className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
+                    data-selected={isSelected || undefined}
+                    // DSI-126: a checked row was distinguished only by the
+                    // checkbox itself, which scrolls out of view the moment the
+                    // wide table is panned sideways. A tint plus a left edge on
+                    // the frozen cell keeps the selection visible from anywhere
+                    // in the row.
+                    className={`border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200 ${
+                      isSelected
+                        ? "bg-primary/[0.06] [&>td:first-child]:shadow-[inset_2px_0_0_0_var(--primary)]"
+                        : ""
+                    }`}
                   >
                     <td className="sticky left-0 z-10 bg-white px-3 py-1.5 dark:bg-card">
                       <span className="flex items-center gap-1.5">
@@ -823,47 +859,57 @@ export default function PlayersPage() {
                     </td>
                     <td className="px-2 py-1.5 text-zinc-500">{teamShort.get(p.team_id)}</td>
                     <td className="px-2 py-1.5 text-zinc-500">{POSITIONS[p.element_type]}</td>
-                    <td className="px-2 py-1.5 tabular-nums">
+                    <td className="px-2 py-1.5 text-right tabular-nums">
                       £{((p.now_cost ?? 0) / 10).toFixed(1)}m
                     </td>
-                    <td className="px-2 py-1.5 text-xs">
+                    <td className="px-2 py-1.5 text-right text-xs">
                       {(() => {
                         const pp = priceProgress.get(p.code);
+                        // Was the literal word "unknown", which reads as an
+                        // unhandled database null rather than as "no signal
+                        // yet" (DSI-126). The column header's own tooltip
+                        // already carries PRICE_WATCH_MODEL_NOTE, which is
+                        // where the explanation belongs.
                         if (!pp || pp.verdict === "unknown") {
-                          return <span className="text-zinc-400">unknown</span>;
+                          return <span className="text-muted-foreground">&mdash;</span>;
                         }
-                        const arrow = pp.direction === "rise" ? "↑" : pp.direction === "fall" ? "↓" : "→";
-                        const color =
-                          pp.direction === "rise"
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : pp.direction === "fall"
-                              ? "text-red-600 dark:text-red-400"
-                              : "text-zinc-400";
+                        const pct = Math.round((pp.progress ?? 0) * 100);
+                        if (pp.direction === "flat") {
+                          return <span className="tabular-nums text-muted-foreground">{pct}%</span>;
+                        }
                         return (
-                          <span className={`tabular-nums ${color}`} title={pp.verdict}>
-                            {arrow} {Math.round((pp.progress ?? 0) * 100)}%
-                          </span>
+                          <Badge
+                            tone={pp.direction === "rise" ? "positive" : "negative"}
+                            size="sm"
+                            className="tabular-nums"
+                            title={`Price watch: ${pp.direction} — ${pct}% (${pp.verdict})`}
+                          >
+                            {pp.direction === "rise" ? "▲" : "▼"} {pct}%
+                          </Badge>
                         );
                       })()}
                     </td>
-                    <td className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-primary">
+                    <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-foreground">
                       {x?.xp_1?.toFixed(1) ?? "—"}
                     </td>
-                    <td className="px-2 py-1.5 tabular-nums">
-                      <span className="flex items-center gap-1">
+                    <td className="px-2 py-1.5 text-right tabular-nums">
+                      <span className="flex items-center justify-end gap-1">
                         {xpForHorizon(x, horizon)?.toFixed(1) ?? "—"}
                         <ConfidenceBadge reliability={x?.reliability} priorWeight={x?.prior_weight} compact />
                       </span>
                       <RateBand lower={bandLower ?? undefined} upper={bandUpper ?? undefined} />
                     </td>
-                    {/* Current season — the emphasised block (bold/accent), set
-                        off from the muted last-season trio further right. */}
-                    <td className="px-2 py-1.5 font-semibold tabular-nums text-purple-800 dark:text-primary">
+                    {/* Current season — the emphasised block, set off from the
+                        muted last-season trio further right. Emphasis is weight,
+                        not the accent: --primary is reserved for actions and the
+                        single top-tier winner (DSI-129 #1), and four columns of
+                        it meant none of them stood out. */}
+                    <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-foreground">
                       {p.total_points ?? "—"}
                     </td>
-                    <td className="px-2 py-1.5 font-semibold tabular-nums">{p.goals_scored ?? "—"}</td>
-                    <td className="px-2 py-1.5 font-semibold tabular-nums">{p.assists ?? "—"}</td>
-                    <td className="px-2 py-1.5 font-semibold tabular-nums">{p.minutes ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-right font-semibold tabular-nums">{p.goals_scored ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-right font-semibold tabular-nums">{p.assists ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-right font-semibold tabular-nums">{p.minutes ?? "—"}</td>
                     {(() => {
                       const xgRate = perNinety(p.expected_goals, p.minutes);
                       const xaRate = perNinety(p.expected_assists, p.minutes);
@@ -873,7 +919,7 @@ export default function PlayersPage() {
                       return (
                         <>
                           <td
-                            className={`px-2 py-1.5 tabular-nums ${thin ? "text-zinc-400" : ""}`}
+                            className={`px-2 py-1.5 text-right tabular-nums ${thin ? "text-zinc-400" : ""}`}
                             title={
                               thin && p.expected_goals !== null
                                 ? `${p.expected_goals.toFixed(2)} xG in ${p.minutes ?? 0} min`
@@ -883,7 +929,7 @@ export default function PlayersPage() {
                             {xgRate?.toFixed(2) ?? "—"}
                           </td>
                           <td
-                            className={`px-2 py-1.5 tabular-nums ${thin ? "text-zinc-400" : ""}`}
+                            className={`px-2 py-1.5 text-right tabular-nums ${thin ? "text-zinc-400" : ""}`}
                             title={
                               thin && p.expected_assists !== null
                                 ? `${p.expected_assists.toFixed(2)} xA in ${p.minutes ?? 0} min`
@@ -895,23 +941,23 @@ export default function PlayersPage() {
                         </>
                       );
                     })()}
-                    <td className="px-2 py-1.5 tabular-nums">
+                    <td className="px-2 py-1.5 text-right tabular-nums">
                       {predictions.get(p.id)?.expected_minutes?.toFixed(0) ?? "—"}
                     </td>
-                    <td className="px-2 py-1.5 tabular-nums">
+                    <td className="px-2 py-1.5 text-right tabular-nums">
                       {XDC_POSITIONS.has(p.element_type)
                         ? xdcForHorizon(x, horizon)?.toFixed(2) ?? "—"
                         : "—"}
                     </td>
-                    <td className="px-2 py-1.5 tabular-nums">
+                    <td className="px-2 py-1.5 text-right tabular-nums">
                       {valueOf(p, x)?.toFixed(2) ?? "—"}
                     </td>
-                    <td className="px-2 py-1.5 tabular-nums">
+                    <td className="px-2 py-1.5 text-right tabular-nums">
                       {p.selected_by_percent !== null ? `${p.selected_by_percent}%` : "—"}
                     </td>
-                    <td className="px-2 py-1.5 tabular-nums text-zinc-500">{h?.total_points ?? "—"}</td>
-                    <td className="px-2 py-1.5 tabular-nums text-zinc-500">{h?.expected_goals ?? "—"}</td>
-                    <td className="px-2 py-1.5 tabular-nums text-zinc-500">{h?.expected_assists ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-zinc-500">{h?.total_points ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-zinc-500">{h?.expected_goals ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-zinc-500">{h?.expected_assists ?? "—"}</td>
                     <td className="px-2 py-1.5">
                       {/* Wraps to at most 3 rows and grows sideways instead of
                           down — the table already scrolls horizontally, so a

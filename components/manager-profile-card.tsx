@@ -20,7 +20,12 @@ function PercentileBar({ score, label }: { score: number; label: string }) {
         className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-purple-950/60"
       >
         <div
-          className="h-full rounded-full bg-purple-700 transition-[width] duration-300 motion-reduce:transition-none dark:bg-primary"
+          // DSI-120: these bars used the same --primary as every CTA in the
+          // app. Using the primary interactive colour for a static data
+          // visualisation dilutes the buttons — the eye stops reading it as
+          // "this is actionable". --chart-1 is the visualisation ramp's own
+          // first slot, which is what it is there for.
+          className="h-full rounded-full bg-chart-1 transition-[width] duration-base ease-slide motion-reduce:transition-none"
           style={{ width: `${score}%` }}
         />
       </div>
