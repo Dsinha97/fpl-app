@@ -56,6 +56,7 @@ import { GameweekReviewPanel } from "@/components/gameweek-review-panel";
 import { DecisionAnalyticsPanel } from "@/components/decision-analytics-panel";
 import { TelegramLink } from "@/components/telegram-link";
 import { useAuth } from "@/components/auth-provider";
+import { Alert } from "@/components/ui/alert";
 
 /**
  * How many rivals one "add from league" press will take on.
@@ -1342,13 +1343,13 @@ export default function TeamPage() {
       {/* A refresh that didn't happen, not a page that failed — amber, and it
           sits alongside the data rather than replacing it. */}
       {syncNotice && (
-        <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+        <Alert tone="warning" className="mt-4">
           {syncNotice}{" "}
           <a href="/signin/" className="underline">
             Sign in
           </a>
           .
-        </p>
+        </Alert>
       )}
 
       {m && (

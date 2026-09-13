@@ -77,6 +77,7 @@ import { freeTransfersDisplay, MAX_FREE_TRANSFERS, TRANSFER_MODEL_NOTE } from "@
 import { ago, type FeedRow } from "@/lib/change-feed";
 import { confidentEntities, dedupeByUrl, sourceBadge, type NewsRow } from "@/lib/news-feed";
 import { loadPastResults, type PastResult } from "@/lib/player-history";
+import { Alert } from "@/components/ui/alert";
 
 interface PlayerRow {
   id: number;
@@ -1631,7 +1632,7 @@ export default function DeadlinePage() {
                       )}
 
                       {captainDiff && (
-                        <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+                        <Alert tone="warning" className="mt-2">
                           Your draft has <span className="font-medium">{captainDiff.currentName}</span> captained
                           {captainDiff.gain !== null ? (
                             <>
@@ -1643,18 +1644,18 @@ export default function DeadlinePage() {
                           ) : (
                             <> — the model recommends {captainDiff.recommendedName} instead.</>
                           )}
-                        </p>
+                        </Alert>
                       )}
 
                       {xiDiff && (
-                        <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+                        <Alert tone="warning" className="mt-2">
                           {xiDiff.bringIn.length > 0 && (
                             <>Bring in: {xiDiff.bringIn.map((id) => lookup(id)?.webName ?? id).join(", ")}. </>
                           )}
                           {xiDiff.benchInstead.length > 0 && (
                             <>Bench: {xiDiff.benchInstead.map((id) => lookup(id)?.webName ?? id).join(", ")}.</>
                           )}
-                        </p>
+                        </Alert>
                       )}
                     </>
                   )}

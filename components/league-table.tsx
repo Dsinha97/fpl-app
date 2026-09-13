@@ -9,6 +9,7 @@ import {
   type FdrTeamRef,
   type StandingsFixtureRef,
 } from "@/lib/fdr";
+import { Alert } from "@/components/ui/alert";
 
 const NEXT_N = 5;
 
@@ -70,13 +71,13 @@ export function LeagueTable({
   return (
     <div className="mt-4">
       {!fplPublished && (
-        <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+        <Alert tone="warning" className="mb-3">
           {noFixturesStarted
             ? "No gameweek has kicked off yet, so there's no table to show. Listed alphabetically below until real results exist."
             : derived?.live
               ? "FPL's own standings feed doesn't publish P/W/D/L/Pts during the season, so this table is computed from fixture results instead — including matches still being played, so it updates live. Form is a plain win/draw/loss tally (last 5), not FPL's own weighted figure."
               : "FPL's own standings feed doesn't publish P/W/D/L/Pts during the season, so this table is computed from finished fixture results instead — form is a plain win/draw/loss tally (last 5), not FPL's own weighted figure."}
-        </p>
+        </Alert>
       )}
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
@@ -85,11 +86,11 @@ export function LeagueTable({
             <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
               <th className="sticky left-0 z-10 bg-white px-2 py-2 text-center dark:bg-card">#</th>
               <th className="sticky left-8 z-10 bg-white px-2 py-2 dark:bg-card">Team</th>
-              <th className="px-2 py-2 text-center">P</th>
-              <th className="px-2 py-2 text-center">W</th>
-              <th className="px-2 py-2 text-center">D</th>
-              <th className="px-2 py-2 text-center">L</th>
-              <th className="px-2 py-2 text-center">Pts</th>
+              <th className="px-2 py-2 text-right">P</th>
+              <th className="px-2 py-2 text-right">W</th>
+              <th className="px-2 py-2 text-right">D</th>
+              <th className="px-2 py-2 text-right">L</th>
+              <th className="px-2 py-2 text-right">Pts</th>
               <th className="px-2 py-2 text-center">Form</th>
               {gwCols.map((g) => (
                 <th key={g} className="px-1 py-2 text-center">
@@ -121,19 +122,19 @@ export function LeagueTable({
                     <TeamCrest teamCode={team.code} shortName={team.short_name} className="h-4 w-4 shrink-0" />
                     {team.name}
                   </td>
-                  <td className="px-2 py-1.5 text-center tabular-nums text-zinc-600 dark:text-zinc-400">
+                  <td className="px-2 py-1.5 text-right tabular-nums text-zinc-600 dark:text-zinc-400">
                     {played}
                   </td>
-                  <td className="px-2 py-1.5 text-center tabular-nums text-zinc-600 dark:text-zinc-400">
+                  <td className="px-2 py-1.5 text-right tabular-nums text-zinc-600 dark:text-zinc-400">
                     {win}
                   </td>
-                  <td className="px-2 py-1.5 text-center tabular-nums text-zinc-600 dark:text-zinc-400">
+                  <td className="px-2 py-1.5 text-right tabular-nums text-zinc-600 dark:text-zinc-400">
                     {draw}
                   </td>
-                  <td className="px-2 py-1.5 text-center tabular-nums text-zinc-600 dark:text-zinc-400">
+                  <td className="px-2 py-1.5 text-right tabular-nums text-zinc-600 dark:text-zinc-400">
                     {loss}
                   </td>
-                  <td className="px-2 py-1.5 text-center font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                  <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
                     {points}
                   </td>
                   <td className="px-2 py-1.5 text-center text-zinc-500">{form ?? "—"}</td>

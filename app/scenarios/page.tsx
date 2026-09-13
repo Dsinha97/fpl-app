@@ -42,6 +42,7 @@ import {
 import { optimiseLineup, type LineupCandidate } from "@/lib/lineup";
 import { totalSpend } from "@/lib/squad-budget";
 import { benchBoostAt, tripleCaptainAt, type ChipValuation } from "@/lib/chips";
+import { ModelNote } from "@/components/ui/model-note";
 import {
   HORIZONS,
   horizonLabel,
@@ -1021,8 +1022,15 @@ export default function ScenariosPage() {
       {/* comparison */}
       {chosen.length >= 2 && (
         <section ref={comparisonRef} className="mt-8 scroll-mt-4">
-          <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
             Comparing {chosen.length} drafts
+            {/* DSI-126/129 #2: these two notes were a stack of bare grey
+                paragraphs under the table. They qualify how every figure in
+                it is computed, so they belong on the table, not after it. */}
+            <ModelNote label="How are these metrics calculated?">
+              <span className="block">{SQUAD_SCORE_NOTE}</span>
+              <span className="block">{RISK_MODEL_NOTE}</span>
+            </ModelNote>
           </h2>
           <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
             <table className="w-full text-sm">
@@ -1052,8 +1060,6 @@ export default function ScenariosPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-[11px] leading-relaxed text-zinc-400">{SQUAD_SCORE_NOTE}</p>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">{RISK_MODEL_NOTE}</p>
           <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
             Bench Boost and Triple Captain above are for the next gameweek only. Free Hit and
             Wildcard are full-squad rebuilds, valued for every playable gameweek on the{" "}

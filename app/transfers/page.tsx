@@ -60,6 +60,7 @@ import {
   type SquadRules,
   type TeamState,
 } from "@/lib/team-state";
+import { Alert } from "@/components/ui/alert";
 
 interface PlayerRow {
   id: number;
@@ -1071,10 +1072,10 @@ export default function TransfersPage() {
       )}
 
       {team && !loading && team.players.length !== rules.squadSize && (
-        <p className="mt-5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+        <Alert tone="warning" className="mt-5">
           {team.name} has {team.players.length} of {rules.squadSize} players. The transfer plan needs
           a complete squad — a partial one has free slots to fill, not transfers to weigh.
-        </p>
+        </Alert>
       )}
 
       {team && !loading && (
@@ -1357,10 +1358,10 @@ export default function TransfersPage() {
                 )}
 
                 {simulation.legal && simulation.transferGain <= 0 && (
-                  <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+                  <Alert tone="warning" className="mt-3">
                     This does not pay for itself over {horizonLabel(horizon)}. Rolling the transfer
                     keeps the option open.
-                  </p>
+                  </Alert>
                 )}
 
                 {simulation.armbandNote && (

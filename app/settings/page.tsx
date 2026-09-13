@@ -16,6 +16,7 @@ import {
   teamStateFromMyTeamJson,
   type SellPriceMismatch,
 } from "@/lib/fpl-squad";
+import { Alert } from "@/components/ui/alert";
 
 // Sprint 14.3 — one settings page with two tabs, replacing the standalone
 // /settings/fpl route (now a redirect, below) and giving "claim your Manager
@@ -341,13 +342,13 @@ function ImportTab() {
             Imported {status.playerCount} players, £{(status.budget / 10).toFixed(1)}m total budget.
           </p>
           {status.mismatches.length > 0 && (
-            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+            <Alert tone="warning">
               {status.mismatches.length} pick(s) had a sell-price our formula computed differently
               from FPL&apos;s own figure — worth a look, not blocking:{" "}
               {status.mismatches
                 .map((m) => `#${m.playerId} (ours £${(m.ours / 10).toFixed(1)}m vs FPL £${(m.fpl / 10).toFixed(1)}m)`)
                 .join(", ")}
-            </p>
+            </Alert>
           )}
           <a
             href={`/builder/?draft=${status.draftId}`}

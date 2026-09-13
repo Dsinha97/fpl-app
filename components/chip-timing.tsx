@@ -27,6 +27,7 @@ import {
   type TeamState,
 } from "@/lib/team-state";
 import { availabilityFromStatus, type ScoredPlayer } from "@/lib/scoring";
+import { Alert } from "@/components/ui/alert";
 
 interface PlayerRow {
   id: number;
@@ -552,10 +553,10 @@ export function ChipTiming({
       )}
 
       {team && !loading && team.players.length !== rules.squadSize && (
-        <p className="mt-5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+        <Alert tone="warning" className="mt-5">
           {team.name} has {team.players.length} of {rules.squadSize} players. Chip values need a
           complete squad.
-        </p>
+        </Alert>
       )}
 
       {!loading && team && team.players.length === rules.squadSize && (resultLoading || resultStale) && (

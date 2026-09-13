@@ -14,6 +14,7 @@ import {
   XDC_MODEL_NOTE,
   type ScoredPlayer,
 } from "@/lib/scoring";
+import { ModelNote } from "@/components/ui/model-note";
 import { horizonLabel, horizonLength, type Horizon } from "@/lib/team-state";
 import { fullName } from "@/lib/player-search";
 
@@ -364,8 +365,13 @@ export function ComparePanel({
 
       {/* ranking */}
       <section className="mt-6">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
+        <h2 className="flex items-center gap-1.5 text-sm font-medium uppercase tracking-wide text-zinc-500">
           Ranking over {horizonLabel(horizon)}
+        
+          <ModelNote label="How is this ranking calculated?" align="right">
+            <span className="block">{COMPARISON_MODEL_NOTE}</span>
+            <span className="block">{RISK_MODEL_NOTE}</span>
+          </ModelNote>
         </h2>
         <ol className="mt-3 space-y-2">
           {ranked.map((r, i) => (
@@ -399,8 +405,7 @@ export function ComparePanel({
             </li>
           ))}
         </ol>
-        <p className="mt-3 text-[11px] leading-relaxed text-zinc-400">{COMPARISON_MODEL_NOTE}</p>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">{RISK_MODEL_NOTE}</p>
+
       </section>
     </>
   );
