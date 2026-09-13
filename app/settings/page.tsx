@@ -18,6 +18,7 @@ import {
 } from "@/lib/fpl-squad";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { DevToolsWalkthrough } from "@/components/devtools-walkthrough";
 import { useErrorShake } from "@/components/ui/use-error-shake";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 
@@ -192,6 +193,12 @@ function ImportTab() {
   const { teamName, entryId } = useAuth();
   const [raw, setRaw] = useState("");
   const [status, setStatus] = useState<ImportStatus>({ kind: "idle" });
+  /** Resolved after mount: `navigator` does not exist during prerender. */
+  const [canPaste, setCanPaste] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCanPaste(typeof navigator !== "undefined" && !!navigator.clipboard?.readText);
+  }, []);
   const importField = useErrorShake<HTMLTextAreaElement>(
     status.kind === "error" ? status.message : null,
   );
@@ -330,6 +337,8 @@ function ImportTab() {
         <li>Paste it below and import.</li>
       </ol>
 
+      <DevToolsWalkthrough urlHint={myTeamUrlHint(entryId)} />
+
       <form onSubmit={onImport} className="mt-4 space-y-2">
         <textarea
           ref={importField}
@@ -339,14 +348,49 @@ function ImportTab() {
           placeholder='{"picks": [...], "chips": [...], "transfers": {...}}'
           className="w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
         />
-        <Button
-          type="submit"
-          disabled={status.kind === "busy" || !raw.trim()}
-          size="md"
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="submit"
+            disabled={status.kind === "busy" || !raw.trim()}
+            size="md"
           className="px-4"
-        >
-          {status.kind === "busy" ? "Importing…" : "Import as draft"}
-        </Button>
+          >
+            {status.kind === "busy" ? "Importing…" : "Import as draft"}
+          </Button>
+          {/* The JSON is already on the clipboard at this point -- that is the
+              step immediately before this one -- so the paste is the app's job
+              to offer, not the reader's to perform into a textarea they have
+              to focus first. Feature-detected: `navigator.clipboard.readText`
+              is absent in Firefox and on any non-secure origin, and a button
+              that silently does nothing is worse than no button. */}
+          {canPaste && (
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={async () => {
+                try {
+                  const text = await navigator.clipboard.readText();
+                  if (!text.trim()) {
+                    setStatus({ kind: "error", message: "Clipboard is empty." });
+                    return;
+                  }
+                  setRaw(text);
+                  setStatus({ kind: "idle" });
+                } catch {
+                  // Denied, or a prompt that was dismissed. Say so rather than
+                  // appearing to have worked.
+                  setStatus({
+                    kind: "error",
+                    message: "Couldn't read the clipboard -- paste into the box instead.",
+                  });
+                }
+              }}
+            >
+              Paste from clipboard
+            </Button>
+          )}
+        </div>
       </form>
 
       {status.kind === "error" && (
