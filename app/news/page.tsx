@@ -9,6 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FeedRowItem } from "@/components/feed-row";
 import { ago, type FeedRow } from "@/lib/change-feed";
 import { confidentEntities, dedupeByUrl, sourceBadge, type NewsRow } from "@/lib/news-feed";
+import { listDrafts, resolveRequestedDraft } from "@/lib/drafts";
+import { useAuth } from "@/components/auth-provider";
 
 /**
  * DSI-122: this row used to pair each label with a system emoji
@@ -53,6 +55,23 @@ export default function NewsPage() {
   const [entityFilter, setEntityFilter] = useState<
     { type: string; id: number; name: string } | null
   >(null);
+  /**
+   * DSI-137 #1 -- "does this affect my 15?" is the first question an FPL
+   * manager asks of any news item, and this page could not answer it: it held
+   * no squad state at all.
+   *
+   * The squad is resolved exactly as /deadline and /transfers resolve it --
+   * `resolveRequestedDraft` over the local drafts, preferring the linked
+   * manager's import once the identity settles. This page only ever reads.
+   *
+   * Matching is by player *code*, not element id: both `change_feed.player_code`
+   * and `news_feed`'s player entity ids are codes (see lib/news-feed.ts), while
+   * a draft stores element ids. The one query below is what bridges them.
+   */
+  const [squadCodes, setSquadCodes] = useState<Set<number> | null>(null);
+  const [squadTeamShorts, setSquadTeamShorts] = useState<Set<string>>(new Set());
+  const [squadName, setSquadName] = useState<string | null>(null);
+  const [mySquadOnly, setMySquadOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [newsLoading, setNewsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,9 +154,63 @@ export default function NewsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
+  const { entryId, teamName, profileLoading } = useAuth();
+
+  useEffect(() => {
+    if (profileLoading) return;
+    const squad = resolveRequestedDraft(listDrafts(), window.location.search, {
+      entryId,
+      teamName,
+    });
+    if (!squad || squad.players.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSquadCodes(null);
+      setSquadName(null);
+      return;
+    }
+    setSquadName(squad.name);
+
+    (async () => {
+      const { data: gw } = await supabase
+        .from("gameweeks")
+        .select("season")
+        .eq("is_next", true)
+        .limit(1)
+        .maybeSingle();
+      if (!gw?.season) return;
+      // Scoped by id list, so no 1000-row truncation risk (CLAUDE.md).
+      const { data: picked } = await supabase
+        .from("players")
+        .select("code, team_code")
+        .eq("season", gw.season)
+        .in("id", squad.players.map((p) => p.playerId));
+      setSquadCodes(new Set<number>((picked ?? []).map((p) => p.code as number)));
+
+      const teamCodes = [...new Set((picked ?? []).map((p) => p.team_code as number))];
+      if (teamCodes.length === 0) return;
+      const { data: clubs } = await supabase
+        .from("teams")
+        .select("short_name")
+        .eq("season", gw.season)
+        .in("code", teamCodes);
+      setSquadTeamShorts(new Set((clubs ?? []).map((t) => t.short_name as string)));
+    })();
+  }, [entryId, teamName, profileLoading]);
+
+  /** Is this change-feed row about a player -- or a club -- in the squad? */
+  const inSquad = (r: FeedRow) => {
+    if (!squadCodes) return true;
+    if (r.player_code !== null && squadCodes.has(r.player_code)) return true;
+    // A fixture move carries no player: it is about a club, and it matters to
+    // whoever owns that club's players. Matched on short name because that is
+    // the only club identity the change feed carries.
+    return r.kind === "fixture" && r.team_short !== null && squadTeamShorts.has(r.team_short);
+  };
+
   const visible = useMemo(() => {
-    if (filter === "all" || filter === "feeds") return rows;
-    return rows.filter((r) => {
+    const scoped = mySquadOnly ? rows.filter(inSquad) : rows;
+    if (filter === "all" || filter === "feeds") return scoped;
+    return scoped.filter((r) => {
       switch (filter) {
         case "price":
           return r.kind === "price_rise" || r.kind === "price_fall";
@@ -151,10 +224,18 @@ export default function NewsPage() {
           return true;
       }
     });
-  }, [rows, filter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, filter, mySquadOnly, squadCodes, squadTeamShorts]);
 
   const visibleNews = useMemo(() => {
     let filtered = source === "all" ? newsRows : newsRows.filter((r) => r.source_slug === source);
+    if (mySquadOnly && squadCodes) {
+      filtered = filtered.filter((r) =>
+        confidentEntities(r).some(
+          (e) => e.entity_type === "player" && squadCodes.has(e.entity_id),
+        ),
+      );
+    }
     if (entityFilter) {
       filtered = filtered.filter((r) =>
         confidentEntities(r).some(
@@ -165,7 +246,7 @@ export default function NewsPage() {
     // newsRows is already published_at-descending, so dedupeByUrl keeps the
     // newest occurrence of a triplicated FFS item — see lib/news-feed.ts.
     return dedupeByUrl(filtered);
-  }, [newsRows, source, entityFilter]);
+  }, [newsRows, source, entityFilter, mySquadOnly, squadCodes]);
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
@@ -190,6 +271,24 @@ export default function NewsPage() {
             ),
           }))}
         />
+        {/* Only offered when there is a squad to filter to. A toggle that can
+            only ever empty the page is not a filter, it is a trap -- and a
+            visitor with no draft is exactly the person who would try it. */}
+        {squadCodes && squadCodes.size > 0 && (
+          <Button
+            variant="toggle"
+            size="md"
+            aria-pressed={mySquadOnly}
+            onClick={() => setMySquadOnly((v) => !v)}
+            title={
+              mySquadOnly
+                ? "Show every club's news again"
+                : `Only news about players in "${squadName}" -- and fixture moves for their clubs`
+            }
+          >
+            My squad only
+          </Button>
+        )}
       </div>
 
       {filter !== "feeds" && (
