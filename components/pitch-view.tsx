@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InteractivePitch } from "./pitch";
 import { EmptySlot, PlayerCard, type PlayerData } from "./player-card";
 import { SlideOver } from "@/components/ui/slide-over";
 import { SM, useMinWidth } from "@/components/ui/use-viewport";
+import { stickyHeaderBottom } from "@/components/ui/use-anchored-panel";
 import { PANEL_MAX_HEIGHT, PANEL_WIDTH, PlayerDetail } from "./player-detail";
 import type { LineupResult } from "@/lib/lineup";
 
@@ -97,6 +98,9 @@ export function PitchView({
    */
   const closingId = useRef<number | null>(null);
 
+  /** The card the open panel is anchored to, so scrolling can re-place it. */
+  const anchorEl = useRef<HTMLElement | null>(null);
+
   const closeMenu = useCallback(() => {
     closingId.current = menu?.id ?? null;
     setMenu(null);
@@ -109,12 +113,10 @@ export function PitchView({
   /** Below `sm` the player panel is a sheet, not an anchored popover. */
   const isDesktop = useMinWidth(SM);
 
-  /** Place the panel beside the clicked card, clamped inside the pitch card. */
-  const openMenu = (player: PlayerData, anchor: HTMLElement) => {
-    if (closingId.current === player.id) return;
-
+  /** Place the panel beside a card, clamped inside the pitch card. */
+  const placeMenu = (anchor: HTMLElement) => {
     const wrap = wrapper.current;
-    if (!wrap) return;
+    if (!wrap) return null;
 
     const a = anchor.getBoundingClientRect();
     const w = wrap.getBoundingClientRect();
@@ -145,11 +147,37 @@ export function PitchView({
     const openAbove = spaceBelow < PANEL_MAX_HEIGHT && spaceAbove > spaceBelow;
     const rawTop = openAbove ? a.top - gap - PANEL_MAX_HEIGHT : a.bottom + gap;
     const maxTop = window.innerHeight - PANEL_MAX_HEIGHT - margin;
-    const viewportTop = Math.max(margin, Math.min(rawTop, maxTop));
+    // The floor is the sticky header, not the top of the viewport: the panel
+    // scrolls with the pitch, and without this it rides up over the nav bar.
+    const minTop = stickyHeaderBottom() + margin;
+    const viewportTop = Math.max(minTop, Math.min(rawTop, Math.max(minTop, maxTop)));
     const top = viewportTop - w.top;
 
-    setMenu({ id: player.id, top, left });
+    return { top, left };
   };
+
+  const openMenu = (player: PlayerData, anchor: HTMLElement) => {
+    if (closingId.current === player.id) return;
+    const at = placeMenu(anchor);
+    if (!at) return;
+    anchorEl.current = anchor;
+    setMenu({ id: player.id, ...at });
+  };
+
+  // Re-clamp while the page scrolls, so the panel tracks its card until the
+  // header pushes it — rather than sliding over the header and staying there.
+  useEffect(() => {
+    if (!menu || !isDesktop) return;
+    const follow = () => {
+      const anchor = anchorEl.current;
+      if (!anchor) return;
+      const at = placeMenu(anchor);
+      if (at) setMenu((m) => (m ? { ...m, ...at } : m));
+    };
+    window.addEventListener("scroll", follow, { passive: true });
+    return () => window.removeEventListener("scroll", follow);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menu?.id, isDesktop]);
 
   const squadSize = Object.values(quota).reduce((a, b) => a + b, 0);
   const complete = squad.length === squadSize && layout !== null;

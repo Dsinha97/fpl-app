@@ -29,6 +29,7 @@ import { Delta } from "@/components/ui/delta";
 import { Pager } from "@/components/ui/pager";
 import { SlideOver } from "@/components/ui/slide-over";
 import { SM, useMinWidth } from "@/components/ui/use-viewport";
+import { stickyHeaderBottom } from "@/components/ui/use-anchored-panel";
 import { ModelNote } from "@/components/ui/model-note";
 import { loadPredictionSeries } from "@/lib/player-pool";
 import { loadSquadHeadlines, type NewsHeadline } from "@/lib/news-feed";
@@ -1297,6 +1298,8 @@ export default function BuilderPage() {
   } | null>(null);
   const pickerCard = useRef<HTMLDivElement>(null);
   const closingPicker = useRef<number | null>(null);
+  /** The row the open picker panel is anchored to, so scroll can re-place it. */
+  const pickerAnchor = useRef<HTMLElement | null>(null);
 
   /**
    * Adding into an empty pitch slot (`PitchView`'s `onAddToSlot`) — the same
@@ -1476,10 +1479,9 @@ export default function BuilderPage() {
    * Float the panel to the left of the picker column, level with the clicked
    * row. Viewport coordinates, so it never covers the list it came from.
    */
-  const openPickerDetail = (row: PlayerRow, anchor: HTMLElement) => {
-    if (closingPicker.current === row.id) return;
+  const placePickerDetail = (anchor: HTMLElement) => {
     const wrap = pickerCard.current;
-    if (!wrap) return;
+    if (!wrap) return null;
 
     const a = anchor.getBoundingClientRect();
     const w = wrap.getBoundingClientRect();
@@ -1488,13 +1490,36 @@ export default function BuilderPage() {
     const leftGutter = w.left - PANEL_WIDTH - 8;
     const left = leftGutter >= 8 ? leftGutter : Math.max(8, w.right - PANEL_WIDTH - 8);
 
-    const top = Math.max(
-      8,
-      Math.min(a.top - 24, window.innerHeight - PANEL_MAX_HEIGHT - 8),
-    );
+    // This panel is `fixed`, so its floor is the sticky header rather than the
+    // top of the viewport — otherwise scrolling parks it over the nav bar.
+    const minTop = stickyHeaderBottom() + 8;
+    const maxTop = Math.max(minTop, window.innerHeight - PANEL_MAX_HEIGHT - 8);
+    const top = Math.max(minTop, Math.min(a.top - 24, maxTop));
 
-    setPickerDetail({ id: row.id, top, left });
+    return { top, left };
   };
+
+  const openPickerDetail = (row: PlayerRow, anchor: HTMLElement) => {
+    if (closingPicker.current === row.id) return;
+    const at = placePickerDetail(anchor);
+    if (!at) return;
+    pickerAnchor.current = anchor;
+    setPickerDetail({ id: row.id, ...at });
+  };
+
+  // Keep it tracking its row on scroll, stopped by the header.
+  useEffect(() => {
+    if (!pickerDetail || !isDesktop) return;
+    const follow = () => {
+      const anchor = pickerAnchor.current;
+      if (!anchor) return;
+      const at = placePickerDetail(anchor);
+      if (at) setPickerDetail((d) => (d ? { ...d, ...at } : d));
+    };
+    window.addEventListener("scroll", follow, { passive: true });
+    return () => window.removeEventListener("scroll", follow);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickerDetail?.id, isDesktop]);
 
   /** What selling the outgoing player would leave to spend — the slider's ceiling. */
   const replaceAffordable = useMemo(() => {
