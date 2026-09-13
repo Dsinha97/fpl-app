@@ -121,10 +121,18 @@ export function SegmentedControl<T extends string>({
     const el = itemRefs.current.get(value);
     const sc = scrollerRef.current;
     if (!el || !sc) return;
-    const reduced =
-      typeof window !== "undefined" &&
+    // Smooth when it can be seen, instant otherwise — and `document.hidden`
+    // is not paranoia here. A hidden document runs no rAF callbacks, so a
+    // `smooth` scroll issued to one simply never happens: measured in the
+    // preview browser, the selected segment stayed off-screen at scrollLeft 0
+    // forever while the same call with `auto` landed. Motion must never be
+    // load-bearing for whether a control is reachable (the same rule
+    // `SlideOver` states about its own entry animation).
+    const instant =
+      typeof window === "undefined" ||
+      document.hidden ||
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const behavior: ScrollBehavior = reduced ? "auto" : "smooth";
+    const behavior: ScrollBehavior = instant ? "auto" : "smooth";
     const pad = 12;
     const left = el.offsetLeft;
     const right = left + el.offsetWidth;
