@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ModelNote } from "@/components/ui/model-note";
 import { DataCell, DataRow } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { FixtureCell } from "./fdr-badge";
@@ -357,11 +358,16 @@ export function PlayerDetail({
 
           {/* club system — Sprint 12.5, context only, never folded into xP */}
           {player.system && (
-            <p
-              className="mt-2.5 truncate border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40 dark:text-zinc-400"
-              title={`System: ${player.system} — tactical context, not applied to xP.`}
-            >
-              <span className="font-medium text-zinc-600 dark:text-zinc-300">System</span> · {player.system}
+            <p className="mt-2.5 flex items-center gap-1 border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40 dark:text-zinc-400">
+              <span className="font-medium text-zinc-600 dark:text-zinc-300">System</span> ·{" "}
+              <span className="min-w-0 truncate">{player.system}</span>
+              {/* The line truncates, and the half that got cut was the caveat:
+                  this is context, never folded into xP. A title attribute is
+                  the wrong place for the one sentence that stops a number
+                  being misread. */}
+              <ModelNote label="What the club system tells you">
+                Tactical context for {player.system} — not applied to xP.
+              </ModelNote>
             </p>
           )}
 

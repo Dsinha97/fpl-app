@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { FixtureCell } from "@/components/fdr-badge";
-import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
+import { FdrLegendContent, InfoTooltip, TapToReveal } from "@/components/info-tooltip";
 import { Badge } from "@/components/ui/badge";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import {
@@ -355,12 +355,17 @@ export function ComparePanel({
                             title names the superlative rather than implying
                             a winner. */}
                         {isBest && (
-                          <span
-                            className="ml-1 text-[10px]"
-                            title={`${m.dir === "high" ? "Highest" : "Lowest"} ${m.label.toLowerCase()} of those compared`}
+                          <TapToReveal
+                            label={`Why ${m.label.toLowerCase()} is marked best here`}
+                            align="right"
+                            trigger={<span className="text-[10px]">{m.dir === "high" ? "▲" : "▼"}</span>}
+                            wrapperClassName="relative ml-1 inline-flex align-middle"
                           >
-                            {m.dir === "high" ? "▲" : "▼"}
-                          </span>
+                            <span className="block text-xs leading-relaxed">
+                              {m.dir === "high" ? "Highest" : "Lowest"} {m.label.toLowerCase()} of
+                              those compared.
+                            </span>
+                          </TapToReveal>
                         )}
                         {isTiedBest && (
                           <span className="ml-1 text-[10px]" title="Tied — no clear best">

@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { TapToReveal } from "@/components/info-tooltip";
 import { NoteDisclosure } from "@/components/ui/note-disclosure";
 import {
   DEFAULT_DECISION_MARGIN,
@@ -116,9 +117,22 @@ export function TransferPlan({
           </Button>
         )}
         <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-          <span title="Rolling is only worth something the model cannot see: injury news, price moves, rotation hints. That value is yours to assert, not the model's to claim.">
-            Value of waiting for news
-          </span>
+          {/* 152 characters of reasoning that existed nowhere else on the
+              page and were reachable only by hovering -- so on a phone, not
+              at all (DSI-129 #2). */}
+          <TapToReveal
+            label="What the value of waiting means"
+            trigger={
+              <span className="underline decoration-dotted underline-offset-2">
+                Value of waiting for news
+              </span>
+            }
+          >
+            <span className="block text-xs leading-relaxed">
+              Rolling is only worth something the model cannot see: injury news, price moves,
+              rotation hints. That value is yours to assert, not the model&apos;s to claim.
+            </span>
+          </TapToReveal>
           <input
             type="number"
             min={0}
