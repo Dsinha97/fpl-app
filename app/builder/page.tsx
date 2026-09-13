@@ -2462,12 +2462,14 @@ export default function BuilderPage() {
                               £0.5m" twice — the duplicate-UI defect this item
                               is about, reintroduced one line down. Coupled to
                               the exact phrases lib/scoring.ts builds; the
-                              durable fix is for `Replacement` to expose the
-                              parts as fields and let every surface compose its
-                              own sentence. Noted on DSI-121. */}
+                              durable fix landed in DSI-124: `Replacement`
+                              exposes each note's `kind`, so this filters on
+                              meaning rather than on the wording of a string
+                              built in lib/scoring.ts. */}
                           <p className="mt-0.5 text-[11px] text-zinc-500">
                             {r.rationale
-                              .filter((t) => !t.includes("xP") && !t.startsWith("frees £"))
+                              .filter((n) => n.kind !== "xp" && n.kind !== "price")
+                              .map((n) => n.text)
                               .join(" · ")}
                           </p>
                           <p className="mt-0.5 text-[10px] tabular-nums text-zinc-400">

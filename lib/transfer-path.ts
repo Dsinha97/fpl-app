@@ -93,6 +93,14 @@ export interface TransferPathStep {
   explanation: string[];
 }
 
+/**
+ * One step's net, in the same terms and the same order the path total uses
+ * (`scoreOf`). Exported rather than recomputed in the UI so a step's arithmetic
+ * cannot drift from the path's — CLAUDE.md's one quantity, one implementation.
+ */
+export const stepNet = (s: TransferPathStep): number =>
+  s.eventXp + s.chipBonus + s.decisionMargin - s.pointsCost - s.riskPointsDelta;
+
 export interface TransferPath {
   steps: TransferPathStep[];
   /** Σ eventXp + Σ chipBonus + Σ decisionMargin − Σ pointsCost − Σ riskPointsDelta. */

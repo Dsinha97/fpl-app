@@ -18,6 +18,7 @@ import {
   riskScore,
   RISK_MODEL_NOTE,
   xpFor,
+  type RationaleNote,
   type ScoredPlayer,
 } from "@/lib/scoring";
 import {
@@ -59,6 +60,7 @@ import {
   type SquadRules,
   type TeamState,
 } from "@/lib/team-state";
+import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { signed } from "@/lib/utils";
 import { HorizonControl } from "@/components/horizon-control";
@@ -673,7 +675,7 @@ export default function TransfersPage() {
         .map((player) => ({
           player,
           teamFit: null as number | null,
-          rationale: [] as string[],
+          rationale: [] as RationaleNote[],
           exitRoutes: undefined as number | undefined,
         }));
     }
@@ -799,9 +801,25 @@ export default function TransfersPage() {
                   <span className="ml-1.5 text-xs text-zinc-500">
                     {player.teamShort} · {money(player.price)}
                   </span>
+                  {/* Badges, not one grey run-on (DSI-124). "-1.2 xP — a
+                      downgrade · better fixtures · more risk" is four separate
+                      judgements a manager weighs differently, and joining them
+                      with dots makes the reader parse the sentence to find the
+                      one they care about. Every word is kept; the tone comes
+                      from lib/scoring.ts, so it cannot drift from the wording. */}
                   {rationale.length > 0 && (
-                    <span className="block text-[11px] text-zinc-500 break-words">
-                      {rationale.join(" · ")}
+                    <span className="mt-0.5 flex flex-wrap gap-1">
+                      {rationale.map((n) => (
+                        <Badge
+                          key={n.text}
+                          tone={n.tone === "negative" ? "negative" : n.tone === "warning" ? "warning" : n.tone === "positive" ? "positive" : "neutral"}
+                          variant="outline"
+                          size="sm"
+                          className="normal-case"
+                        >
+                          {n.text}
+                        </Badge>
+                      ))}
                     </span>
                   )}
                   {exitRoutes !== undefined && (

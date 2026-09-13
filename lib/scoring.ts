@@ -337,6 +337,24 @@ export function comparePlayers(
 
 // ---------------------------------------------------- replacement finder
 
+/** What a rationale note is about, so a surface can filter on meaning, not on wording. */
+export type RationaleKind =
+  | "xp"
+  | "fixtures"
+  | "risk"
+  | "price"
+  | "reliability"
+  | "filter"
+  | "availability"
+  | "balance";
+
+export interface RationaleNote {
+  text: string;
+  kind: RationaleKind;
+  /** Reads as good, bad, or a caution for this squad — never decided by the caller. */
+  tone: "positive" | "negative" | "warning" | "neutral";
+}
+
 export interface Replacement {
   player: ScoredPlayer;
   /** TeamFit: what swapping actually gains this squad. */
@@ -360,7 +378,15 @@ export interface Replacement {
    * reported, never folded into `teamFit` — see `REPLACEMENT_MODEL_NOTE`.
    */
   exitRoutes?: number;
-  rationale: string[];
+  /**
+   * Why this candidate, as structured notes rather than a joined sentence.
+   * Each surface composes its own rendering: /transfers draws badges, /builder
+   * drops the xP and price notes because its own columns already carry them.
+   * It was `string[]`, which forced /builder to filter by `t.includes("xP")` —
+   * a wording change in this file would have silently broken it (DSI-124,
+   * the durable fix DSI-121 noted and deferred).
+   */
+  rationale: RationaleNote[];
 }
 
 export const REPLACEMENT_MODEL_NOTE =
@@ -566,24 +592,26 @@ export function findReplacements(
 
       // State downgrades as downgrades. A −4 xP swap is not a "marginal
       // change", and describing it as one would mislead.
-      const rationale: string[] = [];
-      if (xpDelta > 0.5) rationale.push(`+${xpDelta.toFixed(1)} xP over ${horizonLabel(horizon)}`);
-      else if (xpDelta < -0.5) rationale.push(`${xpDelta.toFixed(1)} xP — a downgrade`);
-      if (fixtureDelta > 0.08) rationale.push("better fixtures");
-      else if (fixtureDelta < -0.08) rationale.push("harder fixtures");
-      if (riskDelta < -8) rationale.push("lower risk");
-      else if (riskDelta > 8) rationale.push("more risk");
-      if (priceDelta < 0) rationale.push(`frees £${(-priceDelta / 10).toFixed(1)}m`);
+      const rationale: RationaleNote[] = [];
+      const note = (text: string, kind: RationaleKind, tone: RationaleNote["tone"]) =>
+        rationale.push({ text, kind, tone });
+      if (xpDelta > 0.5) note(`+${xpDelta.toFixed(1)} xP over ${horizonLabel(horizon)}`, "xp", "positive");
+      else if (xpDelta < -0.5) note(`${xpDelta.toFixed(1)} xP — a downgrade`, "xp", "negative");
+      if (fixtureDelta > 0.08) note("better fixtures", "fixtures", "positive");
+      else if (fixtureDelta < -0.08) note("harder fixtures", "fixtures", "warning");
+      if (riskDelta < -8) note("lower risk", "risk", "positive");
+      else if (riskDelta > 8) note("more risk", "risk", "warning");
+      if (priceDelta < 0) note(`frees £${(-priceDelta / 10).toFixed(1)}m`, "price", "positive");
       // Say when a suggestion rests on the prior rather than on evidence. A
       // promoted-club player can out-score an established one on paper purely
       // because his number is the average for his price bracket.
-      if (c.reliability === "low") rationale.push("prior-based, little PL record");
-      if (filters.archetypeIds?.has(c.id)) rationale.push("matches the Hidden Gems filter");
+      if (c.reliability === "low") note("prior-based, little PL record", "reliability", "warning");
+      if (filters.archetypeIds?.has(c.id)) note("matches the Hidden Gems filter", "filter", "neutral");
       // Only reachable with includeUnavailable set — the default filter
       // already excludes anyone below the floor, so this only ever fires
       // when the caller deliberately asked to see them anyway.
       if ((c.startProbability ?? c.availability) < minStartProbability) {
-        rationale.push("below the usual minutes floor");
+        note("below the usual minutes floor", "availability", "warning");
       }
 
       // SquadBalance: does swapping target -> c smooth or roughen the
@@ -596,8 +624,8 @@ export function findReplacements(
         const cvBefore = coefficientOfVariation(weeklyTotals(squadPlayerIds, seriesOf, windowEvents));
         const cvAfter = coefficientOfVariation(weeklyTotals(afterIds, seriesOf, windowEvents));
         squadBalanceDelta = cvBefore - cvAfter;
-        if (squadBalanceDelta > 0.02) rationale.push("smoother week-to-week spread");
-        else if (squadBalanceDelta < -0.02) rationale.push("lumpier week-to-week spread");
+        if (squadBalanceDelta > 0.02) note("smoother week-to-week spread", "balance", "positive");
+        else if (squadBalanceDelta < -0.02) note("lumpier week-to-week spread", "balance", "warning");
       }
 
       // ExitRoutes: after taking c, how many other pool players at his
@@ -624,7 +652,7 @@ export function findReplacements(
         ).length;
       }
 
-      if (rationale.length === 0) rationale.push("broadly equivalent");
+      if (rationale.length === 0) note("broadly equivalent", "xp", "neutral");
 
       return {
         player: c,

@@ -4,6 +4,7 @@ import { CHIP_LABELS } from "@/lib/chip-plan";
 import { DEFAULT_DECISION_MARGIN } from "@/lib/transfer-optimizer";
 import { horizonLabel, type Horizon } from "@/lib/team-state";
 import type { TransferMove } from "@/lib/transfers";
+import { stepNet } from "@/lib/transfer-path";
 import type { TransferPathResult, TransferPathStep } from "@/lib/transfer-path";
 import { Spinner } from "@/components/ui/spinner";
 import { signed } from "@/lib/utils";
@@ -237,11 +238,23 @@ function StepRow({
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{label}</span>
         <span className="flex items-center gap-3">
+          {/* The terms were here without the "= net" the house format calls
+              for (CLAUDE.md), so a reader had to subtract the hit themselves
+              to find out whether the gameweek was actually up or down —
+              DSI-120's complaint, though not its diagnosis: this line is grey,
+              never green, so it was never "green despite a negative net". The
+              risk term joins it for the same reason the headline carries one:
+              a net that includes a term the reader cannot see does not add up
+              on the page. */}
           <span className="text-[11px] tabular-nums text-zinc-500">
             {signed(step.eventXp)} xP
             {step.chipBonus > 0 ? ` + ${step.chipBonus.toFixed(1)} chip` : ""}
             {step.decisionMargin > 0 ? ` + ${step.decisionMargin.toFixed(1)} waiting` : ""}
             {step.pointsCost > 0 ? ` − ${step.pointsCost} hit` : ""}
+            {Math.abs(step.riskPointsDelta) >= 0.05
+              ? ` ${step.riskPointsDelta > 0 ? "−" : "+"} ${Math.abs(step.riskPointsDelta).toFixed(1)} risk`
+              : ""}{" "}
+            = <span className="font-semibold text-zinc-700 dark:text-zinc-300">{signed(stepNet(step))}</span>
           </span>
           {onLoad && (
             <button
@@ -249,7 +262,7 @@ function StepRow({
               onClick={onLoad}
               className="shrink-0 rounded-md border border-purple-700 px-2 py-0.5 text-[11px] font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary dark:text-primary dark:hover:bg-primary/10"
             >
-              Load
+              Load into basket
             </button>
           )}
           {loaded && !onLoad && (
