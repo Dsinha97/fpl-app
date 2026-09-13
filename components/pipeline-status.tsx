@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DataCell, DataHeadCell, DataRow, DataTable, DataTableHead } from "@/components/ui/data-table";
 import { supabase } from "@/lib/supabase/client";
 import { AccuracyScoreboard } from "@/components/accuracy-scoreboard";
 import { SyncHealthPanel } from "@/components/sync-health";
@@ -172,26 +173,20 @@ export function PipelineStatus() {
         <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
           Last run per function
         </h2>
-        <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                <th className="px-3 py-2">Function</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">When</th>
-                <th className="px-3 py-2">Duration</th>
-                <th className="px-3 py-2">Rows</th>
-                <th className="px-3 py-2">Detail</th>
-              </tr>
-            </thead>
+        <DataTable minWidth="44rem" wrapperClassName="mt-3" label="Last run per sync function">
+            <DataTableHead>
+              <DataHeadCell className="px-3">Function</DataHeadCell>
+              <DataHeadCell className="px-3">Status</DataHeadCell>
+              <DataHeadCell className="px-3">When</DataHeadCell>
+              <DataHeadCell className="px-3" numeric>Duration</DataHeadCell>
+              <DataHeadCell className="px-3" numeric>Rows</DataHeadCell>
+              <DataHeadCell className="px-3">Detail</DataHeadCell>
+            </DataTableHead>
             <tbody>
               {runs.map((r) => (
-                <tr
-                  key={r.function_name}
-                  className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
-                >
-                  <td className="px-3 py-2 font-mono text-xs">{r.function_name}</td>
-                  <td className="px-3 py-2">
+                <DataRow key={r.function_name} className="text-zinc-800 dark:text-zinc-200">
+                  <DataCell className="px-3 py-2 font-mono text-xs">{r.function_name}</DataCell>
+                  <DataCell className="px-3 py-2">
                     <span
                       className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                         STATUS_STYLES[r.status] ?? STATUS_STYLES.running
@@ -199,25 +194,24 @@ export function PipelineStatus() {
                     >
                       {r.status}
                     </span>
-                  </td>
-                  <td className="px-3 py-2 text-zinc-500">{ago(r.started_at)}</td>
-                  <td className="px-3 py-2 tabular-nums text-zinc-500">{duration(r)}</td>
-                  <td className="px-3 py-2 tabular-nums">{r.rows_written.toLocaleString()}</td>
-                  <td className="px-3 py-2 max-w-xs truncate text-xs text-zinc-500">
+                  </DataCell>
+                  <DataCell className="px-3 py-2 text-zinc-500">{ago(r.started_at)}</DataCell>
+                  <DataCell className="px-3 py-2 text-zinc-500" numeric>{duration(r)}</DataCell>
+                  <DataCell className="px-3 py-2" numeric>{r.rows_written.toLocaleString()}</DataCell>
+                  <DataCell className="px-3 py-2 max-w-xs truncate text-xs text-zinc-500">
                     {r.error ?? (r.details ? JSON.stringify(r.details) : "")}
-                  </td>
-                </tr>
+                  </DataCell>
+                </DataRow>
               ))}
               {runs.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-zinc-500">
+                  <DataCell colSpan={6} className="px-3 py-6 text-center text-zinc-500">
                     No sync runs recorded yet.
-                  </td>
+                  </DataCell>
                 </tr>
               )}
             </tbody>
-          </table>
-        </div>
+        </DataTable>
       </section>
 
       {counts && (

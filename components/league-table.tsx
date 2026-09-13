@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { DataCell, DataHeadCell, DataRow, DataTable, DataTableHead } from "@/components/ui/data-table";
 import { TeamCrest } from "./identity";
 import { FixtureCell } from "./fdr-badge";
 import {
@@ -146,25 +147,22 @@ export function LeagueTable({
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
-        <table className="w-full min-w-[40rem] border-collapse text-xs">
-          <thead>
-            <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-              <th className="sticky left-0 z-10 bg-white px-2 py-2 text-center dark:bg-card">#</th>
-              <th className="sticky left-8 z-10 bg-white px-2 py-2 dark:bg-card">Team</th>
-              <th className="px-2 py-2 text-right">P</th>
-              <th className="px-2 py-2 text-right">W</th>
-              <th className="px-2 py-2 text-right">D</th>
-              <th className="px-2 py-2 text-right">L</th>
-              <th className="px-2 py-2 text-right">Pts</th>
-              <th className="px-2 py-2 text-center">Form</th>
+      <DataTable minWidth="40rem" className="border-collapse text-xs" label="League table">
+          <DataTableHead>
+              <DataHeadCell sticky className="px-2 text-center">#</DataHeadCell>
+              <DataHeadCell className="sticky left-8 z-30 bg-card px-2">Team</DataHeadCell>
+              <DataHeadCell className="px-2" numeric>P</DataHeadCell>
+              <DataHeadCell className="px-2" numeric>W</DataHeadCell>
+              <DataHeadCell className="px-2" numeric>D</DataHeadCell>
+              <DataHeadCell className="px-2" numeric>L</DataHeadCell>
+              <DataHeadCell className="px-2" numeric>Pts</DataHeadCell>
+              <DataHeadCell className="px-2 text-center">Form</DataHeadCell>
               {gwCols.map((g) => (
-                <th key={g} className="px-1 py-2 text-center">
+                <DataHeadCell key={g} className="px-1 text-center">
                   GW{g}
-                </th>
+                </DataHeadCell>
               ))}
-            </tr>
-          </thead>
+          </DataTableHead>
           <tbody>
             {rows.map((team, i) => {
               const cells = byTeam.get(team.id) ?? new Map();
@@ -177,39 +175,36 @@ export function LeagueTable({
               const form = fplPublished ? team.form : (d?.form ?? null);
               const position = fplPublished ? (team.position ?? i + 1) : (d?.position ?? i + 1);
               return (
-                <tr
-                  key={team.id}
-                  className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30"
-                >
-                  <td className="sticky left-0 z-10 bg-white px-2 py-1.5 text-center tabular-nums text-zinc-500 dark:bg-card">
+                <DataRow key={team.id}>
+                  <DataCell sticky className="px-2 py-1.5 text-center tabular-nums text-zinc-500">
                     {noFixturesStarted ? "—" : position}
-                  </td>
-                  <td className="sticky left-8 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white px-2 py-1.5 font-medium text-zinc-800 dark:bg-card dark:text-zinc-200">
+                  </DataCell>
+                  <DataCell className="sticky left-8 z-10 flex items-center gap-1.5 whitespace-nowrap bg-card px-2 py-1.5 font-medium text-zinc-800 dark:text-zinc-200">
                     <TeamCrest teamCode={team.code} shortName={team.short_name} className="h-4 w-4 shrink-0" />
                     {team.name}
-                  </td>
-                  <td className="px-2 py-1.5 text-right tabular-nums text-zinc-600 dark:text-zinc-400">
+                  </DataCell>
+                  <DataCell className="px-2 py-1.5 text-zinc-600 dark:text-zinc-400" numeric>
                     {played}
-                  </td>
-                  <td className="px-2 py-1.5 text-right tabular-nums text-zinc-600 dark:text-zinc-400">
+                  </DataCell>
+                  <DataCell className="px-2 py-1.5 text-zinc-600 dark:text-zinc-400" numeric>
                     {win}
-                  </td>
-                  <td className="px-2 py-1.5 text-right tabular-nums text-zinc-600 dark:text-zinc-400">
+                  </DataCell>
+                  <DataCell className="px-2 py-1.5 text-zinc-600 dark:text-zinc-400" numeric>
                     {draw}
-                  </td>
-                  <td className="px-2 py-1.5 text-right tabular-nums text-zinc-600 dark:text-zinc-400">
+                  </DataCell>
+                  <DataCell className="px-2 py-1.5 text-zinc-600 dark:text-zinc-400" numeric>
                     {loss}
-                  </td>
-                  <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                  </DataCell>
+                  <DataCell className="px-2 py-1.5 font-semibold text-zinc-900 dark:text-zinc-100" numeric>
                     {points}
-                  </td>
-                  <td className="px-2 py-1.5 text-center">
+                  </DataCell>
+                  <DataCell className="px-2 py-1.5 text-center">
                     <FormRun form={form} />
-                  </td>
+                  </DataCell>
                   {gwCols.map((g) => {
                     const cellFixtures = cells.get(g) ?? [];
                     return (
-                      <td key={g} className="px-1 py-1.5 text-center">
+                      <DataCell key={g} className="px-1 py-1.5 text-center">
                         {cellFixtures.length === 0 ? (
                           <span
                             className="block rounded bg-zinc-100 px-1 py-1 text-zinc-400 dark:bg-surface-3 dark:text-zinc-600"
@@ -234,15 +229,14 @@ export function LeagueTable({
                             )}
                           </span>
                         )}
-                      </td>
+                      </DataCell>
                     );
                   })}
-                </tr>
+                </DataRow>
               );
             })}
           </tbody>
-        </table>
-      </div>
+      </DataTable>
 
       <p className="mt-4 text-xs text-zinc-400">
         Rows follow FPL&apos;s own published table once it exists. Next-{NEXT_N} chips use the
