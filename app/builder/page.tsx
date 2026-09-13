@@ -2771,8 +2771,46 @@ export default function BuilderPage() {
 
             {/* Same detail panel the pitch uses, anchored to the picker row.
                 Actions differ by context: pool players get Add and Find
-                replacement, squad players the armband controls. */}
-            {pickerPanel && (
+                replacement, squad players the armband controls.
+
+                Same shape as the pitch: an anchored popover on a pointer, a
+                bottom sheet on a phone. A popover pinned to a table row lands
+                halfway off a 375px screen and nowhere near the thumb. */}
+            {pickerPanel && !isDesktop && (
+              <SlideOver
+                open
+                onClose={closePickerDetail}
+                side="bottom"
+                label={`${pickerPanel.player.web_name} details`}
+              >
+                <PlayerDetail
+                  player={pickerPanel.player}
+                  inline
+                  onClose={closePickerDetail}
+                  onSetCaptain={(id) => persist(setCaptain(team, id))}
+                  onSetVice={(id) => persist(setViceCaptain(team, id))}
+                  onRemove={(id) => persist(removePlayer(team, id, lookup(id)?.nowCost))}
+                  owned={pickerPanel.owned}
+                  addDisabledReason={pickerPanel.addDisabledReason}
+                  addLabel={replaceFor !== null ? "Swap in" : "Add to squad"}
+                  onAdd={(id) => {
+                    const m = metaById.get(id);
+                    if (!m) return;
+                    if (replaceFor !== null) doSwap(replaceFor, m);
+                    else {
+                      persist(addPlayer(team, m));
+                      if (addingPosition !== null) stopAdding();
+                    }
+                    closePickerDetail();
+                  }}
+                  onFindReplacement={(id) => {
+                    startReplacing(id);
+                    closePickerDetail();
+                  }}
+                />
+              </SlideOver>
+            )}
+            {pickerPanel && isDesktop && (
               <PlayerDetail
                 player={pickerPanel.player}
                 top={pickerPanel.top}

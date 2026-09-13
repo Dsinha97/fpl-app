@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { NoteDisclosure } from "@/components/ui/note-disclosure";
 import {
   DEFAULT_DECISION_MARGIN,
   type Branch,
@@ -86,10 +86,6 @@ export function TransferPlan({
   stale = false,
   onRerun,
 }: TransferPlanProps) {
-  // Collapsed by default — TRANSFER_MODEL_NOTE runs to a full paragraph and
-  // ate the whole screen below the branch list on mobile. Same idiom as the
-  // chips page's model-note banner.
-  const [noteOpen, setNoteOpen] = useState(false);
   const chipSummary = result ? summarizeChipTerms(result) : null;
 
   return (
@@ -194,25 +190,10 @@ export function TransferPlan({
             ))}
           </ul>
 
-          <div className="mt-3 overflow-hidden rounded-md border border-zinc-200 dark:border-purple-900/40">
-            <button
-              type="button"
-              onClick={() => setNoteOpen((v) => !v)}
-              aria-expanded={noteOpen}
-              className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[10px] leading-relaxed text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-            >
-              <span
-                aria-hidden="true"
-                className={`shrink-0 text-zinc-400 transition-transform ${noteOpen ? "" : "rotate-180"}`}
-              >
-                ⌃
-              </span>
-              <span className={`min-w-0 flex-1 ${noteOpen ? "" : "truncate"}`}>
-                Free transfers next gameweek if you spend none now: {result.accruedFreeTransfers}.{" "}
-                {result.note}
-              </span>
-            </button>
-          </div>
+          <NoteDisclosure>
+            Free transfers next gameweek if you spend none now: {result.accruedFreeTransfers}.{" "}
+            {result.note}
+          </NoteDisclosure>
         </>
       )}
     </section>

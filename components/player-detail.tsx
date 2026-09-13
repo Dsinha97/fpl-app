@@ -139,8 +139,8 @@ export function PlayerDetail({
       style={inline ? undefined : { top, left, width: PANEL_WIDTH, maxHeight: PANEL_MAX_HEIGHT }}
       className={
         inline
-          ? "min-h-0 overflow-y-auto px-1"
-          : `z-40 overflow-y-auto rounded-lg border border-zinc-200 bg-card p-3 shadow-2xl dark:border-purple-700 ${
+          ? "min-h-0 overflow-x-hidden overflow-y-auto px-1"
+          : `z-40 overflow-x-hidden overflow-y-auto rounded-lg border border-zinc-200 bg-card p-3 shadow-2xl dark:border-purple-700 ${
               fixed ? "fixed" : "absolute"
             }`
       }
@@ -162,7 +162,7 @@ export function PlayerDetail({
           aria-label="Close"
           variant="ghost"
           size="icon-xs"
-          className="-mr-1 -mt-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
+          className="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
         >
           ×
         </Button>

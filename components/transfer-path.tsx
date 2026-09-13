@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { NoteDisclosure } from "@/components/ui/note-disclosure";
 import { CHIP_LABELS } from "@/lib/chip-plan";
 import { DEFAULT_DECISION_MARGIN } from "@/lib/transfer-optimizer";
 import { horizonLabel, type Horizon } from "@/lib/team-state";
@@ -215,9 +216,10 @@ export function TransferPath({
             </>
           )}
 
-          <p className="mt-3 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-            Ran {result.simulationCount} simulations beyond the deadline&rsquo;s own search. {result.note}
-          </p>
+          <NoteDisclosure>
+            Ran {result.simulationCount} simulations beyond the deadline&rsquo;s own search.{" "}
+            {result.note}
+          </NoteDisclosure>
         </>
       )}
     </section>

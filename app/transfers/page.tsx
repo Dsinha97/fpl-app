@@ -62,6 +62,7 @@ import {
 } from "@/lib/team-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { NoteDisclosure } from "@/components/ui/note-disclosure";
 import { Alert } from "@/components/ui/alert";
 import { signed } from "@/lib/utils";
 import { HorizonControl } from "@/components/horizon-control";
@@ -1431,13 +1432,11 @@ export default function TransfersPage() {
                   Apply as a new draft
                 </Button>
 
-                <p className="mt-3 text-[10px] leading-relaxed text-zinc-400">
-                  {TRANSFER_MODEL_NOTE}
-                </p>
-                <p className="mt-1 text-[10px] leading-relaxed text-zinc-400">
+                <NoteDisclosure>{TRANSFER_MODEL_NOTE}</NoteDisclosure>
+                <NoteDisclosure className="mt-1">
                   An ↑/↓ next to an incoming player above means its price watch reads &ldquo;likely
                   tonight&rdquo;. {PRICE_WATCH_MODEL_NOTE}
-                </p>
+                </NoteDisclosure>
               </div>
             )}
           </aside>
