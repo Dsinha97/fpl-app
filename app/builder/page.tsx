@@ -43,7 +43,6 @@ import {
   sameSquadState,
   validateSquad,
   xpAt,
-  HORIZONS,
   horizonLabel,
   horizonLength,
   seasonHorizonNote,
@@ -98,6 +97,7 @@ import {
   PlayerFilters,
   type PlayerFilterState,
 } from "@/components/player-filters";
+import { HorizonControl } from "@/components/horizon-control";
 
 interface PlayerRow {
   id: number;
@@ -1752,25 +1752,7 @@ export default function BuilderPage() {
         <div className="flex flex-wrap items-center gap-2 text-sm">
           {/* Page-level horizon: drives the projection, the picker, and the
               optimiser. The XI/captain panel stays on the next gameweek. */}
-          <span className="flex items-center gap-1 rounded-md border border-zinc-300 px-1.5 py-1 dark:border-purple-800/50">
-            <span className="text-xs text-zinc-500">Horizon</span>
-            {HORIZONS.map((h) => (
-              <button
-                key={h}
-                type="button"
-                onClick={() => setHorizon(h)}
-                title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-                aria-pressed={horizon === h}
-                className={`rounded px-1.5 py-0.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  horizon === h
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {horizonLabel(h)}
-              </button>
-            ))}
-          </span>
+          <HorizonControl value={horizon} onValueChange={setHorizon} />
 
           {drafts.length > 0 && (
             <select

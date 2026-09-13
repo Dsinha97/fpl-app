@@ -49,7 +49,6 @@ import {
 } from "@/lib/chip-plan";
 import {
   DEFAULT_RULES,
-  HORIZONS,
   horizonLabel,
   horizonLength,
   seasonHorizonNote,
@@ -62,6 +61,7 @@ import {
 } from "@/lib/team-state";
 import { Alert } from "@/components/ui/alert";
 import { signed } from "@/lib/utils";
+import { HorizonControl } from "@/components/horizon-control";
 
 interface PlayerRow {
   id: number;
@@ -877,25 +877,7 @@ export default function TransfersPage() {
           </p>
         </div>
         {tab === "transfers" && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-zinc-500">Horizon</span>
-          {HORIZONS.map((h) => (
-            <button
-              key={h}
-              type="button"
-              onClick={() => setHorizon(h)}
-              title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-              aria-pressed={horizon === h}
-              className={`rounded-md border px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                horizon === h
-                  ? "border-transparent bg-primary text-primary-foreground"
-                  : "border-input text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {horizonLabel(h)}
-            </button>
-          ))}
-        </div>
+        <HorizonControl value={horizon} onValueChange={setHorizon} />
         )}
       </div>
 

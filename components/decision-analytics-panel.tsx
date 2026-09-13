@@ -8,9 +8,10 @@ import {
   DECISION_ANALYTICS_NOTE,
   type DecisionAnalytics,
 } from "@/lib/decision-analytics";
-import { HORIZONS, horizonLabel, type Horizon } from "@/lib/team-state";
+import { horizonLabel, type Horizon } from "@/lib/team-state";
 import type { PlayerRow } from "@/components/gameweek-review-panel";
 import { signed } from "@/lib/utils";
+import { HorizonControl } from "@/components/horizon-control";
 
 function nameOf(players: Map<number, PlayerRow>, element: number): string {
   return players.get(element)?.web_name ?? `#${element}`;
@@ -140,27 +141,7 @@ export function DecisionAnalyticsPanel({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <label
-            htmlFor="da-horizon"
-            className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
-          >
-            Transfer horizon
-          </label>
-          <select
-            id="da-horizon"
-            value={String(horizon)}
-            onChange={(e) => {
-              const v = e.target.value;
-              setHorizon(v === "season" ? "season" : (Number(v) as Horizon));
-            }}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 dark:border-purple-900/40 dark:bg-input dark:text-zinc-100"
-          >
-            {HORIZONS.map((h) => (
-              <option key={String(h)} value={String(h)}>
-                {horizonLabel(h)}
-              </option>
-            ))}
-          </select>
+          <HorizonControl value={horizon} onValueChange={setHorizon} label="Transfer horizon" />
           <InfoTooltip label="About these figures">{DECISION_ANALYTICS_NOTE}</InfoTooltip>
         </div>
       </div>

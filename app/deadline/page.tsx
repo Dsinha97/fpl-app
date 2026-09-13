@@ -13,7 +13,6 @@ import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { ChipPlanEditor } from "@/components/chip-plan-editor";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { FeedRowItem } from "@/components/feed-row";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { TransferPath } from "@/components/transfer-path";
@@ -40,10 +39,7 @@ import {
 } from "@/components/live-fixtures";
 import {
   hasConsistentLineup,
-  HORIZONS,
-  horizonLabel,
   horizonLength,
-  seasonHorizonNote,
   validateSquad,
   type ChipKind,
   type ChipPlan,
@@ -81,6 +77,7 @@ import { confidentEntities, dedupeByUrl, sourceBadge, type NewsRow } from "@/lib
 import { loadPastResults, type PastResult } from "@/lib/player-history";
 import { signed } from "@/lib/utils";
 import { Alert } from "@/components/ui/alert";
+import { HorizonControl } from "@/components/horizon-control";
 
 interface PlayerRow {
   id: number;
@@ -1797,19 +1794,12 @@ export default function DeadlinePage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Transfer call</h2>
                     <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <div className="flex gap-1.5">
-                        <SegmentedControl
-                          label="Planning horizon"
-                          semantics="radio"
-                          size="sm"
-                          value={String(horizon)}
-                          onValueChange={(v) => setHorizon(v === "season" ? "season" : (Number(v) as Horizon))}
-                          options={HORIZONS.map((h) => ({
-                            value: String(h),
-                            label: horizonLabel(h),
-                          }))}
-                        />
-                      </div>
+                      <HorizonControl
+                        value={horizon}
+                        onValueChange={setHorizon}
+                        label="Planning horizon"
+                        showLabel={false}
+                      />
                       <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
                         Free transfers
                         <select

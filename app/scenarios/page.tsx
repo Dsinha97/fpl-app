@@ -45,7 +45,6 @@ import { benchBoostAt, tripleCaptainAt, type ChipValuation } from "@/lib/chips";
 import { Badge } from "@/components/ui/badge";
 import { ModelNote } from "@/components/ui/model-note";
 import {
-  HORIZONS,
   horizonLabel,
   seasonHorizonNote,
   validateSquad,
@@ -57,6 +56,7 @@ import {
   DEFAULT_RULES,
 } from "@/lib/team-state";
 import { signed } from "@/lib/utils";
+import { HorizonControl } from "@/components/horizon-control";
 
 
 interface PlayerRow {
@@ -636,25 +636,18 @@ export default function ScenariosPage() {
             ))}
             <InfoTooltip label="About points scored">{SCENARIO_ACTUALS_NOTE}</InfoTooltip>
           </div>
-          <div className="flex items-center gap-2">
-          <span className="text-zinc-500">Horizon</span>
-          {HORIZONS.map((h) => (
-            <button
-              key={h}
-              onClick={() => setHorizon(h)}
-              title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-              className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                horizon === h
-                  ? "bg-purple-950 text-white dark:bg-primary dark:text-slate-950"
-                  : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
-              }`}
-            >
-              {horizonLabel(h)}
-            </button>
-          ))}
-          </div>
+          <HorizonControl value={horizon} onValueChange={setHorizon} />
         </div>
       </div>
+
+      {/* The old per-segment `title=` on "Season" went with the hand-rolled
+          buttons; the note belongs on the page anyway, where `/players` and
+          `/transfers` already put it. */}
+      {horizon === "season" && (
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+          {seasonHorizonNote(seasonWindow)}
+        </p>
+      )}
 
       {view === "actual" && (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">

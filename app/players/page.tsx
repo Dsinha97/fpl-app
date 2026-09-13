@@ -30,12 +30,12 @@ import {
   type PlayerFilterState,
 } from "@/components/player-filters";
 import {
-  HORIZONS,
   horizonLabel,
   horizonLength,
   seasonHorizonNote,
   type Horizon,
 } from "@/lib/team-state";
+import { HorizonControl } from "@/components/horizon-control";
 
 interface PlayerRow {
   id: number;
@@ -689,26 +689,13 @@ export default function PlayersPage() {
             {historySeason ? ` · season stats from ${shortSeason(historySeason)}` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-zinc-500">Horizon</span>
-          {HORIZONS.map((h) => (
-            <button
-              key={h}
-              onClick={() => {
-                setHorizon(h);
-                setPage(0);
-              }}
-              title={h === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-              className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                horizon === h
-                  ? "bg-purple-950 text-white dark:bg-primary dark:text-slate-950"
-                  : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
-              }`}
-            >
-              {horizonLabel(h)}
-            </button>
-          ))}
-        </div>
+        <HorizonControl
+          value={horizon}
+          onValueChange={(h) => {
+            setHorizon(h);
+            setPage(0);
+          }}
+        />
       </div>
       {horizon === "season" && (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{seasonHorizonNote(seasonWindow)}</p>
