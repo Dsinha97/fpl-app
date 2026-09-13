@@ -156,6 +156,8 @@ export default function TransfersPage() {
   const [decisionMargin, setDecisionMargin] = useState(DEFAULT_DECISION_MARGIN);
   /** The squad slot currently being filled, if any. */
   const [pickingFor, setPickingFor] = useState<number | null>(null);
+  /** A ?replace=<id> from another page, waiting for the draft to resolve. */
+  const requestedReplace = useRef<number | null>(null);
   const [search, setSearch] = useState("");
   /** Sprint 23: on mobile the picker renders inline below the table rather
    * than in the desktop aside (there's no room for a second column), so on
@@ -181,7 +183,18 @@ export default function TransfersPage() {
     // the most recently saved draft when the id is absent or stale.
     const requested = resolveRequestedDraft(list, window.location.search);
     setDraftId(requested?.draftId ?? null);
-    if (new URLSearchParams(window.location.search).get("tab") === "chips") setTab("chips");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "chips") setTab("chips");
+    // ?replace=<playerId> opens the picker on that player, so "Replace" in a
+    // player panel elsewhere (/deadline's pitch) lands on the picker rather
+    // than on this page's top and leaving the reader to find the row again.
+    //
+    // Held in a ref, not set here: `draftId` resolves in this same pass, and
+    // the "a different squad invalidates the basket" effect below clears
+    // `pickingFor` when it does. Setting it now just loses it a tick later —
+    // which is exactly what the first version of this did.
+    const replace = Number(params.get("replace"));
+    if (Number.isFinite(replace) && replace > 0) requestedReplace.current = replace;
   }, []);
 
   useEffect(() => {
@@ -419,10 +432,21 @@ export default function TransfersPage() {
     // A different squad invalidates the basket.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMoves([]);
-    setPickingFor(null);
     setApplied(null);
     setWildcardMode(false);
     setPathResult(null);
+    // ...including the picker, unless the URL asked for one and a draft has
+    // now actually resolved. The `draftId !== null` guard is load-bearing:
+    // this effect also runs on the first commit, when draftId is still null,
+    // and consuming the request there spends it a tick before the draft that
+    // gives it meaning arrives. Consumed once, so switching squads afterwards
+    // still clears the picker.
+    if (draftId !== null && requestedReplace.current !== null) {
+      setPickingFor(requestedReplace.current);
+      requestedReplace.current = null;
+    } else {
+      setPickingFor(null);
+    }
   }, [draftId]);
 
   useEffect(() => {

@@ -40,6 +40,8 @@ import {
 import {
   hasConsistentLineup,
   horizonLength,
+  setCaptain,
+  setViceCaptain,
   validateSquad,
   type ChipKind,
   type ChipPlan,
@@ -1521,12 +1523,32 @@ export default function DeadlinePage() {
                         <Spinner /> Calculating expected points…
                       </p>
                     )}
-                    {/* Read-only: no armband or remove handlers, so the detail panel
-                        opens as information only. Editing stays in /builder. */}
+                    {/* The armband is editable here, because this page is the
+                        one asking "who captains this week" and the answer used
+                        to require a trip to /builder and back. It writes to the
+                        same draft the chip plan and free-transfer count above
+                        already write to — `saveDraft` then re-read, the pattern
+                        those two established.
+
+                        Removing a player is NOT offered: on this page the squad
+                        is the real team before a deadline, and a removal with no
+                        replacement is not a move FPL allows. "Replace" hands the
+                        job to /transfers, which knows about budget and hits. */}
                     <PitchView
                       squad={squadCards}
                       quota={ctx.rules.positionQuota}
                       layout={squadLayout}
+                      onSetCaptain={(id) => {
+                        saveDraft(setCaptain(team, id));
+                        setDrafts(listDrafts());
+                      }}
+                      onSetVice={(id) => {
+                        saveDraft(setViceCaptain(team, id));
+                        setDrafts(listDrafts());
+                      }}
+                      onFindReplacement={(id) =>
+                        router.push(`/transfers/?draft=${team.draftId}&replace=${id}`)
+                      }
                     />
                     <p className="mt-2 text-xs text-zinc-500">
                       {team.name}
