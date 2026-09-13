@@ -61,6 +61,7 @@ import {
   type TeamState,
 } from "@/lib/team-state";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { signed } from "@/lib/utils";
 import { HorizonControl } from "@/components/horizon-control";
@@ -992,13 +993,9 @@ export default function TransfersPage() {
           Apply as Wildcard (no hit)
         </label>
         {moves.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setMoves([])}
-            className="rounded-md border border-input px-2.5 py-1 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
+          <Button variant="outline" size="xs" onClick={() => setMoves([])}>
             Clear {moves.length} transfer{moves.length === 1 ? "" : "s"}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -1208,24 +1205,28 @@ export default function TransfersPage() {
                           what used to read as a gap before the button. */}
                       <td className="py-1.5 pl-1 pr-2 text-right">
                         {move ? (
-                          <button
-                            type="button"
+                          <Button
+                            variant="link"
+                            size="xs"
+                            className="text-zinc-500"
                             onClick={() => setMoves((prev) => prev.filter((m) => m.outId !== move.outId))}
-                            className="rounded text-xs text-zinc-500 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             undo
-                          </button>
+                          </Button>
                         ) : (
-                          <button
-                            type="button"
+                          <Button
+                            variant="outline"
+                            size="md"
+                            /* min-h-9 kept: this is the 36px target the
+                               DSI-124 pass measured and declined to shrink. */
+                            className="min-h-9"
                             onClick={() => {
                               setPickingFor(pick.playerId);
                               setSearch("");
                             }}
-                            className="min-h-9 rounded border border-input px-2.5 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary dark:hover:text-primary"
                           >
                             Replace
-                          </button>
+                          </Button>
                         )}
                       </td>
                     </tr>

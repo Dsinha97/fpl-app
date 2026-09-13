@@ -5,6 +5,7 @@
    emoji made the pinned and unpinned states visually identical. lucide's Pin
    inherits currentColor, which is what those classes were written for. Same
    reason /news dropped its emoji pills (DSI-122/DSI-125). */
+import { Button } from "@/components/ui/button";
 import { Pin } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -653,13 +654,14 @@ export function ChipTiming({
                           </span>
                           <p className="mt-0.5 text-xs text-zinc-500">{preset.note}</p>
                         </div>
-                        <button
-                          type="button"
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          className="min-h-9 shrink-0 border-purple-700 text-purple-700 dark:border-primary dark:text-primary"
                           onClick={() => pinPreset(preset)}
-                          className="min-h-9 shrink-0 rounded-md border border-purple-700 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-primary dark:text-primary dark:hover:bg-primary/10"
                         >
                           Pin
-                        </button>
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -722,15 +724,14 @@ export function ChipTiming({
                                 {signed(e.gain)}
                                 <span className="ml-1 text-[10px] font-normal text-zinc-500">this GW</span>
                               </span>
-                              <button
-                                type="button"
+                              <Button
                                 onClick={() => pinChip(e.chip, e.event)}
                                 title={`Pin ${CHIP_LABELS[e.chip]} to GW${e.event}`}
                                 aria-label={`Pin ${CHIP_LABELS[e.chip]} to GW${e.event} in this plan`}
-                                className="ml-1 rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
+                                variant="ghost" size="icon-xs" className="ml-1 text-zinc-400 hover:text-purple-700 dark:hover:text-primary"
                               >
                                 <Pin className="h-3.5 w-3.5" aria-hidden />
-                              </button>
+                              </Button>
                             </div>
                           ))}
                       </div>
@@ -754,15 +755,14 @@ export function ChipTiming({
                         <span className="tabular-nums text-purple-800 dark:text-primary">
                           {signed(half.wildcard.gain)}
                         </span>
-                        <button
-                          type="button"
+                        <Button
                           onClick={() => pinChip("wildcard", half.wildcard!.event)}
                           title={`Pin Wildcard to GW${half.wildcard.event}`}
                           aria-label={`Pin Wildcard to GW${half.wildcard.event} in this plan`}
-                          className="ml-1 rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
+                          variant="ghost" size="icon-xs" className="ml-1 text-zinc-400 hover:text-purple-700 dark:hover:text-primary"
                         >
                           <Pin className="h-3.5 w-3.5" aria-hidden />
-                        </button>
+                        </Button>
                       </div>
                       <span className="text-xs text-zinc-500">
                         cumulative through GW{half.stopEvent} — not added to the total above
@@ -827,14 +827,13 @@ export function ChipTiming({
                               <span className="tabular-nums font-semibold text-purple-800 dark:text-primary">
                                 {signed(v.gain)}
                               </span>
-                              <button
-                                type="button"
+                              <Button
                                 onClick={() => pinChip(chip, v.event)}
                                 title={`Pin ${CHIP_LABELS[chip]} to GW${v.event}`}
-                                className="rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
+                                variant="ghost" size="icon-xs" className="text-zinc-400 hover:text-purple-700 dark:hover:text-primary"
                               >
                                 <Pin className="h-3.5 w-3.5" aria-hidden />
-                              </button>
+                              </Button>
                             </span>
                           </li>
                         ))}
