@@ -1,5 +1,11 @@
 "use client";
 
+/* The pin buttons style text-zinc-400 → hover:text-primary, and 📌 rendered in
+   the platform's own colours and ignored all of it — on /scenarios the same
+   emoji made the pinned and unpinned states visually identical. lucide's Pin
+   inherits currentColor, which is what those classes were written for. Same
+   reason /news dropped its emoji pills (DSI-122/DSI-125). */
+import { Pin } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
@@ -706,16 +712,24 @@ export function ChipTiming({
                                 {CHIP_LABELS[e.chip]}
                               </span>
                               <span className="text-zinc-500">GW{e.event}</span>
+                              {/* "this GW" beside the number (DSI-125). These
+                                  sit alongside a Wildcard reading +297.4, and
+                                  the only thing that made +20.5 comparable was
+                                  a footnote under the other card. The Wildcard
+                                  row already names its own window; this is the
+                                  matching half. */}
                               <span className="tabular-nums text-purple-800 dark:text-primary">
                                 {signed(e.gain)}
+                                <span className="ml-1 text-[10px] font-normal text-zinc-500">this GW</span>
                               </span>
                               <button
                                 type="button"
                                 onClick={() => pinChip(e.chip, e.event)}
                                 title={`Pin ${CHIP_LABELS[e.chip]} to GW${e.event}`}
+                                aria-label={`Pin ${CHIP_LABELS[e.chip]} to GW${e.event} in this plan`}
                                 className="ml-1 rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
                               >
-                                📌
+                                <Pin className="h-3.5 w-3.5" aria-hidden />
                               </button>
                             </div>
                           ))}
@@ -744,9 +758,10 @@ export function ChipTiming({
                           type="button"
                           onClick={() => pinChip("wildcard", half.wildcard!.event)}
                           title={`Pin Wildcard to GW${half.wildcard.event}`}
+                          aria-label={`Pin Wildcard to GW${half.wildcard.event} in this plan`}
                           className="ml-1 rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
                         >
-                          📌
+                          <Pin className="h-3.5 w-3.5" aria-hidden />
                         </button>
                       </div>
                       <span className="text-xs text-zinc-500">
@@ -818,7 +833,7 @@ export function ChipTiming({
                                 title={`Pin ${CHIP_LABELS[chip]} to GW${v.event}`}
                                 className="rounded text-zinc-400 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
                               >
-                                📌
+                                <Pin className="h-3.5 w-3.5" aria-hidden />
                               </button>
                             </span>
                           </li>

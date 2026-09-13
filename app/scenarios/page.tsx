@@ -1,5 +1,6 @@
 "use client";
 
+import { Pin } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
@@ -887,7 +888,7 @@ export default function ScenariosPage() {
                       aria-pressed={draft.pinned === true}
                       aria-label={draft.pinned ? `Unpin ${draft.name}` : `Pin ${draft.name}`}
                     >
-                      📌
+                      <Pin className="h-3.5 w-3.5" aria-hidden />
                     </button>
                     {/* The box itself was 13px — under the 24px minimum, and a
                         fiddly target on a card you are trying to tick quickly.

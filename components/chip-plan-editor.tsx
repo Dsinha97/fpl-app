@@ -7,7 +7,6 @@
 
 import {
   CHIP_LABELS,
-  clearChipPlanEntry,
   resolveStopEvent,
   setChipPlanEntry,
   validateChipPlan,
@@ -150,16 +149,12 @@ export function ChipPlanEditor({
                               </option>
                             ))}
                         </select>
-                        {current && !played && (
-                          <button
-                            type="button"
-                            onClick={() => onChange(clearChipPlanEntry(plan, current.event))}
-                            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                            title="Clear this pin"
-                          >
-                            ✕
-                          </button>
-                        )}
+                        {/* The ✕ that used to sit here was a second way to do
+                            what the select's own "Not planned" option already
+                            does — an unlabelled ~12px target beside a 36px
+                            control, which is the misclick DSI-125 describes.
+                            The audit asked for the clear to live inside the
+                            dropdown; it already did. */}
                       </label>
                       {rowProblems.map((p, pi) => (
                         <p
