@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { ModelNote } from "@/components/ui/model-note";
 import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -765,11 +766,7 @@ export default function PlayersPage() {
                 <DataHeadCell className="px-2 py-2" numeric>
                   <span className="flex items-center justify-end gap-1.5">
                     <span className="uppercase tracking-wide">Price watch</span>
-                    <InfoTooltip label="What is Price watch?">
-                      <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                        {PRICE_WATCH_MODEL_NOTE}
-                      </p>
-                    </InfoTooltip>
+                    <ModelNote label="What is Price watch?">{PRICE_WATCH_MODEL_NOTE}</ModelNote>
                   </span>
                 </DataHeadCell>
                 {header("xP GW", "xp1", "Model-projected points for the next gameweek. The column beside it projects over the horizon selected above.")}
@@ -798,11 +795,7 @@ export default function PlayersPage() {
                       XD
                       {sortKey === "xdc" ? (sortDesc ? " ↓" : " ↑") : ""}
                     </button>
-                    <InfoTooltip label="What is xDefcon?">
-                      <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                        {XDC_MODEL_NOTE}
-                      </p>
-                    </InfoTooltip>
+                    <ModelNote label="What is xDefcon?">{XDC_MODEL_NOTE}</ModelNote>
                   </span>
                 </DataHeadCell>
                 {header("xP/£m", "value")}

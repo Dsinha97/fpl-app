@@ -6,6 +6,7 @@
    inherits currentColor, which is what those classes were written for. Same
    reason /news dropped its emoji pills (DSI-122/DSI-125). */
 import { Button } from "@/components/ui/button";
+import { ModelNote } from "@/components/ui/model-note";
 import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { Pin } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -533,9 +534,7 @@ export function ChipTiming({
         <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
           Chip Strategy
           {result && (
-            <InfoTooltip label="What do these numbers assume?">
-              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{result.note}</p>
-            </InfoTooltip>
+            <ModelNote label="What do these numbers assume?">{result.note}</ModelNote>
           )}
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
@@ -666,14 +665,10 @@ export function ChipTiming({
                     <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                       Chip sequences
                     </h2>
-                    <InfoTooltip label="About chip sequences">
-                      <p className="text-xs leading-relaxed">
-                        Starting points for a planned sequence, not a recommendation — pin one, then
+                    <ModelNote label="About chip sequences">Starting points for a planned sequence, not a recommendation — pin one, then
                         move any gameweek. The schedules value each chip independently against
                         today&apos;s squad; a sequence values each chip against what the one before
-                        it left behind. See it on the Transfer Path tab after pinning.
-                      </p>
-                    </InfoTooltip>
+                        it left behind. See it on the Transfer Path tab after pinning.</ModelNote>
                   </div>
                   <div className="mt-3 space-y-2">
                     {presets.map((preset) => (

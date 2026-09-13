@@ -2656,9 +2656,7 @@ export default function BuilderPage() {
                     <DataHeadCell className="py-1.5">
                       <span className="inline-flex items-center gap-1">
                         Risk
-                        <InfoTooltip label="How is Risk scored?">
-                          <p className="text-xs leading-relaxed">{RISK_MODEL_NOTE}</p>
-                        </InfoTooltip>
+                        <ModelNote label="How is Risk scored?">{RISK_MODEL_NOTE}</ModelNote>
                       </span>
                     </DataHeadCell>
                     <DataHeadCell className="py-1.5"></DataHeadCell>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { InfoTooltip } from "@/components/info-tooltip";
+import { ModelNote } from "@/components/ui/model-note";
 import { ExpandToggle } from "@/components/ui/expand-toggle";
 import { TeamCrest } from "@/components/identity";
 import { buildupStyleLabel, TACTICAL_PROFILE_NOTE, type TacticalProfile } from "@/lib/tactical-profile";
@@ -44,11 +44,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
     <section>
       <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
         PL Club Tactics
-        <InfoTooltip label="What is this?">
-          <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-            {TACTICAL_PROFILE_NOTE}
-          </p>
-        </InfoTooltip>
+        <ModelNote label="What is this?">{TACTICAL_PROFILE_NOTE}</ModelNote>
       </h2>
       <p className="mt-1 text-sm text-zinc-500">
         Each club&apos;s head coach — formation, buildup style, pressing intensity — shown as

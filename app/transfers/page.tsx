@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ModelNote } from "@/components/ui/model-note";
 import { DataCell, DataHeadCell } from "@/components/ui/data-table";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
@@ -1119,9 +1120,7 @@ export default function TransfersPage() {
                   <DataHeadCell className="px-2 py-1.5">
                     <span className="inline-flex items-center gap-1">
                       Risk
-                      <InfoTooltip label="How is Risk scored?">
-                        <p className="text-xs leading-relaxed">{RISK_MODEL_NOTE}</p>
-                      </InfoTooltip>
+                      <ModelNote label="How is Risk scored?">{RISK_MODEL_NOTE}</ModelNote>
                     </span>
                   </DataHeadCell>
                   <DataHeadCell className="px-2 py-1.5"></DataHeadCell>

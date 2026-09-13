@@ -1,9 +1,9 @@
 "use client";
 
 import { RangeSlider } from "@/components/ui/range-slider";
+import { ModelNote } from "@/components/ui/model-note";
 import { FilterDisclosure } from "@/components/ui/filter-disclosure";
 import { Button } from "@/components/ui/button";
-import { InfoTooltip } from "@/components/info-tooltip";
 import { matchesPlayerQuery, type SearchableName } from "@/lib/player-search";
 import { GEM_ARCHETYPE_LABELS, GEMS_MODEL_NOTE, type GemArchetype } from "@/lib/hidden-gems";
 
@@ -205,12 +205,8 @@ export function PlayerFilters({
                 </Button>
               );
             })}
-            <InfoTooltip label="What do these special options mean?">
-              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                Matches any player with any of the ticked properties — not all of them.{" "}
-                {GEMS_MODEL_NOTE}
-              </p>
-            </InfoTooltip>
+            <ModelNote label="What do these special options mean?">Matches any player with any of the ticked properties — not all of them.{" "}
+                {GEMS_MODEL_NOTE}</ModelNote>
           </span>
         </div>
       </FilterDisclosure>

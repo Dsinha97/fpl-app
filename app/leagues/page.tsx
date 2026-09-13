@@ -7,11 +7,11 @@
 // invoked from the app. This page is that wiring — no new maths.
 
 import { Button } from "@/components/ui/button";
+import { ModelNote } from "@/components/ui/model-note";
 import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { supabase } from "@/lib/supabase/client";
-import { InfoTooltip } from "@/components/info-tooltip";
 import { Spinner } from "@/components/ui/spinner";
 import { ManagerLeagues, type ManagerLeagueRow } from "@/components/manager-leagues";
 import {
@@ -323,14 +323,10 @@ export default function LeaguesPage() {
           ) : (
             <>
               <p className="mt-3 text-xs text-zinc-500">
-                <InfoTooltip label="What does effective ownership mean here?">
-                  <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{OWNERSHIP_MODEL_NOTE}</p>
-                </InfoTooltip>{" "}
+                <ModelNote label="What does effective ownership mean here?">{OWNERSHIP_MODEL_NOTE}</ModelNote>{" "}
                 Effective ownership (EO) counts a captain twice and a bench pick zero — it can exceed 100% if
                 several members captain the same player.{" "}
-                <InfoTooltip label="What is Upside?">
-                  <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{UPSIDE_MODEL_NOTE}</p>
-                </InfoTooltip>
+                <ModelNote label="What is Upside?">{UPSIDE_MODEL_NOTE}</ModelNote>
               </p>
 
               <div className="mt-3 overflow-x-auto">

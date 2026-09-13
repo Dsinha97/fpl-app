@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { ModelNote } from "@/components/ui/model-note";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { InfoTooltip } from "@/components/info-tooltip";
 import { CHIP_LABELS, fplActiveChipAt } from "@/lib/chip-plan";
 import { fmtCountdown } from "@/lib/countdown";
 import { listDrafts, onDraftsChanged, resolveRequestedDraft } from "@/lib/drafts";
@@ -129,12 +129,8 @@ export function ContextBar() {
             <span className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
               £{(squadValue / 10).toFixed(1)}m
             </span>
-            <InfoTooltip label="How is squad value calculated?">
-              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                What you&apos;d get selling every player today — purchase price plus half of
-                any rise, so it can differ from the players&apos; own listed prices.
-              </p>
-            </InfoTooltip>
+            <ModelNote label="How is squad value calculated?">What you&apos;d get selling every player today — purchase price plus half of
+                any rise, so it can differ from the players&apos; own listed prices.</ModelNote>
           </span>
         )}
 
@@ -153,13 +149,9 @@ export function ContextBar() {
             <span className="font-semibold text-zinc-800 dark:text-zinc-200">
               {CHIP_LABELS[activeChip]}
             </span>
-            <InfoTooltip label="What does this chip mean?">
-              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                FPL reports this chip as already in play for {ctx.gameweekName} — it&apos;s what
+            <ModelNote label="What does this chip mean?">FPL reports this chip as already in play for {ctx.gameweekName} — it&apos;s what
                 the game says is happening, not a chip you&apos;ve planned. Projections for this
-                gameweek include it.
-              </p>
-            </InfoTooltip>
+                gameweek include it.</ModelNote>
           </span>
         )}
 
@@ -172,12 +164,8 @@ export function ContextBar() {
                 <span className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
                   ∞
                 </span>
-                <InfoTooltip label="Why are free transfers unlimited?">
-                  <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                    A Wildcard or Free Hit is active — FPL charges no points hit for any number of
-                    changes while it&apos;s in play.
-                  </p>
-                </InfoTooltip>
+                <ModelNote label="Why are free transfers unlimited?">A Wildcard or Free Hit is active — FPL charges no points hit for any number of
+                    changes while it&apos;s in play.</ModelNote>
               </span>
             ) : (
               <span className="flex items-center gap-1">
@@ -185,14 +173,10 @@ export function ContextBar() {
                 <span className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
                   {ft.n}
                 </span>
-                <InfoTooltip label="Where do I change free transfers?">
-                  <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                    Defaults to 1. Set the real count on{" "}
+                <ModelNote label="Where do I change free transfers?">Defaults to 1. Set the real count on{" "}
                     <span className="font-medium">My Team</span> or{" "}
                     <span className="font-medium">Deadline</span> — FPL doesn&apos;t publish it
-                    without a login this app can&apos;t perform.
-                  </p>
-                </InfoTooltip>
+                    without a login this app can&apos;t perform.</ModelNote>
               </span>
             );
           })()}
