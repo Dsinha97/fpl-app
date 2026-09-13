@@ -371,6 +371,27 @@ export function ChipTiming({
     setApplied(`Pinned ${CHIP_LABELS[chip]} to GW${event} on "${team.name}".`);
   };
 
+  /**
+   * The same write, recorded as a decision rather than a shortlisting.
+   *
+   * `ChipPlanEntry.source` has carried "manual" | "shortlist" | "fpl" since it
+   * was introduced, and until now every control on this page wrote
+   * "shortlist" — including the ones that apply a whole recommended schedule,
+   * which is plainly a choice and not a maybe. Nothing branches on the
+   * distinction today (only "fpl" is load-bearing, in `chipEntriesInForce`),
+   * so this changes no behaviour; it stops the record being wrong about how
+   * each entry got there, which is what it exists to say.
+   *
+   * The rule on this page is now: a bare pin icon shortlists, a labelled
+   * "Apply" button decides.
+   */
+  const applyChip = (chip: ChipKind, event: number) => {
+    if (!team) return;
+    saveDraft({ ...team, chipPlan: setChipPlanEntry(team.chipPlan, chip, event, "manual") });
+    onDraftsChanged();
+    setApplied(`${CHIP_LABELS[chip]} is now planned for GW${event} on "${team.name}".`);
+  };
+
   const pinSchedule = (half: ChipHalfSchedule) => {
     if (!team) return;
     const entries: { chip: ChipKind; event: number }[] = [];
@@ -378,10 +399,10 @@ export function ChipTiming({
     if (half.wildcard) entries.push({ chip: "wildcard", event: half.wildcard.event });
     if (entries.length === 0) return;
     let plan = team.chipPlan;
-    for (const e of entries) plan = setChipPlanEntry(plan, e.chip, e.event, "shortlist");
+    for (const e of entries) plan = setChipPlanEntry(plan, e.chip, e.event, "manual");
     saveDraft({ ...team, chipPlan: plan });
     onDraftsChanged();
-    setApplied(`Pinned the ${half.label} schedule (${entries.length} chip${entries.length === 1 ? "" : "s"}) to "${team.name}".`);
+    setApplied(`Applied the ${half.label} schedule (${entries.length} chip${entries.length === 1 ? "" : "s"}) to "${team.name}".`);
   };
 
   /**
@@ -497,10 +518,10 @@ export function ChipTiming({
   const pinPreset = (preset: { label: string; entries: { chip: ChipKind; event: number }[] }) => {
     if (!team) return;
     let plan = team.chipPlan;
-    for (const e of preset.entries) plan = setChipPlanEntry(plan, e.chip, e.event, "shortlist");
+    for (const e of preset.entries) plan = setChipPlanEntry(plan, e.chip, e.event, "manual");
     saveDraft({ ...team, chipPlan: plan });
     onDraftsChanged();
-    setApplied(`Pinned the ${preset.label} sequence (${preset.entries.length} chip${preset.entries.length === 1 ? "" : "s"}) to "${team.name}". The Transfer Path tab has the sequence-aware total.`);
+    setApplied(`Applied the ${preset.label} sequence (${preset.entries.length} chip${preset.entries.length === 1 ? "" : "s"}) to "${team.name}". The Transfer Path tab has the sequence-aware total.`);
   };
 
   return (
@@ -592,8 +613,13 @@ export function ChipTiming({
 
       {result && team && (
         <>
+          {/* DSI-137 #3: this was the page's headline recommendation and the
+              only thing on the page you could not act on — every schedule and
+              sequence below had a button, while the single best play had to be
+              re-found by hand in the tables underneath. */}
           {bestOverall && (
-            <p className="mt-5 text-sm text-zinc-700 dark:text-zinc-300">
+            <div className="mt-5 flex flex-wrap items-baseline justify-between gap-2">
+            <p className="min-w-0 flex-1 text-sm text-zinc-700 dark:text-zinc-300">
               <strong className="font-semibold text-zinc-900 dark:text-zinc-50">
                 Best single play:
               </strong>{" "}
@@ -611,6 +637,16 @@ export function ChipTiming({
                   </span>
                 )}
             </p>
+              <Button
+                variant="outline"
+                size="xs"
+                className="min-h-9 shrink-0 border-purple-700 px-2.5 text-purple-700 dark:border-primary dark:text-primary"
+                onClick={() => applyChip(bestOverall.chip, bestOverall.event)}
+                title={`Plan ${CHIP_LABELS[bestOverall.chip]} for GW${bestOverall.event} on "${team.name}".`}
+              >
+                Apply to plan
+              </Button>
+            </div>
           )}
 
           {/* Sprint 23 put sequences and schedules side by side so the short
@@ -663,7 +699,7 @@ export function ChipTiming({
                           className="min-h-9 shrink-0 border-purple-700 text-purple-700 dark:border-primary dark:text-primary"
                           onClick={() => pinPreset(preset)}
                         >
-                          Pin
+                          Apply sequence
                         </Button>
                       </div>
                     ))}
@@ -693,13 +729,13 @@ export function ChipTiming({
                         title={
                           half.oneOff && half.oneOff.margin < 1
                             ? "This schedule is not a strong recommendation — the next-best combination is nearly as good."
-                            : `Pin every chip in this schedule to "${team.name}"'s plan.`
+                            : `Apply every chip in this schedule to "${team.name}"'s plan.`
                         }
                         variant="outline"
                         size="xs"
                         className="min-h-9 border-purple-700 px-2.5 text-purple-700 hover:bg-purple-50 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
                       >
-                        Pin whole schedule
+                        Apply schedule
                       </Button>
                     )}
                   </div>
