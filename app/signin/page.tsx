@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useErrorShake } from "@/components/ui/use-error-shake";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AuthError } from "@supabase/supabase-js";
@@ -41,6 +42,7 @@ export default function SignInPage() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const emailField = useErrorShake<HTMLInputElement>(error);
   const [googleBusy, setGoogleBusy] = useState(false);
 
   // A redirect belongs in an effect, not the render body — calling
@@ -148,6 +150,7 @@ export default function SignInPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
+            ref={emailField}
             className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus:border-primary"
           />
           <Button type="submit" size="md" className="w-full" disabled={sending}>

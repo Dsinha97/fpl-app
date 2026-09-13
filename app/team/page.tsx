@@ -58,6 +58,7 @@ import { TelegramLink } from "@/components/telegram-link";
 import { useAuth } from "@/components/auth-provider";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { useErrorShake } from "@/components/ui/use-error-shake";
 
 /**
  * How many rivals one "add from league" press will take on.
@@ -1331,6 +1332,8 @@ export default function TeamPage() {
    * `localStorage.fpl_manager_id`, so that would strand exactly the visitors
    * who still need it. Signed-in users get the pointer to /settings instead.
    */
+  const managerIdField = useErrorShake<HTMLInputElement>(error);
+
   const connectForm = (
     <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-3">
       <label htmlFor="manager-id" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -1338,6 +1341,7 @@ export default function TeamPage() {
       </label>
       <input
         id="manager-id"
+        ref={managerIdField}
         value={inputId}
         onChange={(e) => setInputId(e.target.value)}
         inputMode="numeric"

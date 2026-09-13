@@ -62,6 +62,7 @@ import {
 } from "@/lib/team-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { NoteDisclosure } from "@/components/ui/note-disclosure";
 import { Alert } from "@/components/ui/alert";
 import { signed } from "@/lib/utils";
@@ -986,12 +987,10 @@ export default function TransfersPage() {
             "Apply this basket with no points hit, however many players change — the same as playing the Wildcard chip."
           }
         >
-          <input
-            type="checkbox"
+          <Checkbox
             checked={wildcardMode}
             disabled={wildcardBlockedReason !== null}
             onChange={(e) => setWildcardMode(e.target.checked)}
-            className="disabled:cursor-not-allowed"
           />
           Apply as Wildcard (no hit)
         </label>

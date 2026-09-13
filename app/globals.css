@@ -303,3 +303,52 @@
   from { transform: translateY(var(--motion-sheet-travel, 40%)); opacity: 0; filter: blur(var(--motion-blur)); }
   to   { transform: translateY(0); opacity: 1; filter: blur(0); }
 }
+
+/*
+ * Error-state shake — Transitions.dev recipe
+ * (References/Components/error-shake.md), trimmed to the part this app needs.
+ *
+ * The recipe also owns the error border tween and the message reveal; those
+ * already exist here as ordinary Tailwind classes on each form, so taking
+ * them would have meant two implementations of the same red. What Tailwind
+ * cannot express is a multi-segment keyframe with per-stop easing, so that is
+ * what lives here.
+ *
+ * Percentages are cumulative fractions of the total (80 + 60 + 80 + 60 =
+ * 280ms): recompute them if any segment changes. Restarting the animation on
+ * a repeated error needs the class removed, a reflow forced, and the class
+ * re-added — `useErrorShake` does that.
+ */
+@keyframes t-shake {
+  0% {
+    transform: translateX(0);
+    animation-timing-function: var(--ease-slide);
+  }
+  28.57% {
+    transform: translateX(6px);
+    animation-timing-function: var(--ease-slide);
+  }
+  57.14% {
+    transform: translateX(-6px);
+    animation-timing-function: var(--ease-slide);
+  }
+  78.57% {
+    transform: translateX(4px);
+    animation-timing-function: var(--ease-slide);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.t-shake {
+  animation: t-shake 280ms linear;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-shake {
+    animation: none !important;
+    transform: none !important;
+  }
+}

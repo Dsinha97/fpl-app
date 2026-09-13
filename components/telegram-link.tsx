@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   botLinkUrl,
   DEFAULT_PREFS,
@@ -201,12 +202,11 @@ export function TelegramLink({ variant = "full" }: { variant?: "compact" | "full
           <ul className="mt-2 space-y-2">
             {NOTIFY_KINDS.map(({ kind, label, help }) => (
               <li key={kind} className="flex items-start gap-2">
-                <input
+                <Checkbox
                   id={`notify-${kind}`}
-                  type="checkbox"
                   checked={(prefs ?? DEFAULT_PREFS).enabled[kind]}
                   onChange={() => void toggle(kind)}
-                  className="mt-0.5 h-4 w-4 accent-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:accent-primary"
+                  className="mt-0.5"
                 />
                 <label htmlFor={`notify-${kind}`} className="text-xs">
                   <span className="text-zinc-800 dark:text-zinc-200">{label}</span>{" "}

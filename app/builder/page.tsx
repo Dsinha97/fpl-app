@@ -25,6 +25,7 @@ import { loadSeasonContext } from "@/lib/season-context";
 import { Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Delta } from "@/components/ui/delta";
 import { Pager } from "@/components/ui/pager";
 import { SlideOver } from "@/components/ui/slide-over";
@@ -2386,11 +2387,10 @@ export default function BuilderPage() {
                       )}
                     </label>
                     <label className="flex items-center gap-1.5">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={includeUnavailable}
                         onChange={(e) => setIncludeUnavailable(e.target.checked)}
-                        className="h-3.5 w-3.5 rounded border-zinc-300 text-purple-700 focus-visible:ring-2 focus-visible:ring-purple-500 dark:border-purple-800/50 dark:text-primary"
+                        className="size-3.5"
                       />
                       Include below the minutes floor
                     </label>

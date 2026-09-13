@@ -18,6 +18,7 @@ import {
 } from "@/lib/fpl-squad";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { useErrorShake } from "@/components/ui/use-error-shake";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 
 // Sprint 14.3 — one settings page with two tabs, replacing the standalone
@@ -45,6 +46,9 @@ function AccountTab() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ kind: "ok" | "error"; message: string } | null>(null);
+  const entryField = useErrorShake<HTMLInputElement>(
+    status?.kind === "error" ? status.message : null,
+  );
 
   useEffect(() => {
     // entryId arrives asynchronously from AuthProvider's own Supabase fetch,
@@ -127,6 +131,7 @@ function AccountTab() {
 
         <form onSubmit={onSubmit} className="mt-3 flex flex-wrap items-center gap-2">
           <input
+            ref={entryField}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             inputMode="numeric"
@@ -187,6 +192,9 @@ function ImportTab() {
   const { teamName, entryId } = useAuth();
   const [raw, setRaw] = useState("");
   const [status, setStatus] = useState<ImportStatus>({ kind: "idle" });
+  const importField = useErrorShake<HTMLTextAreaElement>(
+    status.kind === "error" ? status.message : null,
+  );
 
   const onImport = async (e: FormEvent) => {
     e.preventDefault();
@@ -324,6 +332,7 @@ function ImportTab() {
 
       <form onSubmit={onImport} className="mt-4 space-y-2">
         <textarea
+          ref={importField}
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
           rows={6}

@@ -1,6 +1,7 @@
 "use client";
 
 import { Pin } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
@@ -895,12 +896,10 @@ export default function ScenariosPage() {
                         it turns the whole "☐ compare" pair into one target
                         (DSI-123). */}
                     <label className="-m-1 flex cursor-pointer items-center gap-1.5 rounded p-1 text-[11px] text-zinc-500 transition-colors hover:bg-zinc-100 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring dark:hover:bg-purple-950/50">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={picked}
                         onChange={() => toggleSelect(draft.draftId)}
                         disabled={!picked && selected.length >= MAX_COMPARE}
-                        className="h-4 w-4 accent-purple-800 dark:accent-primary"
                       />
                       compare
                     </label>

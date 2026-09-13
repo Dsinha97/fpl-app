@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { FixtureCell } from "@/components/fdr-badge";
@@ -857,13 +858,11 @@ export default function PlayersPage() {
                   >
                     <td className="sticky left-0 z-10 bg-white px-3 py-1.5 dark:bg-card">
                       <span className="flex items-center gap-1.5">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={isSelected}
                           disabled={disableCheckbox}
                           onChange={() => toggleSelected(p.id)}
                           aria-label={`Select ${p.web_name} to compare`}
-                          className="h-4 w-4 shrink-0 accent-purple-700 disabled:cursor-not-allowed disabled:opacity-40 dark:accent-primary"
                         />
                         <span className="font-medium" title={fullName(p) ?? undefined}>
                           {p.web_name}
