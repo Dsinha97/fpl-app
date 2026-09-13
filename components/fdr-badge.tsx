@@ -14,6 +14,8 @@ export function FDRBadge({ rating, showLabel = false, className = "", children }
 
   return (
     <span
+      role="img"
+      aria-label={`FDR ${rating} — ${fdr.label}`}
       title={`FDR ${rating} — ${fdr.label}`}
       className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded px-2 py-0.5 text-xs font-bold shadow-sm transition-colors ${fdr.bgClass} ${fdr.textClass} ${className}`}
     >
@@ -72,6 +74,8 @@ export function FixtureCell({
   if (unrated) {
     return (
       <span
+        role="img"
+        aria-label={title}
         title={title}
         className={`inline-flex items-center justify-center rounded bg-zinc-200 px-1 py-0.5 text-[10px] font-bold text-zinc-500 shadow-sm dark:bg-surface-3 dark:text-zinc-500 ${venueRing(home)} ${className}`}
       >
@@ -82,6 +86,8 @@ export function FixtureCell({
 
   return (
     <span
+      role="img"
+      aria-label={title}
       title={title}
       className={`inline-flex items-center justify-center rounded px-1 py-0.5 text-[10px] font-bold shadow-sm ${cfg.bgClass} ${cfg.textClass} ${venueRing(home)} ${className}`}
     >
