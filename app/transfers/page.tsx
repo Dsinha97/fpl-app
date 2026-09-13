@@ -70,6 +70,7 @@ import { Alert } from "@/components/ui/alert";
 import { signed } from "@/lib/utils";
 import { HorizonControl } from "@/components/horizon-control";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { CollapsibleCard } from "@/components/ui/collapsible-card";
 
 interface PlayerRow {
   id: number;
@@ -897,6 +898,81 @@ export default function TransfersPage() {
     </>
   );
 
+  /**
+   * What the collapsed settings card says about itself.
+   *
+   * The card has to be readable shut, or it is just a place to hide controls:
+   * every value that changes the answer below is in this line, in the order
+   * the controls appear.
+   */
+  const settingsSummary = [
+    tab === "transfers" ? horizonLabel(horizon) : null,
+    team?.name ?? null,
+    tab === "transfers"
+      ? `${freeTransfers} free transfer${freeTransfers === 1 ? "" : "s"}`
+      : null,
+    tab === "transfers" && wildcardMode ? "Wildcard" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  /** The transfers-only half of the settings card. */
+  const transferSettings = (
+    <>
+      <label
+        className={`flex items-center gap-2 text-zinc-600 dark:text-zinc-400 ${wildcardMode ? "opacity-40" : ""}`}
+      >
+        Free transfers
+        <select
+          value={freeTransfers}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            setFreeTransfers(n);
+            // Persisted for the same reason /deadline's identical select
+            // is: this used to be throwaway local state, so the sticky
+            // ContextBar (and /deadline, My Team) never saw what was
+            // picked here.
+            if (team) {
+              saveDraft({ ...team, freeTransfers: n });
+              setDrafts(listDrafts());
+            }
+          }}
+          disabled={wildcardMode}
+          title={
+            wildcardMode
+              ? "Irrelevant in Wildcard mode — every move is free."
+              : "FPL lets you bank up to five. Accrual is not modelled — set what you actually hold."
+          }
+          className="rounded-md border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
+        >
+          {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
+            <option key={i} value={i}>
+              {i}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label
+        className={`flex items-center gap-2 ${
+          wildcardBlockedReason === null
+            ? "text-zinc-600 dark:text-zinc-400"
+            : "text-zinc-400 dark:text-zinc-600"
+        }`}
+        title={
+          wildcardBlockedReason ??
+          "Apply this basket with no points hit, however many players change — the same as playing the Wildcard chip."
+        }
+      >
+        <Checkbox
+          checked={wildcardMode}
+          disabled={wildcardBlockedReason !== null}
+          onChange={(e) => setWildcardMode(e.target.checked)}
+        />
+        Apply as Wildcard (no hit)
+      </label>
+    </>
+  );
+
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -911,21 +987,15 @@ export default function TransfersPage() {
             Queue transfers against a saved draft and see what they buy after the hit.
           </p>
         </div>
-        {tab === "transfers" && (
-        <HorizonControl value={horizon} onValueChange={setHorizon} />
-        )}
       </div>
 
-      {tab === "transfers" && horizon === "season" && (
-        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{seasonHorizonNote(seasonWindow)}</p>
-      )}
-
-      {/* Sprint 33 — /chips merged in here. The Squad selector moved up out
-          of the simulator's control row because both tabs plan the *same*
-          draft: two selectors that can disagree is worse than one that
-          can't, which is why ChipTiming takes the draft as a prop rather
-          than resolving its own. */}
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      {/* DSI-141: the view switcher now leads, above every setting. It used to
+          sit *below* the horizon, which vanishes on the Chip timing tab — so
+          the control that decides what the page is jumped up the screen the
+          moment you used it. Sprint 33's reason for hoisting Squad still
+          holds and it moves with the rest: both tabs plan the *same* draft,
+          and two selectors that can disagree is worse than one that cannot. */}
+      <div className="mt-4">
         <SegmentedControl
           label="Transfers view"
           value={tab}
@@ -935,23 +1005,39 @@ export default function TransfersPage() {
             { value: "chips", label: "Chip timing" },
           ]}
         />
-        {drafts.length > 0 && (
-          <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-            Squad
-            <select
-              value={draftId ?? ""}
-              onChange={(e) => setDraftId(e.target.value)}
-              className="rounded-md border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {drafts.map((d) => (
-                <option key={d.draftId} value={d.draftId}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
       </div>
+
+      {/* Everything that parameterises the plan, collapsed behind its own
+          values — the shape the Chip plan card below already uses. Four
+          controls in a wrapping row was most of a phone screen before the
+          page said anything. */}
+      <CollapsibleCard title="Plan settings" summary={settingsSummary} tier="primary" className="mt-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 text-sm">
+          {tab === "transfers" && <HorizonControl value={horizon} onValueChange={setHorizon} />}
+          {drafts.length > 0 && (
+            <label className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+              Squad
+              <select
+                value={draftId ?? ""}
+                onChange={(e) => setDraftId(e.target.value)}
+                className="max-w-[10rem] truncate rounded-md border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {drafts.map((d) => (
+                  <option key={d.draftId} value={d.draftId}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {tab === "transfers" && transferSettings}
+        </div>
+        {tab === "transfers" && horizon === "season" && (
+          <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
+            {seasonHorizonNote(seasonWindow)}
+          </p>
+        )}
+      </CollapsibleCard>
 
       {/* Mounted only while its tab is showing: the chip engine does its own
           player/prediction/fixture loads, and someone only planning
@@ -967,66 +1053,13 @@ export default function TransfersPage() {
 
       {tab === "transfers" && (
       <>
-      {/* controls */}
-      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-        <label
-          className={`flex items-center gap-2 text-zinc-600 dark:text-zinc-400 ${wildcardMode ? "opacity-40" : ""}`}
-        >
-          Free transfers
-          <select
-            value={freeTransfers}
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              setFreeTransfers(n);
-              // Persisted for the same reason /deadline's identical select
-              // is: this used to be throwaway local state, so the sticky
-              // ContextBar (and /deadline, My Team) never saw what was
-              // picked here.
-              if (team) {
-                saveDraft({ ...team, freeTransfers: n });
-                setDrafts(listDrafts());
-              }
-            }}
-            disabled={wildcardMode}
-            title={
-              wildcardMode
-                ? "Irrelevant in Wildcard mode — every move is free."
-                : "FPL lets you bank up to five. Accrual is not modelled — set what you actually hold."
-            }
-            className="rounded-md border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
-          >
-            {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
-              <option key={i} value={i}>
-                {i}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label
-          className={`flex items-center gap-2 ${
-            wildcardBlockedReason === null
-              ? "text-zinc-600 dark:text-zinc-400"
-              : "text-zinc-400 dark:text-zinc-600"
-          }`}
-          title={
-            wildcardBlockedReason ??
-            "Apply this basket with no points hit, however many players change — the same as playing the Wildcard chip."
-          }
-        >
-          <Checkbox
-            checked={wildcardMode}
-            disabled={wildcardBlockedReason !== null}
-            onChange={(e) => setWildcardMode(e.target.checked)}
-          />
-          Apply as Wildcard (no hit)
-        </label>
-        {moves.length > 0 && (
+      {moves.length > 0 && (
+        <div className="mt-3">
           <Button variant="outline" size="xs" onClick={() => setMoves([])}>
             Clear {moves.length} transfer{moves.length === 1 ? "" : "s"}
           </Button>
-        )}
-      </div>
-
+        </div>
+      )}
       {team && lastEvent !== null && nextEvent !== null && (
         <ChipPlanEditor
           plan={team.chipPlan}

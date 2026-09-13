@@ -14,8 +14,9 @@ import {
   type FdrSource,
 } from "@/lib/fdr";
 import { FDRBadge, FixtureCell } from "./fdr-badge";
+import { TapToReveal } from "@/components/info-tooltip";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { FilterDisclosure } from "@/components/ui/filter-disclosure";
+import { CollapsibleCard } from "@/components/ui/collapsible-card";
 
 export interface MatrixFixture {
   event: number | null;
@@ -64,11 +65,6 @@ export function FdrMatrix({
   // replacement — nothing this app ranks or projects uses it (see strengthFdr).
   const [source, setSource] = useState<FdrSource>("official");
 
-  /** How many of the collapsed controls are off their default — the count the
-   * "Filter" trigger carries so a left-on filter is never invisible. */
-  const activeFilters =
-    (search ? 1 : 0) + (sort === "easiest" ? 0 : 1) + (source === "official" ? 0 : 1);
-
   // Every position reads 0 pre-season (FPL publishes no table until GW1 is
   // scored) — sorting by it would just be "sorted by zero, tie-broken by
   // whatever order the query returned", not a real standing. Disabled with
@@ -89,6 +85,31 @@ export function FdrMatrix({
       ),
     [teams],
   );
+
+  /** The sort line, which used to be the page's own caption above the grid. */
+  const sortCaption =
+    sort === "easiest"
+      ? `Sorted easiest ${horizon === 38 ? "season" : `${horizon}-GW`} run first`
+      : sort === "hardest"
+        ? `Sorted hardest ${horizon === 38 ? "season" : `${horizon}-GW`} run first`
+        : sort === "az"
+          ? "Sorted A–Z"
+          : "Sorted by table position";
+
+  /**
+   * What the collapsed card says about itself. A settings card that hides its
+   * own values is just a place to lose a filter in, so every one of them is
+   * here — including a search term, which is the easiest to leave on and the
+   * hardest to notice.
+   */
+  const settingsSummary = [
+    horizon === 38 ? "All gameweeks" : `${horizon} GWs`,
+    SORT_LABELS[sort],
+    strengthKnown && source === "strength" ? "Strength" : null,
+    search ? `“${search}”` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const { gwCols, byTeam } = useMemo(
     () => fixtureCellsByTeam(teams, fixtures, nextGw, horizon, (id) => strengthById.get(id)),
@@ -124,115 +145,118 @@ export function FdrMatrix({
 
   return (
     <>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-zinc-500">
-          {sort === "easiest" && `Sorted easiest ${horizon === 38 ? "season" : `${horizon}-GW`} run first`}
-          {sort === "hardest" && `Sorted hardest ${horizon === 38 ? "season" : `${horizon}-GW`} run first`}
-          {sort === "az" && "Sorted A–Z"}
-          {sort === "position" && "Sorted by table position"}
-        </p>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-zinc-500">Window</span>
-          {/* A window is a parameter, not a view, so `radio` rather than `tabs`
-              — "tab" would be a lie to a screen reader here. */}
-          <SegmentedControl
-            label="Fixture window"
-            semantics="radio"
-            size="sm"
-            value={String(horizon)}
-            onValueChange={(v) => setHorizon(Number(v) as (typeof HORIZONS)[number])}
-            options={HORIZONS.map((h) => ({
-              value: String(h),
-              label: h === 38 ? "All" : `${h} GWs`,
-            }))}
-          />
-        </div>
-      </div>
-
-      {/* DSI-141: search, sort, rating source and a six-swatch legend all
-          stacked above the matrix, so on a phone the screen was filters and the
-          table began below the fold. Window stays out here — it changes what the
-          table *is* — and the rest moves behind the app's one filter disclosure,
-          with `activeCount` so a filter left on is never invisible. */}
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <FilterDisclosure activeCount={activeFilters}>
-          <div className="flex flex-col gap-3">
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search team…"
-              aria-label="Search team"
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
+      {/* DSI-141, second pass: a caption, a window strip, a search box, a sort
+          select, a rating switch and a six-swatch legend all stacked above the
+          matrix. Everything that parameterises the grid is now one collapsed
+          card, readable shut, the same shape /transfers' Plan settings and Chip
+          plan use — and the legend, which explains the grid rather than
+          changing it, is a link beside it instead of a permanent block. */}
+      <CollapsibleCard
+        title="FDR settings"
+        summary={settingsSummary}
+        tier="primary"
+        className="mt-4"
+      >
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 text-sm">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-zinc-500">Window</span>
+            {/* A window is a parameter, not a view, so `radio` rather than
+                `tabs` — "tab" would be a lie to a screen reader here. */}
+            <SegmentedControl
+              className="min-w-0"
+              label="Fixture window"
+              semantics="radio"
+              size="sm"
+              value={String(horizon)}
+              onValueChange={(v) => setHorizon(Number(v) as (typeof HORIZONS)[number])}
+              options={HORIZONS.map((h) => ({
+                value: String(h),
+                label: h === 38 ? "All" : `${h} GWs`,
+              }))}
             />
-            <label className="flex items-center justify-between gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
-              Sort
-              {/* Stays a select: three options, one of them conditionally
-                  disabled with a "(not published yet)" suffix that a segmented
-                  control has nowhere to put (DSI-138 decision 2). */}
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortOrder)}
-                className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
-              >
-                {(Object.keys(SORT_LABELS) as SortOrder[]).map((s) => (
-                  <option key={s} value={s} disabled={s === "position" && !positionsKnown}>
-                    {SORT_LABELS[s]}
-                    {s === "position" && !positionsKnown ? " (not published yet)" : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {strengthKnown && (
-              <span className="flex items-center justify-between gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
-                Rating
-                {/* DSI-127: these two read as one solid green button beside one
-                    dark button, which looks like an action and its disabled twin
-                    rather than a binary choice. One segmented switch says "pick
-                    a side". */}
-                <SegmentedControl
-                  label="Difficulty rating source"
-                  semantics="radio"
-                  size="sm"
-                  value={source}
-                  onValueChange={(v) => setSource(v as FdrSource)}
-                  options={[
-                    { value: "official", label: "Official" },
-                    { value: "strength", label: "Strength" },
-                  ]}
-                />
-              </span>
-            )}
-
-            {/* Legend */}
-            <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3 text-xs">
-              <span className="flex flex-wrap items-center gap-1.5">
-                {(Object.keys(fdrTheme) as unknown as FdrRating[]).map((r) => (
-                  <FDRBadge key={r} rating={Number(r) as FdrRating} showLabel />
-                ))}
-              </span>
-              {/* One swatch, not two: only away is marked now, so a "home"
-                  swatch would be a picture of the absence of a thing. */}
-              <span className="flex items-center gap-1.5 text-zinc-500">
-                <span className={`inline-block h-3 w-3 rounded bg-zinc-300 dark:bg-purple-900 ${venueRing(false)}`} />
-                ring = away
-              </span>
-            </div>
-          </div>
-        </FilterDisclosure>
-
-        {/* A filter left on inside a closed panel is the trap FilterDisclosure
-            exists to avoid, so each non-default choice says so out here too. */}
-        {search && <span className="text-xs text-zinc-500">Filtered to &ldquo;{search}&rdquo;</span>}
-        {sort === "position" && !positionsKnown && (
-          <span className="text-xs text-zinc-500">
-            FPL hasn&apos;t published table positions yet — showing GW1 order instead.
           </span>
+
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search team…"
+            aria-label="Search team"
+            className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
+          />
+
+          <label className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+            Sort
+            {/* Stays a select: three options, one conditionally disabled with a
+                "(not published yet)" suffix a segmented control has nowhere to
+                put (DSI-138 decision 2). */}
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOrder)}
+              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
+            >
+              {(Object.keys(SORT_LABELS) as SortOrder[]).map((s) => (
+                <option key={s} value={s} disabled={s === "position" && !positionsKnown}>
+                  {SORT_LABELS[s]}
+                  {s === "position" && !positionsKnown ? " (not published yet)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {strengthKnown && (
+            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+              Rating
+              {/* DSI-127: these two read as one solid green button beside one
+                  dark button, which looks like an action and its disabled twin
+                  rather than a binary choice. One segmented switch says "pick a
+                  side". */}
+              <SegmentedControl
+                label="Difficulty rating source"
+                semantics="radio"
+                size="sm"
+                value={source}
+                onValueChange={(v) => setSource(v as FdrSource)}
+                options={[
+                  { value: "official", label: "Official" },
+                  { value: "strength", label: "Strength" },
+                ]}
+              />
+            </span>
+          )}
+        </div>
+
+        {sort === "position" && !positionsKnown && (
+          <p className="mt-3 text-xs text-zinc-500">
+            FPL hasn&apos;t published table positions yet — showing GW1 order instead.
+          </p>
         )}
-        {strengthKnown && source === "strength" && (
-          <span className="text-xs text-zinc-500">Rated by club strength</span>
-        )}
+      </CollapsibleCard>
+
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-zinc-500">{sortCaption}</p>
+        {/* The legend was six swatches and a ring sample rendered permanently,
+            for a scale you learn once. As a link it is still one tap away and
+            reachable on touch, which a hover tooltip would not be. */}
+        <TapToReveal
+          label="How to read FDR"
+          align="right"
+          trigger="How to read FDR"
+          triggerClassName="text-xs text-purple-800 underline underline-offset-2 dark:text-primary"
+        >
+          <p className="mb-2 font-medium text-zinc-900 dark:text-zinc-100">Fixture difficulty</p>
+          <span className="flex flex-wrap items-center gap-1.5">
+            {(Object.keys(fdrTheme) as unknown as FdrRating[]).map((r) => (
+              <FDRBadge key={r} rating={Number(r) as FdrRating} showLabel />
+            ))}
+          </span>
+          {/* One swatch, not two: only away is marked now, so a "home" swatch
+              would be a picture of the absence of a thing. */}
+          <span className="mt-3 flex items-center gap-1.5 text-zinc-500">
+            <span className={`inline-block h-3 w-3 rounded bg-zinc-300 dark:bg-purple-900 ${venueRing(false)}`} />
+            ring = away
+          </span>
+        </TapToReveal>
       </div>
 
       <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
