@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useAnchoredPanel, useDismissablePopover } from "@/components/ui/use-anchored-panel";
 
 /**
@@ -69,16 +70,25 @@ export function TapToReveal({
         {trigger}
       </button>
 
-      {open && (
-        <span
-          ref={panelRef}
-          role="dialog"
-          style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
-          className="fixed z-30 w-72 max-w-[calc(100vw-1rem)] rounded-lg border border-border bg-popover p-3 text-left text-xs font-normal leading-relaxed text-zinc-700 shadow-lg dark:text-zinc-300"
-        >
-          {children}
-        </span>
-      )}
+      {open &&
+        // Portalled to the body, not left in the flow (DSI-141). `fixed`
+        // positions against the viewport but it does not escape a stacking
+        // context: opened from inside a `sticky z-10` table cell on /players,
+        // the panel was painted over by the *next row's* sticky cell, which
+        // carries the same z-index and comes later in the DOM. Rendering at
+        // the body puts one comparison in charge of it — z-30 against the
+        // page — which is what `fixed z-30` already claimed to mean.
+        createPortal(
+          <span
+            ref={panelRef}
+            role="dialog"
+            style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
+            className="fixed z-30 w-72 max-w-[calc(100vw-1rem)] rounded-lg border border-border bg-popover p-3 text-left text-xs font-normal leading-relaxed text-zinc-700 shadow-lg dark:text-zinc-300"
+          >
+            {children}
+          </span>,
+          document.body,
+        )}
     </span>
   );
 }

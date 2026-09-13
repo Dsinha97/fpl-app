@@ -1,5 +1,7 @@
 import React from "react";
 
+import { TapToReveal } from "@/components/info-tooltip";
+
 // Player availability and set-piece role icons.
 //
 // Every icon is paired with a `title` at the call site, so status is never
@@ -268,27 +270,87 @@ interface RoleProps {
   freeKickOrder?: number | null;
   cornerOrder?: number | null;
   size?: string;
+  /**
+   * Whether the `+N` chip may be a button.
+   *
+   * Off by default, and that default is load-bearing rather than cautious:
+   * `/builder`'s picker makes the whole row a `<button>`, so a nested button
+   * here is invalid HTML and a React hydration error — found by opening the
+   * page, not by review. Callers that render into a plain cell opt in.
+   */
+  revealable?: boolean;
 }
 
-/** First-choice set-piece duties. Only order 1 counts as "the taker". */
-export function RoleBadges({ penaltyOrder, freeKickOrder, cornerOrder, size = "w-4 h-4" }: RoleProps) {
+const CHIP_CLASS =
+  "rounded-full bg-muted px-1 text-[10px] font-medium leading-4 tabular-nums text-muted-foreground";
+
+/**
+ * First-choice set-piece duties. Only order 1 counts as "the taker".
+ *
+ * DSI-141: a triple-duty player (B.Fernandes takes penalties, free kicks and
+ * corners) spent three icons inside the frozen first column of `/players`,
+ * which on a phone is most of the viewport. Only the highest-ranked duty is
+ * drawn, followed by a `+N` chip carrying the rest — the same priority
+ * `StatusBadge` above already encodes: penalty, then free kick, then corner.
+ *
+ * The chip is a `TapToReveal` rather than a `title`, because it is the only
+ * place the other duties exist and a hover tooltip is unreachable on the very
+ * device this was fixed for. The single icon keeps its `title`: it is one of
+ * hundreds on the page, and the note at `AvailabilityBadge` records why
+ * converting those would be worse than the gap it closes.
+ */
+export function RoleBadges({
+  penaltyOrder,
+  freeKickOrder,
+  cornerOrder,
+  size = "w-4 h-4",
+  revealable = false,
+}: RoleProps) {
+  const duties: { key: string; label: string; Icon: React.FC<IconProps> }[] = [];
+  if (penaltyOrder === 1) {
+    duties.push({ key: "pen", label: "First-choice penalty taker", Icon: PenaltyTakerIcon });
+  }
+  if (freeKickOrder === 1) {
+    duties.push({ key: "fk", label: "First-choice direct free-kick taker", Icon: FreeKickTakerIcon });
+  }
+  if (cornerOrder === 1) {
+    duties.push({ key: "corner", label: "First-choice corner taker", Icon: CornerTakerIcon });
+  }
+  if (duties.length === 0) return null;
+
+  const [top, ...rest] = duties;
+
   return (
     <>
-      {penaltyOrder === 1 && (
-        <span role="img" aria-label="First-choice penalty taker" title="First-choice penalty taker" className="inline-flex shrink-0 align-middle">
-          <PenaltyTakerIcon className={size} />
-        </span>
-      )}
-      {freeKickOrder === 1 && (
-        <span role="img" aria-label="First-choice direct free-kick taker" title="First-choice direct free-kick taker" className="inline-flex shrink-0 align-middle">
-          <FreeKickTakerIcon className={size} />
-        </span>
-      )}
-      {cornerOrder === 1 && (
-        <span role="img" aria-label="First-choice corner taker" title="First-choice corner taker" className="inline-flex shrink-0 align-middle">
-          <CornerTakerIcon className={size} />
-        </span>
-      )}
+      <span role="img" aria-label={top.label} title={top.label} className="inline-flex shrink-0 align-middle">
+        <top.Icon className={size} />
+      </span>
+      {rest.length > 0 &&
+        (revealable ? (
+          <TapToReveal
+            label={`${rest.length} more set-piece ${rest.length === 1 ? "duty" : "duties"}`}
+            trigger={`+${rest.length}`}
+            triggerClassName={CHIP_CLASS}
+          >
+            <ul className="space-y-1">
+              {rest.map((d) => (
+                <li key={d.key} className="flex items-center gap-1.5">
+                  <d.Icon className="w-4 h-4" />
+                  {d.label}
+                </li>
+              ))}
+            </ul>
+          </TapToReveal>
+        ) : (
+          <span
+            role="img"
+            aria-label={rest.map((d) => d.label).join(", ")}
+            title={rest.map((d) => d.label).join(", ")}
+            className={`inline-flex shrink-0 align-middle ${CHIP_CLASS}`}
+          >
+            +{rest.length}
+          </span>
+        ))}
     </>
   );
 }

@@ -754,7 +754,7 @@ export default function PlayersPage() {
                     mobile — the checkbox lives in this same cell (see the
                     body row below) rather than its own column, so there is
                     one sticky boundary to reason about, not two. */}
-                <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 uppercase tracking-wide dark:bg-card">
+                <DataHeadCell className="sticky left-0 z-10 w-[9.5rem] max-w-[9.5rem] bg-white px-3 py-2 uppercase tracking-wide sm:w-auto sm:max-w-none dark:bg-card">
                   Player
                 </DataHeadCell>
                 <DataHeadCell className="px-2 py-2 uppercase tracking-wide">Team</DataHeadCell>
@@ -850,7 +850,12 @@ export default function PlayersPage() {
                         : ""
                     }`}
                   >
-                    <DataCell className="sticky left-0 z-10 bg-white px-3 py-1.5 dark:bg-card">
+                    {/* DSI-141: the frozen column carries a checkbox, a name
+                        and up to four badges, so on a phone it was most of the
+                        viewport and the data it exists to keep company with
+                        was a sliver. Capped below `sm`, with the name
+                        truncating — the full name is already on its `title`. */}
+                    <DataCell className="sticky left-0 z-10 w-[9.5rem] max-w-[9.5rem] bg-white px-3 py-1.5 sm:w-auto sm:max-w-none dark:bg-card">
                       <span className="flex items-center gap-1.5">
                         <Checkbox
                           checked={isSelected}
@@ -858,7 +863,7 @@ export default function PlayersPage() {
                           onChange={() => toggleSelected(p.id)}
                           aria-label={`Select ${p.web_name} to compare`}
                         />
-                        <span className="font-medium" title={fullName(p) ?? undefined}>
+                        <span className="truncate font-medium" title={fullName(p) ?? undefined}>
                           {p.web_name}
                         </span>
                         <AvailabilityBadge
@@ -867,6 +872,7 @@ export default function PlayersPage() {
                           news={p.news}
                         />
                         <RoleBadges
+                          revealable
                           penaltyOrder={p.penalties_order}
                           freeKickOrder={p.direct_freekicks_order}
                           cornerOrder={p.corners_and_indirect_freekicks_order}

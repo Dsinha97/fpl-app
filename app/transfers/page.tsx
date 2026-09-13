@@ -1218,7 +1218,17 @@ export default function TransfersPage() {
                       <DataCell
                         numeric
                         className={`px-1.5 py-1.5 font-semibold ${
-                          isTopQuartile ? "text-purple-800 dark:text-primary" : "text-foreground"
+                          /* M9 left this as an open conflict: DSI-135 asked to
+                             demote the column to plain foreground, which would
+                             delete the top-quartile distinction DSI-124 had just
+                             built, and --chart-1 was rejected as the middle path
+                             because it fails contrast on white (3.7:1). But
+                             light mode here is purple-800, not --chart-1, and
+                             was never the complaint — only the dark half
+                             borrowed the CTA accent. So light stays, and dark
+                             moves to the visualisation ramp (5.1:1 on the dark
+                             card). Distinction kept, accent discipline kept. */
+                          isTopQuartile ? "text-purple-800 dark:text-chart-1" : "text-foreground"
                         }`}
                       >
                         {s ? xpFor(s, horizon).toFixed(1) : "—"}

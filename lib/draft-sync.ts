@@ -139,7 +139,12 @@ export async function syncDrafts(userId: string): Promise<SyncResult> {
       const { error: snapError } = await supabase
         .from("draft_snapshots")
         .upsert(snapshotRows, { onConflict: "draft_id,at", ignoreDuplicates: true });
-      if (snapError) console.error(`draft_snapshots push failed: ${snapError.message}`);
+      // Reported, not just logged (DSI-139's second half). A snapshot failure
+      // used to reach `console.error` and stop there, so the one bug it was
+      // hiding went unseen for the table's whole lifetime. It does not fail
+      // the sync — the drafts themselves pushed — but it is still something
+      // the user is entitled to be told.
+      if (snapError) result.error = `Draft history did not sync: ${snapError.message}`;
     }
   }
 
@@ -147,6 +152,40 @@ export async function syncDrafts(userId: string): Promise<SyncResult> {
 }
 
 const DEBOUNCE_MS = 2000;
+
+// ---------------------------------------------------------- sync status
+//
+// DSI-139: a sync path that cannot write was discoverable only by opening the
+// console, so cloud replication could stop for months and the UI would go on
+// looking healthy. The last outcome is published here and rendered by
+// `components/draft-sync-provider.tsx`, the same way /team's
+// `SignedOutSyncError` surfaces its own failure rather than logging it.
+//
+// A module-level value plus listeners rather than context: `watchAndSync` is
+// already a module-level loop started once at the root, and threading a second
+// provider through it would be two mechanisms for one fact.
+
+let syncError: string | null = null;
+const syncListeners = new Set<(error: string | null) => void>();
+
+function setSyncError(error: string | null) {
+  if (syncError === error) return;
+  syncError = error;
+  for (const listener of syncListeners) listener(error);
+}
+
+/** The last sync's failure, or null if the last sync succeeded. */
+export function getSyncError(): string | null {
+  return syncError;
+}
+
+/** Subscribe to sync outcomes. Returns an unsubscribe. */
+export function onSyncStatusChanged(listener: (error: string | null) => void): () => void {
+  syncListeners.add(listener);
+  return () => {
+    syncListeners.delete(listener);
+  };
+}
 
 /**
  * Runs an initial sync, then debounces a re-sync after every local draft
@@ -166,6 +205,13 @@ export function watchAndSync(userId: string): () => void {
     try {
       const result = await syncDrafts(userId);
       if (result.error) console.error(`draft sync failed: ${result.error}`);
+      // The console is not a user-visible surface. Publishing the outcome here
+      // is what lets DraftSyncProvider say so on screen (DSI-139).
+      setSyncError(result.error);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`draft sync failed: ${message}`);
+      setSyncError(message);
     } finally {
       syncing = false;
     }

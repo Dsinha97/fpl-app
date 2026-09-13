@@ -1806,7 +1806,11 @@ export default function BuilderPage() {
                 }
                 switchTeam(found, true);
               }}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
+              /* DSI-141: uncapped, this sized itself to the longest draft name
+                 and pushed Save onto its own line on a phone. The cap matches
+                 the rename input's w-36 below, so entering rename mode doesn't
+                 reflow the row. */
+              className="w-36 max-w-[9rem] truncate rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 sm:w-auto sm:max-w-[14rem] dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
             >
               {drafts.every((d) => d.draftId !== team.draftId) && (
                 <option value={team.draftId}>{team.name} (unsaved)</option>
