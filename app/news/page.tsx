@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { CalendarClock, LineChart, Newspaper, Rss, TriangleAlert } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FeedRowItem } from "@/components/feed-row";
@@ -215,19 +214,18 @@ export default function NewsPage() {
             best guess at what a story is about, not a fact the way a price change is.
           </p>
 
-          <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
-            {SOURCE_PILLS.map((s) => (
-              <Button
-                key={s.slug}
-                type="button"
-                variant="toggle"
-                size="xs"
-                aria-pressed={source === s.slug}
-                onClick={() => setSource(s.slug)}
-              >
-                {s.label}
-              </Button>
-            ))}
+          {/* The filter row above this is already a SegmentedControl; these
+              picked one source with `Button variant="toggle"`, so the page had
+              two shapes for "pick exactly one". */}
+          <div className="mt-3">
+            <SegmentedControl
+              label="Feed source"
+              semantics="radio"
+              size="sm"
+              value={source}
+              onValueChange={(v) => setSource(v as (typeof SOURCE_PILLS)[number]["slug"])}
+              options={SOURCE_PILLS.map((s) => ({ value: s.slug, label: s.label }))}
+            />
           </div>
 
           {newsError && (

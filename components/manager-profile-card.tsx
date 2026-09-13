@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ManagerProfile, RivalRow } from "@/lib/manager-profile";
 import { TapToReveal } from "@/components/info-tooltip";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 const CONFIDENCE_STYLE: Record<ManagerProfile["confidence"], string> = {
   high: "text-emerald-700 dark:text-emerald-400",
@@ -204,29 +205,20 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
 
   if (rivals.length === 0) return null;
 
-  const tabButton = (id: RivalTab, label: string) => (
-    <button
-      type="button"
-      onClick={() => setTab(id)}
-      aria-current={tab === id ? "page" : undefined}
-      className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-        tab === id
-          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-primary dark:ring-1 dark:ring-primary/40"
-          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/50"
-      }`}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Rivals</h3>
-        <div className="flex gap-1 rounded-lg border border-zinc-200 p-0.5 dark:border-purple-900/40">
-          {tabButton("season", "This season")}
-          {tabButton("career", "Career")}
-        </div>
+        <SegmentedControl
+          label="Rival comparison period"
+          size="sm"
+          value={tab}
+          onValueChange={(v) => setTab(v as RivalTab)}
+          options={[
+            { value: "season", label: "This season" },
+            { value: "career", label: "Career" },
+          ]}
+        />
       </div>
 
       {tab === "season" ? (

@@ -38,9 +38,15 @@ export function HorizonControl({
   className?: string;
 }) {
   return (
-    <div className={`flex items-center gap-2 ${className ?? ""}`}>
-      {showLabel && <span className="text-xs text-zinc-500">{label}</span>}
+    // `min-w-0` on both the row and the control is load-bearing, not tidying:
+    // a flex item defaults to `min-width: auto`, which refuses to shrink below
+    // its content. Without it SegmentedControl's own `max-w-full overflow-x-auto`
+    // can never engage, and six segments push the page body wider than the
+    // viewport on a phone — 395px inside 375px, measured.
+    <div className={`flex min-w-0 items-center gap-2 ${className ?? ""}`}>
+      {showLabel && <span className="shrink-0 text-xs text-zinc-500">{label}</span>}
       <SegmentedControl
+        className="min-w-0"
         label={label}
         semantics="radio"
         size={size}

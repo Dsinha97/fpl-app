@@ -57,6 +57,7 @@ import {
 } from "@/lib/team-state";
 import { signed } from "@/lib/utils";
 import { HorizonControl } from "@/components/horizon-control";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 
 interface PlayerRow {
@@ -115,6 +116,9 @@ export default function ScenariosPage() {
   const [view, setView] = useState<"xp" | "actual">("xp");
   const [actualsSource, setActualsSource] = useState<ActualsSource | null>(null);
   const [nextEvent, setNextEvent] = useState<number | null>(null);
+
+  /** "Points scored" needs at least one finished gameweek to mean anything. */
+  const hasActuals = (actualsSource?.events.length ?? 0) > 0;
 
   const [horizon, setHorizon] = useState<Horizon>(5);
   const [selected, setSelected] = useState<string[]>([]);
@@ -607,33 +611,27 @@ export default function ScenariosPage() {
             side by side.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-          {/* Projection vs what actually happened. Same inline button-group
-              recipe as /transfers' and /news' pills — there is no shared
-              segmented control in this codebase and one toggle does not
-              justify introducing one. */}
+        {/* min-w-0: this is a flex item holding a horizontally scrollable
+            control. Without it `min-width: auto` refuses to shrink and the
+            segments push the page body past the viewport on a phone. */}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+          {/* Projection vs what actually happened. This used to carry a comment
+              saying no shared segmented control existed and one toggle did not
+              justify introducing one — SegmentedControl exists now, and this is
+              the same "pick a side" shape as the horizon beside it. */}
           <div className="flex items-center gap-2">
             <span className="text-zinc-500">Show</span>
-            {(["xp", "actual"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                aria-pressed={view === v}
-                disabled={v === "actual" && (actualsSource?.events.length ?? 0) === 0}
-                title={
-                  v === "actual" && (actualsSource?.events.length ?? 0) === 0
-                    ? "No gameweek has finished yet this season."
-                    : undefined
-                }
-                className={`rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
-                  view === v
-                    ? "bg-purple-950 text-white dark:bg-primary dark:text-slate-950"
-                    : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-400 dark:hover:bg-purple-950/60"
-                }`}
-              >
-                {v === "xp" ? "xP" : "Points scored"}
-              </button>
-            ))}
+            <SegmentedControl
+              label="Show"
+              semantics="radio"
+              size="sm"
+              value={view}
+              onValueChange={(v) => setView(v as "xp" | "actual")}
+              options={[
+                { value: "xp", label: "xP" },
+                { value: "actual", label: "Points scored", disabled: !hasActuals },
+              ]}
+            />
             <InfoTooltip label="About points scored">{SCENARIO_ACTUALS_NOTE}</InfoTooltip>
           </div>
           <HorizonControl value={horizon} onValueChange={setHorizon} />
@@ -646,6 +644,14 @@ export default function ScenariosPage() {
       {horizon === "season" && (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
           {seasonHorizonNote(seasonWindow)}
+        </p>
+      )}
+
+      {/* Replaces the `title=` the disabled "Points scored" button used to
+          carry: a disabled control that never says why is just a dead end. */}
+      {!hasActuals && (
+        <p className="mt-2 text-xs text-zinc-500">
+          No gameweek has finished yet this season, so there are no points scored to show.
         </p>
       )}
 

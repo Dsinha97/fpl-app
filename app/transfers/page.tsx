@@ -62,6 +62,7 @@ import {
 import { Alert } from "@/components/ui/alert";
 import { signed } from "@/lib/utils";
 import { HorizonControl } from "@/components/horizon-control";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 interface PlayerRow {
   id: number;
@@ -847,21 +848,6 @@ export default function TransfersPage() {
     </>
   );
 
-  const tabButton = (id: TransfersTab, label: string) => (
-    <button
-      type="button"
-      onClick={() => setTab(id)}
-      aria-current={tab === id ? "page" : undefined}
-      className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        tab === id
-          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-primary dark:ring-1 dark:ring-primary/40"
-          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/50"
-      }`}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -891,10 +877,15 @@ export default function TransfersPage() {
           can't, which is why ChipTiming takes the draft as a prop rather
           than resolving its own. */}
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <div className="flex gap-1 rounded-lg border border-zinc-200 p-1 dark:border-purple-900/40">
-          {tabButton("transfers", "Transfer path")}
-          {tabButton("chips", "Chip timing")}
-        </div>
+        <SegmentedControl
+          label="Transfers view"
+          value={tab}
+          onValueChange={(v) => setTab(v as TransfersTab)}
+          options={[
+            { value: "transfers", label: "Transfer path" },
+            { value: "chips", label: "Chip timing" },
+          ]}
+        />
         {drafts.length > 0 && (
           <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
             Squad

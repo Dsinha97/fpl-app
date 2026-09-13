@@ -98,6 +98,7 @@ import {
   type PlayerFilterState,
 } from "@/components/player-filters";
 import { HorizonControl } from "@/components/horizon-control";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 interface PlayerRow {
   id: number;
@@ -1749,7 +1750,7 @@ export default function BuilderPage() {
         </div>
 
         {/* drafts bar */}
-        <div className="flex flex-wrap items-center gap-2 text-sm">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
           {/* Page-level horizon: drives the projection, the picker, and the
               optimiser. The XI/captain panel stays on the next gameweek. */}
           <HorizonControl value={horizon} onValueChange={setHorizon} />
@@ -2356,21 +2357,17 @@ export default function BuilderPage() {
                     </label>
                     <div className="flex items-center gap-1.5">
                       <span>Show</span>
-                      {REPLACEMENT_LIMITS.map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => setReplaceLimit(n)}
-                          aria-pressed={replaceLimit === n}
-                          className={`rounded px-1.5 py-0.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                            replaceLimit === n
-                              ? "bg-primary text-primary-foreground"
-                              : "border border-input hover:bg-muted"
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      ))}
+                      <SegmentedControl
+                        label="Number of replacements to show"
+                        semantics="radio"
+                        size="sm"
+                        value={String(replaceLimit)}
+                        onValueChange={(v) => setReplaceLimit(Number(v) as (typeof REPLACEMENT_LIMITS)[number])}
+                        options={REPLACEMENT_LIMITS.map((n) => ({
+                          value: String(n),
+                          label: String(n),
+                        }))}
+                      />
                     </div>
                     <label className="flex items-center gap-1.5">
                       <span>Archetype</span>

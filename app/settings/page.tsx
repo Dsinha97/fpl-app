@@ -17,6 +17,7 @@ import {
   type SellPriceMismatch,
 } from "@/lib/fpl-squad";
 import { Alert } from "@/components/ui/alert";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 // Sprint 14.3 — one settings page with two tabs, replacing the standalone
 // /settings/fpl route (now a redirect, below) and giving "claim your Manager
@@ -410,20 +411,6 @@ export default function SettingsPage() {
   const signedOut = !loading && !user;
   if (signedOut && tab !== "status") return null;
 
-  const tabButton = (id: Tab, label: string) => (
-    <button
-      onClick={() => setTab(id)}
-      aria-current={tab === id ? "page" : undefined}
-      className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        tab === id
-          ? "bg-purple-950 text-white dark:bg-emerald-950/60 dark:text-primary dark:ring-1 dark:ring-primary/40"
-          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-purple-950/50"
-      }`}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <main className={`mx-auto w-full flex-1 px-4 py-10 ${tab === "status" ? "max-w-5xl" : "max-w-xl"}`}>
       <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
@@ -433,12 +420,18 @@ export default function SettingsPage() {
       {/* Signed out, the other two tabs are not reachable, so offering them
           would be a dead end rather than a choice. */}
       {!signedOut && (
-        <div className="mt-4 flex gap-1 rounded-lg border border-zinc-200 p-1 dark:border-purple-900/40">
-          {tabButton("account", "Account details")}
-          {tabButton("import", "Import squad")}
-          {tabButton("notifications", "Notifications")}
-          {tabButton("status", "Pipeline")}
-        </div>
+        <SegmentedControl
+          className="mt-4"
+          label="Settings section"
+          value={tab}
+          onValueChange={(v) => setTab(v as Tab)}
+          options={[
+            { value: "account", label: "Account details" },
+            { value: "import", label: "Import squad" },
+            { value: "notifications", label: "Notifications" },
+            { value: "status", label: "Pipeline" },
+          ]}
+        />
       )}
 
       {/* Each tab mounts only while showing — PipelineStatus issues a count
