@@ -81,17 +81,19 @@ export function TransferPath({
           </p>
         </div>
         {stale && (
-          <button
+          <Button
             type="button"
             onClick={onRun}
             disabled={loading}
-            className="order-first flex w-full items-center justify-between gap-2 rounded-md border border-warning-border bg-warning-surface px-2.5 py-1.5 text-xs font-medium text-warning-foreground transition-colors hover:bg-warning-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 sm:order-none sm:w-auto"
+            variant="outline"
+            size="md"
+            className="order-first w-full justify-between border-warning-border bg-warning-surface text-xs text-warning-foreground hover:bg-warning-surface/70 hover:text-warning-foreground disabled:opacity-60 sm:order-none sm:w-auto"
           >
             <span className="flex items-center gap-1.5">
               {loading && <Spinner />}
               {loading ? "Re-running…" : "Inputs changed — re-run"}
             </span>
-          </button>
+          </Button>
         )}
         {onDecisionMarginChange && decisionMargin !== undefined && (
           <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
@@ -135,26 +137,29 @@ export function TransferPath({
               className="w-16 rounded-md border border-input bg-surface-3 px-2 py-1 text-right tabular-nums text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
             {decisionMargin !== DEFAULT_DECISION_MARGIN && (
-              <button
+              <Button
                 type="button"
                 onClick={() => onDecisionMarginChange(DEFAULT_DECISION_MARGIN)}
-                className="rounded text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                variant="link"
+                className="h-auto p-0 text-muted-foreground"
               >
                 reset
-              </button>
+              </Button>
             )}
           </label>
         )}
-        <button
+        <Button
           type="button"
           onClick={onRun}
           disabled={loading || disabled}
           title={disabled ? "Still loading this horizon's expected points" : undefined}
-          className="flex min-h-9 items-center gap-1.5 rounded-md border border-purple-700 px-3 py-1.5 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
+          variant="outline"
+          size="md"
+          className="min-h-9 border-purple-700 text-purple-700 hover:bg-purple-50 dark:border-primary dark:text-primary dark:hover:bg-primary/10"
         >
           {loading && <Spinner />}
           {loading ? "Planning…" : result ? "Re-plan path" : "Plan the path"}
-        </button>
+        </Button>
       </div>
 
       {result && (

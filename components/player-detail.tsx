@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { FixtureCell } from "./fdr-badge";
 import { AvailabilityBadge, RoleBadges } from "./player-status-icons";
 import { ConfidenceBadge, RateBand } from "./confidence-badge";
@@ -155,14 +156,16 @@ export function PlayerDetail({
             {POSITION_NAME[player.element_type] ?? "—"}
           </p>
         </div>
-        <button
+        <Button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="-mr-1 -mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
+          variant="ghost"
+          size="icon-xs"
+          className="-mr-1 -mt-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
         >
           ×
-        </button>
+        </Button>
       </div>
 
       {/*
@@ -469,15 +472,16 @@ export function PlayerDetail({
       {/* actions — pool player: add, or find a swap for an owned one */}
       {!owned && onAdd && (
         <div className="mt-3 flex gap-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
-          <button
+          <Button
             type="button"
             onClick={() => onAdd(player.id)}
             disabled={addDisabledReason !== null}
             title={addDisabledReason ?? `${addLabel}: ${player.web_name}`}
-            className="flex-1 rounded bg-primary px-2 py-1 font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+            size="xs"
+            className="flex-1 disabled:opacity-40"
           >
             {addLabel}
-          </button>
+          </Button>
         </div>
       )}
       {!owned && addDisabledReason && (
@@ -496,54 +500,62 @@ export function PlayerDetail({
       {owned && (onSetCaptain || onSetVice || onRemove) && (
       <div className="mt-3 flex gap-1.5 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
         {onSetCaptain && (
-        <button
+        <Button
           type="button"
           onClick={() => {
             onSetCaptain(player.id);
             onClose();
           }}
           disabled={player.is_captain}
-          className="flex-1 rounded border border-input px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 dark:hover:border-primary dark:hover:text-primary"
+          variant="outline"
+          size="xs"
+          className="flex-1 hover:border-purple-700 hover:text-purple-700 disabled:opacity-40 dark:hover:border-primary dark:hover:text-primary"
         >
           {player.is_captain ? "Captain" : "Set C"}
-        </button>
+        </Button>
         )}
         {onSetVice && (
-        <button
+        <Button
           type="button"
           onClick={() => {
             onSetVice(player.id);
             onClose();
           }}
           disabled={player.is_vice_captain}
-          className="flex-1 rounded border border-input px-2 py-1 font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 dark:hover:border-primary dark:hover:text-primary"
+          variant="outline"
+          size="xs"
+          className="flex-1 hover:border-purple-700 hover:text-purple-700 disabled:opacity-40 dark:hover:border-primary dark:hover:text-primary"
         >
           {player.is_vice_captain ? "Vice" : "Set VC"}
-        </button>
+        </Button>
         )}
         {onRemove && (
-        <button
+        <Button
           type="button"
           onClick={() => {
             onRemove(player.id);
             onClose();
           }}
-          className="flex-1 rounded border border-input px-2 py-1 font-medium text-danger transition-colors hover:border-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          variant="outline"
+          size="xs"
+          className="flex-1 text-danger hover:border-danger"
         >
           Remove
-        </button>
+        </Button>
         )}
       </div>
       )}
 
       {owned && onFindReplacement && (
-        <button
+        <Button
           type="button"
           onClick={() => onFindReplacement(player.id)}
-          className="mt-1.5 min-h-9 w-full rounded border border-input px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary dark:hover:text-primary"
+          variant="outline"
+          size="md"
+          className="mt-1.5 min-h-9 w-full hover:border-purple-700 hover:text-purple-700 dark:hover:border-primary dark:hover:text-primary"
         >
           Replace
-        </button>
+        </Button>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   DEFAULT_DECISION_MARGIN,
   type Branch,
@@ -104,17 +105,19 @@ export function TransferPlan({
           </p>
         </div>
         {stale && onRerun && (
-          <button
+          <Button
             type="button"
             onClick={onRerun}
             disabled={loading}
-            className="order-first flex w-full items-center justify-between gap-2 rounded-md border border-warning-border bg-warning-surface px-2.5 py-1.5 text-xs font-medium text-warning-foreground transition-colors hover:bg-warning-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 sm:order-none sm:w-auto"
+            variant="outline"
+            size="md"
+            className="order-first w-full justify-between border-warning-border bg-warning-surface text-xs text-warning-foreground hover:bg-warning-surface/70 hover:text-warning-foreground disabled:opacity-60 sm:order-none sm:w-auto"
           >
             <span className="flex items-center gap-1.5">
               {loading && <Spinner />}
               {loading ? "Re-running…" : "Inputs changed — re-run"}
             </span>
-          </button>
+          </Button>
         )}
         <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
           <span title="Rolling is only worth something the model cannot see: injury news, price moves, rotation hints. That value is yours to assert, not the model's to claim.">
@@ -134,13 +137,14 @@ export function TransferPlan({
             className="w-16 rounded-md border border-input bg-surface-3 px-2 py-1 text-right tabular-nums text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           {decisionMargin !== DEFAULT_DECISION_MARGIN && (
-            <button
+            <Button
               type="button"
               onClick={() => onDecisionMarginChange(DEFAULT_DECISION_MARGIN)}
-              className="rounded text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              variant="link"
+              className="h-auto p-0 text-muted-foreground"
             >
               reset
-            </button>
+            </Button>
           )}
         </label>
       </div>
@@ -308,7 +312,7 @@ function BranchRow({
       )}
 
       {!blocked && branch.moves.length > 0 && (
-        <button
+        <Button
           type="button"
           onClick={() => {
             if (!isLoaded) onLoad(branch.moves);
@@ -317,10 +321,12 @@ function BranchRow({
           title={
             isLoaded ? "Already in the basket" : "Puts these transfers in the basket below to apply"
           }
-          className="mt-1.5 min-h-9 rounded border border-input px-3 py-1.5 text-sm font-medium transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-40 motion-reduce:transition-none dark:hover:border-primary dark:hover:text-primary"
+          variant="outline"
+          size="md"
+          className="mt-1.5 min-h-9 hover:border-purple-700 hover:text-purple-700 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 motion-reduce:transition-none dark:hover:border-primary dark:hover:text-primary"
         >
           {isLoaded ? "Loaded" : "Load"}
-        </button>
+        </Button>
       )}
     </li>
   );
