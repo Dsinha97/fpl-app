@@ -146,7 +146,13 @@ export function DecisionAnalyticsPanel({
             What the calls you already made actually returned.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        {/* min-w-0 here too, not just inside HorizonControl. The control
+            explains in its own source why it needs it — a flex item defaults
+            to min-width:auto and refuses to shrink below its content — and
+            that reasoning applies to every wrapper above it as well. Without
+            it this row measured 406px inside a 375px viewport and scrolled
+            the whole document sideways. */}
+        <div className="flex min-w-0 items-center gap-2">
           <HorizonControl value={horizon} onValueChange={setHorizon} label="Transfer horizon" />
           <InfoTooltip label="About these figures">{DECISION_ANALYTICS_NOTE}</InfoTooltip>
         </div>

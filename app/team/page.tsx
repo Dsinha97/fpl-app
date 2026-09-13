@@ -1408,7 +1408,13 @@ export default function TeamPage() {
                   be buried in (a casual tester never found it there); the
                   Telegram link sits beside it for the same reason — a linking
                   control tucked into a settings tab is one nobody finds. */}
-              <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
+              {/* No shrink-0 on the group. It held two controls when it was
+                  written; DSI-120 added Refresh and Change ID, and a
+                  four-child group that refuses to shrink takes its min-content
+                  width whatever the viewport — which pushed the page 56px wide
+                  of a 375px screen and made the whole document scroll
+                  sideways. flex-wrap can only wrap what is allowed to shrink. */}
+              <div className="flex min-w-0 flex-wrap items-start justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => savedId && void connect(savedId)}
