@@ -146,6 +146,39 @@ const FRAMES = [
   { name: "Scenarios-Compare", path: "/scenarios/", steps: [wait(2500), checkFirst(4), wait(1500), scrollTo("Metric")] },
   { name: "Fixtures-ClubView", path: "/fixtures/", steps: [click("Clubs"), wait(1500), clickNth("Arsenal", 0), wait(900)] },
   { name: "Transfers-ChipPlan", path: "/transfers/", steps: [wait(6000), click("Chip plan"), wait(1200)] },
+
+  // ---- /deadline is one long page with sections, not tabs: these are positions
+  { name: "Signed-in Deadline - Upcoming View", path: "/deadline/", steps: [wait(3000)] },
+  { name: "Deadline-Team View", path: "/deadline/", steps: [wait(3500), scrollTo("Squad — Gameweek")] },
+  { name: "Deadline-Plans", path: "/deadline/", steps: [wait(3500), scrollTo("Captain & starting XI")] },
+  { name: "Deadline-News", path: "/deadline/", steps: [wait(3500), scrollTo("Team news")] },
+
+  // ---- the Builder needs a draft in the URL, so the route comes from the seed
+  { name: "Builder-ActiveSquad", path: (d) => `/builder/?draft=${d[0]?.draftId ?? ""}`, steps: [wait(4000)] },
+  {
+    name: "Builder-PlayerInfo",
+    path: (d) => `/builder/?draft=${d[0]?.draftId ?? ""}`,
+    steps: [wait(5000), clickNth("B.Fernandes", 0), wait(1200)],
+  },
+  {
+    name: "Builder-ReplacementOptions",
+    path: (d) => `/builder/?draft=${d[0]?.draftId ?? ""}`,
+    steps: [wait(5000), clickNth("B.Fernandes", 0), wait(1200), click("Replace"), wait(2500)],
+  },
+  {
+    name: "Builder-SquadTransfers",
+    path: (d) => `/builder/?draft=${d[0]?.draftId ?? ""}`,
+    steps: [wait(5000), scrollTo("Squad")],
+  },
+
+  // ---- remaining selections
+  { name: "Leagues-SelectedLeague", path: "/leagues/", steps: [wait(3500), clickNth("league", 0), wait(2500)] },
+  { name: "MyTeam-Review", path: "/team/", steps: [wait(4000), scrollTo("Gameweek")] },
+  {
+    name: "Players-CompareSuggestion",
+    path: "/players/",
+    steps: [wait(2500), checkFirst(2), wait(600), click("Compare 2"), wait(3000), scrollTo("Ranking over")],
+  },
 ];
 
 async function run() {
@@ -183,7 +216,8 @@ async function run() {
     const page = await ctx.newPage();
     const notes = [];
     try {
-      await page.goto(`${BASE}${frame.path}`, { waitUntil: "networkidle", timeout: 45000 }).catch(() => {
+      const route = typeof frame.path === "function" ? frame.path(savedDrafts) : frame.path;
+      await page.goto(`${BASE}${route}`, { waitUntil: "networkidle", timeout: 45000 }).catch(() => {
         notes.push("networkidle timed out — captured anyway");
       });
       await page.waitForTimeout(2500);
