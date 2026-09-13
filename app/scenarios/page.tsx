@@ -1038,7 +1038,9 @@ export default function ScenariosPage() {
                 <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
                   <th className="px-3 py-2">Metric</th>
                   {chosen.map((d) => (
-                    <th key={d.draftId} className="px-3 py-2">
+                    // Right-aligned to sit over the numbers beneath it, now
+                    // that the metric cells align right.
+                    <th key={d.draftId} className="px-3 py-2 text-right">
                       {d.name}
                     </th>
                   ))}
@@ -1292,20 +1294,41 @@ function ComparisonRows({
                 row.label
               )}
             </th>
-            {nums.map((v, i) => (
-              <td key={i} className="px-3 py-2 tabular-nums">
-                <span
-                  className={
-                    best !== null && v === best && nums.length > 1
-                      ? "font-semibold text-purple-800 dark:text-primary"
-                      : ""
-                  }
+            {nums.map((v, i) => {
+              const wins = best !== null && v === best && nums.length > 1;
+              return (
+                // DSI-123, two defects in one cell.
+                //
+                // The arrow was hardcoded `▲` for every winner, so "mean player
+                // risk" — where `dir` is already correctly "low", and the
+                // selection was already right — rendered its lowest value as
+                // `24 ▲`. An up-arrow beside the smallest number reads as a
+                // contradiction. The glyph now follows the same `row.dir` the
+                // winner was chosen by, so the two can never disagree.
+                //
+                // And every row's winner was primary green, which is what the
+                // audit calls "green up-triangles overload": with a winner in a
+                // different column on every line, nothing tells you which draft
+                // wins overall. Row winners are now a tinted cell and weight;
+                // the accent stays for the composite verdict above the table.
+                <td
+                  key={i}
+                  className={`px-3 py-2 text-right tabular-nums ${wins ? "bg-primary/[0.06]" : ""}`}
                 >
-                  {row.format(v)}
-                  {best !== null && v === best && nums.length > 1 ? " ▲" : ""}
-                </span>
-              </td>
-            ))}
+                  <span className={wins ? "font-semibold text-foreground" : ""}>
+                    {row.format(v)}
+                    {wins && (
+                      <span
+                        aria-label={row.dir === "low" ? "lowest, best" : "highest, best"}
+                        className="ml-1 text-[0.85em] text-muted-foreground"
+                      >
+                        {row.dir === "low" ? "▼" : "▲"}
+                      </span>
+                    )}
+                  </span>
+                </td>
+              );
+            })}
           </tr>
         );
       })}
