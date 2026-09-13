@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { NoteDisclosure } from "@/components/ui/note-disclosure";
 import { DataCell, DataHeadCell, DataRow, DataTable, DataTableHead } from "@/components/ui/data-table";
 import { TeamCrest } from "./identity";
 import { FixtureCell } from "./fdr-badge";
@@ -238,10 +239,10 @@ export function LeagueTable({
           </tbody>
       </DataTable>
 
-      <p className="mt-4 text-xs text-zinc-400">
+      <NoteDisclosure className="mt-4">
         Rows follow FPL&apos;s own published table once it exists. Next-{NEXT_N} chips use the
         same official difficulty rating as the FDR tab.
-      </p>
+      </NoteDisclosure>
     </div>
   );
 }

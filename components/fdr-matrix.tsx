@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { NoteDisclosure } from "@/components/ui/note-disclosure";
 import {
   averageFdr,
   fdrTheme,
@@ -279,11 +280,20 @@ export function FdrMatrix({
         </table>
       </div>
 
-      <p className="mt-4 text-xs text-zinc-400">
-        {source === "official"
-          ? "Uses FPL's own published difficulty rating for each fixture."
-          : STRENGTH_FDR_NOTE}
-      </p>
+      {/* The Strength note runs to ~90 words of methodology -- how the rating
+          is derived, that it is coarser than its own five-colour ramp, and
+          that nothing in the app scores against it. All load-bearing, none of
+          it worth reading on the way to the next thing, which is what
+          NoteDisclosure is for (DSI-140). The official one is a single line
+          and stays plain: collapsing a one-liner adds a click and hides
+          nothing. */}
+      {source === "official" ? (
+        <p className="mt-4 text-xs text-zinc-400">
+          Uses FPL&apos;s own published difficulty rating for each fixture.
+        </p>
+      ) : (
+        <NoteDisclosure className="mt-4">{STRENGTH_FDR_NOTE}</NoteDisclosure>
+      )}
     </>
   );
 }
