@@ -173,12 +173,20 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
     >
       {/* Captain / vice badge */}
       {player.is_captain && (
-        <span className="absolute -left-1 -top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full border-2 border-emerald-400 bg-purple-950 text-[10px] font-extrabold text-emerald-400 shadow-md">
+        <span
+          role="img"
+          aria-label="Captain"
+          className="absolute -left-1 -top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-extrabold text-primary-foreground shadow-md ring-2 ring-card"
+        >
           C
         </span>
       )}
       {player.is_vice_captain && !player.is_captain && (
-        <span className="absolute -left-1 -top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full border-2 border-purple-500 bg-purple-950 text-[9px] font-extrabold text-slate-200 shadow-md">
+        <span
+          role="img"
+          aria-label="Vice-captain"
+          className="absolute -left-1 -top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-100 text-[9px] font-extrabold text-zinc-900 shadow-md ring-2 ring-card"
+        >
           VC
         </span>
       )}
@@ -252,10 +260,16 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
           </span>
         ) : hasXp ? (
           <span
-            className={`font-bold text-emerald-400 ${player.next_fixture ? "text-[10px]" : "text-base"}`}
+            className={`inline-flex items-baseline gap-px font-bold text-emerald-400 ${player.next_fixture ? "text-[10px]" : "text-base"}`}
             title={player.value_note ?? "Expected points (xP) over the selected horizon"}
           >
             {player.expected_points!.toFixed(player.value_decimals ?? 1)}
+            <span
+              aria-hidden
+              className={`font-normal text-emerald-400/70 ${player.next_fixture ? "text-[7px]" : "text-[9px]"}`}
+            >
+              xP
+            </span>
           </span>
         ) : (
           <span

@@ -792,6 +792,16 @@ export default function DeadlinePage() {
       );
   }, [team, rowById]);
 
+  /**
+   * Nothing to report: the squad is legal and every player is fully available.
+   *
+   * When this holds, the two right-rail cards that said so collapse to one
+   * line above the pitch (DSI-119) — they were ~140px of passive green text
+   * sitting directly above the captaincy and transfer calls, which is what a
+   * manager actually opens this page for.
+   */
+  const allClear = validation !== null && validation.isLegal && alerts.length === 0;
+
   const lineup: LineupResult | null = useMemo(() => {
     if (!team || !ctx || predsByPlayer.size === 0) return null;
     const candidates = candidatesAt(team.players, ctx.nextEvent, predAt, lookup, isPenaltyTaker);
@@ -1496,6 +1506,18 @@ export default function DeadlinePage() {
                         Edit in Builder →
                       </Link>
                     </div>
+                    {/* DSI-119: when there is nothing wrong, "Squad readiness"
+                        and "Availability" were two cards of passive green text
+                        costing ~140px of the right rail — the most valuable
+                        space on the page, directly above captaincy and
+                        transfers. An all-clear is worth one line; it only
+                        earns a card when it has something to say, and the two
+                        cards below now render only in that case. */}
+                    {allClear && (
+                      <Alert tone="positive" compact className="mb-2" icon="✓">
+                        Squad legal · {team.players.length}/{ctx.rules.squadSize} available
+                      </Alert>
+                    )}
                     {predsLoading && (
                       <p role="status" className="mb-2 flex items-center gap-2 text-xs text-zinc-500">
                         <Spinner /> Calculating expected points…
@@ -1518,14 +1540,10 @@ export default function DeadlinePage() {
                   </section>
 
                   <div className="min-w-0 space-y-4">
-                {validation && (
+                {validation && !validation.isLegal && (
                   <section className={cardSupporting}>
                     <h2 className={supportingHeading}>Squad readiness</h2>
-                    {validation.isLegal ? (
-                      <p className="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                        This squad is legal and ready to enter.
-                      </p>
-                    ) : (
+                    {(
                       <ul className="mt-2 space-y-1.5 text-sm">
                         {!validation.squadFull && (
                           <li className="text-amber-700 dark:text-amber-400">
@@ -1569,13 +1587,10 @@ export default function DeadlinePage() {
                 )}
 
                 {/* --------------------------------------------------- availability */}
+                {alerts.length > 0 && (
                 <section className={cardSupporting}>
                   <h2 className={supportingHeading}>Availability</h2>
-                  {alerts.length === 0 ? (
-                    <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
-                      Nothing flagged — every player in this squad is fully available.
-                    </p>
-                  ) : (
+                  {(
                     <ul className="mt-2 space-y-2">
                       {alerts.map((p) => (
                         <li key={p.id} className="flex items-start gap-2 text-sm">
@@ -1589,6 +1604,7 @@ export default function DeadlinePage() {
                     </ul>
                   )}
                 </section>
+                )}
 
                 <section className={card}>
                   <div className="flex items-center gap-2">
