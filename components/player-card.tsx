@@ -5,7 +5,7 @@ import { useState } from "react";
 import { FDRBadge } from "./fdr-badge";
 import { StatusBadge } from "./player-status-icons";
 import { Skeleton } from "./ui/skeleton";
-import { asRating } from "@/lib/fdr";
+import { asRating, venueRing } from "@/lib/fdr";
 
 export interface UpcomingFixture {
   event: number;
@@ -31,6 +31,15 @@ export interface PlayerData {
   value_note?: string | null;
   /** Decimals for the headline number. Real points are whole; xP is not. */
   value_decimals?: number;
+  /**
+   * The unit printed after the headline number. Defaults to "xP" because most
+   * callers project; `/team`'s played gameweeks pass "pts". It used to be the
+   * literal string "xP" for everyone, so a finished gameweek's card read
+   * "6 xP" directly above a tooltip reading "GW4 points" — the label
+   * contradicting the number it labels, which is the exact failure
+   * CLAUDE.md's "say what the number means" exists to prevent.
+   */
+  value_unit?: string;
   /**
    * True while `expected_points` is still being calculated rather than
    * genuinely absent — distinguishes "not modelled" from "not here yet" so a
@@ -268,7 +277,7 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
               aria-hidden
               className={`font-normal text-emerald-400/70 ${player.next_fixture ? "text-[7px]" : "text-[9px]"}`}
             >
-              xP
+              {player.value_unit ?? "xP"}
             </span>
           </span>
         ) : (
@@ -282,9 +291,11 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
         {player.next_fixture && (
           <FDRBadge
             rating={asRating(player.next_fixture.fdr)}
-            className={`px-1 py-0 text-[8px] font-bold ring-1 ${
-              player.next_fixture.is_home ? "ring-green-400" : "ring-red-400"
-            }`}
+            /* venueRing(), not a second green/red pair defined here. The
+               matrix moved off hue for venue because red-green is the one axis
+               colour blindness destroys; this card kept its own copy and so
+               kept the defect (CLAUDE.md: one quantity, one implementation). */
+            className={`px-1 py-0 text-[8px] font-bold ${venueRing(player.next_fixture.is_home)}`}
           >
             {player.next_fixture.opponent_short_name}
             {/* Home/away as text only from sm up — below that this single span,

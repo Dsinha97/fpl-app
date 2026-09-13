@@ -64,15 +64,21 @@ function RankArc({ points }: { points: Array<{ event: number; overallRank: numbe
         role="img"
         aria-label={`Overall rank from gameweek ${xy[0].event} to ${xy[xy.length - 1].event}, best ${fmt(best)}, worst ${fmt(worst)}. Higher on the chart is a better rank.`}
       >
-        <path d={path} fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinejoin="round" />
+        {/* chart-1, not primary: the CTA colour on a static data mark dilutes
+            the buttons it is supposed to distinguish. PercentileBar already
+            moved for this reason; the arc was missed. */}
+        <path d={path} fill="none" stroke="var(--chart-1)" strokeWidth="2" strokeLinejoin="round" />
         {xy.map((p) => (
-          <circle key={p.event} cx={p.x} cy={p.y} r="2.5" fill="var(--primary)" />
+          <circle key={p.event} cx={p.x} cy={p.y} r="2.5" fill="var(--chart-1)" />
         ))}
       </svg>
       <p className="mt-1 flex justify-between text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
         <span>GW{xy[0].event}</span>
+        {/* "lower is better" is true of the rank number and the opposite of
+            what the rising line appears to say (DSI-120). Describe the chart,
+            since the chart is what is being read. */}
         <span>
-          best {fmt(best)} · worst {fmt(worst)} · lower is better
+          best {fmt(best)} · worst {fmt(worst)} · the line rises as your rank improves
         </span>
         <span>GW{xy[xy.length - 1].event}</span>
       </p>

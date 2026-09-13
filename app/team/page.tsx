@@ -311,6 +311,8 @@ function GameweekSummary({
 export default function TeamPage() {
   const router = useRouter();
   const [inputId, setInputId] = useState("");
+  /** Whether the Manager ID editor is showing on an already-connected team. */
+  const [editingId, setEditingId] = useState(false);
   const [savedId, setSavedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -987,6 +989,8 @@ export default function TeamPage() {
         value: number | null;
         valueNote: string;
         decimals: number;
+        /** Omitted keeps PlayerCard's "xP" default — the projection view. */
+        unit?: string;
         isCaptain: boolean;
         isVice: boolean;
       },
@@ -1002,6 +1006,7 @@ export default function TeamPage() {
         expected_points: opts.value,
         value_note: opts.valueNote,
         value_decimals: opts.decimals,
+        value_unit: opts.unit,
         status: row.status,
         chance_of_playing_next_round: row.chance_of_playing_next_round,
         is_captain: opts.isCaptain,
@@ -1047,10 +1052,19 @@ export default function TeamPage() {
           ? `Hasn't kicked off yet — GW${p.event} fixture not started`
           : scored === undefined
             ? "No stats recorded for this player in this gameweek"
-            : `GW${p.event} points${multiplier > 1 ? ` (×${multiplier} armband)` : ""}${
+            : // Spell the armband out as arithmetic rather than as a bare
+              // "(×2)" beside an already-multiplied total: the card shows 24
+              // and the reader cannot tell whether the multiplier has been
+              // applied yet or is still to come (DSI-120).
+              `GW${p.event} points${
+                multiplier > 1 && p.position <= 11
+                  ? ` — ${scored.points} × ${multiplier} armband = ${scored.points * multiplier}`
+                  : ""
+              }${
                 scored.fixtures > 1 ? ` · ${scored.fixtures} fixtures` : ""
               }${p.position >= 12 ? " · benched, counted only under a Bench Boost" : ""}`,
         decimals: 0,
+        unit: "pts",
         isCaptain: p.isCaptain,
         isVice: p.isViceCaptain,
       });
@@ -1307,32 +1321,61 @@ export default function TeamPage() {
   const m = data?.manager;
   const seasonStarted = (data?.gwHistory.length ?? 0) > 0;
 
+  /**
+   * The Manager ID is a once-ever setting that used to hold the top of this
+   * page on every visit (DSI-120). It now appears in exactly two places: the
+   * onboarding card, when there is no team to show, and behind "Change" once
+   * there is. The audit asked for it to move to /settings outright — but
+   * /settings is behind a sign-in wall and /team works signed out off
+   * `localStorage.fpl_manager_id`, so that would strand exactly the visitors
+   * who still need it. Signed-in users get the pointer to /settings instead.
+   */
+  const connectForm = (
+    <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-3">
+      <label htmlFor="manager-id" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        FPL Manager ID
+      </label>
+      <input
+        id="manager-id"
+        value={inputId}
+        onChange={(e) => setInputId(e.target.value)}
+        inputMode="numeric"
+        placeholder="e.g. 1234567"
+        className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
+      />
+      <button
+        type="submit"
+        disabled={loading}
+        className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
+      >
+        {loading ? "Syncing…" : savedId ? "Refresh" : "Connect"}
+      </button>
+    </form>
+  );
+
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-      {/* ------------------------------------------------ connect form */}
-      <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-3">
-        <label htmlFor="manager-id" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          FPL Manager ID
-        </label>
-        <input
-          id="manager-id"
-          value={inputId}
-          onChange={(e) => setInputId(e.target.value)}
-          inputMode="numeric"
-          placeholder="e.g. 1234567"
-          className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus-visible:border-primary"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-md bg-purple-950 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
-        >
-          {loading ? "Syncing…" : savedId ? "Refresh" : "Connect"}
-        </button>
-        <span className="text-xs text-zinc-500">
-          Find it in your team&apos;s URL on fantasy.premierleague.com
-        </span>
-      </form>
+      {/* --------------------------------------------- onboarding card */}
+      {/* One centred unit rather than an input floating above the sentence
+          explaining it — reading order now matches the order of the steps. */}
+      {!m && (
+        <section className="mx-auto max-w-xl rounded-lg border border-zinc-200 bg-white p-6 text-center dark:border-purple-900/40 dark:bg-card">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+            Connect your FPL team
+          </h1>
+          <p className="mx-auto mt-1.5 max-w-md text-sm text-zinc-500">
+            Enter your Manager ID to sync your live squad. It&apos;s the number in your team&apos;s
+            URL on fantasy.premierleague.com:
+          </p>
+          <p className="mt-2 break-all font-mono text-xs text-zinc-400">
+            fantasy.premierleague.com/entry/<span className="text-primary">1234567</span>/event/1
+          </p>
+          <div className="mt-4 flex justify-center [&>form]:justify-center">{connectForm}</div>
+        </section>
+      )}
+
+      {/* Connected: the editor is out of the way until asked for. */}
+      {m && editingId && <div className="mb-4">{connectForm}</div>}
 
       {error && (
         <p className="mt-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
@@ -1366,6 +1409,22 @@ export default function TeamPage() {
                   Telegram link sits beside it for the same reason — a linking
                   control tucked into a settings tab is one nobody finds. */}
               <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => savedId && void connect(savedId)}
+                  disabled={loading || !savedId}
+                  className="shrink-0 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/40"
+                >
+                  {loading ? "Syncing…" : "Refresh"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingId((v) => !v)}
+                  aria-expanded={editingId}
+                  className="shrink-0 rounded-md px-2 py-1.5 text-xs text-zinc-500 underline-offset-2 transition-colors hover:text-zinc-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-zinc-200"
+                >
+                  {editingId ? "Cancel" : "Change ID"}
+                </button>
                 {data && data.picks.length > 0 && (
                   <button
                     type="button"
@@ -1714,8 +1773,12 @@ export default function TeamPage() {
                     From FPL&apos;s own transfer record. Only appears once a transfer has been
                     synced — see Refresh above if a recent change is missing.
                   </p>
+                  {/* An Alert, not amber text loose on the card (DSI-120): this
+                      is a discrepancy between two records the reader is being
+                      asked to reconcile, and a bare coloured paragraph reads as
+                      a stray debug line rather than something to act on. */}
                   {importReconciliation && (
-                    <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">
+                    <Alert tone="warning" className="mt-2 text-[11px]">
                       Your saved squad also changed by{" "}
                       {importReconciliation.diff.in
                         .map((id) => data?.players.get(id)?.web_name ?? `#${id}`)
@@ -1725,7 +1788,7 @@ export default function TeamPage() {
                         .join(", ") || "—"}{" "}
                       out since the last save — check that against the ledger above if the two
                       don&apos;t obviously match.
-                    </p>
+                    </Alert>
                   )}
                 </section>
               )}
@@ -2026,20 +2089,11 @@ export default function TeamPage() {
         </>
       )}
 
-      {!m && !loading && !error && (
-        <div className="mt-16 text-center text-sm text-zinc-500">
-          <p className="text-base font-medium text-zinc-700 dark:text-zinc-300">
-            Connect your FPL team
-          </p>
-          <p className="mt-2">
-            Enter your Manager ID above — it&apos;s the number in the URL when you view your
-            points page on the FPL site: <br />
-            <code className="mt-1 inline-block rounded bg-zinc-100 px-1.5 py-0.5 text-xs dark:bg-surface-3">
-              fantasy.premierleague.com/entry/<b>1234567</b>/event/1
-            </code>
-          </p>
-        </div>
-      )}
+      {/* The "Connect your FPL team" empty state that used to live here said
+          the same three things as the onboarding card above, which is what the
+          card was built from — it existed only because the form it pointed at
+          ("enter your Manager ID above") was a bare row with no explanation of
+          its own. One statement, at the top, where the form is. */}
     </main>
   );
 }

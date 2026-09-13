@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ManagerProfile, RivalRow } from "@/lib/manager-profile";
 import { TapToReveal } from "@/components/info-tooltip";
+import { AnnotatedLabel } from "@/components/ui/model-note";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 
 const CONFIDENCE_STYLE: Record<ManagerProfile["confidence"], string> = {
@@ -230,7 +231,19 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
                 <th className="py-1.5 text-right">GW pts</th>
                 <th className="py-1.5 text-right">Total</th>
                 <th className="py-1.5 text-right">Rank</th>
-                <th className="py-1.5 text-right">Gap</th>
+                {/* "Gap" alone never said whose (DSI-120). The sign is right —
+                    it is mine minus theirs, so green is genuinely ahead — but a
+                    reader seeing a negative number had no way to learn that from
+                    the screen. The direction now travels with the column. */}
+                <th className="py-1.5 text-right">
+                  <AnnotatedLabel
+                    label="What the Gap column means"
+                    align="right"
+                    note="Your total points minus theirs. Positive (green) means you are ahead; negative (amber) means you are behind."
+                  >
+                    Gap
+                  </AnnotatedLabel>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -281,7 +294,19 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
                 <th className="py-1.5 text-right">Median</th>
                 <th className="py-1.5 text-right">Best</th>
                 <th className="py-1.5 text-right">Worst</th>
-                <th className="py-1.5 text-right">Gap</th>
+                {/* "Gap" alone never said whose (DSI-120). The sign is right —
+                    it is mine minus theirs, so green is genuinely ahead — but a
+                    reader seeing a negative number had no way to learn that from
+                    the screen. The direction now travels with the column. */}
+                <th className="py-1.5 text-right">
+                  <AnnotatedLabel
+                    label="What the Gap column means"
+                    align="right"
+                    note="Your median career percentile score minus theirs. Positive (green) means the stronger record is yours; negative (amber) means theirs."
+                  >
+                    Gap
+                  </AnnotatedLabel>
+                </th>
               </tr>
             </thead>
             <tbody>
