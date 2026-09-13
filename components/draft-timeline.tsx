@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
 import type { DraftSnapshot } from "@/lib/drafts";
 
 const formatWhen = (iso: string) =>
@@ -74,13 +75,15 @@ export function DraftTimeline({
             {entries.length} save{entries.length === 1 ? "" : "s"} recorded
           </span>
         </h2>
-        <button
+        <Button
           onClick={onClose}
           aria-label="Close timeline"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
+          variant="ghost"
+          size="icon-xs"
+          className="shrink-0 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
         >
           ×
-        </button>
+        </Button>
       </div>
 
       {entries.length === 0 ? (

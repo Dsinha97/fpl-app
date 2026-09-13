@@ -172,12 +172,13 @@ export function PlayerFilters({
               maxLabel="Maximum price"
             />
             {(value.price[0] !== priceBounds[0] || value.price[1] !== priceBounds[1]) && (
-              <button
+              <Button
                 onClick={() => onChange({ ...value, price: priceBounds })}
-                className="text-xs text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
+                variant="link"
+                className="h-auto p-0 text-xs text-zinc-500 underline hover:text-purple-700 dark:hover:text-primary"
               >
                 reset
-              </button>
+              </Button>
             )}
           </label>
 

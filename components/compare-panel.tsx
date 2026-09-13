@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { Button } from "@/components/ui/button";
 import { FixtureCell } from "@/components/fdr-badge";
 import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { Badge } from "@/components/ui/badge";
@@ -248,13 +249,15 @@ export function ComparePanel({
                           size="w-3.5 h-3.5"
                         />
                       )}
-                      <button
+                      <Button
                         onClick={() => onRemove(p.id)}
                         aria-label={`Remove ${p.webName}`}
-                        className="ml-auto shrink-0 text-zinc-400 transition-colors hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="ml-auto shrink-0 text-zinc-400 hover:text-red-500"
                       >
                         ×
-                      </button>
+                      </Button>
                     </div>
                     <div className="text-xs font-normal text-zinc-500">
                       {p.teamShort} · {POSITIONS[p.elementType]}

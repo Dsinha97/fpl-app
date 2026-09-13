@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   botLinkUrl,
   DEFAULT_PREFS,
@@ -126,7 +127,7 @@ export function TelegramLink({ variant = "full" }: { variant?: "compact" | "full
             <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700 dark:text-primary">
               <span aria-hidden>●</span> Telegram linked
             </span>
-            <button
+            <Button
               type="button"
               onClick={() => void unlink()}
               disabled={busy}
@@ -135,20 +136,24 @@ export function TelegramLink({ variant = "full" }: { variant?: "compact" | "full
                  button on the page (DSI-128). Danger-toned on hover rather
                  than always-red: it is destructive, not dangerous to sit
                  next to. */
-              className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:border-red-500 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:border-red-500/70 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+              variant="outline"
+              size="xs"
+              className="border-zinc-300 px-2.5 text-zinc-700 hover:border-red-500 hover:bg-red-50 hover:text-red-700 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:border-red-500/70 dark:hover:bg-red-950/40 dark:hover:text-red-300"
             >
               Unlink
-            </button>
+            </Button>
           </>
         ) : (
-          <button
+          <Button
             type="button"
             onClick={() => void generate()}
             disabled={busy}
-            className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+            variant="outline"
+            size="xs"
+            className="border-zinc-300 px-2.5 text-zinc-700 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
           >
             {busy ? "Generating…" : code ? "New code" : "Link Telegram →"}
-          </button>
+          </Button>
         )}
       </div>
 

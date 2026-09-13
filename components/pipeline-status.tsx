@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase/client";
 import { AccuracyScoreboard } from "@/components/accuracy-scoreboard";
 import { SyncHealthPanel } from "@/components/sync-health";
@@ -156,13 +157,15 @@ export function PipelineStatus() {
     <div className="mt-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Pipeline Status</h2>
-        <button
+        <Button
           onClick={() => void load()}
           disabled={loading}
-          className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
+          variant="outline"
+          size="md"
+          className="border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:bg-purple-950/60"
         >
           {loading ? "Loading…" : "Refresh"}
-        </button>
+        </Button>
       </div>
 
       <section className="mt-6">

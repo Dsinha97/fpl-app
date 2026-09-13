@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Menu } from "@base-ui/react/menu";
@@ -268,15 +269,17 @@ export function MobileNav() {
        across the wordmark, and the account avatar keeps the right edge to
        itself via its own `ml-auto` in layout.tsx. */
     <div ref={wrapper} className="relative lg:hidden">
-      <button
+      <Button
         type="button"
         aria-label={open ? "Close navigation menu" : "Open navigation menu"}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-11 w-11 items-center justify-center rounded-md text-xl leading-none text-zinc-600 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-zinc-300 dark:hover:bg-purple-950/60"
+        variant="ghost"
+        size="icon"
+        className="size-11 text-xl leading-none text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-purple-950/60"
       >
         <span aria-hidden="true">{open ? "×" : "☰"}</span>
-      </button>
+      </Button>
 
       {/* A trigger at the header's left edge is one tap; docking the drawer
           to the same edge it opened from (rather than the bottom, as an
