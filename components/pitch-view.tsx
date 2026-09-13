@@ -60,7 +60,9 @@ interface PitchViewProps {
    * the actions above are optional: only `/builder` edits a squad, so this
    * is the only caller that passes it. Absent, `EmptySlot` stays inert.
    */
-  onAddToSlot?: (elementType: number) => void;
+  onAddToSlot?: (elementType: number, anchor: HTMLElement) => void;
+  /** The position whose picker is currently open, so its + shows as a ×. */
+  addingPosition?: number | null;
   /** Rendered inside the pitch card, above the field. */
   header?: React.ReactNode;
 }
@@ -80,6 +82,7 @@ export function PitchView({
   onRemove,
   onFindReplacement,
   onAddToSlot,
+  addingPosition = null,
   header,
 }: PitchViewProps) {
   const [menu, setMenu] = useState<MenuState | null>(null);
@@ -198,7 +201,8 @@ export function PitchView({
                     <EmptySlot
                       key={`e-${type}-${i}`}
                       label={POSITION_ABBR[type]}
-                      onAdd={onAddToSlot ? () => onAddToSlot(type) : undefined}
+                      open={addingPosition === type}
+                      onAdd={onAddToSlot ? (anchor) => onAddToSlot(type, anchor) : undefined}
                     />
                   ))}
                 </div>

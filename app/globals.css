@@ -295,3 +295,11 @@
   from { stroke-dashoffset: 0; }
   to   { stroke-dashoffset: -1; }
 }
+
+/* Bottom-sheet entry (components/ui/slide-over, side="bottom"), from
+   References/Components/panel-reveal.md: travel, fade and cross-blur on one
+   duration so a half-height rise still reads as a full open. */
+@keyframes sheet-rise {
+  from { transform: translateY(var(--motion-sheet-travel, 40%)); opacity: 0; filter: blur(var(--motion-blur)); }
+  to   { transform: translateY(0); opacity: 1; filter: blur(0); }
+}

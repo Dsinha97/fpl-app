@@ -309,14 +309,43 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
  * turning the slot itself into the "add a player" affordance instead of the
  * far-away picker table being the only way in.
  */
-export function EmptySlot({ label, onAdd }: { label: string; onAdd?: () => void }) {
+export function EmptySlot({
+  label,
+  onAdd,
+  open = false,
+}: {
+  label: string;
+  /** Receives the slot's own button, so the picker can anchor to it. */
+  onAdd?: (anchor: HTMLElement) => void;
+  /** True while this slot's picker is open — turns the + into a ×. */
+  open?: boolean;
+}) {
   const inner = (
     <>
-      <span className="flex h-12 w-11 items-center justify-center rounded-md border-2 border-dashed border-purple-200/50 sm:h-14 sm:w-13 dark:border-purple-400/30">
+      {/* The + was a faint glyph inside a dashed outline — it read as a
+          placeholder rather than a control, which is the "unactionable pitch"
+          complaint. It is now a filled circular button that morphs on open,
+          following References/Components/plus-to-menu.md: the plus rotates 45°
+          into a ×, on that recipe's own bouncier open curve.
+
+          The morph stays inside the slot rather than growing into the picker
+          panel, because components/pitch.tsx clips its children
+          (`overflow-hidden`) — a panel expanding out of a slot would be cut
+          off at the touchline. The panel opens separately, anchored to this
+          button. */}
+      <span
+        className={`flex h-12 w-11 items-center justify-center rounded-md border-2 border-dashed transition-colors sm:h-14 sm:w-13 ${
+          onAdd
+            ? "border-primary/50 group-hover/slot:border-primary group-hover/slot:bg-primary/10"
+            : "border-purple-200/50 dark:border-purple-400/30"
+        }`}
+      >
         {onAdd ? (
           <span
             aria-hidden="true"
-            className="text-base font-bold leading-none text-purple-100/70 dark:text-purple-300/60"
+            className={`flex h-7 w-7 items-center justify-center rounded-full bg-primary text-lg font-bold leading-none text-primary-foreground shadow-md transition-transform duration-slow ease-pop motion-reduce:transition-none ${
+              open ? "rotate-45" : "group-hover/slot:scale-110"
+            }`}
           >
             +
           </span>
@@ -334,9 +363,10 @@ export function EmptySlot({ label, onAdd }: { label: string; onAdd?: () => void 
     return (
       <button
         type="button"
-        onClick={onAdd}
-        aria-label={`Add a ${label}`}
-        className="flex w-16 flex-col items-center justify-center rounded-md sm:w-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={(e) => onAdd(e.currentTarget)}
+        aria-label={open ? `Close the ${label} picker` : `Add a ${label}`}
+        aria-expanded={open}
+        className="group/slot flex w-16 flex-col items-center justify-center rounded-md sm:w-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {inner}
       </button>

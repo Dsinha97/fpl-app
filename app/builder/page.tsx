@@ -23,6 +23,8 @@ import {
 } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
 import { Pager } from "@/components/ui/pager";
+import { SlideOver } from "@/components/ui/slide-over";
+import { SM, useMinWidth } from "@/components/ui/use-viewport";
 import { ModelNote } from "@/components/ui/model-note";
 import { loadPredictionSeries } from "@/lib/player-pool";
 import { loadSquadHeadlines, type NewsHeadline } from "@/lib/news-feed";
@@ -996,6 +998,8 @@ export default function BuilderPage() {
     return rows.sort((a, b) => value(b) - value(a));
   }, [players, xp, resolvedFilters, sortKey, replaceEligibility, gemsById]);
 
+
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const visible = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
@@ -1299,10 +1303,19 @@ export default function BuilderPage() {
    * "what to restore".
    */
   const [addingPosition, setAddingPosition] = useState<number | null>(null);
+  /** The slot button the picker is anchored to on desktop. */
+  const [addAnchor, setAddAnchor] = useState<HTMLElement | null>(null);
   const preAddPosition = useRef<number | null>(null);
 
-  const startAdding = (elementType: number) => {
+  const startAdding = (elementType: number, anchor?: HTMLElement) => {
+    // Tapping the same slot again closes it — the + is a × while open, so it
+    // has to behave like one.
+    if (addingPosition === elementType) {
+      stopAdding();
+      return;
+    }
     setAddingPosition(elementType);
+    setAddAnchor(anchor ?? null);
     if (resolvedFilters) {
       preAddPosition.current = resolvedFilters.position;
       setFilters({ ...resolvedFilters, position: elementType });
@@ -1312,12 +1325,130 @@ export default function BuilderPage() {
 
   const stopAdding = () => {
     setAddingPosition(null);
+    setAddAnchor(null);
     if (preAddPosition.current !== null) {
       const restore = preAddPosition.current;
       preAddPosition.current = null;
       setFilters((f) => (f ? { ...f, position: restore } : f));
     }
   };
+
+  /**
+   * Where the desktop slot popover sits: beside the + that opened it, clamped
+   * into the viewport and flipped above when there is no room below. Same
+   * problem `PlayerDetail` solves on this page, same shape of answer.
+   */
+  const isDesktop = useMinWidth(SM);
+  const slotPanelCoords = useMemo(() => {
+    if (!addAnchor || !isDesktop) return null;
+    const r = addAnchor.getBoundingClientRect();
+    const W = 320;
+    const H = Math.min(448, window.innerHeight * 0.7);
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - W / 2), window.innerWidth - W - 8);
+    const below = r.bottom + 8;
+    const top = below + H > window.innerHeight - 8 ? Math.max(8, r.top - H - 8) : below;
+    return { top, left };
+  }, [addAnchor, isDesktop]);
+
+
+  /**
+   * The slot picker's contents — search, filters and the eligible players for
+   * the slot that was tapped.
+   *
+   * Everything here already existed: `filtered` is the same memo the pool
+   * table reads, and `startAdding` has already locked its position filter to
+   * the slot. This is a surface, not a second search — which is why the panel
+   * and the table below can never disagree about who is eligible.
+   */
+  const slotPickerBody = (
+    <div className="flex min-h-0 flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          Add a {addingPosition !== null ? (POSITIONS[addingPosition] ?? "player") : "player"}
+        </h2>
+        <button
+          type="button"
+          onClick={stopAdding}
+          aria-label="Close the player picker"
+          className="rounded p-1 text-zinc-500 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          ✕
+        </button>
+      </div>
+
+      {resolvedFilters && priceBounds && (
+        <div className="flex items-center gap-2">
+          <input
+            type="search"
+            value={resolvedFilters.search}
+            onChange={(e) => setFilters({ ...resolvedFilters, search: e.target.value })}
+            placeholder="Search player…"
+            autoFocus
+            className="min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <PlayerFilters
+            value={resolvedFilters}
+            onChange={(next) => {
+              setFilters(next);
+              setPage(0);
+            }}
+            teamOptions={[...teamShort.entries()].sort((a, b) => a[1].localeCompare(b[1]))}
+            priceBounds={priceBounds}
+            lockedPosition={addingPosition ?? undefined}
+          />
+        </div>
+      )}
+
+      <ul className="-mx-1 min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1">
+        {filtered.slice(0, 40).map((p) => {
+          const meta = metaById.get(p.id);
+          const reason = meta ? blockedReason(team, rules, meta, lookup) : "Not available";
+          const x = xp.get(p.id);
+          return (
+            <li key={p.id}>
+              <button
+                type="button"
+                disabled={reason !== null || !meta}
+                title={reason ?? `Add ${p.web_name}`}
+                onClick={() => {
+                  if (!meta) return;
+                  persist(addPlayer(team, meta));
+                  stopAdding();
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-medium">{p.web_name}</span>
+                    <AvailabilityBadge
+                      status={p.status}
+                      chanceOfPlaying={p.chance_of_playing_next_round}
+                      news={p.news}
+                      size="w-3.5 h-3.5"
+                    />
+                  </span>
+                  <span className="block truncate text-[11px] text-zinc-500">
+                    {teamShort.get(p.team_id)} · £{((p.now_cost ?? 0) / 10).toFixed(1)}m
+                    {reason ? ` · ${reason}` : ""}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right text-sm font-semibold tabular-nums">
+                  {x?.xp_5?.toFixed(1) ?? "—"}
+                  <span className="ml-0.5 text-[10px] font-normal text-muted-foreground">xP</span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+        {filtered.length === 0 && (
+          <li className="px-2 py-6 text-center text-sm text-zinc-500">
+            No eligible players match these filters.
+          </li>
+        )}
+      </ul>
+    </div>
+  );
+
 
   useEffect(() => {
     if (addingPosition !== null) {
@@ -1860,8 +1991,44 @@ export default function BuilderPage() {
             onRemove={(id) => persist(removePlayer(team, id, lookup(id)?.nowCost))}
             onFindReplacement={startReplacing}
             onAddToSlot={startAdding}
+            addingPosition={addingPosition}
           />
         </section>
+
+
+        {/* The slot picker.
+            Two surfaces, one state. On a phone it rises from the bottom edge
+            (References/Components/panel-reveal.md) because that is where the
+            thumb is and because the pitch stays visible behind it — you can
+            see which slot you are filling. On a desktop it is a popover beside
+            the slot you clicked.
+
+            It cannot grow out of the slot itself: components/pitch.tsx clips
+            its children, so a panel expanding from a + would be cut off at the
+            touchline. The + morphs in place instead and this opens separately. */}
+        {addingPosition !== null && !isDesktop && (
+          <SlideOver
+            open
+            onClose={stopAdding}
+            side="bottom"
+            label={`Add a ${POSITIONS[addingPosition] ?? "player"}`}
+          >
+            <div className="min-h-0 flex-1 px-1">{slotPickerBody}</div>
+          </SlideOver>
+        )}
+        {addingPosition !== null && isDesktop && (
+          <>
+            <div aria-hidden onClick={stopAdding} className="fixed inset-0 z-30" />
+            <div
+              role="dialog"
+              aria-label={`Add a ${POSITIONS[addingPosition] ?? "player"}`}
+              style={slotPanelCoords ?? { top: -9999, left: -9999 }}
+              className="fixed z-40 flex max-h-[min(28rem,70vh)] w-80 flex-col rounded-xl border border-border bg-popover p-3 shadow-2xl motion-safe:[animation:sheet-rise_var(--duration-base)_var(--ease-slide)]"
+            >
+              {slotPickerBody}
+            </div>
+          </>
+        )}
 
         {/* ========================================== selector column */}
         <section className="min-w-0 space-y-4">

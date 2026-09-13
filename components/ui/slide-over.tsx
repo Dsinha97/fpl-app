@@ -24,6 +24,7 @@ export function SlideOver({
   side = "right",
   label,
   width = "min(28rem, 92vw)",
+  maxHeight = "min(70vh, 32rem)",
   triggerRef,
   children,
 }: {
@@ -31,12 +32,21 @@ export function SlideOver({
   onClose: () => void;
   /** Which edge the panel docks to. Dock it to the edge its trigger sits on:
    *  a tap and its result at opposite ends of a phone screen reads as two
-   *  unrelated events. */
-  side?: "left" | "right";
+   *  unrelated events.
+   *
+   *  `"bottom"` is the phone sheet: it rises from the thumb zone rather than
+   *  from an edge the hand is nowhere near, which is why /builder's slot
+   *  picker uses it below `sm`. It sizes to its content up to a cap instead
+   *  of filling the viewport, so the pitch stays visible behind it and you
+   *  can see which slot you are filling. */
+  side?: "left" | "right" | "bottom";
   /** Accessible name for the dialog. */
   label: string;
-  /** Any CSS width. The default keeps a phone's remaining page visible. */
+  /** Any CSS width. The default keeps a phone's remaining page visible.
+   *  Ignored for `side="bottom"`, which is always full-width. */
   width?: string;
+  /** Max height for `side="bottom"`. Content shorter than this shrinks the sheet. */
+  maxHeight?: string;
   /** The control that opens this, so clicking it to *close* isn't also
    *  treated as an outside-click that closes it first. */
   triggerRef?: React.RefObject<HTMLElement | null>;
@@ -59,10 +69,12 @@ export function SlideOver({
 
   if (!open) return null;
 
-  const edge =
-    side === "right"
-      ? "right-0 border-l border-zinc-200 dark:border-purple-800/50"
-      : "left-0 border-r border-zinc-200 dark:border-purple-800/50";
+  const bottom = side === "bottom";
+  const edge = bottom
+    ? "inset-x-0 bottom-0 rounded-t-2xl border-t border-zinc-200 dark:border-purple-800/50"
+    : side === "right"
+      ? "inset-y-0 right-0 border-l border-zinc-200 dark:border-purple-800/50"
+      : "inset-y-0 left-0 border-r border-zinc-200 dark:border-purple-800/50";
 
   return (
     <>
@@ -72,9 +84,31 @@ export function SlideOver({
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        style={{ width }}
-        className={`fixed inset-y-0 z-50 overflow-y-auto bg-white p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-2xl dark:bg-surface-3 ${edge}`}
+        style={bottom ? { maxHeight } : { width }}
+        // The sheet's entry follows References/Components/panel-reveal.md —
+        // translate + fade + a cross-blur on one duration, so a short travel
+        // still reads as a full open. `motion-reduce` drops it entirely.
+        //
+        // Deliberately NO fill-mode. With `both`, an animation that never runs
+        // (a backgrounded tab, a paused compositor) leaves the element pinned
+        // at its `from` frame — translated 40% down and fully transparent,
+        // i.e. an open sheet nobody can see or reach. Without a fill mode the
+        // resting style *is* the final state, so the worst case is that the
+        // sheet simply appears rather than rises. Motion should never be load-
+        // bearing for whether a control is usable.
+        className={`fixed z-50 flex flex-col overflow-y-auto bg-white p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-2xl dark:bg-surface-3 ${edge} ${
+          bottom ? "motion-safe:[animation:sheet-rise_var(--duration-slower)_var(--ease-slide)]" : ""
+        }`}
       >
+        {bottom && (
+          // A grab handle, because a sheet that can be dismissed should look
+          // like one. Decorative: dismissal is the backdrop, Escape, or the
+          // panel's own close control.
+          <span
+            aria-hidden
+            className="mx-auto mb-2 h-1 w-10 shrink-0 rounded-full bg-border"
+          />
+        )}
         {children}
       </div>
     </>
