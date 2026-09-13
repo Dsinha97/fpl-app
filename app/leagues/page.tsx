@@ -283,7 +283,14 @@ export default function LeaguesPage() {
               type="button"
               onClick={() => void handleSync()}
               disabled={syncing}
-              className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+              /* Outline, matching /team's Refresh (DSI-129): re-syncing a
+                 league is a utility refresh, not the decision this page
+                 exists to support, and a filled accent button was claiming
+                 to be the latter. The last solid-accent utility trigger in
+                 the app — /builder's Save is already outline-and-disabled
+                 when clean, and /scenarios' Open and /settings' Update moved
+                 in C1. */
+              className="flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:border-purple-700 hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:border-primary dark:hover:text-primary"
             >
               {syncing && <Spinner className="h-3.5 w-3.5" />}
               {syncing ? "Syncing…" : "Sync this league"}
