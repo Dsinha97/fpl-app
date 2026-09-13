@@ -1156,7 +1156,7 @@ export default function TransfersPage() {
                             : ""
                       }`}
                     >
-                      <td
+                      <DataCell
                         className={`sticky left-0 z-10 px-2 py-1.5 ${
                           pickingFor === pick.playerId
                             ? "bg-purple-50 dark:bg-purple-950/40"
@@ -1209,20 +1209,21 @@ export default function TransfersPage() {
                             </span>
                           )}
                         </span>
-                      </td>
+                      </DataCell>
                       <DataCell className="hidden px-2 py-1.5 text-xs text-zinc-500 sm:table-cell">
                         {POSITIONS[s?.elementType ?? 0] ?? "—"}
                       </DataCell>
                       <DataCell className="hidden px-2 py-1.5 text-xs tabular-nums text-zinc-500 sm:table-cell">
                         {money(pick.purchasePrice)}
                       </DataCell>
-                      <td
-                        className={`px-1.5 py-1.5 text-right tabular-nums font-semibold ${
+                      <DataCell
+                        numeric
+                        className={`px-1.5 py-1.5 font-semibold ${
                           isTopQuartile ? "text-purple-800 dark:text-primary" : "text-foreground"
                         }`}
                       >
                         {s ? xpFor(s, horizon).toFixed(1) : "—"}
-                      </td>
+                      </DataCell>
                       <DataCell className="px-1.5 py-1.5 tabular-nums text-zinc-500">
                         {s ? riskScore(s, horizon, seasonWindow) : "—"}
                       </DataCell>

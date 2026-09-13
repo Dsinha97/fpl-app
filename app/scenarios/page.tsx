@@ -1444,9 +1444,10 @@ function ComparisonRows({
                 // different column on every line, nothing tells you which draft
                 // wins overall. Row winners are now a tinted cell and weight;
                 // the accent stays for the composite verdict above the table.
-                <td
+                <DataCell
                   key={i}
-                  className={`px-3 py-2 text-right tabular-nums ${wins ? "bg-primary/[0.06]" : ""}`}
+                  numeric
+                  className={`px-3 py-2 ${wins ? "bg-primary/[0.06]" : ""}`}
                 >
                   <span className={wins ? "font-semibold text-foreground" : ""}>
                     {row.format(v)}
@@ -1459,7 +1460,7 @@ function ComparisonRows({
                       </span>
                     )}
                   </span>
-                </td>
+                </DataCell>
               );
             })}
           </DataRow>

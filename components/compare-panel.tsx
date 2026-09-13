@@ -338,7 +338,7 @@ export function ComparePanel({
                     const isBest = best !== null && v === best && !contested;
                     const isTiedBest = best !== null && v === best && contested;
                     return (
-                      <td
+                      <DataCell
                         key={p.id}
                         className={`px-3 py-1.5 tabular-nums ${
                           isBest
@@ -367,7 +367,7 @@ export function ComparePanel({
                             –
                           </span>
                         )}
-                      </td>
+                      </DataCell>
                     );
                   })}
                 </DataRow>

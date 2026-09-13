@@ -178,8 +178,9 @@ function GapCell({ gap, decimals = 1 }: { gap: number | null; decimals?: number 
     return <DataCell className="py-1.5 text-zinc-400" numeric>—</DataCell>;
   }
   return (
-    <td
-      className={`py-1.5 text-right tabular-nums font-medium ${
+    <DataCell
+      numeric
+      className={`py-1.5 font-medium ${
         gap > 0
           ? "text-emerald-700 dark:text-emerald-400"
           : gap < 0
@@ -189,7 +190,7 @@ function GapCell({ gap, decimals = 1 }: { gap: number | null; decimals?: number 
     >
       {gap > 0 ? "+" : ""}
       {gap.toFixed(decimals)}
-    </td>
+    </DataCell>
   );
 }
 

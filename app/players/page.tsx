@@ -942,8 +942,9 @@ export default function PlayersPage() {
                       const thin = (p.minutes ?? 0) < MIN_MINUTES_FOR_CONFIDENT_RATE;
                       return (
                         <>
-                          <td
-                            className={`px-2 py-1.5 text-right tabular-nums ${thin ? "text-zinc-400" : ""}`}
+                          <DataCell
+                            numeric
+                            className={`px-2 py-1.5 ${thin ? "text-zinc-400" : ""}`}
                             title={
                               thin && p.expected_goals !== null
                                 ? `${p.expected_goals.toFixed(2)} xG in ${p.minutes ?? 0} min`
@@ -951,9 +952,10 @@ export default function PlayersPage() {
                             }
                           >
                             {xgRate?.toFixed(2) ?? "—"}
-                          </td>
-                          <td
-                            className={`px-2 py-1.5 text-right tabular-nums ${thin ? "text-zinc-400" : ""}`}
+                          </DataCell>
+                          <DataCell
+                            numeric
+                            className={`px-2 py-1.5 ${thin ? "text-zinc-400" : ""}`}
                             title={
                               thin && p.expected_assists !== null
                                 ? `${p.expected_assists.toFixed(2)} xA in ${p.minutes ?? 0} min`
@@ -961,7 +963,7 @@ export default function PlayersPage() {
                             }
                           >
                             {xaRate?.toFixed(2) ?? "—"}
-                          </td>
+                          </DataCell>
                         </>
                       );
                     })()}
