@@ -1902,7 +1902,14 @@ export default function TeamPage() {
                                 className="h-1.5 w-24 overflow-hidden rounded-full bg-zinc-200 dark:bg-purple-950/60"
                               >
                                 <div
-                                  className="h-full rounded-full bg-purple-700 transition-[width] duration-300 motion-reduce:transition-none dark:bg-primary"
+                                  // The second copy of `PercentileBar`'s bar
+                                  // (components/manager-profile-card.tsx), and
+                                  // it still had the CTA colour that one moved
+                                  // off: --primary for a static data
+                                  // visualisation dilutes the buttons, because
+                                  // the eye stops reading that green as "this
+                                  // is actionable" (DSI-120, DSI-135 #1).
+                                  className="h-full rounded-full bg-chart-1 transition-[width] duration-base ease-slide motion-reduce:transition-none"
                                   style={{ width: `${100 - s.rank_percentage}%` }}
                                 />
                               </div>
