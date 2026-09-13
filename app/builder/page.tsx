@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
@@ -2649,18 +2650,18 @@ export default function BuilderPage() {
                 </colgroup>
                 <thead>
                   <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                    <th className="py-1.5 pl-1">Player</th>
-                    <th className="py-1.5">£</th>
-                    <th className="py-1.5">{sortColumnLabel(sortKey, horizon)}</th>
-                    <th className="py-1.5">
+                    <DataHeadCell className="py-1.5 pl-1">Player</DataHeadCell>
+                    <DataHeadCell className="py-1.5">£</DataHeadCell>
+                    <DataHeadCell className="py-1.5">{sortColumnLabel(sortKey, horizon)}</DataHeadCell>
+                    <DataHeadCell className="py-1.5">
                       <span className="inline-flex items-center gap-1">
                         Risk
                         <InfoTooltip label="How is Risk scored?">
                           <p className="text-xs leading-relaxed">{RISK_MODEL_NOTE}</p>
                         </InfoTooltip>
                       </span>
-                    </th>
-                    <th className="py-1.5"></th>
+                    </DataHeadCell>
+                    <DataHeadCell className="py-1.5"></DataHeadCell>
                   </tr>
                 </thead>
                 <tbody>
@@ -2673,11 +2674,8 @@ export default function BuilderPage() {
                     // slot hasn't been freed yet.
                     const reason = replaceFor !== null ? null : blockedReason(team, rules, meta, lookup);
                     return (
-                      <tr
-                        key={p.id}
-                        className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200"
-                      >
-                        <td className="py-1 pl-1">
+                      <DataRow key={p.id} className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
+                        <DataCell className="py-1 pl-1">
                           <button
                             type="button"
                             onClick={(e) => openPickerDetail(p, e.currentTarget)}
@@ -2714,9 +2712,9 @@ export default function BuilderPage() {
                               {` · ${p.total_points ?? 0}pts · ${p.goals_scored ?? 0}G · ${p.assists ?? 0}A`}
                             </span>
                           </button>
-                        </td>
-                        <td className="py-1 tabular-nums">{((p.now_cost ?? 0) / 10).toFixed(1)}</td>
-                        <td className="py-1 font-semibold tabular-nums text-purple-800 dark:text-primary">
+                        </DataCell>
+                        <DataCell className="py-1 tabular-nums">{((p.now_cost ?? 0) / 10).toFixed(1)}</DataCell>
+                        <DataCell className="py-1 font-semibold tabular-nums text-purple-800 dark:text-primary">
                           {(() => {
                             switch (sortKey) {
                               case "xp5":
@@ -2736,13 +2734,13 @@ export default function BuilderPage() {
                                 return String(p.minutes ?? 0);
                             }
                           })()}
-                        </td>
-                        <td className="py-1 tabular-nums text-zinc-500">
+                        </DataCell>
+                        <DataCell className="py-1 tabular-nums text-zinc-500">
                           {scoredById.has(p.id)
                             ? riskScore(scoredById.get(p.id)!, horizon, seasonWindow)
                             : "—"}
-                        </td>
-                        <td className="py-1 pr-1 text-right">
+                        </DataCell>
+                        <DataCell className="py-1 pr-1" numeric>
                           <Button
                             type="button"
                             disabled={reason !== null}
@@ -2767,18 +2765,18 @@ export default function BuilderPage() {
                           >
                             {replaceFor !== null ? "⇄" : "+"}
                           </Button>
-                        </td>
-                      </tr>
+                        </DataCell>
+                      </DataRow>
                     );
                   })}
                   {visible.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="py-6 text-center text-zinc-500">
+                    <DataRow>
+                      <DataCell colSpan={5} className="py-6 text-center text-zinc-500">
                         {replaceFor !== null && eligibleCount === 0
                           ? `No legal replacement for ${metaById.get(replaceFor)?.webName ?? "this player"} at £${(replaceEligibility!.priceCeiling / 10).toFixed(1)}m or less.`
                           : "No players match these filters."}
-                      </td>
-                    </tr>
+                      </DataCell>
+                    </DataRow>
                   )}
                 </tbody>
               </table>

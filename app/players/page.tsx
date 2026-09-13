@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -570,7 +571,7 @@ export default function PlayersPage() {
    *  sit over its own decimals — a left-aligned label above a right-aligned
    *  column reads as two different columns (DSI-126, DSI-129 #4). */
   const header = (label: string, key: SortKey, note?: ReactNode) => (
-    <th className="px-2 py-2 text-right">
+    <DataHeadCell className="px-2 py-2" numeric>
       {/* Label first, then the "?" — these columns are right-aligned, so the
           affordance belongs on the outer edge where the eye lands, not wedged
           between the previous column and this one's name. */}
@@ -597,7 +598,7 @@ export default function PlayersPage() {
         </InfoTooltip>
       )}
       </span>
-    </th>
+    </DataHeadCell>
   );
 
   const teamOptions = [...teamShort.entries()].sort((a, b) => a[1].localeCompare(b[1]));
@@ -752,16 +753,16 @@ export default function PlayersPage() {
                     mobile — the checkbox lives in this same cell (see the
                     body row below) rather than its own column, so there is
                     one sticky boundary to reason about, not two. */}
-                <th className="sticky left-0 z-10 bg-white px-3 py-2 uppercase tracking-wide dark:bg-card">
+                <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 uppercase tracking-wide dark:bg-card">
                   Player
-                </th>
-                <th className="px-2 py-2 uppercase tracking-wide">Team</th>
-                <th className="px-2 py-2 uppercase tracking-wide">Pos</th>
+                </DataHeadCell>
+                <DataHeadCell className="px-2 py-2 uppercase tracking-wide">Team</DataHeadCell>
+                <DataHeadCell className="px-2 py-2 uppercase tracking-wide">Pos</DataHeadCell>
                 {header("Price", "price")}
                 {/* Right, like every numeric column's cells (DSI-120 sibling
                     finding in DSI-126): these two headers were the only ones
                     left-aligned over right-aligned data. */}
-                <th className="px-2 py-2 text-right">
+                <DataHeadCell className="px-2 py-2" numeric>
                   <span className="flex items-center justify-end gap-1.5">
                     <span className="uppercase tracking-wide">Price watch</span>
                     <InfoTooltip label="What is Price watch?">
@@ -770,7 +771,7 @@ export default function PlayersPage() {
                       </p>
                     </InfoTooltip>
                   </span>
-                </th>
+                </DataHeadCell>
                 {header("xP GW", "xp1", "Model-projected points for the next gameweek. The column beside it projects over the horizon selected above.")}
                 {header(`xP ${horizonLabel(horizon)}`, "xpH")}
                 {header("Pts", "gwPoints")}
@@ -780,7 +781,7 @@ export default function PlayersPage() {
                 {header(`xG/90`, "xgCur", "Expected goals per 90 minutes played this season — a rate, not a total, so a substitute is comparable to a starter. Dimmed below 450 minutes, where the rate is real but not yet stable.")}
                 {header(`xA/90`, "xaCur", "Expected assists per 90 minutes played this season. Same rate basis and same thin-sample dimming as xG/90.")}
                 {header("xMins", "xmins")}
-                <th className="px-2 py-2 text-right">
+                <DataHeadCell className="px-2 py-2" numeric>
                   <span className="flex items-center justify-end gap-1.5">
                     <button
                       onClick={() => {
@@ -803,13 +804,13 @@ export default function PlayersPage() {
                       </p>
                     </InfoTooltip>
                   </span>
-                </th>
+                </DataHeadCell>
                 {header("xP/£m", "value")}
                 {header("Own %", "ownership")}
                 {header(`Pts ${historySeason ? shortSeason(historySeason) : "LY"}`, "points")}
                 {header(`xG ${historySeason ? shortSeason(historySeason) : "LY"}`, "xg")}
                 {header(`xA ${historySeason ? shortSeason(historySeason) : "LY"}`, "xa")}
-                <th className="px-2 py-2">
+                <DataHeadCell className="px-2 py-2">
                   <span className="flex items-center gap-1.5">
                     <button
                       onClick={() => {
@@ -830,7 +831,7 @@ export default function PlayersPage() {
                       <FdrLegendContent />
                     </InfoTooltip>
                   </span>
-                </th>
+                </DataHeadCell>
               </tr>
             </thead>
             <tbody>
@@ -856,7 +857,7 @@ export default function PlayersPage() {
                         : ""
                     }`}
                   >
-                    <td className="sticky left-0 z-10 bg-white px-3 py-1.5 dark:bg-card">
+                    <DataCell className="sticky left-0 z-10 bg-white px-3 py-1.5 dark:bg-card">
                       <span className="flex items-center gap-1.5">
                         <Checkbox
                           checked={isSelected}
@@ -879,13 +880,13 @@ export default function PlayersPage() {
                         />
                         <GemBadge verdict={gemsById.get(p.id)} />
                       </span>
-                    </td>
-                    <td className="px-2 py-1.5 text-zinc-500">{teamShort.get(p.team_id)}</td>
-                    <td className="px-2 py-1.5 text-zinc-500">{POSITIONS[p.element_type]}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5 text-zinc-500">{teamShort.get(p.team_id)}</DataCell>
+                    <DataCell className="px-2 py-1.5 text-zinc-500">{POSITIONS[p.element_type]}</DataCell>
+                    <DataCell className="px-2 py-1.5" numeric>
                       £{((p.now_cost ?? 0) / 10).toFixed(1)}m
-                    </td>
-                    <td className="px-2 py-1.5 text-right text-xs">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5 text-xs" numeric>
                       {(() => {
                         const pp = priceProgress.get(p.code);
                         // Was the literal word "unknown", which reads as an
@@ -911,28 +912,28 @@ export default function PlayersPage() {
                           </Badge>
                         );
                       })()}
-                    </td>
-                    <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-foreground">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5 font-semibold text-foreground" numeric>
                       {x?.xp_1?.toFixed(1) ?? "—"}
-                    </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5" numeric>
                       <span className="flex items-center justify-end gap-1">
                         {xpForHorizon(x, horizon)?.toFixed(1) ?? "—"}
                         <ConfidenceBadge reliability={x?.reliability} priorWeight={x?.prior_weight} compact />
                       </span>
                       <RateBand lower={bandLower ?? undefined} upper={bandUpper ?? undefined} />
-                    </td>
+                    </DataCell>
                     {/* Current season — the emphasised block, set off from the
                         muted last-season trio further right. Emphasis is weight,
                         not the accent: --primary is reserved for actions and the
                         single top-tier winner (DSI-129 #1), and four columns of
                         it meant none of them stood out. */}
-                    <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-foreground">
+                    <DataCell className="px-2 py-1.5 font-semibold text-foreground" numeric>
                       {p.total_points ?? "—"}
-                    </td>
-                    <td className="px-2 py-1.5 text-right font-semibold tabular-nums">{p.goals_scored ?? "—"}</td>
-                    <td className="px-2 py-1.5 text-right font-semibold tabular-nums">{p.assists ?? "—"}</td>
-                    <td className="px-2 py-1.5 text-right font-semibold tabular-nums">{p.minutes ?? "—"}</td>
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5 font-semibold" numeric>{p.goals_scored ?? "—"}</DataCell>
+                    <DataCell className="px-2 py-1.5 font-semibold" numeric>{p.assists ?? "—"}</DataCell>
+                    <DataCell className="px-2 py-1.5 font-semibold" numeric>{p.minutes ?? "—"}</DataCell>
                     {(() => {
                       const xgRate = perNinety(p.expected_goals, p.minutes);
                       const xaRate = perNinety(p.expected_assists, p.minutes);
@@ -964,24 +965,24 @@ export default function PlayersPage() {
                         </>
                       );
                     })()}
-                    <td className="px-2 py-1.5 text-right tabular-nums">
+                    <DataCell className="px-2 py-1.5" numeric>
                       {predictions.get(p.id)?.expected_minutes?.toFixed(0) ?? "—"}
-                    </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5" numeric>
                       {XDC_POSITIONS.has(p.element_type)
                         ? xdcForHorizon(x, horizon)?.toFixed(2) ?? "—"
                         : "—"}
-                    </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5" numeric>
                       {valueOf(p, x)?.toFixed(2) ?? "—"}
-                    </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5" numeric>
                       {p.selected_by_percent !== null ? `${p.selected_by_percent}%` : "—"}
-                    </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-zinc-500">{h?.total_points ?? "—"}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-zinc-500">{h?.expected_goals ?? "—"}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-zinc-500">{h?.expected_assists ?? "—"}</td>
-                    <td className="px-2 py-1.5">
+                    </DataCell>
+                    <DataCell className="px-2 py-1.5 text-zinc-500" numeric>{h?.total_points ?? "—"}</DataCell>
+                    <DataCell className="px-2 py-1.5 text-zinc-500" numeric>{h?.expected_goals ?? "—"}</DataCell>
+                    <DataCell className="px-2 py-1.5 text-zinc-500" numeric>{h?.expected_assists ?? "—"}</DataCell>
+                    <DataCell className="px-2 py-1.5">
                       {/* Wraps to at most 3 rows and grows sideways instead of
                           down — the table already scrolls horizontally, so a
                           19 GW or Season run just widens the scroll area
@@ -998,16 +999,16 @@ export default function PlayersPage() {
                           />
                         ))}
                       </span>
-                    </td>
+                    </DataCell>
                   </tr>
                 );
               })}
               {visible.length === 0 && (
-                <tr>
-                  <td colSpan={20} className="px-3 py-6 text-center text-zinc-500">
+                <DataRow>
+                  <DataCell colSpan={20} className="px-3 py-6 text-center text-zinc-500">
                     No players match the current filters.
-                  </td>
-                </tr>
+                  </DataCell>
+                </DataRow>
               )}
             </tbody>
           </table>

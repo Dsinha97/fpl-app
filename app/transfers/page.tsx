@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DataCell, DataHeadCell } from "@/components/ui/data-table";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { quantile } from "@/lib/stats";
@@ -1109,21 +1110,21 @@ export default function TransfersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-[10px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                  <th className="sticky left-0 z-10 bg-card-supporting px-2 py-1.5">
+                  <DataHeadCell className="sticky left-0 z-10 bg-card-supporting px-2 py-1.5">
                     Player
-                  </th>
-                  <th className="hidden px-2 py-1.5 sm:table-cell">Pos</th>
-                  <th className="hidden px-2 py-1.5 sm:table-cell">Sell</th>
-                  <th className="px-2 py-1.5">{horizonLabel(horizon)}</th>
-                  <th className="px-2 py-1.5">
+                  </DataHeadCell>
+                  <DataHeadCell className="hidden px-2 py-1.5 sm:table-cell">Pos</DataHeadCell>
+                  <DataHeadCell className="hidden px-2 py-1.5 sm:table-cell">Sell</DataHeadCell>
+                  <DataHeadCell className="px-2 py-1.5">{horizonLabel(horizon)}</DataHeadCell>
+                  <DataHeadCell className="px-2 py-1.5">
                     <span className="inline-flex items-center gap-1">
                       Risk
                       <InfoTooltip label="How is Risk scored?">
                         <p className="text-xs leading-relaxed">{RISK_MODEL_NOTE}</p>
                       </InfoTooltip>
                     </span>
-                  </th>
-                  <th className="px-2 py-1.5"></th>
+                  </DataHeadCell>
+                  <DataHeadCell className="px-2 py-1.5"></DataHeadCell>
                 </tr>
               </thead>
               <tbody>
@@ -1209,12 +1210,12 @@ export default function TransfersPage() {
                           )}
                         </span>
                       </td>
-                      <td className="hidden px-2 py-1.5 text-xs text-zinc-500 sm:table-cell">
+                      <DataCell className="hidden px-2 py-1.5 text-xs text-zinc-500 sm:table-cell">
                         {POSITIONS[s?.elementType ?? 0] ?? "—"}
-                      </td>
-                      <td className="hidden px-2 py-1.5 text-xs tabular-nums text-zinc-500 sm:table-cell">
+                      </DataCell>
+                      <DataCell className="hidden px-2 py-1.5 text-xs tabular-nums text-zinc-500 sm:table-cell">
                         {money(pick.purchasePrice)}
-                      </td>
+                      </DataCell>
                       <td
                         className={`px-1.5 py-1.5 text-right tabular-nums font-semibold ${
                           isTopQuartile ? "text-purple-800 dark:text-primary" : "text-foreground"
@@ -1222,14 +1223,14 @@ export default function TransfersPage() {
                       >
                         {s ? xpFor(s, horizon).toFixed(1) : "—"}
                       </td>
-                      <td className="px-1.5 py-1.5 tabular-nums text-zinc-500">
+                      <DataCell className="px-1.5 py-1.5 tabular-nums text-zinc-500">
                         {s ? riskScore(s, horizon, seasonWindow) : "—"}
-                      </td>
+                      </DataCell>
                       {/* Tighter left padding than the stat columns — this is
                           the action, not another number, so it doesn't need
                           the same breathing room, and the freed width is
                           what used to read as a gap before the button. */}
-                      <td className="py-1.5 pl-1 pr-2 text-right">
+                      <DataCell className="py-1.5 pl-1 pr-2" numeric>
                         {move ? (
                           <Button
                             variant="link"
@@ -1254,7 +1255,7 @@ export default function TransfersPage() {
                             Replace
                           </Button>
                         )}
-                      </td>
+                      </DataCell>
                     </tr>
                   );
                 })}

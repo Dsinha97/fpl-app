@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { DataCell, DataRow } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { FixtureCell } from "./fdr-badge";
 import { AvailabilityBadge, RoleBadges } from "./player-status-icons";
@@ -213,21 +214,21 @@ export function PlayerDetail({
           <table className="mt-1 w-full text-[11px]">
             <tbody>
               {player.live_breakdown.map((line) => (
-                <tr key={line.identifier} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-                  <td className="py-1 text-zinc-600 dark:text-zinc-400">{liveStatLabel(line.identifier)}</td>
-                  <td className="py-1 text-right tabular-nums text-zinc-500">{line.value}</td>
-                  <td className="py-1 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                <DataRow key={line.identifier} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
+                  <DataCell className="py-1 text-zinc-600 dark:text-zinc-400">{liveStatLabel(line.identifier)}</DataCell>
+                  <DataCell className="py-1 text-zinc-500" numeric>{line.value}</DataCell>
+                  <DataCell className="py-1 font-semibold text-zinc-900 dark:text-zinc-100" numeric>
                     {line.points}
-                  </td>
-                </tr>
+                  </DataCell>
+                </DataRow>
               ))}
-              <tr>
-                <td className="pt-1 font-semibold text-zinc-900 dark:text-zinc-100">Total</td>
-                <td />
-                <td className="pt-1 text-right font-bold tabular-nums text-purple-800 dark:text-primary">
+              <DataRow>
+                <DataCell className="pt-1 font-semibold text-zinc-900 dark:text-zinc-100">Total</DataCell>
+                <DataCell />
+                <DataCell className="pt-1 font-bold text-purple-800 dark:text-primary" numeric>
                   {player.live_breakdown.reduce((sum, l) => sum + l.points, 0)}
-                </td>
-              </tr>
+                </DataCell>
+              </DataRow>
             </tbody>
           </table>
         </div>
