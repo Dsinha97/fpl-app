@@ -128,20 +128,36 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
     return <p className="mt-6 text-sm text-zinc-500">No fixtures have been published yet.</p>;
   }
 
-  return (
-    <div className="mt-4 space-y-3">
-      {events.map((event) => {
-        const list = byEvent.get(event)!;
-        const meta = gwMeta.get(event);
-        const openByDefault =
-          inProgress(event) ||
-          (nextGw === null ? event <= OPEN_AHEAD : event >= nextGw && event < nextGw + OPEN_AHEAD);
-        const open = toggled.has(event) ? !openByDefault : openByDefault;
+  /**
+   * Finished gameweeks move below the upcoming ones instead of stacking above
+   * them (DSI-127). Ordering by gameweek number alone is right in August and
+   * wrong by May: at GW38 it puts 37 spent rounds between the top of the page
+   * and the one round anyone came to look at. A gameweek still being played is
+   * *not* past — `inProgress` keeps it up top, where someone watching it live
+   * expects it.
+   */
+  const isPast = (event: number) => gwMeta.get(event)?.finished === true && !inProgress(event);
+  const upcoming = events.filter((e) => !isPast(e));
+  // Newest first: the round just gone is the one worth a second look.
+  const completed = events.filter(isPast).reverse();
+
+  const renderSection = (event: number, compact: boolean) => {
+    const list = byEvent.get(event)!;
+    const meta = gwMeta.get(event);
+    const openByDefault =
+      !compact &&
+      (inProgress(event) ||
+        (nextGw === null ? event <= OPEN_AHEAD : event >= nextGw && event < nextGw + OPEN_AHEAD));
+    const open = toggled.has(event) ? !openByDefault : openByDefault;
 
         return (
           <section
             key={event}
-            className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card"
+            className={`overflow-hidden rounded-lg border ${
+              compact
+                ? "border-zinc-200/70 bg-zinc-50/60 dark:border-purple-900/25 dark:bg-surface-1"
+                : "border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card"
+            }`}
           >
             <button
               onClick={() =>
@@ -153,26 +169,38 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
                 })
               }
               aria-expanded={open}
-              className="group flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-purple-950/40"
+              className={`group flex w-full items-center justify-between gap-3 px-4 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-purple-950/40 ${
+                compact ? "py-1.5" : "py-3"
+              }`}
             >
               <span className="flex items-center gap-2">
                 <ExpandToggle expanded={open} interactive={false} size="sm" />
-                <span className="text-sm font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
+                <span
+                  className={`font-semibold uppercase tracking-wider ${
+                    compact
+                      ? "text-xs text-zinc-600 dark:text-zinc-400"
+                      : "text-sm text-zinc-900 dark:text-zinc-100"
+                  }`}
+                >
                   {meta?.name ?? `Gameweek ${event}`}
                 </span>
-                {meta?.finished && (
+                {/* The "complete" chip is redundant under a heading that already
+                    says Completed — it only earns its place on a finished round
+                    still sitting up top (one mid-play, or the last of the season). */}
+                {meta?.finished && !compact && (
                   <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:bg-surface-3">
                     complete
                   </span>
                 )}
               </span>
               <span className="flex items-center gap-3 text-xs text-zinc-500">
-                {meta && (
+                {/* A deadline that has already passed is spent information. */}
+                {meta && !compact && (
                   <span className="hidden sm:inline">
                     Deadline · {formatDeadline(meta.deadline_time)}
                   </span>
                 )}
-                <span>{list.length} fixtures</span>
+                <span className={compact ? "text-[11px]" : undefined}>{list.length} fixtures</span>
               </span>
             </button>
 
@@ -206,7 +234,25 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
             )}
           </section>
         );
-      })}
+  };
+
+  return (
+    <div className="mt-4 space-y-3">
+      {upcoming.map((event) => renderSection(event, false))}
+
+      {completed.length > 0 && (
+        <section className="pt-3">
+          <h3 className="px-1 pb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            Completed{" "}
+            <span className="font-normal normal-case tracking-normal text-zinc-400">
+              · {completed.length} gameweek{completed.length === 1 ? "" : "s"}, newest first
+            </span>
+          </h3>
+          <div className="space-y-1.5">
+            {completed.map((event) => renderSection(event, true))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
@@ -281,8 +327,12 @@ function FixtureRow({
             {f.minutes !== null && <span className="text-[10px]">{f.minutes}′</span>}
           </span>
         ) : (
+          /* No border here, unlike the three states above (DSI-127): an outlined
+             box on a kickoff time reads as an input you could edit. The box now
+             means "there is a result in this slot"; a fixture not yet played
+             gets plain tabular numerals. `min-w` still holds the column. */
           <span
-            className="flex min-w-[4.5rem] items-center justify-center rounded border border-zinc-300 px-2 py-1 tabular-nums text-zinc-600 dark:border-purple-800/60 dark:text-zinc-300"
+            className="flex min-w-[4.5rem] items-center justify-center px-2 py-1 tabular-nums text-zinc-600 dark:text-zinc-300"
             title={
               f.provisional_start_time
                 ? "Provisional kickoff — FPL has not confirmed this time"

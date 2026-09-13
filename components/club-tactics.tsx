@@ -141,8 +141,16 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                               {group}
                             </span>
                             {roleLine && <>: {roleLine.replace(/_/g, " ")}</>}
+                            {/* Not italic (DSI-127). These are full sentences of
+                                source prose, and several lines of italic at 11px
+                                on the dark purple card is the hardest thing to
+                                read on the page. Emphasis comes from the role
+                                line above it being the medium weight, not from
+                                slanting the explanation. */}
                             {detailLine && (
-                              <span className="block break-words italic">{detailLine}</span>
+                              <span className="block break-words text-zinc-500 dark:text-zinc-500">
+                                {detailLine}
+                              </span>
                             )}
                           </li>
                         );
@@ -154,7 +162,11 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                     profile.modifiers.highPressFdrModifier !== null ||
                     profile.modifiers.setPieceBias !== null) && (
                     <p className="mt-2 border-t border-zinc-100 pt-2 text-[11px] text-zinc-400 dark:border-purple-900/40">
-                      Source figures, not applied to xP — low block ×
+                      {/* "not applied to xP" sat immediately above three
+                          multipliers, which reads as a contradiction rather than
+                          a disclaimer (DSI-127). Lead with what they are. */}
+                      Context only — the source&apos;s own figures, read by nothing in this app&apos;s
+                      projection: low block ×
                       {profile.modifiers.lowBlockFdrModifier ?? "—"}, high press ×
                       {profile.modifiers.highPressFdrModifier ?? "—"}, set pieces ×
                       {profile.modifiers.setPieceBias ?? "—"}

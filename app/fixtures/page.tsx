@@ -180,7 +180,7 @@ export default function FixturesPage() {
       {!loading && !error && tab === "schedule" && (
         <>
           <p className="mt-4 text-sm text-zinc-500">
-            Upcoming gameweeks first, completed ones collapsed. Times shown in {localZone()}; final
+            Upcoming gameweeks first; completed ones collapse into their own section below. Times shown in {localZone()}; final
             scores replace the kickoff time once a match is over.
           </p>
           <FixtureSchedule

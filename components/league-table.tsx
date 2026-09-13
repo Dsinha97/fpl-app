@@ -10,8 +10,57 @@ import {
   type StandingsFixtureRef,
 } from "@/lib/fdr";
 import { Alert } from "@/components/ui/alert";
+import { ModelNote } from "@/components/ui/model-note";
 
 const NEXT_N = 5;
+
+/**
+ * The sentence that qualifies every P/W/D/L/Pts figure in this table. One
+ * constant, two endings — the live variant only differs in whether matches
+ * still in play are counted, and retyping the shared 20-word preamble twice is
+ * how the two drift apart.
+ */
+const COMPUTED_STANDINGS_NOTE =
+  "FPL's own standings feed doesn't publish P/W/D/L/Pts during the season, so this table is computed from ";
+const FORM_NOTE =
+  "Form is a plain win/draw/loss tally of the last five results, oldest first — not FPL's own weighted figure.";
+
+/**
+ * Last five results as W/D/L pips rather than the raw `WWDLW` string the
+ * derivation returns (DSI-127). The string is readable but unscannable down a
+ * 20-row column; shape and colour are read at a glance, and colour is never
+ * the only channel — the letter stays inside each pip.
+ */
+function FormRun({ form }: { form: string | null }) {
+  if (!form) return <span className="text-zinc-500">—</span>;
+
+  const results = [...form].filter((c) => c === "W" || c === "D" || c === "L");
+  if (results.length === 0) return <span className="text-zinc-500">—</span>;
+
+  const tone: Record<string, string> = {
+    W: "bg-emerald-600 text-white dark:bg-emerald-500 dark:text-slate-950",
+    D: "bg-zinc-400 text-white dark:bg-zinc-500 dark:text-slate-950",
+    L: "bg-rose-700 text-white dark:bg-rose-600 dark:text-white",
+  };
+  const word: Record<string, string> = { W: "win", D: "draw", L: "loss" };
+
+  return (
+    <span
+      className="inline-flex items-center justify-center gap-0.5"
+      aria-label={`Last ${results.length}, oldest first: ${results.map((r) => word[r]).join(", ")}`}
+    >
+      {results.map((r, i) => (
+        <span
+          key={i}
+          aria-hidden="true"
+          className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold leading-none ${tone[r]}`}
+        >
+          {r}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 export interface StandingsTeam extends FdrTeamRef {
   code: number;
@@ -70,14 +119,31 @@ export function LeagueTable({
 
   return (
     <div className="mt-4">
-      {!fplPublished && (
-        <Alert tone="warning" className="mb-3">
-          {noFixturesStarted
-            ? "No gameweek has kicked off yet, so there's no table to show. Listed alphabetically below until real results exist."
-            : derived?.live
-              ? "FPL's own standings feed doesn't publish P/W/D/L/Pts during the season, so this table is computed from fixture results instead — including matches still being played, so it updates live. Form is a plain win/draw/loss tally (last 5), not FPL's own weighted figure."
-              : "FPL's own standings feed doesn't publish P/W/D/L/Pts during the season, so this table is computed from finished fixture results instead — form is a plain win/draw/loss tally (last 5), not FPL's own weighted figure."}
+      {/* An empty table needs an alert; a computed one needs a caption. These
+          were one `tone="warning"` banner carrying both (DSI-127), which made
+          the routine case look like a fault and put 40 words above the data.
+          The explanation now travels with the table as a muted line, with the
+          API background behind the same ModelNote disclosure DSI-129 set as
+          the pattern for every other qualified number in the app. */}
+      {!fplPublished && noFixturesStarted && (
+        <Alert tone="info" className="mb-3">
+          No gameweek has kicked off yet, so there&apos;s no table to show. Listed alphabetically
+          below until real results exist.
         </Alert>
+      )}
+      {!fplPublished && !noFixturesStarted && (
+        <p className="mb-2 text-xs text-zinc-500">
+          Standings computed from {derived?.live ? "match results, including matches in play" : "finished match results"}
+          <ModelNote label="Why these standings are computed">
+            <span className="block">
+              {COMPUTED_STANDINGS_NOTE}
+              {derived?.live
+                ? "fixture results instead — including matches still being played, so it updates live."
+                : "finished fixture results instead."}
+            </span>
+            <span className="block">{FORM_NOTE}</span>
+          </ModelNote>
+        </p>
       )}
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
@@ -137,7 +203,9 @@ export function LeagueTable({
                   <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
                     {points}
                   </td>
-                  <td className="px-2 py-1.5 text-center text-zinc-500">{form ?? "—"}</td>
+                  <td className="px-2 py-1.5 text-center">
+                    <FormRun form={form} />
+                  </td>
                   {gwCols.map((g) => {
                     const cellFixtures = cells.get(g) ?? [];
                     return (
