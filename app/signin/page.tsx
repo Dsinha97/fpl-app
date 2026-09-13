@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AuthError } from "@supabase/supabase-js";
@@ -147,13 +148,9 @@ export default function SignInPage() {
             placeholder="you@example.com"
             className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100 dark:focus:border-primary"
           />
-          <button
-            type="submit"
-            disabled={sending}
-            className="w-full rounded-md bg-purple-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-800 disabled:opacity-50 dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
-          >
+          <Button type="submit" size="md" className="w-full" disabled={sending}>
             {sending ? "Sending…" : "Send magic link"}
-          </button>
+          </Button>
         </form>
       )}
 

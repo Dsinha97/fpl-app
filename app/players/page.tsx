@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { FixtureCell } from "@/components/fdr-badge";
@@ -1040,19 +1041,12 @@ export default function PlayersPage() {
               {selected.length} of {MAX_COMPARE} players selected
             </span>
             <span className="flex items-center gap-3">
-              <button
-                onClick={() => setSelected([])}
-                className="text-sm text-zinc-500 underline transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-primary"
-              >
+              <Button variant="link" size="md" onClick={() => setSelected([])}>
                 Clear
-              </button>
-              <button
-                onClick={() => setCompareOpen((v) => !v)}
-                aria-expanded={compareOpen}
-                className="rounded-md bg-purple-950 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-primary dark:text-slate-950 dark:hover:bg-primary-hover"
-              >
+              </Button>
+              <Button size="md" onClick={() => setCompareOpen((v) => !v)} aria-expanded={compareOpen}>
                 {compareOpen ? "Hide comparison" : `Compare ${selected.length}`}
-              </button>
+              </Button>
             </span>
           </div>
         </div>
