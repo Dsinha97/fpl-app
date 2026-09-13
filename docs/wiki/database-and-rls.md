@@ -17,6 +17,52 @@ someone tested signed-in (every earlier verification pass ran signed out). A swe
 for the same shape found exactly one other case: `fpl_sessions`, which has **zero** policies **by
 design** (see below), not by the same mistake. — [sprint-14.md §14.3](../sprints/sprint-14.md)
 
+## The test account
+
+Verifying the owner-scoped shape needs a *second* user, and until now every signed-in check was
+the owner signing in by hand — which is exactly how the `health_check` gap survived several
+passes. There is now a standing fixture:
+
+| | |
+|---|---|
+| Email | `test@fpldecision.com` — a Cloudflare Email Routing alias forwarding to the owner's inbox |
+| User id | `6254e573-8cea-402c-b330-b2a8f3cae5d7` |
+| Claim | `user_profiles.entry_id = 274486`, so signed-in pages render real data rather than empty states |
+
+It is seeded with ad hoc `execute_sql`, **never `apply_migration`** — the row carries a bcrypt
+password hash, and a fixture credential must not ride a deploy into shared migration history. The
+re-seed SQL lives at `.claude/skills/signed-in/seed.sql`; the password lives in `.env.local` only.
+
+The password is a means of minting a session through `/auth/v1/token`, not a sign-in method: the
+app has none. `app/signin/page.tsx` offers Google OAuth and `signInWithOtp` and nothing else.
+
+Two things this unblocks. `verify-rls` asks the caller for an `{{OTHER_USER_ID}}` it cannot mint —
+that is now a real, stable uuid. And the preview browser can be driven signed-in, which is the only
+way an anon-only policy or a signed-in-only render path gets looked at at all. See
+`.claude/skills/signed-in/`.
+
+### The alias, and what it is and isn't good for
+
+`test@fpldecision.com` is a Cloudflare Email Routing alias on the app's own domain, forwarding to
+the owner's Gmail — which means the test account's mail is *readable*, and the magic-link path can
+be driven rather than only described. Verified 2026-09-13: the three `route{1,2,3}.mx.cloudflare.net`
+MX records and the `include:_spf.mx.cloudflare.net` SPF are live, and a link requested from
+`/signin/` arrived in the destination inbox in about a minute.
+
+**Delivery is not the same as a completed sign-in, and the last hop has three traps:**
+
+- The preview browser refuses to navigate to `supabase.co`, so `/auth/v1/verify` can't be driven
+  from the pane. Resolve the 303 with curl and navigate the tab to the resulting
+  `…/auth/callback/?code=…` instead — same origin, and the PKCE verifier is already in that tab.
+- The token is single-use and mail-provider link scanning consumes it in transit; the first attempt
+  came back `otp_expired`. Expect that, don't read it as a broken flow.
+- A bare `POST /auth/v1/otp` ignores `options.email_redirect_to` and falls back to the project's
+  Site URL with a non-PKCE token. Request through the `/signin/` form for a localhost callback.
+
+Net: the alias is the right tool for verifying the *sign-in flow itself*, and the wrong one for
+routine testing — it also spends a project-wide hourly email quota with no custom SMTP behind it.
+The seeded password grant is the day-to-day path.
+
 ## Shape 2 — owner-scoped data (Sprint 14 onward)
 
 `user_profiles`, `team_drafts`, `draft_snapshots`, `manager_rivals` — every one scoped

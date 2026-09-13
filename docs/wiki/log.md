@@ -2,6 +2,12 @@
 
 One line per entry, most recent first.
 
+- 2026-09-13 — Signed-in testing got a mechanism. Updated `database-and-rls.md` (new "The test
+  account" section: the `test@fpldecision.com` fixture, why it's ad hoc SQL and never a migration,
+  the Cloudflare Email Routing alias, and the three traps on the magic-link hop) and `CLAUDE.md`
+  (the signed-out-blind-spot gotcha now points at the `/signed-in` skill). Companion tooling:
+  `.claude/skills/signed-in/`. No new page.
+
 - 2026-09-10 — Ingested the whole Sprint 32-36 backlog (the pending-ingest marker had accumulated
   five sprints plus `roadmap.md`, `phase-4-model.md` and `CLAUDE.md` since the 2026-09-03 pass).
   **Four new pages**, each a topic with no existing home: `edge-function-security.md` (Sprint 32/36 —
