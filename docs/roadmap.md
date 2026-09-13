@@ -75,9 +75,11 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 ## Next up
 
 **M9 (design audit) shipped 2026-09-13** — see the index row above and
-[sprints/m9.md](sprints/m9.md). Two items are deliberately open rather than done: DSI-139's
-second half (the sync failure is still console-only) and the `/transfers` 5 GW accent, where
-DSI-135 and DSI-124 want opposite things and the middle path fails contrast.
+[sprints/m9.md](sprints/m9.md). Both items it left open are now closed by **DSI-141**
+(2026-09-13), the mobile pass: the draft-sync failure has a user-visible surface, and the
+`/transfers` 5 GW accent keeps `purple-800` in light while dark moves to `--chart-1`. DSI-141
+also fixed six phone-only layout defects that M9's own responsive matrix had passed, because its
+bar was "nothing overflows" and every one of these fits by scrolling silently instead.
 
 **Sprint 36 shipped 2026-09-10** — see the index row above and [sprints/sprint-36.md](sprints/sprint-36.md). It took the whole Linear Todo column, so the items below are what remains *after* it, not alternatives to it.
 
