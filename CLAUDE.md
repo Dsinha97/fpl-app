@@ -204,6 +204,17 @@ or `tsc --noEmit` breaks on Deno globals.
   `lg:` columns, DSI-141). Fix the chain — `min-w-0` on flex items, `minmax(0,…)` on
   grid tracks at *every* breakpoint — not just the leaf. Verify with
   `document.body.scrollWidth === window.innerWidth`, not by eye.
+- **graft's patches revert on upgrade — re-apply, don't re-derive.** The code
+  graph in `graft/` is wired via `.mcp.json`, `.claude/settings.json` and
+  `.claude/skills/graft/`. Three local patches keep it working: a
+  `tree-sitter-kotlin` shim (without which the CLI will not start on Windows at
+  all), and two that suppress graft's instruction to close every reply with a
+  "graft saved ~N tokens" tally. `npm i -g` wipes the machine-tier ones, and
+  graft's own `reconcileWiring` rewrites the repo-tier ones from its templates
+  on any version skew — silently. After any `graft upgrade`, run
+  `node ~/.claude/skills/graft-patch/graft-reapply.mjs` (idempotent; `--check`
+  to just report). Full rationale: the `graft-patch` skill. Whether the
+  per-prompt hint hook earns its keep is open in DSI-143.
 - **`behavior: "smooth"` does nothing on a hidden document** — no rAF callbacks, so
   the scroll is silently dropped and whatever you were scrolling to stays off screen.
   The preview pane reports `document.hidden === true`, and so does any backgrounded
