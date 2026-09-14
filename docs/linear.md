@@ -107,13 +107,13 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | DSI-55 | Flip the repo public + post-flip hardening | M8 | Owner decision. Steps 3–4 are impossible while private (GitHub 422s both) |
 | DSI-56 | Latency — route-level code splitting | M8 | None. `next/dynamic` is unused; every route ships ~1.1 MB JS |
 | DSI-57 | Latency — serial-waterfall page reads | M8 | None. `/players`, `/transfers`, `/team` |
-| DSI-59 | Sprint 32 leftovers — **two of three settled** | M8 | Residue only: the `verify_jwt` flip is prepped in `config.toml` but **not deployed** (bundled with DSI-55), and the 429's HTTP render is unproven. `scratch-path-test` deleted; the 429's counting half proved |
+| DSI-59 | Sprint 32 leftovers — **two of three settled, now In Review** (2026-09-14) | M8 | Residue only: the `verify_jwt` flip is prepped in `config.toml` but **not deployed** (bundled with DSI-55), and the 429's HTTP render is unproven. `scratch-path-test` deleted; the 429's counting half proved |
 | DSI-62 | Sprint 6 gap — EO column on `/players` | M8 | None — Sprint 10's engine exists. Opportunistic |
 | DSI-63 | Cloudflare Access gating | M8 | Weigh against `/settings` → Pipeline being deliberately public |
 | DSI-64 | Sprint 15 — Action Layer | M8 | Shaped by the FPL-login finding; read it before scoping |
 | DSI-73 | Sprint 17 part 2 — predictive models | M8 | Blocked by DSI-53. Accuracy claims inherit an in-sample calibration |
 | DSI-67 | Blocked — `TeamAttackStrength` | M8 | `strength_*` is 0 for all 20 clubs in-season too (checked 2026-09-02) |
-| DSI-68 | Blocked — cold-start phase 2 remainder | M8 | 66 overseas/academy players and `dc90` have no fittable source |
+| DSI-68 | ~~Blocked — cold-start phase 2 remainder~~ **Canceled in Linear** (2026-09-14) | M8 | 66 overseas/academy players and `dc90` have no fittable source — closed rather than left pending, since no source is expected to appear |
 | DSI-69 | Blocked — new-manager discount | M8 | `pl_managers` has no tenure/start-date field |
 | DSI-70 | Blocked — Sprint 12.5 phases 3–6 | M8 | Manager-side thresholds are transcribed opinion, not measured data |
 | DSI-71 | Blocked — manager behavioural history | M8 | The FPL API exposes none for past seasons |
