@@ -56,6 +56,8 @@ import { InfoTooltip } from "@/components/info-tooltip";
 import { GameweekReviewPanel } from "@/components/gameweek-review-panel";
 import { DecisionAnalyticsPanel } from "@/components/decision-analytics-panel";
 import { TelegramLink } from "@/components/telegram-link";
+import { RefreshIcon } from "@/components/icons/refresh";
+import { EditIcon } from "@/components/icons/edit";
 import { useAuth } from "@/components/auth-provider";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -1407,48 +1409,49 @@ export default function TeamPage() {
           {/* ------------------------------------------------- profile */}
           <section className="mt-8">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
-                {m.team_name ?? `Entry ${m.entry_id}`}
-              </h1>
-              {/* The two highest-value actions on this page, side by side.
-                  Import was moved out of the "Free transfers" card it used to
-                  be buried in (a casual tester never found it there); the
-                  Telegram link sits beside it for the same reason — a linking
-                  control tucked into a settings tab is one nobody finds. */}
-              {/* No shrink-0 on the group. It held two controls when it was
-                  written; DSI-120 added Refresh and Change ID, and a
-                  four-child group that refuses to shrink takes its min-content
-                  width whatever the viewport — which pushed the page 56px wide
-                  of a 375px screen and made the whole document scroll
-                  sideways. flex-wrap can only wrap what is allowed to shrink. */}
-              <div className="flex min-w-0 flex-wrap items-start justify-end gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-1">
+                <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+                  {m.team_name ?? `Entry ${m.entry_id}`}
+                </h1>
                 <Button
-                  variant="outline"
-                  size="xs"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Refresh"
+                  title="Refresh"
                   onClick={() => savedId && void connect(savedId)}
                   disabled={loading || !savedId}
                 >
-                  {loading ? "Syncing…" : "Refresh"}
+                  <RefreshIcon size={16} />
                 </Button>
                 <Button
                   variant="ghost"
-                  size="xs"
+                  size="icon-sm"
+                  aria-label={editingId ? "Cancel changing ID" : "Change ID"}
+                  title={editingId ? "Cancel changing ID" : "Change ID"}
                   onClick={() => setEditingId((v) => !v)}
                   aria-expanded={editingId}
                 >
-                  {editingId ? "Cancel" : "Change ID"}
+                  <EditIcon size={16} />
                 </Button>
-                {data && data.picks.length > 0 && (
-                  <Button size="xs" onClick={() => void handleImport()} disabled={importing}>
-                    {importing ? "Importing…" : "Import as draft →"}
-                  </Button>
-                )}
+              </div>
+              {/* Import was moved out of the "Free transfers" card it used to
+                  be buried in (a casual tester never found it there); the
+                  Telegram link sits beside it for the same reason — a linking
+                  control tucked into a settings tab is one nobody finds. */}
+              <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
                 <TelegramLink variant="compact" />
+                {data && data.picks.length > 0 && (
+                  <>
+                    <Button size="xs" onClick={() => void handleImport()} disabled={importing}>
+                      {importing ? "Importing…" : "Import as draft →"}
+                    </Button>
+                    <InfoTooltip label="About the imported squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>
+                  </>
+                )}
               </div>
             </div>
             {data && data.picks.length > 0 && (
-              <p className="mt-1.5 flex items-start gap-1 text-xs text-zinc-500">
-                <InfoTooltip label="About the imported squad">{IMPORTED_SQUAD_NOTE}</InfoTooltip>
+              <p className="mt-1.5 text-xs text-zinc-500">
                 Import opens this squad in the Builder as a new, independent draft.
               </p>
             )}
