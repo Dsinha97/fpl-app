@@ -114,3 +114,6 @@ supabase/.temp/
 # material for a later design-review phase, not repo content.
 /References/
 /Screens/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
