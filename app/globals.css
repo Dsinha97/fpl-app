@@ -304,6 +304,18 @@
   to   { transform: translateY(0); opacity: 1; filter: blur(0); }
 }
 
+/* Left/right slide-over entry (components/ui/slide-over, side="left"|"right")
+   — the same travel + fade + cross-blur treatment as sheet-rise above, just
+   off the docked edge instead of up from the bottom. */
+@keyframes panel-slide-left {
+  from { transform: translateX(-100%); opacity: 0; filter: blur(var(--motion-blur)); }
+  to   { transform: translateX(0); opacity: 1; filter: blur(0); }
+}
+@keyframes panel-slide-right {
+  from { transform: translateX(100%); opacity: 0; filter: blur(var(--motion-blur)); }
+  to   { transform: translateX(0); opacity: 1; filter: blur(0); }
+}
+
 /*
  * Error-state shake — Transitions.dev recipe
  * (References/Components/error-shake.md), trimmed to the part this app needs.

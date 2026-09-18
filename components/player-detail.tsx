@@ -310,8 +310,17 @@ export function PlayerDetail({
         </span>
       </button>
 
-      {showAll && (
-        <>
+      {/* grid-template-rows 0fr→1fr (Sprint 24's collapsible-card technique,
+          components/ui/collapsible-card.tsx:136) rather than mount/unmount,
+          so the chevron's rotation and this height change read as one
+          motion instead of the chevron promising smoothness the content
+          snapped past. */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-base ease-emphasis motion-reduce:transition-none ${
+          showAll ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
+        <div className="overflow-hidden">
           {/*
             Season detail beyond the headline grid above — dc_actions is a
             raw action count (clearances + blocks + interceptions + tackles,
@@ -473,8 +482,8 @@ export function PlayerDetail({
               chance of being subbed on
             </p>
           )}
-        </>
-      )}
+        </div>
+      </div>
 
       {/* actions — pool player: add, or find a swap for an owned one */}
       {!owned && onAdd && (

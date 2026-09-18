@@ -109,7 +109,9 @@ export function ManagerLeagues({ leagues, onSelect, selectedLeagueId }: ManagerL
                             }
                           >
                             <span className="block text-xs leading-relaxed">
-                              {move > 0 ? "Up" : "Down"} {Math.abs(move)} since last recorded.
+                              {move > 0 ? "Up" : "Down"} {Math.abs(move)} place{Math.abs(move) === 1 ? "" : "s"} since
+                              FPL&apos;s own last-recorded rank for this league (its previous scored gameweek, not
+                              this app&apos;s sync time).
                             </span>
                           </TapToReveal>
                         )}

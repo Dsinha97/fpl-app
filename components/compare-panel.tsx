@@ -168,7 +168,7 @@ export function ComparePanel({
       dir: "high",
       value: (p) => rowById.get(p.id)?.form ?? null,
       format: (v) => (v === null ? "—" : v.toFixed(1)),
-      hint: "FPL's own 30-day rolling form figure. Now folded into the comparison score at 10% weight.",
+      hint: "FPL's own 30-day rolling form figure, weighted 10% in the comparison score.",
     },
     {
       label: "DC actions",
@@ -405,7 +405,7 @@ export function ComparePanel({
                         size="w-3.5 h-3.5"
                       />
                     ) : (
-                      <span className="text-zinc-400">—</span>
+                      <span className="text-zinc-500">—</span>
                     )}
                   </DataCell>
                 );

@@ -60,9 +60,10 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
               className="w-full self-start overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.333%-0.5rem)]"
             >
               <button
+                type="button"
                 onClick={() => toggle(teamId)}
                 aria-expanded={open}
-                className="group w-full p-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-purple-950/30"
+                className="group w-full p-3 text-left transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-purple-950/30"
               >
                 <div className="flex items-center gap-2">
                   <TeamCrest teamCode={teamCode} shortName={teamShort} className="h-6 w-5 shrink-0" />
@@ -170,7 +171,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                   )}
 
                   {profile.sourceFile && (
-                    <p className="mt-1.5 truncate text-[10px] text-zinc-400" title={profile.sourceFile}>
+                    <p className="mt-1.5 truncate text-[10px] text-zinc-500" title={profile.sourceFile}>
                       Source: {profile.sourceFile}
                     </p>
                   )}

@@ -129,7 +129,10 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
                 triggerClassName="text-[10px] uppercase tracking-wide text-zinc-500 underline decoration-dotted underline-offset-2"
                 trigger="Std dev"
               >
-                <p>Standard deviation of percentile score across all seasons.</p>
+                <p>
+                  Standard deviation (spread of season-to-season variation) of percentile score —
+                  higher means a less consistent career.
+                </p>
               </TapToReveal>
             </dt>
             <dd className="tabular-nums text-zinc-800 dark:text-zinc-200">

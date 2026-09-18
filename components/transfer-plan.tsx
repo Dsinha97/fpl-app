@@ -166,7 +166,7 @@ export function TransferPlan({
       )}
 
       {!loading && result && (
-        <>
+        <div className="starting:opacity-0 opacity-100 transition-opacity duration-base ease-emphasis motion-reduce:transition-none">
           {chipSummary && (
             <p className="mt-3 border-t border-border pt-3 text-xs text-purple-700 dark:text-primary">
               Conditioned on: {chipSummary}.
@@ -208,7 +208,7 @@ export function TransferPlan({
             Free transfers next gameweek if you spend none now: {result.accruedFreeTransfers}.{" "}
             {result.note}
           </NoteDisclosure>
-        </>
+        </div>
       )}
     </section>
   );
