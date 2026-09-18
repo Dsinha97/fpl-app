@@ -867,6 +867,7 @@ export function ChipTiming({
                               <Button
                                 onClick={() => pinChip(chip, v.event)}
                                 title={`Pin ${CHIP_LABELS[chip]} to GW${v.event}`}
+                                aria-label={`Pin ${CHIP_LABELS[chip]} to GW${v.event} in this plan`}
                                 variant="ghost" size="icon-xs" className="text-zinc-400 hover:text-purple-700 dark:hover:text-primary"
                               >
                                 <Pin className="h-3.5 w-3.5" aria-hidden />
@@ -896,7 +897,7 @@ export function ChipTiming({
                         className="mt-2"
                       >
                         {blockedWindows.map((w) => (
-                          <p key={`${w.startEvent}-${w.stopEvent}`} className="text-[11px] text-zinc-400">
+                          <p key={`${w.startEvent}-${w.stopEvent}`} className="text-[11px] text-zinc-500">
                             GW{w.startEvent}–{w.stopEvent}: {w.blocked}
                           </p>
                         ))}

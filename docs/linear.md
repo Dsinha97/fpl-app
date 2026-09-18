@@ -86,6 +86,7 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | draft_snapshots sync hits a missing UPDATE policy | DSI-139 | M9 | [sprints/m9.md](sprints/m9.md) — both halves, the surface closed by DSI-141 |
 | Long methodology explainers render inline | DSI-140 | M9 | [sprints/m9.md](sprints/m9.md) |
 | Mobile defects found testing M9, and M9's two parked items | DSI-141 | M9 | [sprints/m9.md](sprints/m9.md) |
+| 37 M9 design-audit Todo sweep — interface, writing, animation | DSI-176 (+ DSI-144…156) | M9 | [sprints/sprint-37.md](sprints/sprint-37.md) |
 | 17 part 1 Historical decision analytics | DSI-66 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §1 |
 | Rivals from a league's standings | DSI-61 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §2 |
 | 16 Notifications — the Telegram bot | DSI-65 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §3 |

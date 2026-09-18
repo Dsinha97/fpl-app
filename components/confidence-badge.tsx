@@ -84,7 +84,7 @@ export function RateBand({
     <TapToReveal
       label="What does this range mean?"
       wrapperClassName={`relative block ${className}`}
-      triggerClassName="mt-0.5 block text-[10px] tabular-nums text-zinc-400"
+      triggerClassName="mt-0.5 block text-[10px] tabular-nums text-zinc-500"
       trigger={`${lower.toFixed(1)}–${upper.toFixed(1)}`}
     >
       <p>{COLD_START_NOTE}</p>

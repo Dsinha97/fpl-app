@@ -178,7 +178,7 @@ export function AccuracyScoreboard() {
               </tbody>
             </DataTable>
 
-          <p className="mt-3 text-xs text-zinc-400">
+          <p className="mt-3 text-xs text-zinc-500">
             {state.report.events.length < 5 && (
               <>
                 {state.report.events.length} scored gameweek

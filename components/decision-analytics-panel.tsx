@@ -200,7 +200,7 @@ export function DecisionAnalyticsPanel({
       )}
 
       {data && data.events.length > 0 && (
-        <>
+        <div className="starting:opacity-0 opacity-100 transition-opacity duration-base ease-emphasis motion-reduce:transition-none">
           {data.provisional && (
             <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
               Gameweek {data.events[data.events.length - 1]} is still being scored — those figures
@@ -377,7 +377,7 @@ export function DecisionAnalyticsPanel({
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
     </section>
   );

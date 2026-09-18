@@ -97,7 +97,11 @@ export function SlideOver({
         // sheet simply appears rather than rises. Motion should never be load-
         // bearing for whether a control is usable.
         className={`fixed z-50 flex flex-col overflow-y-auto bg-white p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-2xl dark:bg-surface-3 ${edge} ${
-          bottom ? "motion-safe:[animation:sheet-rise_var(--duration-slower)_var(--ease-slide)]" : ""
+          bottom
+            ? "motion-safe:[animation:sheet-rise_var(--duration-slower)_var(--ease-slide)]"
+            : side === "right"
+              ? "motion-safe:[animation:panel-slide-right_var(--duration-slower)_var(--ease-slide)]"
+              : "motion-safe:[animation:panel-slide-left_var(--duration-slower)_var(--ease-slide)]"
         }`}
       >
         {bottom && (

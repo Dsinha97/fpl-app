@@ -178,7 +178,7 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
       type="button"
       onClick={(e) => onSelect?.(player, e.currentTarget)}
       title={player.web_name}
-      className="group relative flex w-16 cursor-pointer select-none flex-col items-center justify-center rounded-md transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-20"
+      className="group relative flex w-16 cursor-pointer select-none flex-col items-center justify-center rounded-md transition-transform duration-150 hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-20"
     >
       {/* Captain / vice badge */}
       {player.is_captain && (

@@ -83,7 +83,14 @@ export function TapToReveal({
             ref={panelRef}
             role="dialog"
             style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
-            className="fixed z-30 w-72 max-w-[calc(100vw-1rem)] rounded-lg border border-border bg-popover p-3 text-left text-xs font-normal leading-relaxed text-zinc-700 shadow-lg dark:text-zinc-300"
+            // Enter-only: matches the dropdown pattern in action-menu.tsx /
+            // nav-links.tsx (fade + scale from the trigger edge), but those
+            // ride Base UI's own data-starting-style/data-ending-style —
+            // this panel is a plain conditional mount, so @starting-style
+            // (Tailwind's `starting:` variant) is the mechanism instead.
+            className={`fixed z-30 w-72 max-w-[calc(100vw-1rem)] scale-100 rounded-lg border border-border bg-popover p-3 text-left text-xs font-normal leading-relaxed text-zinc-700 opacity-100 shadow-lg transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none starting:scale-95 starting:opacity-0 dark:text-zinc-300 ${
+              align === "right" ? "origin-top-right" : "origin-top-left"
+            }`}
           >
             {children}
           </span>,
