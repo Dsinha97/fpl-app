@@ -9,6 +9,7 @@ import {
   buildAccuracyReport,
   loadPositionByCode,
   type AccuracyReport,
+  type EventCoverage,
 } from "@/lib/prediction-accuracy";
 import { InfoTooltip } from "@/components/info-tooltip";
 
@@ -41,6 +42,25 @@ function biasPhrase(bias: number): string {
 }
 
 const num = (v: number, dp = 3): string => (Number.isFinite(v) ? v.toFixed(dp) : "—");
+
+/**
+ * A gameweek scored over fewer fixtures than it has. `sync-player-history`
+ * runs a full pass every 20 hours, so this is the normal state of the most
+ * recent matchday for several hours, not an error — but the figures above
+ * are computed over a subset while it lasts, and the subset is the early
+ * kickoffs rather than a random sample of the gameweek.
+ */
+type PartialCoverage = EventCoverage & { fixturesTotal: number };
+
+const isPartial = (c: EventCoverage): c is PartialCoverage =>
+  c.fixturesTotal !== null && c.fixturesScored < c.fixturesTotal;
+
+/** "GW5" or, when only part of it is in, "GW5 (6 of 10 fixtures)". */
+function eventLabel(c: EventCoverage): string {
+  return isPartial(c)
+    ? `GW${c.event} (${c.fixturesScored} of ${c.fixturesTotal} fixtures)`
+    : `GW${c.event}`;
+}
 
 interface ScoreboardState {
   season: string;
@@ -141,8 +161,8 @@ export function AccuracyScoreboard() {
       {state && !loading && state.report.events.length > 0 && (
         <>
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-            {state.season} · scored GW
-            {state.report.events.join(", GW")} ·{" "}
+            {state.season} · scored{" "}
+            {state.report.coverage.map(eventLabel).join(", ")} ·{" "}
             <span className="tabular-nums">{state.report.overall.n.toLocaleString()}</span>{" "}
             player-fixtures. The model{" "}
             <span className="font-medium text-zinc-900 dark:text-zinc-100">
@@ -187,6 +207,17 @@ export function AccuracyScoreboard() {
                 predict.{" "}
               </>
             )}
+            {/* Stated before the bonus caveat because it is the larger
+                effect by far: a missing fixture removes ~65 player-fixtures
+                and, until this gate existed, added them back as blanks. */}
+            {state.report.coverage.filter(isPartial).map((c) => (
+              <span key={c.event}>
+                GW{c.event} is scored over {c.fixturesScored} of its {c.fixturesTotal} fixtures —
+                the other {c.fixturesTotal - c.fixturesScored} have no results in the warehouse
+                yet (sync-player-history does a full pass every 20 hours), so they are left out
+                rather than counted as blank returns. These figures will move when they land.{" "}
+              </span>
+            ))}
             {state.provisional.length > 0 && (
               <>
                 GW{state.provisional.join(", GW")}{" "}
