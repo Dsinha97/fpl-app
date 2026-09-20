@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { InfoTooltip } from "@/components/info-tooltip";
@@ -15,19 +16,14 @@ import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { FeedRowItem } from "@/components/feed-row";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { TransferPath } from "@/components/transfer-path";
-import { planTransferPath, type TransferPathResult } from "@/lib/transfer-path";
 import {
-  chipContextFor,
-  chipEntriesInForce,
   fplActiveChipAt,
-  validateChipPlan,
   CHIP_KINDS,
   type ChipDefinitionRow,
   type PlayedChip,
 } from "@/lib/chip-plan";
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
-import { fmtCountdown } from "@/lib/countdown";
+import { fmtCountdown, SECONDS_WITHIN_MS } from "@/lib/countdown";
 import { loadManagerPicks, type ManagerPick } from "@/lib/manager-picks";
 import { loadPredictionSeries } from "@/lib/player-pool";
 import { loadGameweekState, LIVE_MODEL_NOTE, type GameweekState } from "@/lib/gameweek-state";
@@ -39,14 +35,11 @@ import {
 } from "@/components/live-fixtures";
 import {
   hasConsistentLineup,
-  horizonLength,
   setCaptain,
   setViceCaptain,
   validateSquad,
   type ChipKind,
   type ChipPlan,
-  type Horizon,
-  type HorizonXp,
   type PlayerMeta,
   type TeamState,
   type ValidationResult,
@@ -68,18 +61,11 @@ import {
   type PredAt,
 } from "@/lib/chips";
 import { Badge } from "@/components/ui/badge";
-import {
-  DEFAULT_DECISION_MARGIN,
-  type WildcardWindow,
-  type XpByEvent,
-} from "@/lib/transfer-optimizer";
-import { freeTransfersDisplay, MAX_FREE_TRANSFERS, TRANSFER_MODEL_NOTE } from "@/lib/transfers";
 import { ago, type FeedRow } from "@/lib/change-feed";
 import { confidentEntities, dedupeByUrl, sourceBadge, type NewsRow } from "@/lib/news-feed";
 import { loadPastResults, type PastResult } from "@/lib/player-history";
 import { signed } from "@/lib/utils";
 import { Alert } from "@/components/ui/alert";
-import { HorizonControl } from "@/components/horizon-control";
 
 interface PlayerRow {
   id: number;
@@ -160,25 +146,17 @@ export default function DeadlinePage() {
   const [predsByPlayer, setPredsByPlayer] = useState<Map<number, Map<number, EventPrediction>>>(
     new Map(),
   );
-  const [wildcard, setWildcard] = useState<WildcardWindow>({ available: false, reason: null });
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // `loading` now covers only the shell + squad-view fetch (Stage 1 & 2
   // below) so the pitch and readiness sections paint immediately; the
   // predictions fetch is staged separately so it never blocks that first
   // paint. `predsLoading` clears once the deadline gameweek's own
-  // predictions are in (unlocks the pitch's xP, captain/XI, chip call);
-  // `predsFullLoading` clears once every remaining event has arrived
-  // (needed before the transfer optimiser/path can trust the series).
+  // predictions are in — which is everything this page renders, since the
+  // transfer path moved to /transfers. Stage 3b still runs, but only to
+  // warm the series cache /transfers is about to read, so nothing here
+  // waits on it.
   const [predsLoading, setPredsLoading] = useState(true);
-  const [predsFullLoading, setPredsFullLoading] = useState(true);
-
-  const [horizon, setHorizon] = useState<Horizon>(5);
-  const [freeTransfers, setFreeTransfers] = useState(1);
-  const [decisionMargin, setDecisionMargin] = useState(DEFAULT_DECISION_MARGIN);
-  const [pathResult, setPathResult] = useState<TransferPathResult | null>(null);
-  const [pathLoading, setPathLoading] = useState(false);
 
   const [feedRows, setFeedRows] = useState<FeedRow[]>([]);
   const [feedLoading, setFeedLoading] = useState(false);
@@ -233,24 +211,19 @@ export default function DeadlinePage() {
 
   const team = useMemo(() => drafts.find((d) => d.draftId === draftId) ?? null, [drafts, draftId]);
 
-  useEffect(() => {
-    if (!team) return;
-    const ft = freeTransfersDisplay(team);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFreeTransfers(ft.kind === "unlimited" ? MAX_FREE_TRANSFERS : ft.n);
-  }, [team]);
-
-  useEffect(() => {
-    // A different squad invalidates the last transfer search.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPathResult(null);
-  }, [draftId]);
-
   // ------------------------------------------------------------------ countdown
+  // Ticks once a second only while the countdown actually shows seconds
+  // (`SECONDS_WITHIN_MS`, lib/countdown.ts). Outside that window the smallest
+  // term on screen is a minute, so a one-second interval re-rendered this
+  // component ~59 times to change nothing.
+  const tickMs =
+    ctx !== null && new Date(ctx.deadlineTime).getTime() - now < SECONDS_WITHIN_MS
+      ? 1000
+      : 30_000;
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    const id = setInterval(() => setNow(Date.now()), tickMs);
     return () => clearInterval(id);
-  }, []);
+  }, [tickMs]);
 
   // --------------------------------------------------------------------- data
   //
@@ -310,24 +283,6 @@ export default function DeadlinePage() {
           stopEvent: r.stop_event as number | null,
         }));
         setChipDefinitions(chipDefs);
-
-        // Same real-window check /transfers uses — GW1 opens no wildcard.
-        const windows = chipDefs.filter((w) => w.name === "wildcard");
-        const open = windows.some(
-          (w) => w.startEvent <= seasonCtx.nextEvent && seasonCtx.nextEvent <= (w.stopEvent ?? 38),
-        );
-        const nextOpen = windows
-          .map((w) => w.startEvent)
-          .filter((start) => start > seasonCtx.nextEvent)
-          .sort((a, b) => a - b)[0];
-        setWildcard({
-          available: open,
-          reason: open
-            ? null
-            : nextOpen !== undefined
-              ? `Wildcard opens GW${nextOpen} — FPL doesn't allow it before then.`
-              : "No wildcard window covers this gameweek",
-        });
 
         const meta = new Map<number, { code: number | null; short: string }>();
         const liveTeams = new Map<number, LiveFixtureTeam>();
@@ -454,11 +409,9 @@ export default function DeadlinePage() {
           });
         }
         setPredsByPlayer(new Map(preds));
-        setPredsFullLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
         setPredsLoading(false);
-        setPredsFullLoading(false);
       } finally {
         setLoading(false);
       }
@@ -752,26 +705,6 @@ export default function DeadlinePage() {
     [predsByPlayer],
   );
 
-  const xpOf = useCallback(
-    (id: number): HorizonXp | undefined => {
-      const r = xpById.get(id);
-      if (!r) return undefined;
-      return { xp1: r.xp_1, xp3: r.xp_3, xp5: r.xp_5, xp8: r.xp_8, xp19: r.xp_19, xpSeason: r.xp_total };
-    },
-    [xpById],
-  );
-
-  const seriesOf = useCallback(
-    (id: number): XpByEvent | undefined => {
-      const byEvent = predsByPlayer.get(id);
-      if (!byEvent) return undefined;
-      const series: XpByEvent = new Map();
-      for (const [event, pred] of byEvent) series.set(event, pred.xp ?? 0);
-      return series;
-    },
-    [predsByPlayer],
-  );
-
   // ------------------------------------------------------------- squad checks
 
   const validation: ValidationResult | null = useMemo(() => {
@@ -938,36 +871,11 @@ export default function DeadlinePage() {
     return tripleCaptainAt(team, ctx.nextEvent, predAt, availabilityOf, lookup, isPenaltyTaker);
   }, [team, ctx, predsByPlayer, predAt, availabilityOf, lookup, isPenaltyTaker]);
 
-  /** The chip plan's usable entries, resolved into the two things the simulator can act on within this horizon window. */
-  /** The chip plan's legal entries — shared by the deadline optimiser (window-bounded below) and the forward path (which resolves its own window per gameweek). */
-  const chipPlanUsable = useMemo(() => {
-    if (!team || !ctx) return [];
-    const usable = validateChipPlan(
-      team.chipPlan,
-      chipDefinitions,
-      ctx.nextEvent,
-      ctx.windowEnd,
-      team.activeChip,
-      playedChips,
-    ).usable;
-    // A chip FPL already has in play is a term in this gameweek's points even
-    // though it is no longer a choice — merged here so the projection, the
-    // optimiser and the forward path all see it. `chipEntriesInForce` is the
-    // single place that reconciles FPL's fact with the owner's plan.
-    return chipEntriesInForce(team, usable, ctx.nextEvent);
-  }, [team, chipDefinitions, ctx, playedChips]);
-
   /** The chip FPL reports as live for the deadline gameweek, if any — fact, never a plan. */
   const activeChip = useMemo(
     () => (team && ctx ? fplActiveChipAt(team, ctx.nextEvent) : null),
     [team, ctx],
   );
-
-  const chipContext = useMemo(() => {
-    if (!ctx) return null;
-    const toEvent = ctx.nextEvent + horizonLength(horizon, ctx.seasonWindow) - 1;
-    return chipContextFor(chipPlanUsable, ctx.nextEvent, toEvent);
-  }, [chipPlanUsable, ctx, horizon]);
 
   // ---------------------------------------------------------- live fixtures
   //
@@ -1010,41 +918,6 @@ export default function DeadlinePage() {
       cancelled = true;
     };
   }, [ctx, squadElementIds, teamMeta]);
-
-  // ------------------------------------------------------------ transfer path
-  //
-  // The only recommendation this page makes. It runs `optimizeTransfers` for
-  // the deadline gameweek internally (~1,875 simulateTransfers calls: BEAM_WIDTH
-  // 8 + FUNDER_WIDTH 4, MAX_BASKET 3, CANDIDATES_PER_SLOT 5) and then extends
-  // that decision forward — never on load, only behind the path's own button.
-  const runTransferPath = useCallback(() => {
-    if (!team || !ctx || scoredById.size === 0) return;
-    setPathLoading(true);
-    setTimeout(() => {
-      const pool = [...scoredById.values()];
-      const result = planTransferPath({
-        team,
-        pool,
-        scoredById: scoredById,
-        lookup,
-        xpOf,
-        availabilityOf,
-        isPenaltyTaker,
-        seriesOf,
-        predAt,
-        rules: ctx.rules,
-        horizon,
-        decisionMargin,
-        freeTransfers,
-        event: ctx.nextEvent,
-        windowEnd: ctx.windowEnd,
-        plan: chipPlanUsable,
-        wildcard,
-      });
-      setPathResult(result);
-      setPathLoading(false);
-    }, 0);
-  }, [team, ctx, scoredById, lookup, xpOf, availabilityOf, isPenaltyTaker, seriesOf, predAt, horizon, decisionMargin, freeTransfers, chipPlanUsable, wildcard]);
 
   const countdown = ctx ? fmtCountdown(ctx.deadlineTime, now) : null;
 
@@ -1711,9 +1584,25 @@ export default function DeadlinePage() {
 
                 {/* -------------------------------------------------------- chips */}
                 <section className={card}>
-                  <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    Chip call — GW{ctx.nextEvent}
-                  </h2>
+                  {/* The page no longer plans transfers itself — the path
+                      card that used to sit below ran the optimiser a second
+                      time, landed on /transfers anyway, and arrived there
+                      with an empty basket. One link to the page that does
+                      own that decision, next to the chip call it shares a
+                      deadline with. `flex-wrap` because this rail is 360px:
+                      the link drops to its own line rather than squeezing
+                      the heading. */}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      Chip call — GW{ctx.nextEvent}
+                    </h2>
+                    <Link
+                      href={`/transfers/?draft=${team.draftId}`}
+                      className={buttonVariants({ size: "sm" })}
+                    >
+                      Plan Transfers and Chip Strategy
+                    </Link>
+                  </div>
                   <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
                     {predsLoading && (
                       <div role="status" aria-label="Loading chip call" className="space-y-2 sm:col-span-2">
@@ -1811,78 +1700,6 @@ export default function DeadlinePage() {
                   className="mt-5"
                 />
 
-                {/* ---------------------------------------------------- transfers */}
-                <section className={`mt-5 ${card}`}>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Transfer call</h2>
-                    <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <HorizonControl
-                        value={horizon}
-                        onValueChange={setHorizon}
-                        label="Planning horizon"
-                        showLabel={false}
-                      />
-                      <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-                        Free transfers
-                        <select
-                          value={freeTransfers}
-                          onChange={(e) => {
-                            const n = Number(e.target.value);
-                            setFreeTransfers(n);
-                            // Persisted so the sticky ContextBar (and My Team,
-                            // /transfers) reflect the same count everywhere,
-                            // rather than this page's own throwaway local state —
-                            // this select was the only place that ever set the
-                            // real value and it evaporated on navigation.
-                            saveDraft({ ...team, freeTransfers: n });
-                            setDrafts(listDrafts());
-                          }}
-                          className="rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
-                        >
-                          {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
-                            <option key={i} value={i}>
-                              {i}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <InfoTooltip label="About the transfer model">{TRANSFER_MODEL_NOTE}</InfoTooltip>
-                    </div>
-                  </div>
-                  {team.players.length !== ctx.rules.squadSize && (
-                    <p className="mt-2 text-sm text-zinc-500">Complete the squad first to evaluate transfers.</p>
-                  )}
-                  {predsFullLoading && team.players.length === ctx.rules.squadSize && (
-                    <p className="mt-2 flex items-center gap-2 text-sm text-zinc-500">
-                      <Spinner /> Still loading expected points across the horizon…
-                    </p>
-                  )}
-                  {!predsFullLoading && !pathResult && team.players.length === ctx.rules.squadSize && !pathLoading && (
-                    <p className="mt-2 text-sm text-zinc-500">
-                      These settings drive the transfer path below — plan it when ready.
-                    </p>
-                  )}
-                </section>
-
-                {/* Sprint 28 — one answer. This page used to render
-                    TransferPlan (optimizeTransfers' own recommendation) AND
-                    TransferPath below it, two headlines answering "what should
-                    I do at this deadline" at different horizons with no
-                    reconciliation. optimizeTransfers still decides the opening
-                    gameweek; it does it inside planTransferPath now. */}
-                {team.players.length === ctx.rules.squadSize && (
-                  <TransferPath
-                    result={pathResult}
-                    loading={pathLoading}
-                    onRun={runTransferPath}
-                    hasChipPlan={chipPlanUsable.length > 0}
-                    disabled={predsFullLoading}
-                    horizon={horizon}
-                    decisionMargin={decisionMargin}
-                    onDecisionMarginChange={setDecisionMargin}
-                    onLoad={() => router.push(`/transfers/?draft=${team.draftId}`)}
-                  />
-                )}
               </CollapsibleCard>
             </div>
           </div>
