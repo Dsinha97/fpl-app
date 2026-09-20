@@ -5,7 +5,7 @@ import { ModelNote } from "@/components/ui/model-note";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { CHIP_LABELS, fplActiveChipAt } from "@/lib/chip-plan";
-import { fmtCountdown } from "@/lib/countdown";
+import { fmtCountdown, SECONDS_WITHIN_MS } from "@/lib/countdown";
 import { listDrafts, onDraftsChanged, resolveRequestedDraft } from "@/lib/drafts";
 import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
 import { squadBank, squadSellValue } from "@/lib/squad-budget";
@@ -37,10 +37,18 @@ export function ContextBar() {
       .catch(() => setCtx(null));
   }, []);
 
+  // Ticks once a second only while the countdown actually shows seconds
+  // (`SECONDS_WITHIN_MS`, lib/countdown.ts). Outside that window the smallest
+  // term on screen is a minute, so a one-second interval re-rendered this
+  // component ~59 times to change nothing.
+  const tickMs =
+    ctx !== null && new Date(ctx.deadlineTime).getTime() - now < SECONDS_WITHIN_MS
+      ? 1000
+      : 30_000;
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    const id = setInterval(() => setNow(Date.now()), tickMs);
     return () => clearInterval(id);
-  }, []);
+  }, [tickMs]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

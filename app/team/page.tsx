@@ -1768,58 +1768,65 @@ export default function TeamPage() {
                   provisional={eventProvisional || !data.finishedEvents.has(selectedEvent)}
                 />
               )}
-
-              {transfersByEvent.size > 0 && (
-                <section className={cardSupporting}>
-                  <h2 className={supportingHeading}>Transfers this season</h2>
-                  <ul className="mt-2 space-y-2">
-                    {[...transfersByEvent.entries()]
-                      .sort(([a], [b]) => b - a)
-                      .map(([event, rows]) => (
-                        <li key={event} className="text-sm">
-                          <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                            GW{event}
-                          </span>{" "}
-                          <span className="text-zinc-500">
-                            {rows.length} transfer{rows.length === 1 ? "" : "s"}
-                            {rows.length > 1 ? ` · ${hitCost(Math.max(0, rows.length - 1))} pt hit` : ""}
-                          </span>
-                          <ul className="mt-1 space-y-0.5 pl-3 text-xs text-zinc-500">
-                            {rows.map((t, i) => (
-                              <li key={i}>
-                                {data?.players.get(t.elementOut)?.web_name ?? `#${t.elementOut}`} →{" "}
-                                {data?.players.get(t.elementIn)?.web_name ?? `#${t.elementIn}`}
-                              </li>
-                            ))}
-                          </ul>
-                        </li>
-                      ))}
-                  </ul>
-                  <p className="mt-2 text-[11px] text-zinc-400">
-                    From FPL&apos;s own transfer record. Only appears once a transfer has been
-                    synced — see Refresh above if a recent change is missing.
-                  </p>
-                  {/* An Alert, not amber text loose on the card (DSI-120): this
-                      is a discrepancy between two records the reader is being
-                      asked to reconcile, and a bare coloured paragraph reads as
-                      a stray debug line rather than something to act on. */}
-                  {importReconciliation && (
-                    <Alert tone="warning" className="mt-2 text-[11px]">
-                      Your saved squad also changed by{" "}
-                      {importReconciliation.diff.in
-                        .map((id) => data?.players.get(id)?.web_name ?? `#${id}`)
-                        .join(", ") || "—"}{" "}
-                      in / {importReconciliation.diff.out
-                        .map((id) => data?.players.get(id)?.web_name ?? `#${id}`)
-                        .join(", ") || "—"}{" "}
-                      out since the last save — check that against the ledger above if the two
-                      don&apos;t obviously match.
-                    </Alert>
-                  )}
-                </section>
-              )}
             </div>
           </div>
+
+          {/* ------------------------------------ transfers this season */}
+          {/* Lifted out of the 360px rail: this is a season-scoped ledger,
+              and in the rail it ran far past the bottom of the squad column
+              beside it, leaving a column of dead space and forcing every
+              gameweek into one narrow stack. Full width, with the gameweeks
+              flowing across columns, fills that space and stops the card
+              being the reason the page is tall. */}
+          {transfersByEvent.size > 0 && (
+            <section className={`mt-6 ${cardSupporting}`}>
+              <h2 className={supportingHeading}>Transfers this season</h2>
+              <ul className="mt-2 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {[...transfersByEvent.entries()]
+                  .sort(([a], [b]) => b - a)
+                  .map(([event, rows]) => (
+                    <li key={event} className="min-w-0 text-sm">
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                        GW{event}
+                      </span>{" "}
+                      <span className="text-zinc-500">
+                        {rows.length} transfer{rows.length === 1 ? "" : "s"}
+                        {rows.length > 1 ? ` · ${hitCost(Math.max(0, rows.length - 1))} pt hit` : ""}
+                      </span>
+                      <ul className="mt-1 space-y-0.5 pl-3 text-xs text-zinc-500">
+                        {rows.map((t, i) => (
+                          <li key={i}>
+                            {data?.players.get(t.elementOut)?.web_name ?? `#${t.elementOut}`} →{" "}
+                            {data?.players.get(t.elementIn)?.web_name ?? `#${t.elementIn}`}
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+              </ul>
+              <p className="mt-3 text-[11px] text-zinc-400">
+                From FPL&apos;s own transfer record. Only appears once a transfer has been
+                synced — see Refresh above if a recent change is missing.
+              </p>
+              {/* An Alert, not amber text loose on the card (DSI-120): this
+                  is a discrepancy between two records the reader is being
+                  asked to reconcile, and a bare coloured paragraph reads as
+                  a stray debug line rather than something to act on. */}
+              {importReconciliation && (
+                <Alert tone="warning" className="mt-2 text-[11px]">
+                  Your saved squad also changed by{" "}
+                  {importReconciliation.diff.in
+                    .map((id) => data?.players.get(id)?.web_name ?? `#${id}`)
+                    .join(", ") || "—"}{" "}
+                  in / {importReconciliation.diff.out
+                    .map((id) => data?.players.get(id)?.web_name ?? `#${id}`)
+                    .join(", ") || "—"}{" "}
+                  out since the last save — check that against the ledger above if the two
+                  don&apos;t obviously match.
+                </Alert>
+              )}
+            </section>
+          )}
 
           {/* ------------------------------------- decisions this season */}
           {/* Season-scoped, so deliberately outside the gameweek selector
