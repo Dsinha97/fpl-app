@@ -151,7 +151,8 @@ judgement call. `components/accuracy-scoreboard.tsx` renders under "Warehouse co
 `/settings` → Pipeline — the deliberate exception to that page's sign-in wall.
 
 What it reported on first render, cross-checked against an independent SQL computation of the same
-join, every per-position row matching:
+join, every per-position row matching. **These are superseded — see "The check-in at n=4" below;
+roughly half of the −0.248 was GW3's provisional bonus, and the same 1,272 rows now read −0.119:**
 
 | Cohort | n | bias | MAE | RMSE | r |
 |---|---|---|---|---|---|
@@ -201,10 +202,69 @@ it. Nothing here confirms or refutes the idea; the run that appeared to test it 
 
 **The `positionCalibration` refit stays not-done, deliberately.** Three gameweeks is far too thin —
 the shipped factors were fitted on a 209-player full-season cohort, and refitting on ~1,200
-player-fixtures would bake this season's noise into a permanent constant. The +0.248 production
+player-fixtures would bake this season's noise into a permanent constant. The −0.248 production
 over-prediction measured above is partly those factors being wrong for 2026-27; worth recording, not
-worth acting on before ~GW10-12.
+worth acting on before ~GW10-12. (Sprint 34 wrote this figure as "+0.248"; the sign convention
+stated two paragraphs above makes it negative — over-prediction. Corrected here.)
 — [sprints/sprint-34.md](../sprints/sprint-34.md)
+
+### The check-in at n=4 (2026-09-20) — and why the refit should not run
+
+[sprints/gw5-check-in.md](../sprints/gw5-check-in.md). Two independent routes agree:
+`player_live_stats` for all of GW5 gives −0.080 / n=2,587, the shipped completeness gate (GW5's 6
+landed fixtures only) −0.084 / n=2,330.
+
+| Cohort | n | bias | MAE | r |
+|---|---|---|---|---|
+| All | 2,330 | **−0.084** | 1.370 | 0.483 |
+| GKP | 251 | −0.352 | 1.236 | 0.573 |
+| DEF | 766 | −0.033 | 1.623 | 0.412 |
+| MID | 1,031 | −0.047 | 1.266 | 0.504 |
+| FWD | 282 | −0.113 | 1.182 | 0.540 |
+
+Per gameweek: −0.150, −0.089, −0.079, −0.006. The sign has **not** flipped — four negatives — but
+the magnitude is collapsing toward zero, and the pooled figure sits ~1.8 standard errors from it.
+Two things ate Sprint 34's −0.248: roughly half was GW3's provisional bonus (the identical 1,272
+rows now read −0.119 with bonus confirmed), and GW4/GW5 came in near zero.
+
+**The finding that matters is not the headline.** Split by whether the player actually featured:
+
+| | n | bias |
+|---|---|---|
+| Did not play (`minutes = 0`) | 1,364 | **−0.714** |
+| Played (`minutes > 0`) | 1,223 | **+0.627** |
+
+The model over-predicts non-appearances and under-predicts appearances, and the two nearly cancel —
+which is why the aggregate reads ≈0 while neither half does. `positionCalibration` is a
+multiplicative points scale and cannot separate them: fitting it to the ≈0 aggregate bakes in
+noise, fitting it to the over-prediction half makes the played cohort worse.
+
+**So the open question moved from points calibration to expected-minutes calibration** — `mpg` and
+`start_share`, the terms that actually set the non-appearance half. `roadmap.md`'s GW10 batch item
+3 was rewritten accordingly: do not refit `positionCalibration` at GW10. GKP is the one cohort
+still carrying a non-trivial bias of its own (−0.352, ≈3 SE) and is worth a separate look.
+
+This is the same shape as the blend attempts recorded under **Known, disclosed gaps** above: the
+aggregate that a correction would be fitted to is not the quantity that is actually wrong.
+
+**Caveat, stated because it moved the answer once already:** GW5's bonus was still provisional when
+this ran, and provisional bonus is exactly what halved Sprint 34's figure. The numbers above should
+move slightly — upward, since confirmed bonus adds points — and
+[DSI-50](https://linear.app/dsinha-org/issue/DSI-50) stays open for that re-read.
+
+### The coverage gate the check-in had to build first
+
+The panel was reporting GW5's bias as **−0.589**; the real figure was **−0.006**. `scoreEvent`
+joined the archive to `player_gameweek_stats` and treated every matched row as a result — but four
+of GW5's ten fixtures had a complete set of rows reading `minutes = 0, total_points = 0`, because
+`sync-player-history` does a full pass only every 20 hours. 257 player-fixtures became phantom
+blank returns.
+
+A fixture now counts as *landed* only once some player in it has real minutes, and a gameweek
+scored on a subset says so ("GW5 (6 of 10 fixtures)") rather than being presented whole — or
+dropped, which would be the same bug with a smaller `n`. The trap it rests on, that no fixture
+status flag distinguishes "played" from "results are in", is in
+[data-pipeline.md](data-pipeline.md#a-played-gameweek-is-not-a-written-one).
 
 See also: [cold-start-priors.md](cold-start-priors.md) (what happens for players with thin or no PL
 evidence), [methodology.md](methodology.md) (the "drop, renormalise, disclose" and "verify with a

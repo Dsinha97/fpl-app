@@ -87,6 +87,9 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | Long methodology explainers render inline | DSI-140 | M9 | [sprints/m9.md](sprints/m9.md) |
 | Mobile defects found testing M9, and M9's two parked items | DSI-141 | M9 | [sprints/m9.md](sprints/m9.md) |
 | 37 M9 design-audit Todo sweep — interface, writing, animation | DSI-176 (+ DSI-144…156) | M9 | [sprints/sprint-37.md](sprints/sprint-37.md) |
+| GW5 check-in — **run 2026-09-20, issue left In Progress** for a re-read once GW5's bonus confirms | DSI-50 | M6 | [sprints/gw5-check-in.md](sprints/gw5-check-in.md) |
+| Accuracy scoreboard counted a half-synced gameweek's zeros as real blanks | — (found in flight, PR [#30](https://github.com/Dsinha97/fpl-app/pull/30)) | M6 | [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §1 |
+| `/deadline` transfer cards → one CTA; `/team` ledger full-width; countdowns drop seconds above 24h | — (owner request, same PR) | M6 | [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §4 |
 | 17 part 1 Historical decision analytics | DSI-66 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §1 |
 | Rivals from a league's standings | DSI-61 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §2 |
 | 16 Notifications — the Telegram bot | DSI-65 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §3 |
@@ -100,11 +103,11 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 
 | Issue | Item | Milestone | Gate / blocker |
 |---|---|---|---|
-| DSI-50 | GW5 check-in — bias *sign* at n=4 | M6 | GW5 scored (~2026-09-21). A look, not a decision |
+| DSI-50 | GW5 check-in — bias *sign* at n=4. **Run 2026-09-20, In Progress** | M6 | Gate met and read. Left open only for a re-read once GW5's bonus confirms (`fixtures.finished`) — see [sprints/gw5-check-in.md](sprints/gw5-check-in.md) |
 | DSI-51 | Re-run the current-season blend sweep | M7 | GW10 scored. `scope=all` and `scope=minutes` each clear 2 of 4 seasons today |
 | DSI-52 | Derived FDR vs **official** FDR | M7 | GW10 scored. Sprint 35 measured vs *neutral* only; n=471 at GW3 was far too thin |
-| DSI-53 | Refit `positionCalibration` | M7 | Conditional on DSI-50's sign holding. Current factors are fitted in-sample |
-| DSI-54 | Price-change prediction step 3 | M7 | Enough watchlist history; must beat top-N-by-net-transfers on precision/recall |
+| DSI-53 | ~~Refit `positionCalibration`~~ — **its precondition is answered, and the answer is "don't"** (2026-09-20) | M7 | DSI-50's sign held but the magnitude collapsed to −0.084 (≈1.8 SE from zero), and the residuals are a −0.714 non-appearance cohort cancelling a +0.627 appearance cohort — which a multiplicative points scale cannot separate. Needs re-scoping to **expected-minutes** calibration (and GKP separately, −0.352) rather than running. See [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §2 |
+| DSI-54 | Price-change prediction step 3 — **history checked 2026-09-20; falls are fittable, rises are not** | M7 | 26 nights: 55 rises, 226 falls. The baseline is now measured (rises 39/55 in top-15; falls 46/226 in bottom-40), and ownership-normalising the feature makes rises *worse*. Run falls at M7, hold rises to ~GW10–12. See [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §3 |
 | DSI-55 | Flip the repo public + post-flip hardening | M8 | Owner decision. Steps 3–4 are impossible while private (GitHub 422s both) |
 | DSI-56 | Latency — route-level code splitting | M8 | None. `next/dynamic` is unused; every route ships ~1.1 MB JS |
 | DSI-57 | Latency — serial-waterfall page reads | M8 | None. `/players`, `/transfers`, `/team` |

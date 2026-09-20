@@ -206,3 +206,78 @@ description disagree, the comment wins — now a standing step in
 it instead of the `✖ N problems (1 error, 167 warnings)` summary immediately above let a real lint
 error reach CI. A check is only a check if you read the part of the output that answers the
 question.
+
+## A row that exists is not a result
+
+Closely related to **Work that silently does not happen renders as absence** above, and the harder
+half of it: here the work has not happened yet and renders as *presence* — a full set of rows,
+correctly keyed, joining cleanly, reading zero.
+
+`lib/prediction-accuracy.ts` already handled the absence case properly. A prediction with no
+matching `player_gameweek_stats` row was excluded on stated grounds: "an unmatched prediction is not
+a residual, it's missing data, and folding it in as a zero would fabricate an observation." The
+reasoning was right and the guard was one step too shallow. `sync-player-history` writes a row per
+player per fixture on a 20-hour pass, so a fixture that has been played but not yet written has ~65
+rows of `minutes = 0, total_points = 0` — which *do* match, and became 257 fabricated blank returns
+on 2026-09-20, reporting GW5's bias as −0.589 against a true −0.006.
+
+Three things generalise:
+
+1. **Ask what a populated row means, not just whether it is there.** "Joined successfully" is a
+   statement about keys, not about evidence.
+2. **The status flag you would reach for is probably not measuring what you need.**
+   `fixtures.finished_provisional` was `true` for fixtures with no stats at all; `finished` was
+   `false` for fixtures that were fully written. Neither is a proxy for "results are in". The
+   detector that worked was derived from the data itself — some player in the fixture with real
+   minutes — because every played fixture puts 22+ players on the pitch.
+3. **Validate a detector against the whole history before trusting it.** That one was checked
+   across four settled seasons (~150 gameweeks) and produced zero false positives; the only
+   discrepancy anywhere in the warehouse was the live case it was written for. Without that check
+   it would have been a plausible rule, which is not the same thing.
+
+And the disclosure half, per **Say what the number means**: a partially-covered gameweek is
+*included and labelled* ("GW5 (6 of 10 fixtures)"), not dropped. Dropping it would have been the
+same bug with the sign reversed — a silently smaller `n` reading as a healthy one.
+
+— [sprints/gw5-check-in.md](../sprints/gw5-check-in.md) §0-1,
+[data-pipeline.md](data-pipeline.md#a-played-gameweek-is-not-a-written-one-found-2026-09-20)
+
+## A correction is only worth fitting if it can represent the error
+
+The GW5 check-in's substantive finding, and a rule the blend attempts in
+[xp-model.md](xp-model.md#known-disclosed-gaps) had already been circling.
+
+The plan said: measure the bias, and if it holds, refit `positionCalibration`. The bias held in
+sign. But decomposed, it was a **−0.714** over-prediction on players who did not appear and a
+**+0.627** under-prediction on players who did, nearly cancelling into a ≈0 aggregate.
+`positionCalibration` is a multiplicative scale on points. There is no value of it that fixes both
+halves, because they point in opposite directions — fit the aggregate and you fit noise, fit either
+half and you damage the other.
+
+So the question to ask before fitting anything is not "is the error real" but **"can this parameter
+express the error I measured?"** A term that cannot is not a partial fix; applied to a
+near-cancelling aggregate it is a coin flip dressed as a correction, and it ships as a permanent
+constant.
+
+The practical form: **decompose the residual before fitting to it.** The split that mattered here
+(`minutes > 0` vs `minutes = 0`) is one line of SQL and was not in any of the three prior passes
+over these numbers, all of which reported the aggregate and the per-position breakdown only.
+
+— [sprints/gw5-check-in.md](../sprints/gw5-check-in.md) §2
+
+## A tool's local patches revert on upgrade — re-apply, don't re-derive
+
+Not a modelling rule; an operational one, recorded because it has already cost two rediscoveries.
+
+The `graft/` code graph is wired through `.mcp.json`, `.claude/settings.json` and
+`.claude/skills/graft/`, and needs three local patches to work here: a `tree-sitter-kotlin` shim
+(without which the CLI will not start on Windows at all), and two suppressing graft's instruction
+to end every reply with a "saved ~N tokens" tally. A global reinstall wipes the machine-tier
+patches, and graft's own `reconcileWiring` silently rewrites the repo-tier ones from its templates
+on any version skew.
+
+After any `graft upgrade`, run the `graft-reapply.mjs` helper (idempotent; `--check` to report
+only). The rationale lives in the `graft-patch` skill. Whether the per-prompt hint hook earns its
+keep is open in [DSI-143](https://linear.app/dsinha-org/issue/DSI-143).
+
+— [../../CLAUDE.md](../../CLAUDE.md)

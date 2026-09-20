@@ -7,6 +7,12 @@ The one backtest below is **in-sample** — season-aggregate xP against 2025/26,
 **walk-forward, out-of-sample** backtest exists: [sprint-17a.md](sprints/sprint-17a.md). It found
 the model's per-gameweek MAE and r are both worse than a naive last-5-gameweeks baseline in every
 target season tested — read it before trusting the numbers below at gameweek granularity.
+**Live 2026-27 residuals now exist too** and change what this document implies about refitting:
+at n=4 gameweeks the production bias is −0.084, and it is the near-cancellation of a −0.714
+non-appearance cohort against a +0.627 appearance one. Wherever this doc treats
+`positionCalibration` as the thing awaiting a refit, read
+[sprints/gw5-check-in.md](sprints/gw5-check-in.md) §2 first — the measured error is one a
+points-scale parameter cannot express.
 **Code:** [`supabase/functions/_shared/xp-model.ts`](../supabase/functions/_shared/xp-model.ts)
 **Runner:** [`supabase/functions/generate-predictions/`](../supabase/functions/generate-predictions/)
 
