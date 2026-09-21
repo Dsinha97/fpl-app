@@ -97,6 +97,109 @@ export function seasonTotals(lines: GameweekLine[]): SeasonTotals {
   };
 }
 
+/**
+ * The context the profile shows below its metrics: set-piece duty,
+ * availability, club system, and this gameweek's minutes expectation.
+ *
+ * Loaded here rather than taken from the caller's `PlayerData` so the profile
+ * reads identically from every page. The popover's contract is "the caller
+ * supplies it, undefined hides it", which is right for a panel four pages
+ * render with different data to hand — but it made the deep-dive card show
+ * different sections depending on which page you opened it from, which is
+ * not a property a "full profile" should have.
+ */
+export interface PlayerExtras {
+  status: string | null;
+  news: string | null;
+  chanceOfPlaying: number | null;
+  penaltyOrder: number | null;
+  freeKickOrder: number | null;
+  cornerOrder: number | null;
+  /** Club tactical system, context only — never folded into xP. */
+  system: string | null;
+  expectedMinutes: number | null;
+  startProbability: number | null;
+  headlines: import("./news-feed").NewsHeadline[];
+}
+
+const extrasCache = new Map<string, CacheEntry<PlayerExtras | null>>();
+
+export function loadPlayerExtras(
+  season: string,
+  playerId: number,
+  playerCode: number,
+  event: number | null,
+): Promise<PlayerExtras | null> {
+  return memoise(extrasCache, `${season}:${playerId}:${event ?? "-"}`, async () => {
+    const { loadSquadHeadlines } = await import("./news-feed");
+
+    const [playerRes, predRes, headlines] = await Promise.all([
+      supabase
+        .from("players")
+        .select("status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, team_id")
+        .eq("season", season)
+        .eq("id", playerId)
+        .maybeSingle(),
+      event === null
+        ? Promise.resolve({ data: null, error: null })
+        : supabase
+            .from("player_predictions")
+            .select("expected_minutes, start_probability")
+            .eq("season", season)
+            .eq("player_id", playerId)
+            .eq("event", event)
+            .limit(1)
+            .maybeSingle(),
+      loadSquadHeadlines(supabase, [playerCode]).catch(() => new Map()),
+    ]);
+
+    if (playerRes.error) throw new Error(playerRes.error.message);
+    const row = playerRes.data;
+    if (!row) return null;
+
+    // Club system comes from the team's Premier League manager profile, via
+    // `teams.tactical_manager_id` — the same join /builder makes, and the
+    // same one-line summary, rather than a second formatting of it.
+    // Context beside the numbers, never applied to them.
+    let system: string | null = null;
+    const teamId = row.team_id as number | null;
+    if (teamId !== null) {
+      const { toTacticalProfile, tacticalSummary } = await import("./tactical-profile");
+      const { data: team } = await supabase
+        .from("teams")
+        .select("tactical_manager_id")
+        .eq("season", season)
+        .eq("id", teamId)
+        .maybeSingle();
+      const managerKey = team?.tactical_manager_id as string | null | undefined;
+      if (managerKey) {
+        const { data: mgr } = await supabase
+          .from("pl_managers")
+          .select("season, manager_key, name, current_club, preferred_formation, buildup_style, pressing_intensity, tactical_traits, modifiers")
+          .eq("season", season)
+          .eq("manager_key", managerKey)
+          .maybeSingle();
+        if (mgr) system = tacticalSummary(toTacticalProfile(mgr as never));
+      }
+    }
+
+    const pred = predRes.data as { expected_minutes: number | null; start_probability: number | null } | null;
+
+    return {
+      status: (row.status as string | null) ?? null,
+      news: (row.news as string | null) ?? null,
+      chanceOfPlaying: (row.chance_of_playing_next_round as number | null) ?? null,
+      penaltyOrder: (row.penalties_order as number | null) ?? null,
+      freeKickOrder: (row.direct_freekicks_order as number | null) ?? null,
+      cornerOrder: (row.corners_and_indirect_freekicks_order as number | null) ?? null,
+      system,
+      expectedMinutes: pred?.expected_minutes ?? null,
+      startProbability: pred?.start_probability ?? null,
+      headlines: (headlines as Map<number, import("./news-feed").NewsHeadline[]>).get(playerCode) ?? [],
+    };
+  });
+}
+
 /** Season in/out totals, and the source they came from. */
 export interface TransferTotals {
   gwIn: number | null;

@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { ModelNote } from "@/components/ui/model-note";
 import { FixtureCell } from "@/components/fdr-badge";
+import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
+import { sourceBadge } from "@/lib/news-feed";
+import { ago } from "@/lib/change-feed";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCell, StatGrid, MiniBar } from "@/components/player-modal/stat-cell";
 import { rankOf, RANK_MODEL_NOTE, type PositionRanks } from "@/lib/player-ranks";
@@ -12,8 +15,10 @@ import {
   transferTotals,
   seasonTotals,
   loadCurrentTransferSample,
+  loadPlayerExtras,
   type GameweekLine,
   type PriceChange,
+  type PlayerExtras,
 } from "@/lib/player-profile";
 import {
   priceVerdictLabel,
@@ -50,6 +55,7 @@ export function OverviewTab({
   ranks,
   positionShort,
   priceProgress,
+  teamShortById,
 }: {
   player: PlayerData;
   season: string;
@@ -57,10 +63,13 @@ export function OverviewTab({
   ranks?: PositionRanks;
   positionShort: string;
   priceProgress?: PriceProgress;
+  /** Opponent short names, for the Recent form chips. */
+  teamShortById: Map<number, string>;
 }) {
   const [lines, setLines] = useState<GameweekLine[] | null>(null);
   const [prices, setPrices] = useState<PriceChange[] | null>(null);
   const [sample, setSample] = useState<{ in: number; out: number } | null>(null);
+  const [extras, setExtras] = useState<PlayerExtras | null>(null);
 
   const code = player.code ?? null;
   const positionLong = POSITION_LONG[positionShort] ?? "players";
@@ -84,10 +93,16 @@ export function OverviewTab({
     loadCurrentTransferSample(season, code)
       .then((r) => live && setSample(r))
       .catch(() => live && setSample(null));
+    // Loaded here rather than read off `player`, so the profile shows the
+    // same sections from every page instead of whatever that page happened
+    // to have queried.
+    loadPlayerExtras(season, player.id, code, currentEvent)
+      .then((r) => live && setExtras(r))
+      .catch(() => live && setExtras(null));
     return () => {
       live = false;
     };
-  }, [season, code]);
+  }, [season, code, player.id, currentEvent]);
 
   const rank = (metric: Parameters<typeof rankOf>[2]) =>
     code === null ? null : rankOf(ranks, code, metric);
@@ -316,6 +331,141 @@ export function OverviewTab({
                 </li>
               );
             })}
+          </ul>
+        </section>
+      )}
+
+      {/* Recent form — the mirror of Next fixtures, looking backward. Built
+          from the gameweek lines already loaded, so it needs no `past_results`
+          from the caller and is present on every page. */}
+      {lines !== null && lines.length > 0 && (
+        <section className="min-w-0">
+          <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            Recent form
+          </h3>
+          <div className="flex min-w-0 flex-wrap gap-1.5">
+            {lines.slice(-6).map((r) => (
+              <span
+                key={`${r.event}-${r.fixture}`}
+                title={`GW${r.event} · ${r.total_points} points · ${r.minutes} mins`}
+                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                  r.total_points >= 6
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                    : r.total_points >= 2
+                      ? "bg-zinc-100 text-zinc-700 dark:bg-surface-3 dark:text-zinc-300"
+                      : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                }`}
+              >
+                {r.total_points}pts {(teamShortById.get(r.opponent_team) ?? "?").toUpperCase()}
+                {r.was_home ? "(H)" : "(A)"}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Season detail. `dc_actions` is a raw action count, not points: FPL
+          only scores defensive contribution on crossing a positional
+          threshold, so labelling it "DC pts" would be wrong. */}
+      {season_ && (
+        <StatGrid label="Season detail" columns={2}>
+          <StatCell label="Bonus pts" value={season_.bonus} />
+          <StatCell
+            label="Appearances"
+            value={season_.appearances}
+            sub={`of ${lines?.length ?? 0} fixtures`}
+          />
+        </StatGrid>
+      )}
+
+      {extras && (extras.expectedMinutes !== null || extras.startProbability !== null) && (
+        <StatGrid label="This gameweek" columns={2}>
+          <StatCell
+            label="Expected mins"
+            value={extras.expectedMinutes !== null ? Math.round(extras.expectedMinutes) : "—"}
+          />
+          <StatCell
+            label="Start chance"
+            value={
+              extras.startProbability !== null ? `${Math.round(extras.startProbability * 100)}%` : "—"
+            }
+          />
+        </StatGrid>
+      )}
+
+      {extras && (extras.status ?? "a") !== "a" && (
+        <section className="flex min-w-0 items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 dark:border-amber-900/50 dark:bg-amber-950/30">
+          <AvailabilityBadge
+            status={extras.status}
+            chanceOfPlaying={extras.chanceOfPlaying}
+            news={extras.news}
+            size="w-4 h-4"
+          />
+          <div className="min-w-0 flex-1 text-xs">
+            <p className="font-medium text-amber-800 dark:text-amber-300">
+              Availability
+              {extras.chanceOfPlaying !== null && extras.chanceOfPlaying < 100
+                ? ` · ${extras.chanceOfPlaying}% chance of playing`
+                : ""}
+            </p>
+            {extras.news && <p className="mt-0.5 text-zinc-600 dark:text-zinc-400">{extras.news}</p>}
+          </div>
+        </section>
+      )}
+
+      {extras &&
+        (extras.penaltyOrder === 1 || extras.freeKickOrder === 1 || extras.cornerOrder === 1) && (
+          <section className="flex min-w-0 items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+            <RoleBadges
+              penaltyOrder={extras.penaltyOrder}
+              freeKickOrder={extras.freeKickOrder}
+              cornerOrder={extras.cornerOrder}
+              size="w-4 h-4"
+            />
+            <span className="min-w-0 truncate">
+              Takes{" "}
+              {[
+                extras.penaltyOrder === 1 ? "penalties" : null,
+                extras.freeKickOrder === 1 ? "free kicks" : null,
+                extras.cornerOrder === 1 ? "corners" : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </section>
+        )}
+
+      {extras?.system && (
+        <section className="flex min-w-0 items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="font-medium text-zinc-600 dark:text-zinc-300">System</span> ·
+          <span className="min-w-0 truncate">{extras.system}</span>
+          <ModelNote label="What the club system tells you">
+            Tactical context for {extras.system} — not applied to xP.
+          </ModelNote>
+        </section>
+      )}
+
+      {extras && extras.headlines.length > 0 && (
+        <section className="min-w-0">
+          <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            In the news
+          </h3>
+          <ul className="flex min-w-0 flex-col gap-1.5">
+            {extras.headlines.slice(0, 3).map((h, i) => (
+              <li key={i} className="min-w-0">
+                <a
+                  href={h.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="line-clamp-2 text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+                >
+                  {h.title}
+                </a>
+                <div className="text-[10px] text-zinc-500">
+                  {sourceBadge(h)} · {ago(h.published_at)}
+                </div>
+              </li>
+            ))}
           </ul>
         </section>
       )}

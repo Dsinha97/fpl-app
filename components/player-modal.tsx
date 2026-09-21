@@ -9,6 +9,8 @@ import { PlayerIdentityHeader, POSITION_NAME } from "@/components/player-identit
 import type { PlayerData } from "@/components/player-card";
 import type { PositionRanks } from "@/lib/player-ranks";
 import type { PriceProgress } from "@/lib/price-watch";
+import { useAuth } from "@/components/auth-provider";
+import { addToShortlist, loadShortlist, removeFromShortlist } from "@/lib/shortlist";
 import { OverviewTab } from "@/components/player-modal/overview-tab";
 import { GameweeksTab } from "@/components/player-modal/gameweeks-tab";
 import { HistoryTab } from "@/components/player-modal/history-tab";
@@ -68,10 +70,6 @@ export interface PlayerModalProps {
   onSetVice?: () => void;
   onRemove?: () => void;
   onFindReplacement?: () => void;
-  onToggleWatch?: () => void;
-  watched?: boolean;
-  /** Where to send a signed-out visitor who taps a watchlist button. */
-  signInHref?: string | null;
 }
 
 export function PlayerModal(props: PlayerModalProps) {
@@ -203,13 +201,50 @@ function ProfileBody({
   onSetVice,
   onRemove,
   onFindReplacement,
-  onToggleWatch,
-  watched,
-  signInHref,
   tab,
   setTab,
 }: PlayerModalProps & { tab: ProfileTab; setTab: (t: ProfileTab) => void }) {
   const positionShort = POSITION_NAME[player.element_type] ?? "—";
+
+  // The shortlist is owned here rather than passed in, so the control behaves
+  // identically from every page instead of existing only where a caller
+  // remembered to wire it.
+  const { user } = useAuth();
+  const code = player.code ?? null;
+  const [loadedShortlisted, setLoadedShortlisted] = useState<boolean | null>(null);
+  const [shortlistBusy, setShortlistBusy] = useState(false);
+
+  // Derived, not stored: with no session and no player code there is nothing
+  // to fetch, so this resolves rather than writing state inside an effect.
+  const shortlisted = !user || code === null ? null : loadedShortlisted;
+
+  useEffect(() => {
+    if (!user || code === null) return;
+    let live = true;
+    loadShortlist(season)
+      .then((m) => live && setLoadedShortlisted(m.has(code)))
+      .catch(() => live && setLoadedShortlisted(null));
+    return () => {
+      live = false;
+    };
+  }, [user, season, code]);
+
+  const toggleShortlist = async () => {
+    if (code === null || shortlisted === null || shortlistBusy) return;
+    setShortlistBusy(true);
+    // Optimistic, then reconciled — a star that waits on a round trip before
+    // acknowledging a tap feels broken.
+    const next = !shortlisted;
+    setLoadedShortlisted(next);
+    try {
+      if (next) await addToShortlist(season, code);
+      else await removeFromShortlist(season, code);
+    } catch {
+      setLoadedShortlisted(!next);
+    } finally {
+      setShortlistBusy(false);
+    }
+  };
 
   // Zone 1 holds exactly one accent action. Two stacked neon buttons mean
   // neither reads as the primary one (DSI-129 reserves --primary for actions
@@ -245,7 +280,7 @@ function ProfileBody({
       </div>
 
       {/* Actions */}
-      {(primary || secondaryCompare || hasSquadActions || onToggleWatch) && (
+      {(primary || secondaryCompare || hasSquadActions || code !== null) && (
         <div className="flex min-w-0 flex-col gap-2 border-b border-zinc-200 px-4 py-3 dark:border-purple-900/60">
           {primary && (
             <Button
@@ -258,35 +293,39 @@ function ProfileBody({
               {primary.label}
             </Button>
           )}
-          {(secondaryCompare || onToggleWatch) && (
-            <div className="flex min-w-0 gap-2">
-              {secondaryCompare && (
-                <Button type="button" variant="outline" onClick={secondaryCompare} className="min-w-0 flex-1">
-                  {compareLabel}
+          <div className="flex min-w-0 gap-2">
+            {secondaryCompare && (
+              <Button type="button" variant="outline" onClick={secondaryCompare} className="min-w-0 flex-1">
+                {compareLabel}
+              </Button>
+            )}
+            {code !== null &&
+              (user ? (
+                <Button
+                  type="button"
+                  variant={shortlisted ? "secondary" : "outline"}
+                  onClick={toggleShortlist}
+                  disabled={shortlisted === null || shortlistBusy}
+                  aria-pressed={shortlisted === true}
+                  className="min-w-0 flex-1"
+                >
+                  {shortlisted === null
+                    ? "Shortlist…"
+                    : shortlisted
+                      ? "★ On your shortlist"
+                      : "☆ Add to shortlist"}
                 </Button>
-              )}
-              {onToggleWatch &&
-                (signInHref ? (
-                  // Never a silent no-op when signed out — the button says
-                  // what it needs and goes there.
-                  <a
-                    href={signInHref}
-                    className="inline-flex h-8 min-w-0 flex-1 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium hover:bg-muted dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
-                  >
-                    Sign in to shortlist
-                  </a>
-                ) : (
-                  <Button
-                    type="button"
-                    variant={watched ? "secondary" : "outline"}
-                    onClick={onToggleWatch}
-                    className="min-w-0 flex-1"
-                  >
-                    {watched ? "On your shortlist" : "Add to shortlist"}
-                  </Button>
-                ))}
-            </div>
-          )}
+              ) : (
+                // Never a silent no-op when signed out — the control says what
+                // it needs and goes there.
+                <a
+                  href="/signin/"
+                  className="inline-flex h-8 min-w-0 flex-1 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium hover:bg-muted dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
+                >
+                  Sign in to shortlist
+                </a>
+              ))}
+          </div>
           {hasSquadActions && (
             <div className="flex min-w-0 flex-wrap gap-2">
               {onSetCaptain && (
@@ -346,6 +385,7 @@ function ProfileBody({
             ranks={ranks}
             positionShort={positionShort}
             priceProgress={priceProgress}
+            teamShortById={teamShortById}
           />
         )}
         {tab === "gameweeks" && (

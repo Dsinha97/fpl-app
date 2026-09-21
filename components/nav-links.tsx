@@ -51,6 +51,9 @@ export const NAV_GROUPS = [
     label: "Statistics",
     items: [
       { href: "/players", label: "Players" },
+      // Sprint 38 — the players you've marked to come back to. Signed-in
+      // only; the page says so rather than rendering an empty list.
+      { href: "/shortlist", label: "Shortlist" },
       // Sprint 33 — Compare merged into Players as a slide-over panel, so it
       // is no longer a destination of its own. /compare survives only as a
       // redirect stub for old links.
