@@ -15,7 +15,8 @@
 // Two quantities FPL does not publish anywhere are the only constants below:
 // the divisors (1 point per 3 saves, -1 per 2 goals conceded) and the
 // defensive-contribution thresholds. Both were measured against live data
-// rather than assumed — see DC_THRESHOLDS.
+// rather than assumed — see DC_THRESHOLD_BY_ELEMENT_TYPE in lib/scoring.ts,
+// which DC_THRESHOLDS below reads from rather than redeclaring.
 //
 // Because this is derived, every breakdown is checked against the stored
 // total and any difference is surfaced as an "Unattributed" line rather than
@@ -23,6 +24,7 @@
 
 import { supabase } from "./supabase/client";
 import { liveStatLabel } from "./fixture-stats";
+import { DC_THRESHOLD_BY_ELEMENT_TYPE } from "./scoring";
 
 export const SCORING_MODEL_NOTE =
   "This breakdown is derived, not published. FPL itemises a score only for the live gameweek, so " +
@@ -50,31 +52,27 @@ const LONG_PLAY_MINUTES = 60;
 const SAVES_PER_POINT = 3;
 const GOALS_CONCEDED_PER_POINT = 2;
 
+/** `element_types.singular_name_short` -> FPL's element_type id. */
+const ELEMENT_TYPE_OF: Record<PositionShort, number> = { GKP: 1, DEF: 2, MID: 3, FWD: 4 };
+
 /**
  * Qualifying defensive actions needed to score the DC bonus, by position.
  *
- * Measured, not assumed. Over 677 player-gameweeks of 2026-27 with >=60
- * minutes and no goals/assists/cards/penalties/own-goals/bonus — so the score
- * reduces to appearance + clean sheet + goals conceded + saves + DC — the
- * residual was exactly +2 or exactly 0 in every cell, with zero variance:
- * DEF at 10-11 scored (n=33), MID at 10-11 did not (n=30) but at >=12 did
- * (n=36), and FWD at >=12 did (n=1, and `scoring_rules` independently gives
- * forwards a value of 2).
+ * Read from `DC_THRESHOLD_BY_ELEMENT_TYPE` (lib/scoring.ts) rather than
+ * redeclared — one quantity, one implementation. That constant carries the
+ * measurement these values came from, and mirrors the production model's own
+ * `MODEL_PARAMS.dcThreshold`.
  *
- * Note this contradicts XDC_MODEL_NOTE in lib/scoring.ts, which says forwards
- * never score it — that note is stale for 2026-27 and the xP model's xDC term
- * excludes a position that earns it. Tracked separately; this module reports
- * what actually happened in a match, so it follows the match data.
- *
- * GKP is null: `scoring_rules` gives goalkeepers a value of 0, and no
- * goalkeeper in the sample reached even 10 actions.
+ * Null here means "cannot score it", which is how this module's callers
+ * decide whether to show the row at all; `scoring.ts` spells the same thing
+ * as a threshold of 0.
  */
-const DC_THRESHOLDS: Record<PositionShort, number | null> = {
-  GKP: null,
-  DEF: 10,
-  MID: 12,
-  FWD: 12,
-};
+const DC_THRESHOLDS: Record<PositionShort, number | null> = Object.fromEntries(
+  (Object.keys(ELEMENT_TYPE_OF) as PositionShort[]).map((p) => {
+    const threshold = DC_THRESHOLD_BY_ELEMENT_TYPE[ELEMENT_TYPE_OF[p]] ?? 0;
+    return [p, threshold > 0 ? threshold : null];
+  }),
+) as Record<PositionShort, number | null>;
 
 /** One derived line of a points breakdown. */
 export interface BreakdownLine {

@@ -23,6 +23,7 @@ import {
   MAX_COMPARE,
   valuePerMillion,
   XDC_MODEL_NOTE,
+  scoresDefensiveContribution,
   type ScoredPlayer,
 } from "@/lib/scoring";
 import { DEFAULT_GEM_CUTS, detectGems, type GemCandidate } from "@/lib/hidden-gems";
@@ -148,8 +149,7 @@ interface XpRow {
 }
 
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
-/** Positions the defensive-contribution threshold can ever apply to — see XDC_MODEL_NOTE. */
-const XDC_POSITIONS = new Set([2, 3]);
+
 
 type SortKey =
   | "price"
@@ -645,7 +645,7 @@ export default function PlayersPage() {
         case "xpH":
           return xpForHorizon(x, horizon) ?? -1;
         case "xdc":
-          return XDC_POSITIONS.has(p.element_type) ? (xdcForHorizon(x, horizon) ?? -1) : -1;
+          return scoresDefensiveContribution(p.element_type) ? (xdcForHorizon(x, horizon) ?? -1) : -1;
         case "value":
           return valueOf(p, x) ?? -1;
         case "price":
@@ -1108,7 +1108,7 @@ export default function PlayersPage() {
                       {predictions.get(p.id)?.expected_minutes?.toFixed(0) ?? "—"}
                     </DataCell>
                     <DataCell className="px-2 py-1.5" numeric>
-                      {XDC_POSITIONS.has(p.element_type)
+                      {scoresDefensiveContribution(p.element_type)
                         ? xdcForHorizon(x, horizon)?.toFixed(2) ?? "—"
                         : "—"}
                     </DataCell>

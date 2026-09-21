@@ -81,8 +81,37 @@ export const COLD_START_NOTE =
 export const MAX_COMPARE = 4;
 
 /**
+ * Qualifying defensive actions needed to score the DC bonus, by
+ * `element_type`. 0 means the position cannot score it at all.
+ *
+ * **Mirrors `MODEL_PARAMS.dcThreshold` in
+ * `supabase/functions/_shared/xp-model.ts`**, which is the one that actually
+ * produces `player_xp_horizons.xdc_*`. It is duplicated rather than imported
+ * because that file is Deno and deliberately excluded from tsconfig — if the
+ * two ever disagree, the model's copy is the truth and this one is the bug.
+ *
+ * The values are measured, not assumed: over 677 player-gameweeks of 2026-27
+ * with >=60 minutes and no goals/assists/cards/penalties/own-goals/bonus, the
+ * residual was exactly +2 or exactly 0 in every cell with zero variance —
+ * DEF scoring at 10-11, MID not until 12, FWD at 12. `public.scoring_rules`
+ * independently gives forwards a value of 2 and goalkeepers 0.
+ */
+export const DC_THRESHOLD_BY_ELEMENT_TYPE: Record<number, number> = { 1: 0, 2: 10, 3: 12, 4: 12 };
+
+/**
+ * Whether a position can score defensive-contribution points at all.
+ *
+ * Both `/players` and the compare panel used to declare their own
+ * `XDC_POSITIONS = new Set([2, 3])`, which hid the column for **forwards**,
+ * who do score it — two copies of one fact, and both wrong. One quantity,
+ * one implementation (CLAUDE.md).
+ */
+export const scoresDefensiveContribution = (elementType: number): boolean =>
+  (DC_THRESHOLD_BY_ELEMENT_TYPE[elementType] ?? 0) > 0;
+
+/**
  * xDefcon (Sprint 12.6): expected points from clearing the defensive-
- * contribution threshold (10 for DEF, 12 for MID — 0 for GKP/FWD, who never
+ * contribution threshold (10 for DEF, 12 for MID and FWD; goalkeepers cannot
  * score it), summed over a horizon from `player_xp_horizons.xdc_*`.
  *
  * FPL's real rule scores different actions per group — defenders on CBIT
@@ -97,7 +126,9 @@ export const MAX_COMPARE = 4;
  */
 export const XDC_MODEL_NOTE =
   "Expected points from clearing the defensive-contribution threshold (10 for defenders, 12 for " +
-  "midfielders; forwards and goalkeepers never score it). Modelled as a Poisson tail on a shrunk " +
+  "midfielders and forwards; goalkeepers cannot score it). Forwards clear it rarely, so the number " +
+  "is usually near zero for them — that is a low expectation, not an exclusion. Modelled as a " +
+  "Poisson tail on a shrunk " +
   "per-90 rate, gated on an eligible-minutes fix (v1.4.0) since FPL only tracks the stat from " +
   "2024/25 — see docs/phase-4-model.md. One real gap remains: FPL scores defenders on clearances + " +
   "blocks + interceptions + tackles and midfielders/forwards on the same four plus recoveries, but " +

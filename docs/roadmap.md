@@ -98,8 +98,9 @@ player profile (a three-tab modal reachable from every page, replacing `PlayerDe
 details" disclosure), the price-watch reading made honest and then shown properly, and an
 owner-scoped shortlist. Three findings worth carrying forward: `loadPriceProgress` had been
 reading ~2% of its data since Sprint 29 and looked quiet rather than broken (the 1000-row cap,
-unpaged); the xP model excludes **forwards** from defensive-contribution points they demonstrably
-earn (DEF 10, MID 12, FWD 12 — measured with zero variance over 677 player-gameweeks); and
+unpaged); the **UI** (not the model) hid forwards' defensive-contribution column, while the
+thresholds themselves — DEF 10, MID 12, FWD 12, measured with zero variance over 677
+player-gameweeks — lived in three separate copies and now live in one; and
 [DSI-54](https://linear.app/dsinha-org/issue/DSI-54)'s falls classifier **passed its gate at tight
 budgets** (K=20, p=0.0039, Bonferroni-corrected) while staying unwired — the shipped reading is
 still the descriptive heuristic.

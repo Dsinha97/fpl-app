@@ -6,8 +6,9 @@ Three threads that turned out to share a spine: the app knew a great deal about 
 nowhere good to show it. `/players` — the page built for researching a player — opened nothing at
 all, and the one detail surface that existed was a 320px popover reachable only from a pitch.
 
-Along the way the price-watch reading turned out to have been broken since it shipped, and the
-xP model turned out to be missing a scoring rule. Both are recorded below.
+Along the way the price-watch reading turned out to have been broken since it shipped, and a
+scoring fact turned out to be living in three places with two of them wrong. Both are recorded
+below — including a claim about the second that I got wrong first time and had to correct.
 
 ---
 
@@ -161,12 +162,34 @@ score reduces to appearance + clean sheet + goals conceded + saves + DC. The res
 | MID | ≥12 | 36 | **+2** |
 | FWD | ≥12 | 1 | **+2** |
 
-So DEF 10, MID 12, **FWD 12 — and forwards do score it.** `XDC_MODEL_NOTE` in `lib/scoring.ts`
-says they never do, and the xP model's xDC term excludes them, as does `XDC_POSITIONS` in
-`app/players/page.tsx`. `scoring_rules` independently gives forwards a value of 2. **The model is
-missing a term forwards actually earn** — a candidate contributor to DSI-178's +0.627
-appeared-cohort bias. The FWD cell is n=1 at the threshold, so confirm the magnitude as more
-gameweeks land; the direction is not in doubt. Tracked separately, not fixed here.
+So DEF 10, MID 12, **FWD 12 — and forwards do score it.**
+
+**First reading of this was wrong, and the correction matters more than the finding.** It was
+filed (DSI-179) as "the xP model excludes forwards from points they earn", a candidate contributor
+to DSI-178's +0.627 appeared-cohort bias. The model does no such thing:
+`supabase/functions/_shared/xp-model.ts:137` already carries
+`dcThreshold: { 1: 0, 2: 10, 3: 12, 4: 12 }`, and the scoring at `:1619` gates on `threshold > 0`,
+which excludes only goalkeepers. `player_xp_horizons` confirms it — forwards do get an xDC value
+(1 of 79 non-zero, max 0.01), near zero because forwards rarely reach 12 defensive actions. **A low
+expectation, not an exclusion.** DSI-178 keeps its full +0.627 to explain.
+
+What was actually wrong was narrower and entirely on this side of the model:
+
+- `XDC_MODEL_NOTE`'s prose — "forwards and goalkeepers never score it" — is false for forwards,
+  and it is user-facing tooltip text.
+- `XDC_POSITIONS = new Set([2, 3])`, declared **independently** in `app/players/page.tsx` and
+  `components/compare-panel.tsx`, hid the xDC column for forwards. A forward who did clear the
+  threshold showed "—" beside a real computed number. Two copies of one fact, both wrong.
+
+Fixed by giving the fact one home: `DC_THRESHOLD_BY_ELEMENT_TYPE` and
+`scoresDefensiveContribution()` in `lib/scoring.ts`, documented as mirroring the model's own
+`MODEL_PARAMS.dcThreshold` — duplicated rather than imported because that file is Deno and
+excluded from tsconfig, and if the two ever disagree the model's copy is the truth.
+`lib/fpl-scoring-rules.ts` reads from it too, rather than keeping the third copy this sprint had
+introduced. Reconciliation re-run after the change: still 3,218 of 3,218, zero unattributed.
+
+The FWD cell is n=1 at the threshold, so the *magnitude* is worth re-checking as more gameweeks
+land; the direction is settled by `scoring_rules` agreeing independently.
 
 ## 5. The shortlist
 
@@ -202,7 +225,6 @@ write-only hole.
 ## Open after this sprint
 
 - **DSI-178** — expected-minutes discrimination (M7).
-- **The xDC forwards gap** — the model excludes a position that scores the term.
 - **A server-side price rollup** — `loadPriceProgress` ships ~42,000 rows to the browser to
   produce 667 readings.
 - **Wiring the falls classifier** — the gate passed at tight budgets; the runtime plumbing did not

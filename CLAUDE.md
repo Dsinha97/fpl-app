@@ -235,10 +235,13 @@ or `tsc --noEmit` breaks on Deno globals.
   per-stat, per-position values, season-keyed and synced from bootstrap — don't write a
   constants table (`lib/fpl-scoring-rules.ts`). Only two quantities FPL publishes nowhere are
   hardcoded there: the divisors (1 pt per 3 saves, −1 per 2 conceded) and the
-  defensive-contribution thresholds, and those were **measured** against live data, not
-  assumed: DEF 10, MID 12, **FWD 12 — forwards do score it**, which `XDC_MODEL_NOTE` still
-  denies (DSI-179). Anything derived from these is reconciled against the stored total and any
-  difference is shown as "Unattributed" rather than absorbed.
+  defensive-contribution thresholds. The thresholds live in **one** place —
+  `DC_THRESHOLD_BY_ELEMENT_TYPE` (`lib/scoring.ts`), measured against live data rather than
+  assumed: DEF 10, MID 12, **FWD 12 — forwards do score it, they just rarely clear it.**
+  That constant mirrors `MODEL_PARAMS.dcThreshold` in the Deno model, which `lib/` cannot
+  import; if they disagree, the model's copy is the truth. Anything derived from these is
+  reconciled against the stored total and any difference is shown as "Unattributed" rather
+  than absorbed.
 - **`behavior: "smooth"` does nothing on a hidden document** — no rAF callbacks, so
   the scroll is silently dropped and whatever you were scrolling to stays off screen.
   The preview pane reports `document.hidden === true`, and so does any backgrounded
