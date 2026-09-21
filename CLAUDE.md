@@ -93,15 +93,18 @@ URLs with curl — several documented patterns 404.
 ## Layout
 
 ```
-app/            routes: / · /team · /leagues · /players · /fixtures · /builder · /scenarios ·
-                /transfers · /chips · /compare · /changes · /news · /deadline · /review ·
-                /status · /signin · /settings
+app/            routes: / · /team · /leagues · /players · /shortlist · /fixtures · /builder ·
+                /scenarios · /transfers · /chips · /compare · /changes · /news · /deadline ·
+                /review · /status · /signin · /settings
 lib/            stats.ts (shared mean/median/variance/quantile — import, don't redeclare),
                 team-state.ts, optimizer.ts, lineup.ts, scoring.ts, squad-score.ts, transfers.ts,
                 transfer-optimizer.ts, chips.ts, tactical-profile.ts (types + loader only,
                 deliberately no scoring function), player-search.ts, formation.ts, fdr.ts,
                 drafts.ts, draft-sync.ts, fpl-squad.ts, manager-profile.ts, utils.ts
-components/     pitch-view, pitch, player-card, player-detail, armband, transfer-plan,
+components/     pitch-view, pitch, player-card, player-detail (the fast 320px pitch popover) ·
+                player-modal + player-modal/ (the full profile: one three-tab card, the same
+                from every page — it loads its own context rather than taking it from the
+                caller) · player-identity (shared header), armband, transfer-plan,
                 fixture-schedule, fdr-matrix, draft-timeline, confidence-badge,
                 manager-profile-card, club-tactics, brand, theme, nav-links, account-menu, ui/
 supabase/       migrations/ (SQL) · functions/ (Deno Edge Functions) · functions/_shared/
@@ -215,6 +218,27 @@ or `tsc --noEmit` breaks on Deno globals.
   `node ~/.claude/skills/graft-patch/graft-reapply.mjs` (idempotent; `--check`
   to just report). Full rationale: the `graft-patch` skill. Whether the
   per-prompt hint hook earns its keep is open in DSI-143.
+- **An unpaged query against the 1000-row cap can look *quiet* rather than broken.** The cap
+  is already listed above, but the failure mode is worth its own line:
+  `loadPriceProgress` fetched ~42,000 ownership samples unpaged and ascending, so it got the
+  *oldest* 1000 — nearly all discarded by its own anchor filter. Every player then had under
+  two samples and read "unknown" or a flat 0%, which is exactly what a quiet transfer market
+  looks like. It survived from Sprint 29 to Sprint 38. When a reading is uniformly null or
+  zero, check the row count before concluding nothing is happening. Page **concurrently**
+  (count first, then fire every page — `lib/player-pool.ts`'s `fetchAll`): serially this was
+  42 round trips and 20+ seconds.
+- **`cost_change_event` is FPL's *cumulative* change for the gameweek, not a per-night delta.**
+  Labelling a price fall by its sign marks a player already down on the week as falling every
+  night. `player_price_history` is change-on-write, so direction comes from comparing
+  consecutive `price` values.
+- **Scoring rules come from the database too.** `public.scoring_rules` carries FPL's own
+  per-stat, per-position values, season-keyed and synced from bootstrap — don't write a
+  constants table (`lib/fpl-scoring-rules.ts`). Only two quantities FPL publishes nowhere are
+  hardcoded there: the divisors (1 pt per 3 saves, −1 per 2 conceded) and the
+  defensive-contribution thresholds, and those were **measured** against live data, not
+  assumed: DEF 10, MID 12, **FWD 12 — forwards do score it**, which `XDC_MODEL_NOTE` still
+  denies (DSI-179). Anything derived from these is reconciled against the stored total and any
+  difference is shown as "Unattributed" rather than absorbed.
 - **`behavior: "smooth"` does nothing on a hidden document** — no rAF callbacks, so
   the scroll is silently dropped and whatever you were scrolling to stays off screen.
   The preview pane reports `document.hidden === true`, and so does any backgrounded

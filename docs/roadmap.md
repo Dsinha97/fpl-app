@@ -93,6 +93,17 @@ GW5's bonus was still provisional at the time of the run and the scoreboard want
 a partially-synced gameweek's unwritten fixtures as genuine blank returns (PR
 [#30](https://github.com/Dsinha97/fpl-app/pull/30)).
 
+**Sprint 38 shipped 2026-09-21** — see [sprints/sprint-38.md](sprints/sprint-38.md). The full
+player profile (a three-tab modal reachable from every page, replacing `PlayerDetail`'s "Show full
+details" disclosure), the price-watch reading made honest and then shown properly, and an
+owner-scoped shortlist. Three findings worth carrying forward: `loadPriceProgress` had been
+reading ~2% of its data since Sprint 29 and looked quiet rather than broken (the 1000-row cap,
+unpaged); the xP model excludes **forwards** from defensive-contribution points they demonstrably
+earn (DEF 10, MID 12, FWD 12 — measured with zero variance over 677 player-gameweeks); and
+[DSI-54](https://linear.app/dsinha-org/issue/DSI-54)'s falls classifier **passed its gate at tight
+budgets** (K=20, p=0.0039, Bonferroni-corrected) while staying unwired — the shipped reading is
+still the descriptive heuristic.
+
 **Sprint 37 shipped 2026-09-18** — see the index row above and [sprints/sprint-37.md](sprints/sprint-37.md).
 All 13 issues (the entire Linear Todo column) plus parent [DSI-176](https://linear.app/dsinha-org/issue/DSI-176)
 closed the same day.
