@@ -234,12 +234,18 @@ or `tsc --noEmit` breaks on Deno globals.
   inverted, not just the magnitude. No deadline lookup is needed to fix it — the in-counter
   only increases within a gameweek, so a decrease between consecutive samples *is* a reset
   (`netTransfersSinceLastPriceChange`, `lib/price-watch.ts`).
-- **FPL's *fall* threshold scales steeply with ownership (~31,800 net transfers per 1% owned);
-  its *rise* threshold barely scales at all** — the rise problem is the level (~337k measured
-  vs a shipped 200k), not the shape. Gated walk-forward and the result was MIXED, so the flat
-  defaults stay (`scripts/price-threshold-gate.ts`, docs/sprints/sprint-38.md §2c). A bucket
-  table suggested rises scaled too; a proper fit over all 58 events said that was noise —
-  don't read a trend off buckets.
+- **FPL's price thresholds are two different mechanisms.** Falls scale steeply with ownership
+  (`3,577 + 31,870` per 1% owned, R²=0.811 over 248 events); rises are flat at ~378,000
+  (R²=0.022 — ownership is irrelevant). Both are now fitted defaults in
+  `thresholdsFor` (`lib/price-watch.ts`), overridable, measured by
+  `scripts/price-window-probe.ts`. The same probe confirmed the window is **since the last
+  price change**, not since the last deadline. A bucket table had suggested rises scaled too;
+  a proper fit said that was noise — don't read a trend off buckets.
+- **A gate on a downstream consequence can be inconclusive while the mechanism is measurable
+  directly.** The scaled threshold's walk-forward gate came back MIXED on ranking/classification
+  and nothing shipped; the probe that regressed firing magnitude on ownership gave R²=0.811 and
+  settled it. When a gate returns MIXED, ask whether the underlying quantity can be measured
+  instead of inferred.
 - **Crossing the price threshold is ~10% predictive for falls and ~22% for rises**, so the
   verdict ladder describes *position* (`past`/`close`/`approaching`/`far`), never "tonight".
   It used to say "Expected to fall tonight" and Palmer wore that for three days. When a

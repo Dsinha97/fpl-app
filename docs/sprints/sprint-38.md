@@ -145,8 +145,8 @@ Best p = 0.0414 at K=80; Bonferroni needs < 0.0125, so it does not survive.
 | fall flat | 8.7% | 12.0% | 10.1% |
 | fall scaled | 9.8% | 43.7% | 16.0% |
 
-**MIXED — classification improves in both directions, ranking does not survive correction. The
-flat defaults stay.** Two things worth carrying:
+**MIXED — classification improves in both directions, ranking does not survive correction.** On
+this evidence alone the flat defaults stayed. §2e is what changed that. Two things worth carrying:
 
 - **Rises barely scale with ownership at all** (slope 1,740/pct ≈ 0). The bucket table in §2b
   suggested otherwise; a proper fit over all 58 events says the apparent trend was noise. What is
@@ -155,6 +155,56 @@ flat defaults stay.** Two things worth carrying:
   independently rather than waiting for both. Requiring both held falls (341 events) hostage to
   rises (60) and cost two thirds of the scorable nights. That widens the test rather than
   narrowing it.
+
+### 2e. B.Fernandes, and the window probe that settled it
+
+The gate tested a *downstream consequence* — does a scaled threshold rank or classify better. It
+came back MIXED, so nothing shipped. Then B.Fernandes raised the question again: 38.9% owned,
+reading **−736%**, and he has never been repriced all season, so his window is the whole season and
+five deadline resets.
+
+That made the window itself worth testing rather than assuming, which nothing had done.
+`scripts/price-window-probe.ts` scores both candidate windows against every real price change: if
+a window is the one FPL counts over, the magnitude at the moment of firing should be a *tight
+function of ownership*, because that is what a threshold is.
+
+| direction | window | n | mean \|net\| | slope/pct | **R²** | CV |
+|---|---|---|---|---|---|---|
+| fall | since last change | 248 | 71,024 | 31,870 | **0.811** | 1.91 |
+| fall | since last deadline | 248 | 20,537 | 6,839 | 0.335 | 2.21 |
+| rise | since last change | 55 | 378,352 | 1,354 | 0.022 | 0.44 |
+| rise | since last deadline | 55 | 195,244 | −380 | 0.003 | 0.62 |
+
+Three results:
+
+1. **The shipped window is right.** "Since last change" wins on both measures in both directions,
+   killing the competing hypothesis that FPL's counter resets each deadline.
+2. **For falls, ownership explains 81% of the firing magnitude** — slope 31,870/pct, independently
+   matching the gate's 31,790. That is the mechanism, not a trend.
+3. **For rises, ownership explains 2%.** They fire at a roughly constant ~378k. The gate's finding
+   holds: rises need a *level* correction, not scaling.
+
+So B.Fernandes' −1,103,718 was the correct quantity all along. Against his real threshold
+(3,577 + 31,870 × 38.9 = **1,243,320**) he sits at **89%** — close, not past.
+
+**Shipped, on the owner's sign-off.** This is a deliberate reversal of Sprint 29's "a documented
+input, never a fitted number" stance for this quantity, and the reasoning matters: the flat pair
+was not merely imprecise, it was the wrong *shape*, which no amount of tuning the constant would
+have fixed. It remains an input — both `priceProgress` and `loadPriceProgress` take an override —
+but its default is now evidence.
+
+| | before | after |
+|---|---|---|
+| readings beyond ±300% | 5 | **1** |
+| B.Fernandes (38.9%) | −736% | **−88.8%** "Close to your fall threshold" |
+| Palmer (26.5%) | +182% | **+96.3%** "Close to your rise threshold" |
+
+The one surviving extreme is Richarlison at 0.7% ownership on −80k net, whose threshold really is
+~26k. The extremes now belong to the players who should have them.
+
+Note the order of evidence: the gate tested a downstream proxy and was inconclusive; the probe
+tested the mechanism directly and was not. When a gate on a consequence comes back MIXED, it is
+worth asking whether the underlying quantity can be measured directly instead.
 
 ### 2d. The finding that needed no fit
 
@@ -344,9 +394,10 @@ write-only hole.
 - **DSI-178** — expected-minutes discrimination (M7).
 - **A server-side price rollup** — `loadPriceProgress` ships ~42,000 rows to the browser to
   produce 667 readings.
-- **The ownership-scaled price threshold** — gated in §2c and MIXED, so not shipped. Re-run once
-  more nights accumulate; falls are the half with the evidence, and rises need a *level*
-  correction rather than scaling.
+- **The rise threshold's level** (~378k) is a mean over 55 events, not a mechanism — the half of
+  §2e to revisit first as more rise events accumulate.
+- **Re-run the §2c gate** now that the flat baseline it compared against has itself been
+  corrected; that comparison was made against a rise level we now know was wrong.
 - **The falls classifier** — its gate now fails at every budget, so there is nothing to wire. Worth
   re-running once more history accumulates, and once the threshold above is settled.
 - **The three `toPlayerData` copies** (`builder:1030`, `deadline:750`, `team:989`) are still three.
