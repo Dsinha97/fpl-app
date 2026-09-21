@@ -68,6 +68,59 @@ still — 667 rows instead of 42,000 — and is worth a migration later.
   landed in the 23:00 UTC hour. It returns nothing, rather than a line through two points, below
   three samples in the window.
 
+### 2a. The counters reset at every deadline
+
+Found by asking why Palmer read "expected to fall, −321%" for three days without falling.
+
+`transfers_in_event` / `transfers_out_event` are **per-gameweek** counters that FPL zeroes at
+every deadline. `netTransfersSinceLastPriceChange` differenced the first and last sample since the
+last price change — valid only when no deadline falls between them, which was true for **11%** of
+players.
+
+Palmer's anchor was 2026-09-10, two deadlines back. First post-anchor sample **+446,406** (a
+gameweek of heavy buying); latest **−41,347** (GW6's fresh counter). The difference, −487,753, is
+almost entirely GW4's inflow being subtracted. Summed correctly: **+364,022 — a net inflow.** The
+sign was inverted, not merely the magnitude.
+
+The fix needs no deadline lookup: the in-counter only ever increases within a gameweek, so a
+decrease between consecutive samples is a reset and nothing else. Accumulate deltas within a
+segment; across a reset the new sample's value *is* the accumulation since it.
+
+Disclosed approximation: transfers between the last pre-reset sample and the deadline are missed,
+because the counter is zeroed before the next sample sees them. At ~2h sampling that is a small
+slice of one gameweek, and inferring the tail would be inventing a number.
+
+**This is a Sprint 29 bug that Sprint 38's paging fix exposed.** Before, the reading returned
+mostly nulls and nobody saw it; after, it returned confident nonsense, which is worse. Two latent
+bugs in one path, the second only visible once the first was fixed.
+
+### 2b. The threshold is not flat — it scales with ownership
+
+The second half of the Palmer question: even corrected, heavily-owned players read far past 100%
+without moving. The flat `DEFAULT_FALL_THRESHOLD = 150_000` is the cause. Measured at every real
+price change this season — the reset-aware net since the previous change, against ownership at
+that moment:
+
+| direction | ownership | n | median net at the change |
+|---|---|---|---|
+| fall | 0–9.6% | 316 | 7,490 |
+| fall | 10–18% | 27 | 203,646 |
+| fall | 20–28% | 8 | 482,554 |
+| fall | 38.9% | 1 | 845,253 |
+| rise | 3–8% | 23 | 267,071 |
+| rise | 10–20% | 21 | 348,662 |
+| rise | 21–24% | 5 | 552,743 |
+| rise | 31–36% | 3 | 882,901 |
+
+Roughly linear in ownership at about **22,000 net transfers per 1% owned**, with rises carrying a
+floor near 150k on top. A flat 150,000 is therefore off by ~5.6× for a 39%-owned player.
+
+**Not changed yet, deliberately.** Switching the default to a fitted ownership curve is exactly
+the move CLAUDE.md reserves ("never tune an invented coefficient until the answer looks
+reasonable"), and this fit has not been gated walk-forward the way the classifier was. It is
+recorded here as measurement, and the threshold remains the documented user-set input it has
+always been. Gating it is the obvious next piece of price work.
+
 **The label matters more than the number.** `+111.5%` is *111.5% of the net transfers your
 threshold says a rise takes* — not a probability. The reference app the owner shared conflates the
 two; this does not, in the badge title, the card copy and `PRICE_WATCH_MODEL_NOTE`.
@@ -83,27 +136,33 @@ per-night sign test so one freak night cannot carry the result.
 
 | K | model recall | baseline | random | nights won/lost | sign-test p |
 |---|---|---|---|---|---|
-| 10 | 6.0% | 3.1% | 1.6% | 7/0 | 0.0156 |
-| 20 | 10.2% | 6.8% | 3.2% | 9/0 | 0.0039 |
-| 40 | 15.3% | 13.4% | 6.3% | 6/2 | 0.2891 |
-| 80 | 26.7% | 27.0% | 12.7% | 9/8 | 1.0000 |
+| 10 | 8.8% | 8.2% | 1.6% | 2/0 | 0.5000 |
+| 20 | 13.1% | 12.8% | 3.2% | 3/2 | 1.0000 |
+| 40 | 25.0% | 23.0% | 6.3% | 10/4 | 0.1796 |
+| 80 | 40.6% | 42.0% | 12.7% | 7/5 | 0.7744 |
 
-**The model beats the baseline where the budget is tight and ties once it is loose**, and the two
-converge monotonically as K grows — the shape a better *ranking* produces, not scattered wins. At
-K=10 and K=20 it never lost a night. Four budgets were tested, so the script applies a Bonferroni
-correction and says which survives it: K=20 does, K=10 does not.
+**Nothing is significant at any budget. The gate's own instruction applies: ship the heuristic and
+say so.** That is what shipped — `priceProgress` remains the reading, and no classifier is wired
+into the app.
 
-Two things this does **not** claim. Absolute recall is low at every budget — most falls are missed
-because most players are off the ~2h watchlist and their features are stale, so the model is
-better than the baseline without either being good. And **nothing is wired into the app**: that
-needs somewhere to keep and refresh weights plus a nightly job, which is its own piece of work.
-The shipped reading stays the descriptive heuristic.
+### The result this replaces, and why
+
+The first run of this gate reported the model winning at K=10 (p=0.0156) and K=20 (p=0.0039), and
+it was written up here as "passed at tight budgets". **That was wrong**, and the reason is
+instructive: the harness computed its `netSinceChange` feature the same broken way the shipped
+code did (§2a below). Fixing it helped the *baseline* far more than the model — K=40 recall went
+13.4% → 23.0%, K=80 27.0% → 42.0% — because the naive top-N-by-net-transfers rule is exactly the
+rule that feature *is*. The apparent win was a broken feature handicapping the thing it was being
+compared against.
+
+Worth keeping as a lesson: when a fitted model beats a naive baseline that shares its inputs, check
+the inputs before believing the model.
 
 Harness: `scripts/price-falls-walkforward.ts`.
 
-**A bug found building it.** `cost_change_event` is FPL's *cumulative* change for the gameweek,
-not a per-night delta — labelling a fall by its sign marks a player already down on the week as
-falling every night. Direction comes from consecutive prices instead.
+**A second bug found building it.** `cost_change_event` is FPL's *cumulative* change for the
+gameweek, not a per-night delta — labelling a fall by its sign marks a player already down on the
+week as falling every night. Direction comes from consecutive prices instead.
 
 ## 4. The player profile
 
@@ -227,6 +286,7 @@ write-only hole.
 - **DSI-178** — expected-minutes discrimination (M7).
 - **A server-side price rollup** — `loadPriceProgress` ships ~42,000 rows to the browser to
   produce 667 readings.
-- **Wiring the falls classifier** — the gate passed at tight budgets; the runtime plumbing did not
-  happen.
+- **The ownership-scaled price threshold** — measured in §2b, not gated, not shipped.
+- **The falls classifier** — its gate now fails at every budget, so there is nothing to wire. Worth
+  re-running once more history accumulates, and once the threshold above is settled.
 - **The three `toPlayerData` copies** (`builder:1030`, `deadline:750`, `team:989`) are still three.

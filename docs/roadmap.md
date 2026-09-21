@@ -101,9 +101,13 @@ reading ~2% of its data since Sprint 29 and looked quiet rather than broken (the
 unpaged); the **UI** (not the model) hid forwards' defensive-contribution column, while the
 thresholds themselves — DEF 10, MID 12, FWD 12, measured with zero variance over 677
 player-gameweeks — lived in three separate copies and now live in one; and
-[DSI-54](https://linear.app/dsinha-org/issue/DSI-54)'s falls classifier **passed its gate at tight
-budgets** (K=20, p=0.0039, Bonferroni-corrected) while staying unwired — the shipped reading is
-still the descriptive heuristic.
+[DSI-54](https://linear.app/dsinha-org/issue/DSI-54)'s falls classifier **failed its gate** at
+every budget, so the shipped reading stays the descriptive heuristic. An earlier run of that gate
+appeared to pass, on a feature that differenced across gameweek counter resets — the same defect
+that had Palmer reading "expected to fall, −321%" for three days without falling, with the sign
+inverted for 89% of players. Fixing it helped the naive baseline more than the model. Still open:
+the price threshold scales with ownership (~22k per 1% owned, measured), and the shipped default
+is flat.
 
 **Sprint 37 shipped 2026-09-18** — see the index row above and [sprints/sprint-37.md](sprints/sprint-37.md).
 All 13 issues (the entire Linear Todo column) plus parent [DSI-176](https://linear.app/dsinha-org/issue/DSI-176)
