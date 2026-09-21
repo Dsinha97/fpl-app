@@ -1043,7 +1043,7 @@ export default function PlayersPage() {
                             tone={pp.direction === "rise" ? "positive" : "negative"}
                             size="sm"
                             className="tabular-nums"
-                            title={`${priceVerdictLabel(pp.verdict, pp.direction)} — ${Math.abs(pct)}% of the net transfers your threshold says a ${pp.direction} takes. Not a probability.`}
+                            title={`${priceVerdictLabel(pp.verdict, pp.direction)} — ${Math.abs(pct)}% of the net transfers your threshold says a ${pp.direction} takes. Passing it is not a prediction: measured across this season, players past the threshold moved that night ~10% of the time (falls) and ~22% (rises).`}
                           >
                             {pp.direction === "rise" ? "▲" : "▼"} {Math.abs(pct)}%
                           </Badge>

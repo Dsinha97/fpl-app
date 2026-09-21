@@ -188,7 +188,7 @@ export function OverviewTab({
       {priceProgress && priceProgress.verdict !== "unknown" && (
         <section className="min-w-0 rounded-lg border border-zinc-200 p-3 dark:border-purple-900/60">
           <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-            Price outlook
+            Price watch
           </h3>
           <div className="flex min-w-0 items-baseline justify-between gap-2">
             <p
@@ -232,7 +232,10 @@ export function OverviewTab({
 
           <ModelNote className="mt-2">
             {signedPct(priceProgress.progressRaw)} is progress toward the net-transfer threshold you
-            set — 100% means it has been reached, not that a change is 100% likely.{" "}
+            set — 100% means it has been reached, not that a change is likely. Measured across this
+            season, a player past the threshold actually moved that night about 10% of the time for
+            falls and 22% for rises, and heavily-owned players sit well past a flat threshold for
+            days because FPL&apos;s real one rises with ownership.{" "}
             {priceProgress.projections && priceProgress.projections.length > 0
               ? "The dated figures carry the last 24 hours' transfer rate forward to the next nightly cutoffs; they are an extrapolation, not a forecast. "
               : ""}

@@ -27,7 +27,12 @@ import { clamp } from "./stats";
 export const PRICE_WATCH_MODEL_NOTE =
   "This is a progress reading toward FPL's own price-change threshold, not a prediction — that " +
   "threshold is unpublished and scales with a player's ownership, so it's a documented input you " +
-  "can adjust (default rise/fall thresholds below), not a fitted number. 'Unknown' means fewer " +
+  "can adjust (default rise/fall thresholds below), not a fitted number. How much that matters " +
+  "was measured: across this season's price changes, a player who had passed the threshold " +
+  "actually moved that night only about 10% of the time for falls and 22% for rises. Passing it " +
+  "means the transfers have added up, not that tonight is the night — and heavily-owned players " +
+  "routinely sit far past a flat threshold for days, because FPL's real one rises with ownership " +
+  "(roughly 32k net transfers per 1% owned for falls). 'Unknown' means fewer " +
   "than two ownership samples exist since the last price change — usually because this player " +
   "isn't on the ~2-hourly watchlist yet (see game_settings.price_watch_ownership_threshold / " +
   "price_watch_net_transfer_threshold) — not that nothing is happening.";
@@ -41,19 +46,27 @@ export const DEFAULT_FALL_THRESHOLD = 150_000;
 export type PriceDirection = "rise" | "fall" | "flat";
 
 /**
- * How close this player is to FPL's threshold, as a ladder rather than a
- * yes/no. These are tokens, not display text — `priceVerdictLabel` words them
- * with the direction, so a caller can compare without string-matching prose.
+ * Where this player sits relative to the threshold, as a ladder rather than a
+ * yes/no. Tokens, not display text — `priceVerdictLabel` words them with the
+ * direction, so a caller can compare without string-matching prose.
  *
- * "expected" means the net transfers have passed the threshold you set. It
- * does NOT mean a probability: see PRICE_WATCH_MODEL_NOTE. "unknown" still
- * means too few samples to say anything, and is never a quiet "no".
+ * **Renamed from "expected"/"very likely"/"possible"/"not tonight".** Those
+ * named a *prediction about tonight*, which these are not and cannot be:
+ * gating on the best threshold that could be fitted from this season's price
+ * changes, crossing it is followed by an actual change only 9.8% of the time
+ * for falls and 21.9% for rises (`scripts/price-threshold-gate.ts`). A name
+ * that promises 90% and delivers 10% is the failure CLAUDE.md's "say what the
+ * number means" exists to prevent, so the ladder now describes position
+ * relative to a threshold, which is exactly what it measures.
+ *
+ * "unknown" still means too few samples to say anything, and is never a quiet
+ * "no".
  */
-export type PriceVerdict = "expected" | "very likely" | "possible" | "not tonight" | "unknown";
+export type PriceVerdict = "past" | "close" | "approaching" | "far" | "unknown";
 
 /** Ladder cut-points, in progress-toward-threshold. */
-const VERY_LIKELY_AT = 0.85;
-const POSSIBLE_AT = 0.6;
+const CLOSE_AT = 0.85;
+const APPROACHING_AT = 0.6;
 
 export interface OwnershipSample {
   observedAt: string;
@@ -171,40 +184,45 @@ export function priceProgress(
 }
 
 function verdictFor(direction: PriceDirection, ratio: number): PriceVerdict {
-  if (direction === "flat") return "not tonight";
-  if (ratio >= 1) return "expected";
-  if (ratio >= VERY_LIKELY_AT) return "very likely";
-  if (ratio >= POSSIBLE_AT) return "possible";
-  return "not tonight";
+  if (direction === "flat") return "far";
+  if (ratio >= 1) return "past";
+  if (ratio >= CLOSE_AT) return "close";
+  if (ratio >= APPROACHING_AT) return "approaching";
+  return "far";
 }
 
 /**
  * Display text for a verdict, worded with its direction.
  *
- * Deliberately says "expected to rise tonight", never "111% likely" — the
- * percentage is progress past a threshold the owner set, not a probability,
- * and wording it as confidence would be the exact conflation
- * PRICE_WATCH_MODEL_NOTE exists to prevent.
+ * Every string here describes **where the player sits against your
+ * threshold**, never what will happen tonight. It used to say "Expected to
+ * fall tonight", which measured 9.8% right; Palmer carried that label for
+ * three days without moving. The percentage was always documented as progress
+ * rather than probability — the label is what contradicted it.
  */
 export function priceVerdictLabel(verdict: PriceVerdict, direction: PriceDirection): string {
   if (verdict === "unknown") return "Not enough samples yet";
-  if (direction === "flat") return "No movement";
+  if (direction === "flat") return "No net movement";
   const move = direction === "rise" ? "rise" : "fall";
   switch (verdict) {
-    case "expected":
-      return `Expected to ${move} tonight`;
-    case "very likely":
-      return `Very likely to ${move}`;
-    case "possible":
-      return `Possible ${move}`;
+    case "past":
+      return `Past your ${move} threshold`;
+    case "close":
+      return `Close to your ${move} threshold`;
+    case "approaching":
+      return `Moving toward a ${move}`;
     default:
-      return "Not tonight";
+      return `Well short of a ${move}`;
   }
 }
 
-/** True when a move is close enough to act on — the old "likely tonight" gate. */
-export const isImminent = (verdict: PriceVerdict): boolean =>
-  verdict === "expected" || verdict === "very likely";
+/**
+ * True when a player is at or near the threshold — the flag /transfers shows
+ * beside an incoming pick. Named for proximity, not imminence: see
+ * PriceVerdict on why this cannot be read as "it will move tonight".
+ */
+export const isNearThreshold = (verdict: PriceVerdict): boolean =>
+  verdict === "past" || verdict === "close";
 
 const PAGE_ROWS = 1000;
 
