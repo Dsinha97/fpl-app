@@ -1,6 +1,6 @@
 # Sprint 38 — the player profile, the price reading, and a shortlist
 
-**Built 2026-09-21.**
+**Built 2026-09-21.** Linear parent [DSI-180](https://linear.app/dsinha-org/issue/DSI-180/sprint-38-the-player-profile-the-price-reading-and-a-shortlist), merged as PR [#31](https://github.com/Dsinha97/fpl-app/pull/31) (`0c63cd2`).
 
 Three threads that turned out to share a spine: the app knew a great deal about a player and had
 nowhere good to show it. `/players` — the page built for researching a player — opened nothing at
