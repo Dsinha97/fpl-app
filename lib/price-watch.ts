@@ -2,12 +2,15 @@
 //
 // The owner's real question is "transfer now, or wait for the price to
 // move" — that needs a progress-to-threshold reading, not a classifier.
-// FPL's actual flag threshold is unpublished and ownership-dependent
-// (roadmap: "price-change prediction"), so per CLAUDE.md ("when a term
-// cannot be dropped, make it an input" / "never tune an invented
-// coefficient until the answer looks reasonable") the threshold here is a
-// documented, user-adjustable input — the same shape as `decisionMargin`
-// in lib/transfer-optimizer.ts — not a fitted number.
+//
+// Sprint 29 shipped the threshold as a flat, documented, user-set input
+// rather than a fitted number, because FPL's real one is unpublished. Sprint
+// 38 replaced it with a fitted one, deliberately and with sign-off: the flat
+// pair was not merely imprecise but wrong in shape, reading -736% for a
+// 39%-owned player who was in fact at 89% of his real threshold. See
+// `thresholdsFor` below for the measurement and its weaknesses. It is still
+// an input — `priceProgress` and `loadPriceProgress` both take an override —
+// but its default is now evidence rather than a guess.
 //
 // Step 1 (supabase/migrations/20260830191442_sprint29_price_watchlist.sql)
 // samples player_ownership_history at ~2h for a bounded watchlist instead
@@ -25,23 +28,76 @@ import { supabase } from "./supabase/client";
 import { clamp } from "./stats";
 
 export const PRICE_WATCH_MODEL_NOTE =
-  "This is a progress reading toward FPL's own price-change threshold, not a prediction — that " +
-  "threshold is unpublished and scales with a player's ownership, so it's a documented input you " +
-  "can adjust (default rise/fall thresholds below), not a fitted number. How much that matters " +
-  "was measured: across this season's price changes, a player who had passed the threshold " +
-  "actually moved that night only about 10% of the time for falls and 22% for rises. Passing it " +
-  "means the transfers have added up, not that tonight is the night — and heavily-owned players " +
-  "routinely sit far past a flat threshold for days, because FPL's real one rises with ownership " +
-  "(roughly 32k net transfers per 1% owned for falls). 'Unknown' means fewer " +
-  "than two ownership samples exist since the last price change — usually because this player " +
-  "isn't on the ~2-hourly watchlist yet (see game_settings.price_watch_ownership_threshold / " +
+  "Progress toward FPL's own price-change threshold — how far the net transfers have added up, " +
+  "not a prediction. The threshold is unpublished, so it is estimated from this season's actual " +
+  "price changes: falls scale steeply with ownership (about 32k net transfers per 1% owned, which " +
+  "explains 81% of when they fire), while rises go at a roughly flat 378k whatever the ownership. " +
+  "Those are fitted figures you can override, not published ones. Passing 100% means the " +
+  "transfers have reached the estimated threshold — measured across this season, a player past it " +
+  "actually moved that night only about 10% of the time for falls and 22% for rises, so treat it " +
+  "as 'the pressure is there', never as 'tonight'. 'Unknown' means fewer than two ownership " +
+  "samples exist since the last price change — usually because this player isn't on the " +
+  "~2-hourly watchlist yet (see game_settings.price_watch_ownership_threshold / " +
   "price_watch_net_transfer_threshold) — not that nothing is happening.";
 
-/** Default progress-to-threshold levels, in absolute net transfers. FPL's real
- *  thresholds are unpublished and scale with a player's ownership base; these
- *  are a starting input for the owner to override, not a fitted estimate. */
-export const DEFAULT_RISE_THRESHOLD = 200_000;
-export const DEFAULT_FALL_THRESHOLD = 150_000;
+/**
+ * FPL's price-change thresholds, in absolute net transfers.
+ *
+ * **These are fitted**, which is a deliberate exception to this file's
+ * original "a documented input, never a fitted number" stance, taken with the
+ * owner's sign-off and on direct evidence rather than on the answer looking
+ * reasonable. What changed: `scripts/price-window-probe.ts` measured the net
+ * transfers standing at the moment every real 2026-27 price change fired, and
+ * regressed that on ownership. A real threshold should be a tight function of
+ * ownership, because that is what a threshold *is*.
+ *
+ *   falls (n=248): 3,577 + 31,870 per 1% owned, **R² = 0.811**
+ *   rises (n=55):  ~378,000 flat,               **R² = 0.022**
+ *
+ * So the two directions are genuinely different mechanisms, and the previous
+ * flat pair was wrong in two different ways: falls had the wrong *shape*
+ * (a 39%-owned player's real threshold is ~1.24m, not 150k — which is how
+ * B.Fernandes read −736%), and rises had the wrong *level* (~378k, not 200k)
+ * while needing no scaling at all.
+ *
+ * The same probe killed the competing hypothesis that FPL's counter resets
+ * each deadline: "since last price change" explained firings better on both
+ * R² and spread, in both directions.
+ *
+ * Still an estimate, and still overridable. Two disclosed weaknesses: the fit
+ * rests on events that *did* fire, so at ~2h sampling it slightly overshoots
+ * the true trigger; and the rise level is a mean over 55 events rather than a
+ * mechanism, so it is the half to revisit first.
+ */
+export const FALL_THRESHOLD_BASE = 3_577;
+export const FALL_THRESHOLD_PER_PERCENT = 31_870;
+export const RISE_THRESHOLD_FLAT = 378_000;
+
+/** Floor, so a near-zero-ownership player still needs *some* net movement. */
+const MIN_THRESHOLD = 5_000;
+
+export interface PriceThresholds {
+  rise: number;
+  fall: number;
+}
+
+/**
+ * Thresholds for a player at a given ownership percentage.
+ *
+ * Pass `null` ownership — a player with no sample yet — and it falls back to
+ * the population mean fall threshold rather than the 0%-owned one, which
+ * would fire for anybody.
+ */
+export function thresholdsFor(ownershipPercent: number | null): PriceThresholds {
+  const own = ownershipPercent ?? MEAN_OWNERSHIP_FALLBACK;
+  return {
+    rise: RISE_THRESHOLD_FLAT,
+    fall: Math.max(MIN_THRESHOLD, FALL_THRESHOLD_BASE + FALL_THRESHOLD_PER_PERCENT * own),
+  };
+}
+
+/** Mean ownership across the pool, for players with no sample to read. */
+const MEAN_OWNERSHIP_FALLBACK = 5;
 
 export type PriceDirection = "rise" | "fall" | "flat";
 
@@ -72,6 +128,8 @@ export interface OwnershipSample {
   observedAt: string;
   transfersInEvent: number | null;
   transfersOutEvent: number | null;
+  /** `selected_by_percent` at this sample. Drives the fall threshold. */
+  selectedByPercent?: number | null;
 }
 
 export interface PriceProgress {
@@ -146,17 +204,22 @@ export function netTransfersSinceLastPriceChange(samples: OwnershipSample[]): nu
 }
 
 /**
- * Progress toward a rise/fall threshold. `riseThreshold`/`fallThreshold` are
- * the documented, caller-supplied inputs (see PRICE_WATCH_MODEL_NOTE) —
- * never invented coefficients tuned until the answer looks right.
+ * Progress toward a rise/fall threshold.
+ *
+ * `thresholds` defaults to `thresholdsFor(this player's latest ownership)`,
+ * so the fall threshold scales with ownership as FPL's own does. Pass an
+ * explicit pair to override — it remains the owner's input, now with a
+ * measured starting value rather than a guessed flat one.
  */
 export function priceProgress(
   playerCode: number,
   samples: OwnershipSample[],
-  riseThreshold = DEFAULT_RISE_THRESHOLD,
-  fallThreshold = DEFAULT_FALL_THRESHOLD,
+  thresholds?: PriceThresholds,
 ): PriceProgress {
-  const asOf = samples.length > 0 ? samples[samples.length - 1].observedAt : null;
+  const latest = samples.length > 0 ? samples[samples.length - 1] : null;
+  const { rise: riseThreshold, fall: fallThreshold } =
+    thresholds ?? thresholdsFor(latest?.selectedByPercent ?? null);
+  const asOf = latest?.observedAt ?? null;
   const netTransfers = netTransfersSinceLastPriceChange(samples);
 
   if (netTransfers === null) {
@@ -281,8 +344,8 @@ async function fetchAllPages<T>(
 export async function loadPriceProgress(
   season: string,
   playerCodes: number[],
-  riseThreshold = DEFAULT_RISE_THRESHOLD,
-  fallThreshold = DEFAULT_FALL_THRESHOLD,
+  /** Override the measured, ownership-scaled thresholds for every player. */
+  thresholds?: PriceThresholds,
 ): Promise<Map<number, PriceProgress>> {
   const result = new Map<number, PriceProgress>();
   if (playerCodes.length === 0) return result;
@@ -320,6 +383,7 @@ export async function loadPriceProgress(
   const ownership = await fetchAllPages<{
     player_code: number;
     observed_at: string;
+    selected_by_percent: number | null;
     transfers_in_event: number | null;
     transfers_out_event: number | null;
   }>(
@@ -333,7 +397,7 @@ export async function loadPriceProgress(
     (from) =>
       supabase
         .from("player_ownership_history")
-        .select("player_code, observed_at, transfers_in_event, transfers_out_event")
+        .select("player_code, observed_at, selected_by_percent, transfers_in_event, transfers_out_event")
         .eq("season", season)
         .in("player_code", playerCodes)
         .gte("observed_at", earliestAnchor)
@@ -354,6 +418,10 @@ export async function loadPriceProgress(
       observedAt: row.observed_at,
       transfersInEvent: row.transfers_in_event,
       transfersOutEvent: row.transfers_out_event,
+      // FPL returns this as a string; a non-numeric one is absent, not zero.
+      selectedByPercent: Number.isFinite(Number(row.selected_by_percent))
+        ? Number(row.selected_by_percent)
+        : null,
     });
     byPlayer.set(code, list);
   }
@@ -362,11 +430,11 @@ export async function loadPriceProgress(
   for (const code of playerCodes) {
     if (!lastChangeAt.has(code)) continue; // never repriced this season — no anchor
     const samples = byPlayer.get(code) ?? [];
-    const reading = priceProgress(code, samples, riseThreshold, fallThreshold);
+    const reading = priceProgress(code, samples, thresholds);
     // Projected here rather than in the caller so the samples are used once
     // and not refetched — and so there is one implementation of the forward
     // reading, not one per surface.
-    reading.projections = projectToCutoffs(reading, samples, riseThreshold, fallThreshold, now);
+    reading.projections = projectToCutoffs(reading, samples, thresholds, now);
     result.set(code, reading);
   }
   return result;
@@ -462,8 +530,7 @@ export function upcomingCutoffs(now: Date = new Date(), count = 3): Date[] {
 export function projectToCutoffs(
   current: PriceProgress,
   samples: OwnershipSample[],
-  riseThreshold = DEFAULT_RISE_THRESHOLD,
-  fallThreshold = DEFAULT_FALL_THRESHOLD,
+  thresholds?: PriceThresholds,
   now: Date = new Date(),
   nights = 3,
 ): PriceProjection[] {
@@ -472,7 +539,9 @@ export function projectToCutoffs(
   const rate = netTransferRatePerHour(samples, now);
   if (rate === null) return [];
 
-  const threshold = current.direction === "rise" ? riseThreshold : fallThreshold;
+  const latest = samples.length > 0 ? samples[samples.length - 1] : null;
+  const resolved = thresholds ?? thresholdsFor(latest?.selectedByPercent ?? null);
+  const threshold = current.direction === "rise" ? resolved.rise : resolved.fall;
   if (!threshold) return [];
 
   return upcomingCutoffs(now, nights).map((at, i) => {
