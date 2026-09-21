@@ -227,6 +227,22 @@ or `tsc --noEmit` breaks on Deno globals.
   zero, check the row count before concluding nothing is happening. Page **concurrently**
   (count first, then fire every page — `lib/player-pool.ts`'s `fetchAll`): serially this was
   42 round trips and 20+ seconds.
+- **`transfers_in_event` / `transfers_out_event` are per-GAMEWEEK counters FPL zeroes at every
+  deadline.** Never difference a first and last sample across one — that only works when no
+  deadline falls between, which was true for 11% of players. It had Palmer reading "expected
+  to fall, −321%" for three days when the true figure was **+364,022, a net inflow**: the sign
+  inverted, not just the magnitude. No deadline lookup is needed to fix it — the in-counter
+  only increases within a gameweek, so a decrease between consecutive samples *is* a reset
+  (`netTransfersSinceLastPriceChange`, `lib/price-watch.ts`).
+- **FPL's price threshold scales with ownership — roughly 22k net transfers per 1% owned**
+  (measured at every real 2026-27 price change; docs/sprints/sprint-38.md §2b). The shipped
+  `DEFAULT_FALL_THRESHOLD` is flat and therefore ~5.6× too low at 39% ownership. It stays a
+  documented user-set input until the scaling is gated the way the classifier was — a measured
+  curve is evidence, but an ungated one is still not a default.
+- **When a fitted model beats a naive baseline that shares its inputs, check the inputs first.**
+  DSI-54's falls classifier "won" at K=10/20 only because the feature both it and the baseline
+  read was broken; fixing it lifted the baseline more than the model and the gate then failed
+  at every budget.
 - **`cost_change_event` is FPL's *cumulative* change for the gameweek, not a per-night delta.**
   Labelling a price fall by its sign marks a player already down on the week as falling every
   night. `player_price_history` is change-on-write, so direction comes from comparing
