@@ -206,6 +206,56 @@ Note the order of evidence: the gate tested a downstream proxy and was inconclus
 tested the mechanism directly and was not. When a gate on a consequence comes back MIXED, it is
 worth asking whether the underlying quantity can be measured directly instead.
 
+### 2f. Re-running the gate as a three-arm ablation
+
+The §2c run compared scaled against the pre-Sprint-38 constants and returned MIXED — but that
+comparison could not separate two different claims: that ownership *scaling* helps, and that the
+old *levels* were simply wrong. They were wrong (rises fire at ~378k against a 200k default), so
+scaled was being handed a badly-levelled opponent and any win was ambiguous between the two.
+
+Three arms now, the middle one being the honest baseline:
+
+| arm | what it is |
+|---|---|
+| `legacy` | the pre-Sprint-38 constants |
+| `flat` | the best single constant per direction, refit walk-forward on the same training events the scaled arm sees, **minus ownership** |
+| `scaled` | the ownership line |
+
+`flat` vs `scaled` is the ablation that matters: same data, same walk forward, differing only in
+whether ownership is consulted.
+
+| ranking, recall | K=10 | K=20 | K=40 | K=80 |
+|---|---|---|---|---|
+| legacy | 10.6% | 16.1% | 26.5% | 34.1% |
+| flat | 6.1% | 10.1% | 22.2% | 42.3% |
+| scaled | 10.3% | 19.0% | 31.5% | 51.3% |
+| scaled-v-flat nights | 13/7 | 13/6 | 16/7 | 14/5 |
+| sign-test p | 0.2632 | 0.1671 | 0.0931 | 0.0636 |
+
+**The decomposition is the result:**
+
+| direction | legacy F1 | from the level | from the shape | final |
+|---|---|---|---|---|
+| rise | 25.6% | **+3.5** | +0.8 | 29.9% |
+| fall | 10.1% | +1.4 | **+4.6** | 16.0% |
+
+For rises the *level* does the work and the shape adds almost nothing — matching the probe's
+R²=0.022. For falls the *shape* does the work, +4.6 against the level's +1.4 — matching R²=0.811.
+**That is exactly the split that shipped: scaled falls, flat rises**, corroborated by an arm the
+first run did not have.
+
+**The formal verdict is still MIXED, and this re-run did not change it.** Scaled now beats the
+fair baseline at every budget (the first run lost at K=10) and every p-value improved against a
+*harder* opponent — but the best is 0.0636 against a Bonferroni alpha of 0.0125. 23 scored nights
+is not enough power. The ranking evidence is short of significance and is not claimed otherwise;
+what shipped rests on the window probe's direct measurement of the mechanism (§2e), with this
+ablation as corroboration of its shape.
+
+One incidental finding worth keeping: the fitted-flat arm is *worse than legacy* at tight budgets
+(6.1% vs 10.6% at K=10). Its fall level (~71k, the mean firing magnitude) fires for far more
+players than legacy's 150k, which ranks badly when the budget is small. A better-centred constant
+is not automatically a better one.
+
 ### 2d. The finding that needed no fit
 
 **Precision of the best threshold obtainable is 9.8% for falls and 21.9% for rises.** Crossing a
@@ -396,8 +446,8 @@ write-only hole.
   produce 667 readings.
 - **The rise threshold's level** (~378k) is a mean over 55 events, not a mechanism — the half of
   §2e to revisit first as more rise events accumulate.
-- **Re-run the §2c gate** now that the flat baseline it compared against has itself been
-  corrected; that comparison was made against a rise level we now know was wrong.
+- **Re-run the §2c gate again once more nights accumulate.** The three-arm re-run (§2f) still
+  falls short of significance on ranking at 23 scored nights.
 - **The falls classifier** — its gate now fails at every budget, so there is nothing to wire. Worth
   re-running once more history accumulates, and once the threshold above is settled.
 - **The three `toPlayerData` copies** (`builder:1030`, `deadline:750`, `team:989`) are still three.

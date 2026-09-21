@@ -246,6 +246,13 @@ or `tsc --noEmit` breaks on Deno globals.
   and nothing shipped; the probe that regressed firing magnitude on ownership gave R²=0.811 and
   settled it. When a gate returns MIXED, ask whether the underlying quantity can be measured
   instead of inferred.
+- **Compare a change against a *fairly tuned* baseline, not the thing you are replacing.** The
+  threshold gate's first run pitted a fitted curve against badly-levelled constants, so a win
+  could not be attributed to the curve's shape rather than its level. Adding a third arm — the
+  best flat constant refit on the same training data — split the F1 gain into "from the level"
+  and "from the shape" and showed rises need only the level while falls need the shape
+  (`scripts/price-threshold-gate.ts`). A better-centred constant is also not automatically a
+  better one: that arm ranked *worse* than legacy at tight budgets.
 - **Crossing the price threshold is ~10% predictive for falls and ~22% for rises**, so the
   verdict ladder describes *position* (`past`/`close`/`approaching`/`far`), never "tonight".
   It used to say "Expected to fall tonight" and Palmer wore that for three days. When a
