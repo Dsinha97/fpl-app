@@ -55,6 +55,15 @@ interface PlayerDetailProps {
    */
   inline?: boolean;
   onClose: () => void;
+  /**
+   * Opens this player's full profile modal (`components/player-modal.tsx`).
+   *
+   * The bridge between the two surfaces. This panel stays deliberately
+   * shallow and fetch-free — it is for the taps that happen dozens of times
+   * a session — and hands off to the modal for the deep read. Rendered only
+   * when a handler is passed, so pages that have no modal show no dead link.
+   */
+  onOpenProfile?: (player: PlayerData) => void;
   /** Omitted on a read-only panel — each action's button renders only when its handler is given. */
   onSetCaptain?: (playerId: number) => void;
   onSetVice?: (playerId: number) => void;
@@ -84,6 +93,7 @@ export function PlayerDetail({
   top,
   left,
   onClose,
+  onOpenProfile,
   onSetCaptain,
   onSetVice,
   onRemove,
@@ -572,6 +582,20 @@ export function PlayerDetail({
         >
           Replace
         </Button>
+      )}
+
+      {onOpenProfile && (
+        // The visible affordance for everything this panel deliberately
+        // leaves out — per-gameweek history, past seasons, the price
+        // outlook. A link rather than a button variant, because it navigates
+        // to more rather than acting on the squad.
+        <button
+          type="button"
+          onClick={() => onOpenProfile(player)}
+          className="mt-2 w-full rounded py-1 text-center text-xs font-medium text-purple-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 dark:text-primary"
+        >
+          Full profile →
+        </button>
       )}
     </div>
   );

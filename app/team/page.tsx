@@ -13,6 +13,7 @@ import { ChevronRight } from "lucide-react";
 import { groupByEvent, hitCost, loadTransfers, type TransferRow } from "@/lib/manager-transfers";
 import { diffSquads } from "@/lib/squad-diff";
 import { PitchView, type SquadLayout } from "@/components/pitch-view";
+import { useProfileModal } from "@/components/player-modal/use-profile-modal";
 import type { PlayerData } from "@/components/player-card";
 import { loadSquadHeadlines, type NewsHeadline } from "@/lib/news-feed";
 import {
@@ -347,6 +348,19 @@ export default function TeamPage() {
 
   // Squad section: which of the two views, and which gameweek in the second.
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
+
+  /** Opponent short names for the profile modal's gameweek table. */
+  const teamShortById = useMemo(
+    () => new Map([...(data?.teamMeta ?? new Map())].map(([id, m]) => [id, m.short])),
+    [data],
+  );
+  /** Full profile modal, opened from the pitch popover. This page is
+   *  otherwise read-only, so the modal gets no squad actions either. */
+  const { openProfile, modal: profileModal } = useProfileModal({
+    season: data?.nextGw?.season ?? null,
+    currentEvent: selectedEvent,
+    teamShortById,
+  });
   const [eventPoints, setEventPoints] = useState<Map<number, ActualPoints>>(new Map());
   // FPL's own live points breakdown (player_live_stats.explain) for the
   // selected gameweek — a finalised gameweek carries null per player, same
@@ -1004,6 +1018,9 @@ export default function TeamPage() {
       if (!row) return null;
       return {
         id: row.id,
+        // Needed by the full-profile modal, whose price and past-season
+        // histories are keyed on player_code rather than the reassignable id.
+        code: row.code,
         web_name: row.web_name ?? `#${row.id}`,
         team_code: data?.teamMeta.get(row.team_id)?.code ?? null,
         element_type: row.element_type,
@@ -1581,7 +1598,12 @@ export default function TeamPage() {
                   )}
                   {pointsLoading && <p className="mt-3 text-sm text-zinc-500">Loading points…</p>}
                   {!pointsLoading && gwLayout && (
-                    <PitchView squad={gwCards} quota={data.rules.positionQuota} layout={gwLayout} />
+                    <PitchView
+                      squad={gwCards}
+                      quota={data.rules.positionQuota}
+                      layout={gwLayout}
+                      onOpenProfile={openProfile}
+                    />
                   )}
                   {/* The silent-empty path. `gwLayout` is null whenever the
                       picks or the score for the selected gameweek are missing,
@@ -2142,6 +2164,8 @@ export default function TeamPage() {
           card was built from — it existed only because the form it pointed at
           ("enter your Manager ID above") was a bare row with no explanation of
           its own. One statement, at the top, where the form is. */}
+
+      {profileModal}
     </main>
   );
 }

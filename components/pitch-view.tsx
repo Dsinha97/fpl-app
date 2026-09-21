@@ -59,6 +59,12 @@ interface PitchViewProps {
   onRemove?: (playerId: number) => void;
   onFindReplacement?: (playerId: number) => void;
   /**
+   * Opens a player's full profile. Threaded to `PlayerDetail`, which renders
+   * a "Full profile" link only when this is passed — so a page without a
+   * modal shows no dead control.
+   */
+  onOpenProfile?: (player: PlayerData) => void;
+  /**
    * Turns an empty slot into an "add a player" button, for the same reason
    * the actions above are optional: only `/builder` edits a squad, so this
    * is the only caller that passes it. Absent, `EmptySlot` stays inert.
@@ -84,6 +90,7 @@ export function PitchView({
   onSetVice,
   onRemove,
   onFindReplacement,
+  onOpenProfile,
   onAddToSlot,
   addingPosition = null,
   header,
@@ -307,6 +314,16 @@ export function PitchView({
             onSetCaptain={onSetCaptain}
             onSetVice={onSetVice}
             onRemove={onRemove}
+            onOpenProfile={
+              onOpenProfile &&
+              ((p) => {
+                // Close the popover first. Both surfaces are aria-modal
+                // dialogs, so leaving this one open stacks two of them —
+                // confusing to look at and wrong for a screen reader.
+                closeMenu();
+                onOpenProfile(p);
+              })
+            }
             onFindReplacement={
               onFindReplacement &&
               ((id) => {
@@ -330,6 +347,13 @@ export function PitchView({
           onSetCaptain={onSetCaptain}
           onSetVice={onSetVice}
           onRemove={onRemove}
+          onOpenProfile={
+            onOpenProfile &&
+            ((p) => {
+              closeMenu();
+              onOpenProfile(p);
+            })
+          }
           onFindReplacement={
             onFindReplacement &&
             ((id) => {
