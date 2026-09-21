@@ -31,7 +31,7 @@ import {
   type TransferMove,
 } from "@/lib/transfers";
 import { DEFAULT_DECISION_MARGIN, type XpByEvent } from "@/lib/transfer-optimizer";
-import { loadPriceProgress, PRICE_WATCH_MODEL_NOTE, type PriceProgress } from "@/lib/price-watch";
+import { loadPriceProgress, isImminent, priceVerdictLabel, PRICE_WATCH_MODEL_NOTE, type PriceProgress } from "@/lib/price-watch";
 // `signatureOf` still lives in transfer-plan.tsx, which /deadline still uses
 // for its own optimiser output. /transfers no longer renders TransferPlan —
 // see the note on `TransferPath` for why the page now has one answer.
@@ -1228,11 +1228,11 @@ export default function TransfersPage() {
                               {(() => {
                                 const inCode = rowById.get(move!.inId)?.code;
                                 const pp = inCode !== undefined ? priceProgress.get(inCode) : undefined;
-                                if (!pp || pp.verdict !== "likely tonight") return null;
+                                if (!pp || !isImminent(pp.verdict)) return null;
                                 return (
                                   <span
                                     className="shrink-0 text-amber-600 dark:text-amber-400"
-                                    title={`Price watch: ${pp.direction} — ${Math.round((pp.progress ?? 0) * 100)}% (${pp.verdict})`}
+                                    title={`Price watch: ${priceVerdictLabel(pp.verdict, pp.direction)} — ${Math.round((pp.progressRaw ?? 0) * 100)}% of your threshold`}
                                   >
                                     {pp.direction === "rise" ? "↑" : "↓"}
                                   </span>

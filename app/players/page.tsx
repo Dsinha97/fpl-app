@@ -26,7 +26,7 @@ import {
   type ScoredPlayer,
 } from "@/lib/scoring";
 import { DEFAULT_GEM_CUTS, detectGems, type GemCandidate } from "@/lib/hidden-gems";
-import { loadPriceProgress, PRICE_WATCH_MODEL_NOTE, type PriceProgress } from "@/lib/price-watch";
+import { loadPriceProgress, priceVerdictLabel, PRICE_WATCH_MODEL_NOTE, type PriceProgress } from "@/lib/price-watch";
 import {
   defaultPlayerFilters,
   matchesFilters,
@@ -896,18 +896,22 @@ export default function PlayersPage() {
                         if (!pp || pp.verdict === "unknown") {
                           return <span className="text-muted-foreground">&mdash;</span>;
                         }
-                        const pct = Math.round((pp.progress ?? 0) * 100);
+                        // `progressRaw`, not `progress`: the clamped one pins
+                        // at 100% and hides how far past the threshold a
+                        // player already is, which is the whole signal once
+                        // a move is imminent.
+                        const pct = Math.round((pp.progressRaw ?? 0) * 100);
                         if (pp.direction === "flat") {
-                          return <span className="tabular-nums text-muted-foreground">{pct}%</span>;
+                          return <span className="tabular-nums text-muted-foreground">0%</span>;
                         }
                         return (
                           <Badge
                             tone={pp.direction === "rise" ? "positive" : "negative"}
                             size="sm"
                             className="tabular-nums"
-                            title={`Price watch: ${pp.direction} — ${pct}% (${pp.verdict})`}
+                            title={`${priceVerdictLabel(pp.verdict, pp.direction)} — ${Math.abs(pct)}% of the net transfers your threshold says a ${pp.direction} takes. Not a probability.`}
                           >
-                            {pp.direction === "rise" ? "▲" : "▼"} {pct}%
+                            {pp.direction === "rise" ? "▲" : "▼"} {Math.abs(pct)}%
                           </Badge>
                         );
                       })()}
