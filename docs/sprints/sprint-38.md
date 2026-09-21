@@ -115,11 +115,69 @@ that moment:
 Roughly linear in ownership at about **22,000 net transfers per 1% owned**, with rises carrying a
 floor near 150k on top. A flat 150,000 is therefore off by ~5.6× for a 39%-owned player.
 
-**Not changed yet, deliberately.** Switching the default to a fitted ownership curve is exactly
-the move CLAUDE.md reserves ("never tune an invented coefficient until the answer looks
-reasonable"), and this fit has not been gated walk-forward the way the classifier was. It is
-recorded here as measurement, and the threshold remains the documented user-set input it has
-always been. Gating it is the obvious next piece of price work.
+### 2c. Gating it — MIXED, so it does not ship
+
+`scripts/price-threshold-gate.ts` walk-forwards the scaled threshold against the shipped flat one:
+for night *t* the ownership→threshold line is fitted on changes from nights before *t* only, then
+scored both as a ranking (recall at budgets K, paired per-night sign test, **Bonferroni across the
+four budgets** — the same standard the classifier gate uses) and as a classification at the
+boundary the UI renders. A win needs both: better ordering is worthless if the verdict it drives is
+still wrong, and a better verdict on worse ordering is luck.
+
+Fits over 23 scored nights, 412 change events:
+
+```
+rise:   336,900 + 1,740 per 1% owned  (n=58)   -- essentially flat
+fall:     3,577 + 31,790 per 1% owned (n=341)  -- steeply ownership-scaled
+```
+
+| ranking, recall | K=10 | K=20 | K=40 | K=80 |
+|---|---|---|---|---|
+| flat | 10.6% | 16.1% | 26.5% | 34.1% |
+| scaled | 10.3% | 19.0% | 31.5% | 51.3% |
+
+Best p = 0.0414 at K=80; Bonferroni needs < 0.0125, so it does not survive.
+
+| classification | precision | recall | F1 |
+|---|---|---|---|
+| rise flat | 14.7% | 97.1% | 25.6% |
+| rise scaled | 21.9% | 47.1% | 29.9% |
+| fall flat | 8.7% | 12.0% | 10.1% |
+| fall scaled | 9.8% | 43.7% | 16.0% |
+
+**MIXED — classification improves in both directions, ranking does not survive correction. The
+flat defaults stay.** Two things worth carrying:
+
+- **Rises barely scale with ownership at all** (slope 1,740/pct ≈ 0). The bucket table in §2b
+  suggested otherwise; a proper fit over all 58 events says the apparent trend was noise. What is
+  wrong for rises is the *level* — ~337k measured against a shipped 200k — not the shape.
+- One methodological change, disclosed in the script: each direction is fitted and scored
+  independently rather than waiting for both. Requiring both held falls (341 events) hostage to
+  rises (60) and cost two thirds of the scorable nights. That widens the test rather than
+  narrowing it.
+
+### 2d. The finding that needed no fit
+
+**Precision of the best threshold obtainable is 9.8% for falls and 21.9% for rises.** Crossing a
+threshold is followed by a change that night about one time in ten — and the ladder was calling
+that "Expected to fall tonight". That is how Palmer wore the label for three days.
+
+The percentage was always documented as progress rather than probability. The *label* was what
+contradicted it. So the ladder now describes position, which is what it measures:
+
+| was | now | reads |
+|---|---|---|
+| `expected` | `past` | "Past your fall threshold" |
+| `very likely` | `close` | "Close to your fall threshold" |
+| `possible` | `approaching` | "Moving toward a fall" |
+| `not tonight` | `far` | "Well short of a fall" |
+
+`isImminent` → `isNearThreshold` for the same reason. `PRICE_WATCH_MODEL_NOTE`, the `/players`
+tooltip and the card's own copy now carry the measured hit rate and the ownership caveat.
+
+This is the more useful outcome of the whole thread: the threshold question is a tuning problem
+that more data may settle, but a label promising 90% while delivering 10% was wrong at any
+threshold.
 
 **The label matters more than the number.** `+111.5%` is *111.5% of the net transfers your
 threshold says a rise takes* — not a probability. The reference app the owner shared conflates the
@@ -286,7 +344,9 @@ write-only hole.
 - **DSI-178** — expected-minutes discrimination (M7).
 - **A server-side price rollup** — `loadPriceProgress` ships ~42,000 rows to the browser to
   produce 667 readings.
-- **The ownership-scaled price threshold** — measured in §2b, not gated, not shipped.
+- **The ownership-scaled price threshold** — gated in §2c and MIXED, so not shipped. Re-run once
+  more nights accumulate; falls are the half with the evidence, and rises need a *level*
+  correction rather than scaling.
 - **The falls classifier** — its gate now fails at every budget, so there is nothing to wire. Worth
   re-running once more history accumulates, and once the threshold above is settled.
 - **The three `toPlayerData` copies** (`builder:1030`, `deadline:750`, `team:989`) are still three.

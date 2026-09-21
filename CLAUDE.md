@@ -234,11 +234,16 @@ or `tsc --noEmit` breaks on Deno globals.
   inverted, not just the magnitude. No deadline lookup is needed to fix it — the in-counter
   only increases within a gameweek, so a decrease between consecutive samples *is* a reset
   (`netTransfersSinceLastPriceChange`, `lib/price-watch.ts`).
-- **FPL's price threshold scales with ownership — roughly 22k net transfers per 1% owned**
-  (measured at every real 2026-27 price change; docs/sprints/sprint-38.md §2b). The shipped
-  `DEFAULT_FALL_THRESHOLD` is flat and therefore ~5.6× too low at 39% ownership. It stays a
-  documented user-set input until the scaling is gated the way the classifier was — a measured
-  curve is evidence, but an ungated one is still not a default.
+- **FPL's *fall* threshold scales steeply with ownership (~31,800 net transfers per 1% owned);
+  its *rise* threshold barely scales at all** — the rise problem is the level (~337k measured
+  vs a shipped 200k), not the shape. Gated walk-forward and the result was MIXED, so the flat
+  defaults stay (`scripts/price-threshold-gate.ts`, docs/sprints/sprint-38.md §2c). A bucket
+  table suggested rises scaled too; a proper fit over all 58 events said that was noise —
+  don't read a trend off buckets.
+- **Crossing the price threshold is ~10% predictive for falls and ~22% for rises**, so the
+  verdict ladder describes *position* (`past`/`close`/`approaching`/`far`), never "tonight".
+  It used to say "Expected to fall tonight" and Palmer wore that for three days. When a
+  measurement says a label is wrong 90% of the time, fixing the label needs no gate.
 - **When a fitted model beats a naive baseline that shares its inputs, check the inputs first.**
   DSI-54's falls classifier "won" at K=10/20 only because the feature both it and the baseline
   read was broken; fixing it lifted the baseline more than the model and the gate then failed
