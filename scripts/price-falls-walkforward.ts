@@ -188,7 +188,6 @@ function buildSamples(own: OwnRow[], prices: PriceRow[]): Sample[] {
 // standardising on the full sample would leak the test fold's distribution.
 
 const FEATURES = ["netSinceChange", "net24h", "ownership", "costChange", "daysSinceChange"] as const;
-type Feature = (typeof FEATURES)[number];
 
 const featureVector = (s: Sample): number[] => FEATURES.map((f) => s[f] as number);
 
@@ -212,7 +211,7 @@ function fit(train: Sample[], epochs = 400, lr = 0.1): Model {
   });
   const Z = X.map((r) => r.map((v, j) => (v - mean[j]) / sd[j]));
 
-  let weights = new Array<number>(d).fill(0);
+  const weights = new Array<number>(d).fill(0);
   let bias = 0;
   for (let e = 0; e < epochs; e++) {
     const gw = new Array<number>(d).fill(0);
