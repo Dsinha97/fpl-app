@@ -1,15 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ModelNote } from "@/components/ui/model-note";
+import { useEffect, useRef } from "react";
 import { DataCell, DataRow } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
-import { FixtureCell } from "./fdr-badge";
-import { AvailabilityBadge, RoleBadges } from "./player-status-icons";
 import { ConfidenceBadge, RateBand } from "./confidence-badge";
 import type { PlayerData } from "./player-card";
-import { ago } from "@/lib/change-feed";
-import { sourceBadge } from "@/lib/news-feed";
 import { liveStatLabel } from "@/lib/fixture-stats";
 
 const POSITION_NAME: Record<number, string> = {
@@ -19,14 +14,6 @@ const POSITION_NAME: Record<number, string> = {
   4: "Forward",
 };
 
-const STATUS_TEXT: Record<string, string> = {
-  a: "Available",
-  d: "Doubtful",
-  i: "Injured",
-  s: "Suspended",
-  u: "Unavailable",
-  n: "Not in squad",
-};
 
 /**
  * Panel width and max height, also used to keep it inside the pitch.
@@ -55,6 +42,15 @@ interface PlayerDetailProps {
    */
   inline?: boolean;
   onClose: () => void;
+  /**
+   * Opens this player's full profile modal (`components/player-modal.tsx`).
+   *
+   * The bridge between the two surfaces. This panel stays deliberately
+   * shallow and fetch-free — it is for the taps that happen dozens of times
+   * a session — and hands off to the modal for the deep read. Rendered only
+   * when a handler is passed, so pages that have no modal show no dead link.
+   */
+  onOpenProfile?: (player: PlayerData) => void;
   /** Omitted on a read-only panel — each action's button renders only when its handler is given. */
   onSetCaptain?: (playerId: number) => void;
   onSetVice?: (playerId: number) => void;
@@ -84,6 +80,7 @@ export function PlayerDetail({
   top,
   left,
   onClose,
+  onOpenProfile,
   onSetCaptain,
   onSetVice,
   onRemove,
@@ -96,7 +93,6 @@ export function PlayerDetail({
   inline = false,
 }: PlayerDetailProps) {
   const panel = useRef<HTMLDivElement>(null);
-  const [showAll, setShowAll] = useState(false);
 
   // Any click outside the panel dismisses it, as does Escape. The listener is
   // bound to the panel rather than the pitch, so clicking the grass closes it
@@ -116,9 +112,6 @@ export function PlayerDetail({
     };
   }, [onClose]);
 
-  const statusCode = player.status ?? "a";
-  const statusLabel = STATUS_TEXT[statusCode] ?? statusCode;
-  const chance = player.chance_of_playing_next_round;
 
   const stat = (label: string, value: string, accent = false) => (
     <div>
@@ -290,200 +283,13 @@ export function PlayerDetail({
       </div>
 
       {/*
-        Everything below is context, not a metric to scan at a glance — the
-        popup used to open at this full height on every click, which was too
-        big (Sprint 20/21). Collapsed by default; the metric grid and live
-        breakdown above, and the actions below, stay visible regardless.
+        The "Show full details" disclosure that used to live here is gone.
+        Everything it held — recent form, club system, availability detail,
+        set-piece duty, news, the fixture ticker — is now in the full profile
+        modal, which loads that context itself rather than rendering whatever
+        the calling page happened to have queried. This panel is for the fast
+        pitch taps; "Full profile" below is the way to the rest.
       */}
-      <button
-        type="button"
-        onClick={() => setShowAll((v) => !v)}
-        aria-expanded={showAll}
-        className="mt-2.5 flex w-full items-center justify-between border-t border-zinc-100 pt-2.5 text-[11px] font-medium text-zinc-500 transition-colors hover:text-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-900/40 dark:hover:text-primary"
-      >
-        {showAll ? "Hide full details" : "Show full details"}
-        <span
-          aria-hidden="true"
-          className={`text-zinc-400 transition-transform ${showAll ? "" : "rotate-180"}`}
-        >
-          ⌃
-        </span>
-      </button>
-
-      {/* grid-template-rows 0fr→1fr (Sprint 24's collapsible-card technique,
-          components/ui/collapsible-card.tsx:136) rather than mount/unmount,
-          so the chevron's rotation and this height change read as one
-          motion instead of the chevron promising smoothness the content
-          snapped past. */}
-      <div
-        className={`grid transition-[grid-template-rows] duration-base ease-emphasis motion-reduce:transition-none ${
-          showAll ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        }`}
-      >
-        <div className="overflow-hidden">
-          {/*
-            Season detail beyond the headline grid above — dc_actions is a
-            raw action count (clearances + blocks + interceptions + tackles,
-            or the same plus recoveries for MID/FWD), not points: FPL only
-            scores DC on crossing a positional threshold (10 for defenders,
-            12 for midfielders), so labelling this "DC Pts" would be wrong.
-          */}
-          {(player.season_bonus !== undefined || player.dc_actions !== undefined) && (
-            <div className="mt-2.5 grid grid-cols-2 gap-2 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
-              {stat("Bonus pts", player.season_bonus?.toString() ?? "—")}
-              {stat(
-                "DC actions",
-                player.dc_actions !== undefined && player.dc_actions !== null
-                  ? player.dc_actions.toString()
-                  : "—",
-              )}
-            </div>
-          )}
-
-          {/* recent results — the mirror of "Next fixtures" below, looking backward */}
-          {player.past_results && player.past_results.length > 0 && (
-            <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
-              <div className="text-[10px] uppercase tracking-wide text-zinc-500">Recent form</div>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {player.past_results.slice(-6).map((r) => (
-                  <span
-                    key={r.event}
-                    title={`GW${r.event} · ${r.points} points`}
-                    className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold shadow-sm ${
-                      r.points >= 6
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                        : r.points >= 2
-                          ? "bg-zinc-100 text-zinc-700 dark:bg-surface-3 dark:text-zinc-300"
-                          : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
-                    }`}
-                  >
-                    {r.points}pts {r.opponent_short_name.toUpperCase()}
-                    {r.is_home ? "(H)" : "(A)"}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* club system — Sprint 12.5, context only, never folded into xP */}
-          {player.system && (
-            <p className="mt-2.5 flex items-center gap-1 border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40 dark:text-zinc-400">
-              <span className="font-medium text-zinc-600 dark:text-zinc-300">System</span> ·{" "}
-              <span className="min-w-0 truncate">{player.system}</span>
-              {/* The line truncates, and the half that got cut was the caveat:
-                  this is context, never folded into xP. A title attribute is
-                  the wrong place for the one sentence that stops a number
-                  being misread. */}
-              <ModelNote label="What the club system tells you">
-                Tactical context for {player.system} — not applied to xP.
-              </ModelNote>
-            </p>
-          )}
-
-          {/* availability */}
-          <div className="mt-2.5 flex items-start gap-2 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
-            <AvailabilityBadge
-              status={player.status}
-              chanceOfPlaying={chance}
-              news={player.news}
-              size="w-4 h-4"
-            />
-            <div className="min-w-0 flex-1 text-[11px]">
-              <span
-                className={
-                  statusCode === "a"
-                    ? "font-medium text-emerald-700 dark:text-emerald-400"
-                    : "font-medium text-amber-700 dark:text-amber-400"
-                }
-              >
-                {statusLabel}
-                {chance !== null && chance !== undefined && chance < 100 ? ` · ${chance}%` : ""}
-              </span>
-              {player.news && <p className="mt-0.5 text-zinc-500">{player.news}</p>}
-            </div>
-          </div>
-
-          {/*
-            In the news — Sprint 20. Undefined hides the section entirely (same
-            convention as `reliability`/`system` above): the panel never fetches
-            its own headlines, only renders what the caller already queried for
-            the whole squad. Capped at 3 — this popover is 268px wide and already
-            dense, so this is a pointer to /news, not a reader.
-          */}
-          {player.headlines && player.headlines.length > 0 && (
-            <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
-              <div className="text-[10px] uppercase tracking-wide text-zinc-500">In the news</div>
-              <ul className="mt-1 space-y-1.5">
-                {player.headlines.slice(0, 3).map((h, i) => (
-                  <li key={i}>
-                    <a
-                      href={h.url}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="line-clamp-2 text-[11px] font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
-                    >
-                      {h.title}
-                    </a>
-                    <div className="text-[10px] text-zinc-500">
-                      {sourceBadge(h)} · {ago(h.published_at)}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* set-piece roles */}
-          {(player.is_penalty_taker || player.is_freekick_taker || player.is_corner_taker) && (
-            <div className="mt-2.5 flex items-center gap-2 border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40">
-              <RoleBadges
-                penaltyOrder={player.is_penalty_taker ? 1 : null}
-                freeKickOrder={player.is_freekick_taker ? 1 : null}
-                cornerOrder={player.is_corner_taker ? 1 : null}
-                size="w-4 h-4"
-              />
-              <span>
-                {[
-                  player.is_penalty_taker ? "penalties" : null,
-                  player.is_freekick_taker ? "free kicks" : null,
-                  player.is_corner_taker ? "corners" : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-            </div>
-          )}
-
-          {/* fixtures */}
-          {player.upcoming && player.upcoming.length > 0 && (
-            <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
-              <div className="text-[10px] uppercase tracking-wide text-zinc-500">Next fixtures</div>
-              <div className="mt-1.5 flex gap-1.5">
-                {player.upcoming.map((f) => (
-                  <FixtureCell
-                    key={f.event}
-                    opponent={f.opponent_short_name}
-                    home={f.is_home}
-                    fdr={f.fdr}
-                    gw={f.event}
-                    team={player.team_short ?? undefined}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* sub probability, bench only */}
-          {player.sub_probability !== undefined && player.sub_probability !== null && (
-            <p className="mt-2.5 border-t border-zinc-100 pt-2.5 text-[11px] text-zinc-500 dark:border-purple-900/40">
-              <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                {Math.round(player.sub_probability * 100)}%
-              </span>{" "}
-              chance of being subbed on
-            </p>
-          )}
-        </div>
-      </div>
 
       {/* actions — pool player: add, or find a swap for an owned one */}
       {!owned && onAdd && (
@@ -572,6 +378,20 @@ export function PlayerDetail({
         >
           Replace
         </Button>
+      )}
+
+      {onOpenProfile && (
+        // The visible affordance for everything this panel deliberately
+        // leaves out — per-gameweek history, past seasons, the price
+        // outlook. A link rather than a button variant, because it navigates
+        // to more rather than acting on the squad.
+        <button
+          type="button"
+          onClick={() => onOpenProfile(player)}
+          className="mt-2 w-full rounded py-1 text-center text-xs font-medium text-purple-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 dark:text-primary"
+        >
+          Full profile →
+        </button>
       )}
     </div>
   );

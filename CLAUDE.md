@@ -93,15 +93,18 @@ URLs with curl — several documented patterns 404.
 ## Layout
 
 ```
-app/            routes: / · /team · /leagues · /players · /fixtures · /builder · /scenarios ·
-                /transfers · /chips · /compare · /changes · /news · /deadline · /review ·
-                /status · /signin · /settings
+app/            routes: / · /team · /leagues · /players · /shortlist · /fixtures · /builder ·
+                /scenarios · /transfers · /chips · /compare · /changes · /news · /deadline ·
+                /review · /status · /signin · /settings
 lib/            stats.ts (shared mean/median/variance/quantile — import, don't redeclare),
                 team-state.ts, optimizer.ts, lineup.ts, scoring.ts, squad-score.ts, transfers.ts,
                 transfer-optimizer.ts, chips.ts, tactical-profile.ts (types + loader only,
                 deliberately no scoring function), player-search.ts, formation.ts, fdr.ts,
                 drafts.ts, draft-sync.ts, fpl-squad.ts, manager-profile.ts, utils.ts
-components/     pitch-view, pitch, player-card, player-detail, armband, transfer-plan,
+components/     pitch-view, pitch, player-card, player-detail (the fast 320px pitch popover) ·
+                player-modal + player-modal/ (the full profile: one three-tab card, the same
+                from every page — it loads its own context rather than taking it from the
+                caller) · player-identity (shared header), armband, transfer-plan,
                 fixture-schedule, fdr-matrix, draft-timeline, confidence-badge,
                 manager-profile-card, club-tactics, brand, theme, nav-links, account-menu, ui/
 supabase/       migrations/ (SQL) · functions/ (Deno Edge Functions) · functions/_shared/
@@ -215,6 +218,64 @@ or `tsc --noEmit` breaks on Deno globals.
   `node ~/.claude/skills/graft-patch/graft-reapply.mjs` (idempotent; `--check`
   to just report). Full rationale: the `graft-patch` skill. Whether the
   per-prompt hint hook earns its keep is open in DSI-143.
+- **An unpaged query against the 1000-row cap can look *quiet* rather than broken.** The cap
+  is already listed above, but the failure mode is worth its own line:
+  `loadPriceProgress` fetched ~42,000 ownership samples unpaged and ascending, so it got the
+  *oldest* 1000 — nearly all discarded by its own anchor filter. Every player then had under
+  two samples and read "unknown" or a flat 0%, which is exactly what a quiet transfer market
+  looks like. It survived from Sprint 29 to Sprint 38. When a reading is uniformly null or
+  zero, check the row count before concluding nothing is happening. Page **concurrently**
+  (count first, then fire every page — `lib/player-pool.ts`'s `fetchAll`): serially this was
+  42 round trips and 20+ seconds.
+- **`transfers_in_event` / `transfers_out_event` are per-GAMEWEEK counters FPL zeroes at every
+  deadline.** Never difference a first and last sample across one — that only works when no
+  deadline falls between, which was true for 11% of players. It had Palmer reading "expected
+  to fall, −321%" for three days when the true figure was **+364,022, a net inflow**: the sign
+  inverted, not just the magnitude. No deadline lookup is needed to fix it — the in-counter
+  only increases within a gameweek, so a decrease between consecutive samples *is* a reset
+  (`netTransfersSinceLastPriceChange`, `lib/price-watch.ts`).
+- **FPL's price thresholds are two different mechanisms.** Falls scale steeply with ownership
+  (`3,577 + 31,870` per 1% owned, R²=0.811 over 248 events); rises are flat at ~378,000
+  (R²=0.022 — ownership is irrelevant). Both are now fitted defaults in
+  `thresholdsFor` (`lib/price-watch.ts`), overridable, measured by
+  `scripts/price-window-probe.ts`. The same probe confirmed the window is **since the last
+  price change**, not since the last deadline. A bucket table had suggested rises scaled too;
+  a proper fit said that was noise — don't read a trend off buckets.
+- **A gate on a downstream consequence can be inconclusive while the mechanism is measurable
+  directly.** The scaled threshold's walk-forward gate came back MIXED on ranking/classification
+  and nothing shipped; the probe that regressed firing magnitude on ownership gave R²=0.811 and
+  settled it. When a gate returns MIXED, ask whether the underlying quantity can be measured
+  instead of inferred.
+- **Compare a change against a *fairly tuned* baseline, not the thing you are replacing.** The
+  threshold gate's first run pitted a fitted curve against badly-levelled constants, so a win
+  could not be attributed to the curve's shape rather than its level. Adding a third arm — the
+  best flat constant refit on the same training data — split the F1 gain into "from the level"
+  and "from the shape" and showed rises need only the level while falls need the shape
+  (`scripts/price-threshold-gate.ts`). A better-centred constant is also not automatically a
+  better one: that arm ranked *worse* than legacy at tight budgets.
+- **Crossing the price threshold is ~10% predictive for falls and ~22% for rises**, so the
+  verdict ladder describes *position* (`past`/`close`/`approaching`/`far`), never "tonight".
+  It used to say "Expected to fall tonight" and Palmer wore that for three days. When a
+  measurement says a label is wrong 90% of the time, fixing the label needs no gate.
+- **When a fitted model beats a naive baseline that shares its inputs, check the inputs first.**
+  DSI-54's falls classifier "won" at K=10/20 only because the feature both it and the baseline
+  read was broken; fixing it lifted the baseline more than the model and the gate then failed
+  at every budget.
+- **`cost_change_event` is FPL's *cumulative* change for the gameweek, not a per-night delta.**
+  Labelling a price fall by its sign marks a player already down on the week as falling every
+  night. `player_price_history` is change-on-write, so direction comes from comparing
+  consecutive `price` values.
+- **Scoring rules come from the database too.** `public.scoring_rules` carries FPL's own
+  per-stat, per-position values, season-keyed and synced from bootstrap — don't write a
+  constants table (`lib/fpl-scoring-rules.ts`). Only two quantities FPL publishes nowhere are
+  hardcoded there: the divisors (1 pt per 3 saves, −1 per 2 conceded) and the
+  defensive-contribution thresholds. The thresholds live in **one** place —
+  `DC_THRESHOLD_BY_ELEMENT_TYPE` (`lib/scoring.ts`), measured against live data rather than
+  assumed: DEF 10, MID 12, **FWD 12 — forwards do score it, they just rarely clear it.**
+  That constant mirrors `MODEL_PARAMS.dcThreshold` in the Deno model, which `lib/` cannot
+  import; if they disagree, the model's copy is the truth. Anything derived from these is
+  reconciled against the stored total and any difference is shown as "Unattributed" rather
+  than absorbed.
 - **`behavior: "smooth"` does nothing on a hidden document** — no rAF callbacks, so
   the scroll is silently dropped and whatever you were scrolling to stays off screen.
   The preview pane reports `document.hidden === true`, and so does any backgrounded

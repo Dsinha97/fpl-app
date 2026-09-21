@@ -25,6 +25,7 @@ export function SlideOver({
   label,
   width = "min(28rem, 92vw)",
   maxHeight = "min(70vh, 32rem)",
+  fullHeight = false,
   triggerRef,
   children,
 }: {
@@ -47,6 +48,19 @@ export function SlideOver({
   width?: string;
   /** Max height for `side="bottom"`. Content shorter than this shrinks the sheet. */
   maxHeight?: string;
+  /**
+   * `side="bottom"` only: fill the screen instead of sizing to content.
+   *
+   * The default cap exists so /builder's slot picker leaves the pitch
+   * visible behind it — you need to see which slot you are filling. A full
+   * profile has no such backdrop to preserve and several screens of content,
+   * so capping it at 70vh would nest a scroller inside a scroller.
+   *
+   * Uses `100dvh`, never `100vh`: on a phone `100vh` is the viewport with
+   * the URL bar hidden, so a bottom-pinned action bar sits below the fold
+   * until the user scrolls.
+   */
+  fullHeight?: boolean;
   /** The control that opens this, so clicking it to *close* isn't also
    *  treated as an outside-click that closes it first. */
   triggerRef?: React.RefObject<HTMLElement | null>;
@@ -71,7 +85,7 @@ export function SlideOver({
 
   const bottom = side === "bottom";
   const edge = bottom
-    ? "inset-x-0 bottom-0 rounded-t-2xl border-t border-zinc-200 dark:border-purple-800/50"
+    ? `inset-x-0 bottom-0 border-t border-zinc-200 dark:border-purple-800/50${fullHeight ? "" : " rounded-t-2xl"}`
     : side === "right"
       ? "inset-y-0 right-0 border-l border-zinc-200 dark:border-purple-800/50"
       : "inset-y-0 left-0 border-r border-zinc-200 dark:border-purple-800/50";
@@ -84,7 +98,7 @@ export function SlideOver({
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        style={bottom ? { maxHeight } : { width }}
+        style={bottom ? (fullHeight ? { height: "100dvh" } : { maxHeight }) : { width }}
         // The sheet's entry follows References/Components/panel-reveal.md —
         // translate + fade + a cross-blur on one duration, so a short travel
         // still reads as a full open. `motion-reduce` drops it entirely.
@@ -96,7 +110,7 @@ export function SlideOver({
         // resting style *is* the final state, so the worst case is that the
         // sheet simply appears rather than rises. Motion should never be load-
         // bearing for whether a control is usable.
-        className={`fixed z-50 flex flex-col overflow-y-auto bg-white p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-2xl dark:bg-surface-3 ${edge} ${
+        className={`fixed z-50 flex flex-col overflow-y-auto overscroll-contain bg-white p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-2xl dark:bg-surface-3 ${edge} ${
           bottom
             ? "motion-safe:[animation:sheet-rise_var(--duration-slower)_var(--ease-slide)]"
             : side === "right"

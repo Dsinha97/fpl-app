@@ -8,6 +8,7 @@ import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons"
 import { layoutFromLineup, PitchView } from "@/components/pitch-view";
 import type { PlayerData, UpcomingFixture } from "@/components/player-card";
 import { PANEL_MAX_HEIGHT, PANEL_WIDTH, PlayerDetail } from "@/components/player-detail";
+import { useProfileModal } from "@/components/player-modal/use-profile-modal";
 import {
   CAPTAIN_MODEL_NOTE,
   optimiseLineup,
@@ -270,6 +271,12 @@ export default function BuilderPage() {
   const [nextEvent, setNextEvent] = useState<number | null>(null);
   /** first_event/last_event from `player_xp_horizons` — the real predicted window, for the GW planning dropdown. */
   const [seasonRange, setSeasonRange] = useState<{ first: number; last: number } | null>(null);
+  /** Full profile modal, opened from the pitch popover and the picker panel. */
+  const { openProfile, modal: profileModal } = useProfileModal({
+    season,
+    currentEvent: nextEvent,
+    teamShortById: teamShort,
+  });
   /**
    * The gameweek the "Gameweek lineup" panel plans for. Null means "not
    * touched yet" — the panel falls back to `nextEvent`, without an effect
@@ -1034,6 +1041,9 @@ export default function BuilderPage() {
       const agg = event !== undefined ? squadEventAgg.get(row.id)?.get(event) : undefined;
       return {
         id: row.id,
+        // Needed by the full-profile modal, whose price and past-season
+        // histories are keyed on player_code rather than the reassignable id.
+        code: row.code,
         web_name: row.web_name,
         team_code: row.team_code,
         element_type: row.element_type,
@@ -2045,6 +2055,7 @@ export default function BuilderPage() {
             onSetVice={(id) => persist(setViceCaptain(team, id))}
             onRemove={(id) => persist(removePlayer(team, id, lookup(id)?.nowCost))}
             onFindReplacement={startReplacing}
+            onOpenProfile={openProfile}
             onAddToSlot={startAdding}
             addingPosition={addingPosition}
           />
@@ -2832,6 +2843,10 @@ export default function BuilderPage() {
                     startReplacing(id);
                     closePickerDetail();
                   }}
+                  onOpenProfile={(p) => {
+                    closePickerDetail();
+                    openProfile(p);
+                  }}
                 />
               </SlideOver>
             )}
@@ -2862,8 +2877,13 @@ export default function BuilderPage() {
                   startReplacing(id);
                   closePickerDetail();
                 }}
+                onOpenProfile={(p) => {
+                  closePickerDetail();
+                  openProfile(p);
+                }}
               />
             )}
+            {profileModal}
           </div>
         </section>
       </div>

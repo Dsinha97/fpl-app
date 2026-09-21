@@ -67,13 +67,47 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | M9 | Design audit — every screen | **Built** 2026-09-13 — primitives adopted app-wide (`Button` 1 → 20 files, `DataTable` 0 → 14, raw `<td>` count 0), per-screen visual passes, and the feature-shaped items the audit raised. Two things the sprint had to build first: a seeded signed-in test account and scripted `Screens/` captures | [sprints/m9.md](sprints/m9.md) |
 | 37 | M9 design-audit Todo sweep — interface, writing, animation | **Built and verified 2026-09-18** — 13 independent follow-ups from M9's scope reviews (`better-interface`, `better-writing`, `animate`, `emil-design-eng`), scoped from the whole Linear Todo column. Three phases: interface/a11y (contrast, aria-label, focus ring), writing (four tooltip/copy fixes), animation (six motion gaps, incl. the shared `TapToReveal`/`FilterDisclosure` hook). One item's fix (`components/transfer-plan.tsx`'s half of DSI-149) landed on a component Sprint 28 already removed from every route — correct but currently unreachable | [sprints/sprint-37.md](sprints/sprint-37.md) |
 
-Non-sprint work items, also in `sprints/`: [cold-start-patch.md](sprints/cold-start-patch.md)
+Non-sprint work items, also in `sprints/`: [gw5-check-in.md](sprints/gw5-check-in.md)
+(the M6 check-in, the accuracy-scoreboard coverage bug it found, the DSI-54 baseline measurement,
+and a batch of `/deadline`/`/team` interface work — 2026-09-20),
+[cold-start-patch.md](sprints/cold-start-patch.md)
 (empirical-Bayes rate priors — phase 1 built, phase 2 deferred/gated) and
 [squad-reconciliation.md](sprints/squad-reconciliation.md) (start/minutes water-fill — phase 1
 v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 [sprints/additional-info.md](sprints/additional-info.md).
 
 ## Next up
+
+**GW5 check-in run 2026-09-20 — the bias has not flipped sign, but it has collapsed, and the
+GW10 `positionCalibration` refit should not run as specified.** See
+[sprints/gw5-check-in.md](sprints/gw5-check-in.md). At n=4 the overall bias is **−0.084**
+(n=2,330), down from Sprint 34's −0.248 at n=2 — roughly half of which turns out to have been
+GW3's *provisional* bonus, since GW2+GW3 on the identical 1,272 rows now reads −0.119. Per
+gameweek: −0.150, −0.089, −0.079, −0.006. The decisive finding is structural rather than in the
+headline: the model over-predicts non-appearances (**−0.714**, n=1,364) and under-predicts
+appearances (**+0.627**, n=1,223), and the two nearly cancel. A multiplicative points scale cannot
+separate those, so the open question moved from points calibration to **expected-minutes
+calibration**. [DSI-50](https://linear.app/dsinha-org/issue/DSI-50) is **In Progress**, not Done —
+GW5's bonus was still provisional at the time of the run and the scoreboard wants a re-read once
+`fixtures.finished` flips. The run also found and fixed a real defect: the scoreboard was counting
+a partially-synced gameweek's unwritten fixtures as genuine blank returns (PR
+[#30](https://github.com/Dsinha97/fpl-app/pull/30)).
+
+**Sprint 38 shipped 2026-09-21** — see [sprints/sprint-38.md](sprints/sprint-38.md). The full
+player profile (a three-tab modal reachable from every page, replacing `PlayerDetail`'s "Show full
+details" disclosure), the price-watch reading made honest and then shown properly, and an
+owner-scoped shortlist. Three findings worth carrying forward: `loadPriceProgress` had been
+reading ~2% of its data since Sprint 29 and looked quiet rather than broken (the 1000-row cap,
+unpaged); the **UI** (not the model) hid forwards' defensive-contribution column, while the
+thresholds themselves — DEF 10, MID 12, FWD 12, measured with zero variance over 677
+player-gameweeks — lived in three separate copies and now live in one; and
+[DSI-54](https://linear.app/dsinha-org/issue/DSI-54)'s falls classifier **failed its gate** at
+every budget, so the shipped reading stays the descriptive heuristic. An earlier run of that gate
+appeared to pass, on a feature that differenced across gameweek counter resets — the same defect
+that had Palmer reading "expected to fall, −321%" for three days without falling, with the sign
+inverted for 89% of players. Fixing it helped the naive baseline more than the model. Still open:
+the price threshold scales with ownership (~22k per 1% owned, measured), and the shipped default
+is flat.
 
 **Sprint 37 shipped 2026-09-18** — see the index row above and [sprints/sprint-37.md](sprints/sprint-37.md).
 All 13 issues (the entire Linear Todo column) plus parent [DSI-176](https://linear.app/dsinha-org/issue/DSI-176)
@@ -94,15 +128,20 @@ Three separate model questions are all waiting on the same thing: more scored 20
 None of them needs code written first; each has its harness built and its gate already agreed. They
 are grouped here so nobody re-derives them one at a time.
 
-**GW5 check-in — after GW5 is scored, ~2026-09-21** (deadline 2026-09-18). Cheap, ~20 minutes, and
+**GW5 check-in — RUN 2026-09-20.** Result and full working:
+[sprints/gw5-check-in.md](sprints/gw5-check-in.md); summary under "Next up" above. The original
+framing is kept below because the *second* bullet still stands unchanged. Cheap, ~20 minutes, and
 it is a *look*, not a decision:
 
-- **The accuracy scoreboard reaches n=4** (GW2-5 archived and scored). Read the sign, not the
+- ~~**The accuracy scoreboard reaches n=4** (GW2-5 archived and scored). Read the sign, not the
   magnitude: the shipped model over-predicted by 0.248 pts/player-fixture across GW2+GW3
   ([sprints/sprint-34.md](sprints/sprint-34.md) §1). If that has held across four gameweeks it is
   probably a real calibration offset rather than noise, and `positionCalibration` becomes worth
   refitting on schedule. If it has flipped sign, GW2+GW3 was noise and the GW10 refit needs
-  rethinking rather than running.
+  rethinking rather than running.~~ **Done 2026-09-20.** Neither branch of that gate is quite what
+  happened: the sign held but the magnitude collapsed to −0.084, and the residuals split into a
+  −0.714 non-appearance cohort and a +0.627 appearance cohort that cancel. **The GW10 refit needs
+  rethinking rather than running** — see item 3 below, rewritten accordingly.
 - **Nothing else is worth touching yet.** The last-5 baseline needs six *played* gameweeks and
   cannot fire before GW6, which is **2026-10-10** — a three-week international break sits between
   GW5 and GW6, so the gap here is longer than the numbering suggests. Do not read a GW5 blend or FDR
@@ -122,9 +161,17 @@ open questions actually become answerable, and they share one harness run:
    Official FDR *is* available for the current season in `fixtures`
    (`team_h_difficulty`/`team_a_difficulty`), so this only ever needed enough scored gameweeks.
    n=471 at GW3 was far too thin. See [sprints/sprint-35.md](sprints/sprint-35.md) §5.
-3. **Refit `positionCalibration`**, if the GW5 check-in showed the bias direction holding. Three
-   gameweeks was far too thin — the shipped factors were fitted on a 209-player full-season cohort,
-   and refitting on ~1,200 player-fixtures would bake this season's noise into a permanent constant.
+3. ~~**Refit `positionCalibration`**, if the GW5 check-in showed the bias direction holding.~~
+   **Rewritten 2026-09-20 by the GW5 check-in, which answered the precondition in a way the item
+   did not anticipate.** The direction held, but the aggregate it would be fitted against is now
+   −0.084 and ~1.8 SE from zero, and the residuals decompose into two large opposite halves that a
+   multiplicative points scale cannot address: non-appearances at −0.714 (n=1,364) and appearances
+   at +0.627 (n=1,223). Fitting to the ≈0 aggregate bakes in noise; fitting to the over-prediction
+   half makes the played cohort worse. **Do not refit `positionCalibration` at GW10.** What is
+   worth measuring instead is **expected-minutes calibration** — `mpg`/`start_share`, the term that
+   actually sets the non-appearance half — and, separately, GKP, the one cohort still carrying a
+   non-trivial bias of its own (−0.352, ≈3 SE). Both need shaping before they are a gate; neither
+   is one yet. See [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §2.
 
 **Do not narrow any gate to let these through.** All three already have a standing gate, and the
 project's record on this is that null results were the finding three times over (the blend twice,
@@ -459,7 +506,7 @@ the bias correction once). The GW10 run should be reported the same way whether 
 | League 314 rank-ordering (top-1k sample) | **No longer a data/engineering blocker — proven working 2026-08-30.** A Sprint 29 follow-up load test synced league 314 ("Overall", 9.9M entries, `game_settings.league_ownership_entry_cap` = 2000) end to end: 2000 rank-ordered entries, 30,000 picks, 0 failures, 47s. Two real bugs were found and fixed at this scale — an oversized `.in()` existence-check query and a live-rank-shift duplicate-key upsert crash, both in `sync-league-picks`. That test's rows were deleted afterward (verification only), leaving `league_entries` for `league_id=314` at 0. **Closed 2026-09-10 (Sprint 36, DSI-60):** the sync was run signed-in and the sample **kept** — 2,000 entries and 30,795 picks. Nothing here is blocked any more; consuming the sample for the risk formula's field-wide EO term is unbuilt work. The exact mini-league slice has its own page, `/leagues` (built 2026-08-30) | [sprints/sprint-10.md](sprints/sprint-10.md), [sprints/sprint-29.md](sprints/sprint-29.md) |
 | ~~`sync-live-gameweek` write path~~ **Resolved 2026-08-21.** | Executed for real during GW1: 2,434 successful runs, up to 610 rows/run, first success 2026-08-03 (pre-season dry runs against no live fixtures), real writes from GW1 kickoff. Self-gates back to `skipped` between gameweeks, as designed — the 15,154 `skipped` rows are that gate working, not a stuck function | [sprints/sprint-13.md](sprints/sprint-13.md) |
 | Automated FPL credential login | PingOne offers no password grant; the one reachable flow opens with bot detection | [sprints/sprint-14.md](sprints/sprint-14.md#fpl-login-is-blocked--automated-credential-login-not-the-session-handoff) |
-| `positionCalibration` | Fitted in-sample; needs a refit against real 2026/27 results. Walk-forward evidence for why now exists: out-of-sample the model underperforms a naive last-5-gameweeks baseline in every season tested | [sprints/sprint-17a.md](sprints/sprint-17a.md) |
+| `positionCalibration` — **no longer "needs a refit"; needs replacing with a different question** (2026-09-20) | Fitted in-sample, and the GW5 check-in now says refitting it is the wrong move rather than a pending one: at n=4 the aggregate bias is −0.084 (≈1.8 SE from zero), and it is the near-cancellation of a −0.714 non-appearance cohort against a +0.627 appearance cohort. A multiplicative points scale cannot separate those. The live question is expected-minutes calibration. Walk-forward evidence remains that out-of-sample the model underperforms a naive last-5-gameweeks baseline in every season tested | [sprints/gw5-check-in.md](sprints/gw5-check-in.md), [sprints/sprint-17a.md](sprints/sprint-17a.md) |
 | ~~Cold-Start phase 2, remaining 66 players + `dc90`~~ **Canceled in Linear (DSI-68), 2026-09-14** | Sprint 15.6 covered 33 of 99 (COV/HUL/IPS, xg90/xa90/yellow90 only) via a one-shot PDF drop; the other 66 (overseas/academy) and `dc90` for all 33 have no fittable source — closed rather than left pending, since no source is expected to appear | [sprints/championship-priors.md](sprints/championship-priors.md) |
 | New-manager uncertainty discount (GW1-3 xP penalty) | `pl_managers` has no start date/tenure field — nothing says which club has a first-season manager. Now measurable in principle: Sprint 17a's 4 seasons of per-gameweek data could test "do first-season-manager players underperform their prior rate early on," but needs a tenure source first, and any xP effect is still gated behind the same backtest `μ_fit` needs | [sprints/sprint-17a.md](sprints/sprint-17a.md) |
 | Sprint 12.5 phases 3–6 (System Fit multiplier) | **Half-unblocked by Sprint 15.6**: player-side rates (crosses/90, tackles/90, etc.) are now measured for the 58 FootyStats-covered players, but manager-side tactical thresholds are still transcribed opinion, not measured data — the block stands for that reason specifically now, not by default | [sprints/sprint-12.md](sprints/sprint-12.md#sprint-125--pl-team-club-manager-intelligence-buildable-slice-built-2026-08-07) |

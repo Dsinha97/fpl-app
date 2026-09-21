@@ -178,6 +178,49 @@ walk (`.gt("event", last).order("event").limit(1)`), one single-row round trip p
 than reading ~24,000 rows by season's end to learn 38 integers. That `events` renders as `[2, 3]` is
 itself the proof the fix works.
 
+## A played gameweek is not a written one (found 2026-09-20)
+
+**There is no flag anywhere that says "this fixture's results are in."** Checked live during the
+GW5 check-in ([sprints/gw5-check-in.md](../sprints/gw5-check-in.md)), and it cost a wrong number on
+a shipped panel before it was understood.
+
+`sync-player-history` walks the whole player list and writes `player_gameweek_stats`, but it does a
+full pass only every `PASS_INTERVAL_HOURS = 20` — a deliberate cadence, since it is one API call
+per player. So for several hours after a matchday, some of a gameweek's fixtures are played and
+written and some are played and **not yet** written. This is the normal state of the most recent
+gameweek, not a failure.
+
+What made it a trap rather than an inconvenience: the unwritten fixtures do not have *missing*
+rows. On 2026-09-20 the four GW5 fixtures that had kicked off that day had a complete set of rows
+reading `minutes = 0, total_points = 0` for all 257 player-fixtures. Anything joining against them
+gets a clean match and a plausible-looking zero.
+
+And the obvious guards do not work:
+
+| Signal | On those four fixtures | Usable? |
+|---|---|---|
+| `fixtures.started` | `true` | no |
+| `fixtures.finished_provisional` | `true` | **no** — true with no stats row at all |
+| `fixtures.finished` | `false` | no — also false for the six that *had* landed (bonus unconfirmed) |
+| rows exist in `player_gameweek_stats` | yes | no |
+| **any player in the fixture with `minutes > 0`** | no | **yes** |
+
+The last one is the detector `lib/prediction-accuracy.ts` now uses: every played fixture puts 22+
+players on the pitch, so a fixture whose every row reads `minutes = 0` has not been written yet.
+Validated across the whole warehouse before being relied on — over the four settled seasons
+(~150 gameweeks) every fixture with stats rows also had minutes, and GW5 mid-sync is the only
+exception anywhere.
+
+`player_live_stats` is the other half of the picture: `sync-live-gameweek` refreshes it every 2
+minutes and it *did* hold the real figures throughout. It is keyed by player and event rather than
+by fixture, so it is not a drop-in substitute for a fixture-keyed join, but it is the right source
+for "what is happening right now" and was used to cross-check the corrected figures.
+
+**Anything else joining `player_gameweek_stats` for a recent gameweek inherits this.** The
+consequence for the accuracy scoreboard is written up in
+[xp-model.md](xp-model.md#the-coverage-gate-the-check-in-had-to-build-first); the general rule is
+[methodology.md](methodology.md)'s "verify, don't assume" applied to a table that looks populated.
+
 ## Rivals were never re-synced (found and fixed 2026-09-10)
 
 `sync-claimed-managers` re-synced **claimed** entries (`user_profiles.entry_id`) and nothing else.

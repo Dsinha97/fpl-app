@@ -16,6 +16,13 @@ export interface UpcomingFixture {
 
 export interface PlayerData {
   id: number;
+  /**
+   * FPL's `player_code` — stable across seasons, unlike `id`, which FPL
+   * reassigns. Optional because the pitch card doesn't need it; the full
+   * profile modal does, since price history, season history and the headshot
+   * are all keyed on it.
+   */
+  code?: number | null;
   web_name: string;
   team_code: number | null;
   element_type: number;

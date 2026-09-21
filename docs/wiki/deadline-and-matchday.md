@@ -364,3 +364,51 @@ The audit's `/deadline` items, with the measurements that decided them — [spri
 - **Player panel actions** (Sprint C2): Set C / Set VC write to the draft. Remove is deliberately
   not offered — on this page the squad is the real team before a deadline, and a removal with no
   replacement is not a move FPL allows.
+
+## `/deadline` stopped planning transfers (2026-09-20)
+
+Sprint 28 had already reduced this page to **one** transfer answer by dropping `TransferPlan` and
+keeping the forward path (above). The page now has **none**: the "Transfer call" settings card and
+the `TransferPath` block below it are gone, replaced by a single **"Plan Transfers and Chip
+Strategy"** link in the Chip call card's header, pointing at `/transfers/?draft=…`.
+
+The reason is not screen space. The path card ran `optimizeTransfers` a second time — ~1,875
+`simulateTransfers` calls — produced a recommendation, and its "load" action then navigated to
+`/transfers` **with an empty basket**. The second engine run bought nothing the destination page
+does not do itself, and the handoff dropped its own result on the floor. One link is the honest
+version of what the card was for.
+
+`flex-wrap` on the header row rather than a same-line pairing: the button is 218px and this rail is
+360px, so it wraps below the heading by design rather than crushing it — the
+[design-system.md](design-system.md) rail-width constraint that also drove the "Transfers this
+season" move below.
+
+Removing it orphaned a good deal of the page, all taken out with it: `planTransferPath` /
+`runTransferPath`, the planning-horizon and decision-margin controls, the `freeTransfers` select
+(`/transfers` and `/team` both still set the same persisted value), `wildcard` and its chip-window
+fetch, `xpOf`, `seriesOf`, `chipPlanUsable`, `predsFullLoading`, and a `chipContext` memo that
+already had no reader *before* this change. **Stage 3b of the staged prediction load stays** — it
+fetches the full horizon under the exact cache key `/transfers` and `/chips` already use, so the
+new button lands on a warm page rather than a cold one. Net −274 lines.
+
+— [sprints/gw5-check-in.md](../sprints/gw5-check-in.md) §4. See
+[transfer-engine.md](transfer-engine.md#one-answer-per-deadline-sprint-28-2026-08-29) for the
+Sprint 28 half of this story.
+
+## The ContextBar countdown drops seconds above 24h (2026-09-20)
+
+The sticky countdown described above ran a seconds term at every distance, so nineteen days out it
+was a digit changing once a second to say nothing — movement without information, and a re-render
+per second to produce it.
+
+`fmtCountdown` (`lib/countdown.ts`) now emits the seconds term only inside `SECONDS_WITHIN_MS`
+(24h) and returns `showsSeconds` alongside the text. Both callers — `ContextBar` and `/deadline` —
+use that to pick their interval, 1s inside the window and 30s outside it, so the tick rate follows
+the smallest unit actually on screen. Boundary checked: `24h+1s → "1d 0h 0m"`,
+`23h59m → "23h 59m 0s"`.
+
+Inside a day the seconds are real: that is when "have I got time to think about it" becomes "set
+the team now". The threshold is a named constant rather than a magic number, per
+[methodology.md](methodology.md).
+
+— [sprints/gw5-check-in.md](../sprints/gw5-check-in.md) §4

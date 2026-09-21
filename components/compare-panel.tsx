@@ -15,6 +15,7 @@ import {
   riskScore,
   valuePerMillion,
   XDC_MODEL_NOTE,
+  scoresDefensiveContribution,
   type ScoredPlayer,
 } from "@/lib/scoring";
 import { ModelNote } from "@/components/ui/model-note";
@@ -40,8 +41,6 @@ type Direction = "high" | "low";
 
 const POSITIONS: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
 
-/** Positions the defensive-contribution threshold can ever apply to — see XDC_MODEL_NOTE. */
-const XDC_POSITIONS = new Set([2, 3]);
 
 /** The subset of a `players` row this table reads. Both call sites select a
  *  superset of it, so neither has to model the panel's needs separately. */
@@ -141,7 +140,7 @@ export function ComparePanel({
       label: "xDefcon",
       dir: "high",
       value: (p) =>
-        XDC_POSITIONS.has(p.elementType) ? (xdcById.get(p.id)?.[horizon] ?? null) : null,
+        scoresDefensiveContribution(p.elementType) ? (xdcById.get(p.id)?.[horizon] ?? null) : null,
       format: (v) => (v === null ? "—" : v.toFixed(2)),
       hint: XDC_MODEL_NOTE,
     },

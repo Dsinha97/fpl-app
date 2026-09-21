@@ -279,5 +279,10 @@ in-sample only until [sprint-17a.md](sprints/sprint-17a.md)'s walk-forward backt
 the model underperforms a naive last-5-gameweeks baseline out-of-sample.
 
 Calibration history and the backtest that caught a 17% arithmetic shortfall are in
-[phase-4-model.md](phase-4-model.md). `MODEL_PARAMS.positionCalibration` is fitted in-sample
-and must be refitted once real 2026/27 results exist.
+[phase-4-model.md](phase-4-model.md). `MODEL_PARAMS.positionCalibration` is fitted in-sample.
+It was for a long time described as needing a refit once real 2026/27 results existed; **those
+results now exist and say not to** — at n=4 the production bias is −0.084 (≈1.8 SE from zero) and
+decomposes into a −0.714 non-appearance cohort cancelling a +0.627 appearance cohort, which a
+multiplicative points scale cannot represent. See
+[sprints/gw5-check-in.md](sprints/gw5-check-in.md) §2; the open question is expected-minutes
+calibration instead.

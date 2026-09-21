@@ -87,6 +87,10 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | Long methodology explainers render inline | DSI-140 | M9 | [sprints/m9.md](sprints/m9.md) |
 | Mobile defects found testing M9, and M9's two parked items | DSI-141 | M9 | [sprints/m9.md](sprints/m9.md) |
 | 37 M9 design-audit Todo sweep — interface, writing, animation | DSI-176 (+ DSI-144…156) | M9 | [sprints/sprint-37.md](sprints/sprint-37.md) |
+| 38 Player profile, price reading, shortlist | — (DSI-54 falls half) | M7 | [sprints/sprint-38.md](sprints/sprint-38.md) |
+| GW5 check-in — **run 2026-09-20, issue left In Progress** for a re-read once GW5's bonus confirms | DSI-50 | M6 | [sprints/gw5-check-in.md](sprints/gw5-check-in.md) |
+| Accuracy scoreboard counted a half-synced gameweek's zeros as real blanks | — (found in flight, PR [#30](https://github.com/Dsinha97/fpl-app/pull/30)) | M6 | [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §1 |
+| `/deadline` transfer cards → one CTA; `/team` ledger full-width; countdowns drop seconds above 24h | — (owner request, same PR) | M6 | [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §4 |
 | 17 part 1 Historical decision analytics | DSI-66 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §1 |
 | Rivals from a league's standings | DSI-61 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §2 |
 | 16 Notifications — the Telegram bot | DSI-65 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §3 |
@@ -100,11 +104,15 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 
 | Issue | Item | Milestone | Gate / blocker |
 |---|---|---|---|
-| DSI-50 | GW5 check-in — bias *sign* at n=4 | M6 | GW5 scored (~2026-09-21). A look, not a decision |
+| DSI-50 | GW5 check-in — bias *sign* at n=4. **Re-read 2026-09-21 at locked data; unchanged. In Progress** | M6 | Gate met and read twice. GW5's bonus confirmed and moved nothing — the figures are identical to 2026-09-20 (pooled −0.080, SE 0.044, t=−1.82). Held open for a fifth read at **GW6, 2026-10-10** (three-week international break first). See [sprints/sprint-38.md](sprints/sprint-38.md) §1 |
+| DSI-179 | xDC: the **UI** hid forwards' defensive-contribution column, not the model | M7 | Fixed 2026-09-21. The model was never wrong (`dcThreshold` already had FWD 12); `XDC_MODEL_NOTE`'s prose and two independent `XDC_POSITIONS` sets were. No backtest re-run needed — model behaviour unchanged, so DSI-178 keeps its full +0.627. See [sprints/sprint-38.md](sprints/sprint-38.md) §4 |
+| DSI-178 | Expected-minutes discrimination — the pooled bias hides two cancelling cohorts | M7 | None. Evidence is DSI-50's cohort split (−0.714 no-show vs +0.627 appeared, minutes right in aggregate at 30.6 vs 30.4 and wrong per player at 47.1 vs 64.2). Gate is the existing backtest **scored per cohort as well as pooled** — a change that trades one cohort against the other must not read as a win |
 | DSI-51 | Re-run the current-season blend sweep | M7 | GW10 scored. `scope=all` and `scope=minutes` each clear 2 of 4 seasons today |
 | DSI-52 | Derived FDR vs **official** FDR | M7 | GW10 scored. Sprint 35 measured vs *neutral* only; n=471 at GW3 was far too thin |
-| DSI-53 | Refit `positionCalibration` | M7 | Conditional on DSI-50's sign holding. Current factors are fitted in-sample |
-| DSI-54 | Price-change prediction step 3 | M7 | Enough watchlist history; must beat top-N-by-net-transfers on precision/recall |
+| DSI-53 | ~~Refit `positionCalibration`~~ — **its precondition is answered, and the answer is "don't"** (2026-09-20) | M7 | DSI-50's sign held but the magnitude collapsed to −0.084 (≈1.8 SE from zero), and the residuals are a −0.714 non-appearance cohort cancelling a +0.627 appearance cohort — which a multiplicative points scale cannot separate. Needs re-scoping to **expected-minutes** calibration (and GKP separately, −0.352) rather than running. See [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §2 |
+| DSI-54 | Price-change prediction step 3 — **falls half run 2026-09-21; gate FAILS. Ship the heuristic** | M7 | Walk-forward over 36 nights: no budget shows a significant win (best p=0.18 at K=40). An earlier run of the same gate appeared to pass at K=10/K=20 — that was a broken feature (gameweek-reset differencing) handicapping the baseline, which shares the same input. Corrected, the baseline gains far more than the model. Nothing wired in; `priceProgress` remains the reading. Re-run once more history accumulates **and** the ownership-scaled threshold (sprint-38 §2b) is settled. See [sprints/sprint-38.md](sprints/sprint-38.md) §3 |
+| — | Ownership-scaled price threshold — **shipped 2026-09-21** | M7 | Falls `3,577 + 31,870`/pct (R²=0.811, n=248); rises flat 378,000 (R²=0.022 — ownership irrelevant). The walk-forward gate on ranking/classification was MIXED; the window probe measuring the mechanism directly was not. Readings beyond ±300% fell 5→1; B.Fernandes −736%→−88.8%. Re-gated as a three-arm ablation (§2f): the F1 gain decomposes as rise = level +3.5 / shape +0.8, fall = level +1.4 / **shape +4.6** — exactly the shipped split, corroborated. Formal verdict still MIXED: ranking best p=0.0636 vs Bonferroni 0.0125 at 23 nights, so it is underpowered rather than passing. Open: the rise *level* is a mean over 55 events; re-run again as nights accumulate. See [sprints/sprint-38.md](sprints/sprint-38.md) §2c, §2e, §2f |
+| — | Price verdict ladder reworded — crossing a threshold is ~10% predictive, not 90% | M7 | Shipped 2026-09-21, no gate needed. `expected/very likely/possible/not tonight` → `past/close/approaching/far`; measured hit rate now in the model note and tooltips. See [sprints/sprint-38.md](sprints/sprint-38.md) §2d |
 | DSI-55 | Flip the repo public + post-flip hardening | M8 | Owner decision. Steps 3–4 are impossible while private (GitHub 422s both) |
 | DSI-56 | Latency — route-level code splitting | M8 | None. `next/dynamic` is unused; every route ships ~1.1 MB JS |
 | DSI-57 | Latency — serial-waterfall page reads | M8 | None. `/players`, `/transfers`, `/team` |
@@ -122,6 +130,8 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | DSI-75 | One CLI functions deploy reconciles four drifts | M8 | Blocked by DSI-55 by choice — the `verify_jwt` flip, `sync-manager`'s `last_success_at`, and two hand-inlined bundles. The cost it saves is near-zero while the repo is private |
 | DSI-76 | Gateway Timeouts cluster on cron boundaries | M8 | None — a hypothesis with six data points. Self-correcting since `last_success_at` landed, so watch rather than chase |
 | DSI-77 | Two dead eslint-disable directives, and the lint check that hid an error | M8 | None. The reading habit matters more than the directives |
+| DSI-142 | `generate-predictions` 401s on ~1 run in 3, and writes no `sync_runs` row when it does | — | Not yet triaged here — added in Linear 2026-09-14 (High priority, `Bug`). Found by `/linear-sync`'s 2026-09-21 run, previously missing from this table |
+| DSI-143 | Decide whether to keep graft's `UserPromptSubmit` prompt hints | — | Not a gated item — an open call. Referenced from `CLAUDE.md`'s graft-patch note ("Whether the per-prompt hint hook earns its keep is open in DSI-143"). In Review in Linear; found missing from this table by `/linear-sync`'s 2026-09-21 run |
 
 ## How to keep it true
 

@@ -687,3 +687,56 @@ The `+N` chip produced the two defects that only running the app could find:
   cell. **`fixed` positions against the viewport but does not escape a stacking context**, and equal
   z-indexes are settled by DOM order. It portals to `document.body` now — which is what `fixed
   z-30` already claimed to mean, and it applies to all 14 of its call sites.
+
+## Sprint 37 — the M9 Todo sweep (2026-09-18)
+
+Thirteen independent follow-ups the M9 scope reviews raised and M9 itself did not take, worked as
+the whole Linear Todo column in three phases. Full list: [sprint-37.md](../sprints/sprint-37.md).
+The parts that are *system* rules rather than one-off fixes:
+
+**Contrast: `text-zinc-400` is not a legal muted colour in light theme.** It measured ≈2.35:1,
+below WCAG AA, and had spread to five components. `text-zinc-500` is the muted token
+(DSI-156) — the same conclusion the token layer reached, arrived at again from the other end.
+
+**An icon-only control needs `aria-label`, not `title`.** `title` is a tooltip, not an accessible
+name. DSI-155 named one instance in `chip-timing.tsx`; the app-wide sweep it prompted found exactly
+one more (`chip-timing.tsx:870`) and confirmed every other icon-only `Button` already carried both
+— which is the useful result: the primitive was already right, two call sites had drifted.
+
+**`transition-all` is banned on the shared `Button`** (DSI-145), replaced by an explicit property
+list. `transition-all` animates properties you did not mean to animate, including layout ones, and
+on a primitive used in 20 files that cost is paid everywhere.
+
+**Press feedback and disclosure motion became consistent.** `active:scale-95` on the pitch-view
+player slot (DSI-144); results fade in rather than popping (DSI-149); player-detail's expand uses
+the same `grid-template-rows` technique as `CollapsibleCard` so its content matches its own chevron
+(DSI-148); `SlideOver`'s left/right variants animate like the bottom-sheet variant already did
+(DSI-147); and the `TapToReveal`/`FilterDisclosure` popovers got an `@starting-style` fade from
+**one shared-hook change covering 5+ call sites** (DSI-146) — the payoff for the primitives layer
+M9 built.
+
+**One fix is correct and unreachable.** DSI-149's first half applied to
+`components/transfer-plan.tsx`, which Sprint 28 had already removed from every route. Applied at
+the ticket's own file:line, typechecks and lints, exercised by nothing. Noted rather than reverted;
+see [transfer-engine.md](transfer-engine.md#and-then-none-at-all-on-deadline-2026-09-20).
+
+## A 360px rail is a layout constraint, not a container (2026-09-20)
+
+Two changes in one pass, both the same shape: content whose natural size exceeds the right rail's
+360px does not belong in the rail.
+
+- **`/team`'s "Transfers this season"** is a season-long ledger. In the rail it ran far past the
+  bottom of the squad column beside it, leaving a column of dead space and forcing every gameweek
+  into one narrow stack. Moved to full width below the grid, gameweeks flowing across
+  `sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`. Measured after: 992px, exactly the grid's content
+  width, with `document.body.scrollWidth` (1425) ≤ `window.innerWidth` (1440).
+- **`/deadline`'s new "Plan Transfers and Chip Strategy" link** is 218px and shares a header row
+  with a heading. `flex-wrap` on that row, so it drops to its own line in the rail rather than
+  crushing the heading — the same `min-w-0`/wrap discipline as
+  [frontend-conventions.md](frontend-conventions.md#a-scroll-container-only-works-if-every-ancestor-may-shrink-2026-09-13),
+  applied before the overflow rather than after it.
+
+The rule the rail has now earned: **put a thing in the rail because it is short, not because there
+is room today.** A card that grows with the season will outgrow it.
+
+— [sprints/gw5-check-in.md](../sprints/gw5-check-in.md) §4

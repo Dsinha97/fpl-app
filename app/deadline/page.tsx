@@ -9,6 +9,7 @@ import { InfoTooltip } from "@/components/info-tooltip";
 import { AvailabilityBadge } from "@/components/player-status-icons";
 import { useAuth } from "@/components/auth-provider";
 import { layoutFromLineup, PitchView, type SquadLayout } from "@/components/pitch-view";
+import { useProfileModal } from "@/components/player-modal/use-profile-modal";
 import type { PlayerData } from "@/components/player-card";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { ChipPlanEditor } from "@/components/chip-plan-editor";
@@ -133,6 +134,18 @@ export default function DeadlinePage() {
   const [nextFixtureByTeam, setNextFixtureByTeam] = useState<Map<number, NextFixture>>(new Map());
 
   const [ctx, setCtx] = useState<SeasonContext | null>(null);
+
+  /** Opponent short names for the profile modal's gameweek table. */
+  const teamShortById = useMemo(
+    () => new Map([...teamMeta].map(([id, m]) => [id, m.short])),
+    [teamMeta],
+  );
+  /** Full profile modal, opened from the pitch popover. */
+  const { openProfile, modal: profileModal } = useProfileModal({
+    season: ctx?.season ?? null,
+    currentEvent: ctx?.nextEvent ?? null,
+    teamShortById,
+  });
   /** Every chip's windows, both halves — /transfers loads the same way, for the chip plan editor. */
   const [chipDefinitions, setChipDefinitions] = useState<ChipDefinitionRow[]>([]);
   /** Chips FPL's own history already reports played this season — /transfers loads the same way. */
@@ -756,6 +769,9 @@ export default function DeadlinePage() {
       return [
         {
           id: row.id,
+          // Needed by the full-profile modal, whose price and past-season
+          // histories are keyed on player_code rather than the reassignable id.
+          code: row.code,
           web_name: row.web_name,
           team_code: teamMeta.get(row.team_id)?.code ?? null,
           element_type: row.element_type,
@@ -1422,6 +1438,7 @@ export default function DeadlinePage() {
                       onFindReplacement={(id) =>
                         router.push(`/transfers/?draft=${team.draftId}&replace=${id}`)
                       }
+                      onOpenProfile={openProfile}
                     />
                     <p className="mt-2 text-xs text-zinc-500">
                       {team.name}
@@ -1706,6 +1723,8 @@ export default function DeadlinePage() {
 
         </>
       )}
+
+      {profileModal}
     </main>
   );
 }

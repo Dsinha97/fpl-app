@@ -170,6 +170,26 @@ openings across horizons; Σ`decisionMargin` equal to `rolls × margin` at margi
 opening roll at margin 20 with zero leaked squads. Full detail:
 [sprint-28.md](../sprints/sprint-28.md).
 
+### …and then none at all on `/deadline` (2026-09-20)
+
+The path stayed `/deadline`'s single answer for three weeks and was then removed outright: the page
+now links to `/transfers` instead of recommending anything itself. The Sprint 28 reasoning above
+survives intact — it was about *reconciling two headlines*, and the conclusion that the path is the
+better of the two is unchanged. What it did not catch is that on `/deadline` specifically the
+surviving headline still paid for a full second optimiser run (~1,875 `simulateTransfers` calls)
+and then handed off to `/transfers` **with an empty basket**, discarding the result it had just
+computed. `/transfers` keeps the path, auto-run on load, exactly as described above.
+
+So the count on `/deadline` went 2 → 1 → 0, and the rule it lands on is narrower than "one answer
+per deadline": *the page that owns a decision runs the engine for it; the others link there.* See
+[deadline-and-matchday.md](deadline-and-matchday.md#deadline-stopped-planning-transfers-2026-09-20)
+and [sprints/gw5-check-in.md](../sprints/gw5-check-in.md) §4.
+
+One loose end this inherits: Sprint 37 applied DSI-149's fade animation to
+`components/transfer-plan.tsx`, which Sprint 28 had already removed from every route — the
+component is correct, typechecked and unreachable. Recorded in
+[sprint-37.md](../sprints/sprint-37.md).
+
 See also: [squad-optimizer.md](squad-optimizer.md) (the wildcard branch's underlying engine),
 [deadline-and-matchday.md](deadline-and-matchday.md) (where the optimizer surfaces pre-deadline),
 [chip-plan.md](chip-plan.md) (chip-aware scoring and the forward transfer path).

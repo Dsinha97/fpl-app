@@ -2,6 +2,33 @@
 
 One line per entry, most recent first.
 
+- 2026-09-20 — Ingested the GW5 check-in and the coverage bug it found first. **Two new
+  methodology rules**, both earned the same day: `methodology.md`'s "A row that exists is not a
+  result" (a populated-but-unwritten `player_gameweek_stats` row joins cleanly and reads zero — the
+  absence case was already guarded, the presence case was not) and "A correction is only worth
+  fitting if it can represent the error" (the residual decomposes into a −0.714 non-appearance
+  cohort cancelling a +0.627 appearance one, which a multiplicative points scale cannot express).
+  New sections on `data-pipeline.md` ("A played gameweek is not a written one" — the 20h
+  `sync-player-history` pass, and the table of which fixture flags do and don't detect it),
+  `xp-model.md` (the n=4 check-in, superseding Sprint 34's n=1,272 table, plus the coverage gate
+  and a sign typo corrected), `deadline-and-matchday.md` (`/deadline` stopped planning transfers;
+  the countdown drops seconds above 24h), `transfer-engine.md` (the `/deadline` recommendation
+  count went 2 → 1 → 0, and the narrower rule that replaces "one answer per deadline"),
+  `design-system.md` (Sprint 37's sweep, and "a 360px rail is a layout constraint, not a
+  container"), `blocked-and-data-gaps.md` (`positionCalibration` unblocked-but-wrong; price
+  prediction now blocked for rises only), and two `timeline.md` rows. Also followed the stale
+  claim out of the wiki per **Folder conventions**: `roadmap.md`'s GW10 batch item 3 rewritten from
+  "refit `positionCalibration`" to "do not", its Blocked row and the M6 gate updated, and three
+  `linear.md` rows (DSI-50, DSI-53, DSI-54) corrected. New page in `sprints/`, not the wiki:
+  `gw5-check-in.md`. No new wiki page — every topic had a home.
+
+- 2026-09-18 — Sprint 37 (the M9 design-audit Todo sweep) ingested as part of the same pass.
+  `design-system.md` gains the system-level rules from its 13 fixes: `text-zinc-400` is illegal in
+  light theme (≈2.35:1), `title` is not an accessible name, `transition-all` is banned on the
+  shared `Button`, and the `TapToReveal`/`FilterDisclosure` fade as one hook change covering 5+
+  call sites. The one fix that landed on a component Sprint 28 had already removed from every route
+  (`transfer-plan.tsx`) is recorded on `transfer-engine.md` rather than quietly dropped.
+
 - 2026-09-13 — Ingested M9 (the design audit, never previously ingested) and DSI-141 on top of it.
   New sections on `design-system.md` (the primitives layer and its real adoption counts,
   `SegmentedControl` as the one pick-one control, the accent question settled in two passes, the
