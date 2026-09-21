@@ -88,18 +88,48 @@ export interface PriceProgress {
   projections?: PriceProjection[];
 }
 
+const netOf = (s: OwnershipSample): number =>
+  (s.transfersInEvent ?? 0) - (s.transfersOutEvent ?? 0);
+
 /**
  * Net transfers since the last price change, from ownership samples anchored
  * on that change. `samples` must be ordered oldest-first and already scoped
  * to one player, one season, at-or-after the last price change.
+ *
+ * **`transfers_in_event` and `transfers_out_event` are per-GAMEWEEK counters
+ * that FPL resets to zero at every deadline**, so this cannot simply
+ * difference the first and last sample — that is only valid when no deadline
+ * falls between them, which was true for 11% of players.
+ *
+ * What it did to the reading: Palmer's anchor was 2026-09-10, two deadlines
+ * back. His first post-anchor sample read +446,406 (a gameweek of heavy
+ * buying) and his latest read −41,347 (GW6's fresh counter), so the naive
+ * difference was −487,753 — reported as "expected to fall tonight, −321%"
+ * for three days without a fall. Summed correctly the figure is **+364,022**,
+ * a net inflow: the sign was inverted, not merely the magnitude.
+ *
+ * The fix needs no deadline lookup. `transfers_in_event` only ever increases
+ * within a gameweek, so a decrease between consecutive samples is a reset and
+ * nothing else. Within a segment, accumulate the delta; across a reset, the
+ * new sample's value *is* the accumulation since that reset.
+ *
+ * Still approximate in one way, and deliberately so: transfers made between
+ * the last pre-reset sample and the deadline are missed, because the counter
+ * is zeroed before the next sample sees them. At ~2h sampling that is a small
+ * slice of one gameweek, and the alternative — inferring the missing tail —
+ * would be inventing a number.
  */
 export function netTransfersSinceLastPriceChange(samples: OwnershipSample[]): number | null {
   if (samples.length < 2) return null;
-  const first = samples[0];
-  const last = samples[samples.length - 1];
-  const firstNet = (first.transfersInEvent ?? 0) - (first.transfersOutEvent ?? 0);
-  const lastNet = (last.transfersInEvent ?? 0) - (last.transfersOutEvent ?? 0);
-  return lastNet - firstNet;
+
+  let total = 0;
+  for (let i = 1; i < samples.length; i++) {
+    const previous = samples[i - 1];
+    const current = samples[i];
+    const reset = (current.transfersInEvent ?? 0) < (previous.transfersInEvent ?? 0);
+    total += reset ? netOf(current) : netOf(current) - netOf(previous);
+  }
+  return total;
 }
 
 /**
@@ -384,9 +414,10 @@ export function netTransferRatePerHour(
   const hours = (new Date(last.observedAt).getTime() - new Date(first.observedAt).getTime()) / 3600_000;
   if (hours <= 0) return null;
 
-  const firstNet = (first.transfersInEvent ?? 0) - (first.transfersOutEvent ?? 0);
-  const lastNet = (last.transfersInEvent ?? 0) - (last.transfersOutEvent ?? 0);
-  return (lastNet - firstNet) / hours;
+  // Reset-aware for the same reason as above. A 24h window rarely spans a
+  // deadline, but "rarely" is not "never", and on the day it does the naive
+  // difference is off by a whole gameweek's transfers.
+  return netTransfersSinceLastPriceChange(window)! / hours;
 }
 
 /** The next `count` nightly cutoffs strictly after `now`. */

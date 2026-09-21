@@ -140,12 +140,27 @@ function buildSamples(own: OwnRow[], prices: PriceRow[]): Sample[] {
       const sinceAnchor = before.filter((o) => new Date(o.observed_at).getTime() >= lastChangeMs);
       if (sinceAnchor.length < 2) continue;
 
+      // `transfers_in_event`/`transfers_out_event` are per-GAMEWEEK counters
+      // that reset to zero at every deadline, so these cannot be a simple
+      // first-to-last difference — that spans resets and inverts the sign for
+      // any player whose anchor predates a deadline (89% of them). The
+      // in-counter only increases within a gameweek, so a decrease is a reset.
+      // Mirrors `netTransfersSinceLastPriceChange` in lib/price-watch.ts.
       const netOf = (o: OwnRow) => (o.transfers_in_event ?? 0) - (o.transfers_out_event ?? 0);
-      const netSinceChange = netOf(sinceAnchor[sinceAnchor.length - 1]) - netOf(sinceAnchor[0]);
+      const sumResetAware = (rows: OwnRow[]): number => {
+        let total = 0;
+        for (let k = 1; k < rows.length; k++) {
+          const reset = (rows[k].transfers_in_event ?? 0) < (rows[k - 1].transfers_in_event ?? 0);
+          total += reset ? netOf(rows[k]) : netOf(rows[k]) - netOf(rows[k - 1]);
+        }
+        return total;
+      };
+
+      const netSinceChange = sumResetAware(sinceAnchor);
 
       const dayAgo = cutoffMs - 24 * 3600_000;
       const win = before.filter((o) => new Date(o.observed_at).getTime() >= dayAgo);
-      const net24h = win.length >= 2 ? netOf(win[win.length - 1]) - netOf(win[0]) : 0;
+      const net24h = win.length >= 2 ? sumResetAware(win) : 0;
 
       const latest = before[before.length - 1];
 
