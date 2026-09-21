@@ -178,19 +178,37 @@ export const isImminent = (verdict: PriceVerdict): boolean =>
 
 const PAGE_ROWS = 1000;
 
-/** Pages a query until a short page comes back. See the note in `loadPriceProgress`. */
+/**
+ * Counts the rows, then fetches every page concurrently.
+ *
+ * The same shape as `fetchAll` in lib/player-pool.ts, and for the same
+ * reason. Serially, the ownership scan below is ~42 round trips at ~400ms —
+ * over twenty seconds before the price column says anything. Concurrently it
+ * is one count plus one wall-clock page.
+ *
+ * `run` must impose a **total** order. Two concurrent OFFSET queries are
+ * independent statements, and Postgres gives no guarantee they see the same
+ * row order unless the ORDER BY is unique — a partial order can overlap or
+ * skip rows across a page boundary.
+ */
 async function fetchAllPages<T>(
+  count: () => PromiseLike<{ count: number | null; error: { message: string } | null }>,
   run: (from: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += PAGE_ROWS) {
-    const { data, error } = await run(from);
-    if (error) throw new Error(error.message);
-    const page = data ?? [];
-    out.push(...page);
-    if (page.length < PAGE_ROWS) break;
-  }
-  return out;
+  const { count: total, error: countError } = await count();
+  if (countError) throw new Error(countError.message);
+
+  const starts: number[] = [];
+  for (let from = 0; from < (total ?? 0) || from === 0; from += PAGE_ROWS) starts.push(from);
+
+  const pages = await Promise.all(
+    starts.map(async (from) => {
+      const { data, error } = await run(from);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    }),
+  );
+  return pages.flat();
 }
 
 /**
@@ -221,15 +239,22 @@ export async function loadPriceProgress(
   const result = new Map<number, PriceProgress>();
   if (playerCodes.length === 0) return result;
 
-  const lastChanges = await fetchAllPages<{ player_code: number; observed_at: string }>((from) =>
-    supabase
-      .from("player_price_history")
-      .select("player_code, observed_at")
-      .eq("season", season)
-      .in("player_code", playerCodes)
-      .order("observed_at", { ascending: false })
-      .order("player_code")
-      .range(from, from + PAGE_ROWS - 1),
+  const lastChanges = await fetchAllPages<{ player_code: number; observed_at: string }>(
+    () =>
+      supabase
+        .from("player_price_history")
+        .select("player_code", { count: "exact", head: true })
+        .eq("season", season)
+        .in("player_code", playerCodes),
+    (from) =>
+      supabase
+        .from("player_price_history")
+        .select("player_code, observed_at")
+        .eq("season", season)
+        .in("player_code", playerCodes)
+        .order("observed_at", { ascending: false })
+        .order("player_code")
+        .range(from, from + PAGE_ROWS - 1),
   );
 
   const lastChangeAt = new Map<number, string>();
@@ -249,19 +274,26 @@ export async function loadPriceProgress(
     observed_at: string;
     transfers_in_event: number | null;
     transfers_out_event: number | null;
-  }>((from) =>
-    supabase
-      .from("player_ownership_history")
-      .select("player_code, observed_at, transfers_in_event, transfers_out_event")
-      .eq("season", season)
-      .in("player_code", playerCodes)
-      .gte("observed_at", earliestAnchor)
-      // Paging concurrently would need a total order; these pages are
-      // sequential, but an explicit tiebreak still keeps them stable across
-      // the boundary when two samples share a timestamp.
-      .order("observed_at", { ascending: true })
-      .order("player_code")
-      .range(from, from + PAGE_ROWS - 1),
+  }>(
+    () =>
+      supabase
+        .from("player_ownership_history")
+        .select("player_code", { count: "exact", head: true })
+        .eq("season", season)
+        .in("player_code", playerCodes)
+        .gte("observed_at", earliestAnchor),
+    (from) =>
+      supabase
+        .from("player_ownership_history")
+        .select("player_code, observed_at, transfers_in_event, transfers_out_event")
+        .eq("season", season)
+        .in("player_code", playerCodes)
+        .gte("observed_at", earliestAnchor)
+        // (observed_at, player_code) is this table's own key, so this is a
+        // total order — required, because the pages are fetched concurrently.
+        .order("observed_at", { ascending: true })
+        .order("player_code")
+        .range(from, from + PAGE_ROWS - 1),
   );
 
   const byPlayer = new Map<number, OwnershipSample[]>();

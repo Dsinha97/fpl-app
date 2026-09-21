@@ -30,6 +30,7 @@ export interface GameweekLine extends ScorableLine {
   team_h_score: number | null;
   team_a_score: number | null;
   bps: number;
+  ict_index: number | null;
   /** The player's price that gameweek, in FPL tenths. */
   value: number;
   transfers_in: number;
@@ -55,6 +56,45 @@ export interface PriceChange {
   price: number;
   cost_change_event: number | null;
   observed_at: string;
+}
+
+/** Season totals reduced from the gameweek lines. */
+export interface SeasonTotals {
+  points: number;
+  minutes: number;
+  goals: number;
+  assists: number;
+  bonus: number;
+  ict: number;
+  /** Fixtures in which the player actually appeared — the PPG denominator. */
+  appearances: number;
+  /** Points per appearance, or null with no appearances to divide by. */
+  ppg: number | null;
+}
+
+/**
+ * Season totals from the gameweek lines, so the card has one source for a
+ * number rather than two that can disagree. `players.total_points` and these
+ * should match; if they ever don't, this one is the itemised version the
+ * Gameweeks tab shows, and agreeing with the tab beside it matters more.
+ */
+export function seasonTotals(lines: GameweekLine[]): SeasonTotals {
+  let points = 0, minutes = 0, goals = 0, assists = 0, bonus = 0, ict = 0, appearances = 0;
+  for (const l of lines) {
+    points += l.total_points ?? 0;
+    minutes += l.minutes ?? 0;
+    goals += l.goals_scored ?? 0;
+    assists += l.assists ?? 0;
+    bonus += l.bonus ?? 0;
+    ict += Number(l.ict_index ?? 0);
+    if ((l.minutes ?? 0) > 0) appearances++;
+  }
+  return {
+    points, minutes, goals, assists, bonus,
+    ict: Math.round(ict * 10) / 10,
+    appearances,
+    ppg: appearances > 0 ? Math.round((points / appearances) * 10) / 10 : null,
+  };
 }
 
 /** Season in/out totals, and the source they came from. */
@@ -101,7 +141,7 @@ async function fetchGameweeks(season: string, playerId: number): Promise<Gamewee
     const { data, error } = await supabase
       .from("player_gameweek_stats")
       .select(
-        "event, fixture, opponent_team, was_home, team_h_score, team_a_score, minutes, total_points, goals_scored, assists, clean_sheets, goals_conceded, own_goals, penalties_saved, penalties_missed, yellow_cards, red_cards, saves, bonus, bps, defensive_contribution, value, transfers_in, transfers_out",
+        "event, fixture, opponent_team, was_home, team_h_score, team_a_score, minutes, total_points, goals_scored, assists, clean_sheets, goals_conceded, own_goals, penalties_saved, penalties_missed, yellow_cards, red_cards, saves, bonus, bps, defensive_contribution, ict_index, value, transfers_in, transfers_out",
       )
       .eq("season", season)
       .eq("player_id", playerId)
@@ -156,6 +196,41 @@ export function loadPlayerPrices(season: string, playerCode: number): Promise<Pr
       .range(0, 19);
     if (error) throw new Error(error.message);
     return (data ?? []) as unknown as PriceChange[];
+  });
+}
+
+const sampleCache = new Map<string, CacheEntry<{ in: number; out: number } | null>>();
+
+/**
+ * This gameweek's transfers in/out from the most recent ownership sample.
+ *
+ * `player_gameweek_stats` only carries a gameweek's transfer totals once the
+ * sync has written that gameweek's rows, which happens after it is played —
+ * so mid-week, before a deadline, the finalised figure does not exist yet and
+ * the card would show a dash for a number FPL is publishing live. This is the
+ * live one. It is a ~2-hourly *sample*, not a settled total, which is why
+ * `transferTotals` records which source a figure came from rather than
+ * letting the two pass for each other.
+ */
+export function loadCurrentTransferSample(
+  season: string,
+  playerCode: number,
+): Promise<{ in: number; out: number } | null> {
+  return memoise(sampleCache, `${season}:${playerCode}`, async () => {
+    const { data, error } = await supabase
+      .from("player_ownership_history")
+      .select("transfers_in_event, transfers_out_event")
+      .eq("season", season)
+      .eq("player_code", playerCode)
+      .order("observed_at", { ascending: false })
+      .range(0, 0);
+    if (error) throw new Error(error.message);
+    const row = (data ?? [])[0];
+    if (!row) return null;
+    return {
+      in: (row.transfers_in_event as number | null) ?? 0,
+      out: (row.transfers_out_event as number | null) ?? 0,
+    };
   });
 }
 

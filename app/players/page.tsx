@@ -40,6 +40,9 @@ import {
   type Horizon,
 } from "@/lib/team-state";
 import { HorizonControl } from "@/components/horizon-control";
+import { PlayerModal } from "@/components/player-modal";
+import { buildPositionRanks, type RankablePlayer } from "@/lib/player-ranks";
+import type { PlayerData } from "@/components/player-card";
 
 interface PlayerRow {
   id: number;
@@ -231,6 +234,18 @@ export default function PlayersPage() {
   const [predictions, setPredictions] = useState<Map<number, PredictionRow>>(new Map());
   const [historySeason, setHistorySeason] = useState<string>("");
   const [seasonWindow, setSeasonWindow] = useState(FALLBACK_SEASON_WINDOW);
+  /** Season and next gameweek, for the profile modal's own loaders. */
+  const [season, setSeason] = useState<string | null>(null);
+  const [nextEvent, setNextEvent] = useState<number | null>(null);
+  /**
+   * The player whose full profile is open, by `player_code`.
+   *
+   * `code`, not `id`: FPL reassigns element ids between seasons, so a shared
+   * `?player=` link keyed on id would point at a different footballer after a
+   * rollover. `player_code` is the key the price and season histories already
+   * use.
+   */
+  const [profileCode, setProfileCode] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -262,6 +277,8 @@ export default function PlayersPage() {
           .maybeSingle();
         if (gwError) throw new Error(gwError.message);
         if (!gw) throw new Error("No upcoming gameweek found.");
+        setSeason(gw.season as string);
+        setNextEvent(gw.id as number);
 
         const [playersRes, teamsRes, fixturesRes, latestSeasonRes, rateProfileRes, predictionsRes] =
           await Promise.all([
@@ -397,6 +414,17 @@ export default function PlayersPage() {
           if (params.get("panel") === "compare") setCompareOpen(true);
         }
 
+        // ?player=<code> opens that player's full profile. Orthogonal to
+        // ?ids= (which ticks compare boxes) and ?panel= (which side panel) —
+        // all three can be set at once and mean three different things.
+        // Resolved against every row, not the visible page: PAGE_SIZE is 50,
+        // so a shared link often points at someone on page 4, and paging to
+        // them is not what the link asked for.
+        const wanted = Number(params.get("player"));
+        if (Number.isInteger(wanted) && playerRows.some((r) => r.code === wanted)) {
+          setProfileCode(wanted);
+        }
+
         // first_event/last_event are constant across every row for one
         // season/model_version — any row gives the real prediction window.
         const first = xpList[0];
@@ -457,6 +485,103 @@ export default function PlayersPage() {
     availability: availabilityOf(p),
     fdrRun: (runs.get(p.team_id) ?? []).map((c) => c.fdr),
   });
+
+  /**
+   * Position cohorts for the profile card's rank captions.
+   *
+   * Built from the pool this page already holds rather than refetched — the
+   * loader in lib/player-ranks.ts exists for pages that have no pool, not
+   * for this one.
+   */
+  const ranks = useMemo(() => {
+    if (players.length === 0) return undefined;
+    const pool: RankablePlayer[] = players.map((p) => {
+      const x = xp.get(p.id);
+      return {
+        code: p.code,
+        element_type: p.element_type,
+        minutes: p.minutes,
+        total_points: p.total_points,
+        now_cost: p.now_cost,
+        form: p.form,
+        ownership: p.selected_by_percent,
+        xp_next: x?.xp_1 ?? null,
+        goals: p.goals_scored,
+        assists: p.assists,
+        ppg: p.points_per_game,
+        // FPL exposes no season ICT total on `players`; the profile derives
+        // it per player from the gameweek lines, which this pool does not
+        // have. Absent rather than zero, so it ranks nobody instead of
+        // ranking everybody last.
+        ict: null,
+      };
+    });
+    return buildPositionRanks(pool);
+  }, [players, xp]);
+
+  /**
+   * The open profile's row plus the shared `PlayerData` shape the modal and
+   * the pitch popover both speak.
+   */
+  const profilePlayer = useMemo((): PlayerData | null => {
+    if (profileCode === null) return null;
+    const p = players.find((r) => r.code === profileCode);
+    if (!p) return null;
+    const x = xp.get(p.id);
+    return {
+      id: p.id,
+      code: p.code,
+      web_name: p.web_name,
+      team_code: null,
+      team_short: teamShort.get(p.team_id) ?? null,
+      element_type: p.element_type,
+      now_cost: p.now_cost ?? 0,
+      expected_points: xpForHorizon(x, 1),
+      ownership: p.selected_by_percent,
+      form: p.form,
+      status: p.status,
+      news: p.news,
+      chance_of_playing_next_round: p.chance_of_playing_next_round,
+      expected_minutes: predictions.get(p.id)?.expected_minutes ?? null,
+      start_probability: predictions.get(p.id)?.start_probability ?? null,
+      reliability: x?.reliability ?? undefined,
+      prior_weight: x?.prior_weight ?? null,
+      upcoming: (runs.get(p.team_id) ?? []).slice(0, 5).map((c) => ({
+        event: c.gw,
+        opponent_short_name: c.opp,
+        is_home: c.home,
+        fdr: c.fdr,
+      })),
+    };
+  }, [profileCode, players, xp, teamShort, predictions, runs]);
+
+  /**
+   * Opening and closing the profile writes ?player= so the view is
+   * shareable. `history.replaceState`, not `router.replace()`: this is
+   * presentational state, and a Next navigation would need an effect (a
+   * replace in a render body is a real React warning) and cost a render
+   * round-trip on every open.
+   */
+  const syncPlayerParam = useCallback((code: number | null) => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (code === null) url.searchParams.delete("player");
+    else url.searchParams.set("player", String(code));
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+
+  const openProfile = useCallback(
+    (code: number) => {
+      setProfileCode(code);
+      syncPlayerParam(code);
+    },
+    [syncPlayerParam],
+  );
+
+  const closeProfile = useCallback(() => {
+    setProfileCode(null);
+    syncPlayerParam(null);
+  }, [syncPlayerParam]);
 
   /**
    * xP per £m for one row at the selected horizon. Delegates to
@@ -863,9 +988,18 @@ export default function PlayersPage() {
                           onChange={() => toggleSelected(p.id)}
                           aria-label={`Select ${p.web_name} to compare`}
                         />
-                        <span className="truncate font-medium" title={fullName(p) ?? undefined}>
+                        {/* The affordance this page has never had: /builder's
+                            picker has opened a detail panel from the name
+                            since Sprint 23, while the page built for
+                            researching a player opened nothing at all. */}
+                        <button
+                          type="button"
+                          onClick={() => openProfile(p.code)}
+                          title={fullName(p) ?? undefined}
+                          className="min-w-0 truncate rounded font-medium hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [touch-action:manipulation]"
+                        >
                           {p.web_name}
-                        </span>
+                        </button>
                         <AvailabilityBadge
                           status={p.status}
                           chanceOfPlaying={p.chance_of_playing_next_round}
@@ -1055,6 +1189,31 @@ export default function PlayersPage() {
             </span>
           </div>
         </div>
+      )}
+
+      {profilePlayer && season && (
+        <PlayerModal
+          player={profilePlayer}
+          season={season}
+          teamShortById={teamShort}
+          currentEvent={nextEvent}
+          ranks={ranks}
+          priceProgress={profileCode !== null ? priceProgress.get(profileCode) : undefined}
+          onClose={closeProfile}
+          // No squad context on this page, so compare takes the single
+          // accent slot rather than sitting under a disabled "Add to squad".
+          onCompare={() => {
+            toggleSelected(profilePlayer.id);
+            closeProfile();
+          }}
+          compareLabel={
+            selected.includes(profilePlayer.id)
+              ? "Remove from compare"
+              : selected.length >= MAX_COMPARE
+                ? `Compare is full (${MAX_COMPARE})`
+                : `Add to compare · ${selected.length}/${MAX_COMPARE}`
+          }
+        />
       )}
 
       <SlideOver

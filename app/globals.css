@@ -364,3 +364,34 @@
     transform: none !important;
   }
 }
+
+/* Player profile modal (desktop). Enters from scale(.97) and a cross-blur,
+   never from scale(0): a panel that grows from nothing reads as an animation
+   rather than as a thing arriving. Exits are the caller's business — the
+   modal unmounts, and an exit that has to survive unmount is not worth the
+   machinery here.
+
+   No fill-mode, for the reason SlideOver documents at length: an animation
+   that never runs (backgrounded tab, paused compositor) must leave a usable
+   resting state, not a transparent scaled-down panel nobody can see. */
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+    filter: blur(var(--motion-blur, 2px));
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
