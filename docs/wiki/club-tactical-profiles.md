@@ -52,7 +52,11 @@ three traits, Man Utd two.
 Coventry, Manchester City, Liverpool, Sunderland, Leeds, Fulham and Brentford followed
 (`20260922194547_pl_managers_analysis_batch3.sql`), from several channels — each `source_file`
 names its own. Most of these sources also carry a matchday checklist (what to watch in a game),
-kept as a final "Matchday checklist" section. Twelve of 20 clubs now have an analysis.
+kept as a final "Matchday checklist" section. Aston Villa, Crystal Palace, Nottingham Forest,
+Everton and Newcastle followed (`20260922200351_pl_managers_analysis_batch4.sql`), which also
+corrects four player names the batch-3 transcripts got wrong — source transcripts mangle names,
+so check them before shipping. 18 of 20 clubs now have an analysis; Bournemouth and Ipswich
+still carry their original profiles.
 
 A second proposal hit the same wall for a related reason (Sprint 18): a GW1-3 xP penalty for
 players under a first-season manager. Refused on three grounds — `pl_managers` has no start
