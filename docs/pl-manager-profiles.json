@@ -144,7 +144,7 @@
         "points": [
           {
             "label": "Jackson–Manzambi pair",
-            "text": "Nicolas Jackson and Nathan Manzambi play as a fluid front two, with Jackson alternating between dropping to feet and spinning behind the centre-backs into the channels."
+            "text": "Nicolas Jackson and Johan Manzambi play as a fluid front two, with Jackson alternating between dropping to feet and spinning behind the centre-backs into the channels."
           },
           {
             "label": "Isolating centre-backs",
@@ -192,33 +192,104 @@
     "manager_id": "rose_marco",
     "name": "Marco Rose",
     "current_club": "Bournemouth",
-    "preferred_formation": "4-2-2-2 / 4-2-3-1",
+    "preferred_formation": "4-2-3-1",
     "buildup_style": "high_regain_pressing",
     "pressing_intensity": "high",
-    "source_file": "Marco Rose's FM26 Blueprint | Full Tactical Breakdown",
+    "source_file": "Marco Rose BOTTLES It Again! | Newcastle 2-2 Bournemouth Tactical Analysis (The Football Connect)",
     "tactical_traits": {
-      "wingers": {
-        "role": "transition_runner",
-        "xp_impact": "+10% xG on high turnovers in opposition half"
+      "pivots": {
+        "profile_required": "screening_double_pivot",
+        "xp_impact": "The double pivot protects the centre so the attacking midfielders can press, and collapses on opponents receiving back to goal in midfield; Scott sets the tempo and picks forward passes into the channels"
       },
       "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "+15% xA on direct wide transitions and overlapping deliveries"
+        "role": "touchline_marker",
+        "xp_impact": "Truffert tracks opposing wide runners stride for stride down the left"
       },
-      "pivots": {
-        "profile_required": "box_to_box_carrier",
-        "rotation_risk_factors": "Aggressive man-marking eights face booking risk"
-      },
-      "strikers": {
-        "profile_required": "transitional_runner",
-        "xp_impact": "+15% xP for dual-striker partnerships exploiting second balls"
+      "wingers": {
+        "role": "transition_runner",
+        "xp_impact": "Tavernier and Kluivert are the targets of fast, direct sequences, running behind the back line on the first pass"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.95,
-      "high_press_fdr_modifier": 1.15,
-      "set_piece_bias": 1.10
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: the vertical 4-2-3-1",
+        "points": [
+          {
+            "label": "Mid-block base",
+            "text": "Marco Rose sets Bournemouth up in an athletic 4-2-3-1, with the double pivot protecting the centre so the attacking midfield line can press aggressively."
+          },
+          {
+            "label": "Rest defence",
+            "text": "When attacking, Bournemouth keep four players behind the ball to secure the central corridor against counters."
+          },
+          {
+            "label": "Touchline containment",
+            "text": "Left-back Adrien Truffert matches opposing wide runners stride for stride, stopping progress down that flank."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Central turnover trap",
+            "text": "Pressure starts when an opponent receives back to goal in the middle third; the double pivot collapses around the ball carrier to force a quick turnover."
+          },
+          {
+            "label": "Counter-pressing high",
+            "text": "Rather than drop into a low block early, Bournemouth hunt loose balls in advanced areas — 13 shots in the first half against Newcastle."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: Scott and fast transitions",
+        "points": [
+          {
+            "label": "Scott sets the tempo",
+            "text": "Alex Scott is the central playmaker, picking out forward passes into open channels."
+          },
+          {
+            "label": "Direct box entries",
+            "text": "Fast, direct sequences into Marcus Tavernier and Justin Kluivert produced 1.50 xG from 17 shots."
+          },
+          {
+            "label": "Running in behind",
+            "text": "Attackers run behind the back line on the first pass, creating immediate 1v1 chances in the box."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Late-game collapse",
+            "text": "In the last ten minutes Bournemouth retreat into an uncoordinated, passive low block — four of their five goals conceded this season came after the 88th minute."
+          },
+          {
+            "label": "Poor clearances",
+            "text": "When pinned deep, defenders don't clear second balls decisively beyond the arc, leaving free shooting lanes for late midfield runners."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "Block height late on",
+            "text": "Compare the back four's average depth in minutes 1–75 with minutes 76–90."
+          },
+          {
+            "label": "Scott's forward passing",
+            "text": "What share of Scott's progressive passes reach the final third on counters?"
+          },
+          {
+            "label": "Clearance zones",
+            "text": "Do clearances in the box go out wide, or drop into the central arc?"
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "andrews_keith",
@@ -1474,7 +1545,7 @@
     "tactical_traits": {
       "pivots": {
         "profile_required": "single_pivot_tempo",
-        "xp_impact": "Neave-Stir anchors as a lone pivot dictating tempo; when he went off injured, the reshuffle cost central ball retention and Newcastle conceded 21 shots"
+        "xp_impact": "Steur anchors as a lone pivot dictating tempo; when he went off injured, the reshuffle cost central ball retention and Newcastle conceded 21 shots"
       },
       "fullbacks": {
         "role": "inverted_pivot",
@@ -1496,7 +1567,7 @@
         "points": [
           {
             "label": "Asymmetric 4-3-3",
-            "text": "Matthias Jaissle moved Newcastle from a 4-2-4 to a 4-3-3 against Hull's low block, with 18-year-old Sean Neave-Stir anchoring as a lone pivot, dictating tempo."
+            "text": "Matthias Jaissle moved Newcastle from a 4-2-4 to a 4-3-3 against Hull's low block, with 18-year-old Sean Steur anchoring as a lone pivot, dictating tempo."
           },
           {
             "label": "Inverted right-back",
@@ -1543,7 +1614,7 @@
         "points": [
           {
             "label": "Losing the pivot",
-            "text": "When Neave-Stir went off injured, moving Miley back into midfield and Malick Thiaw to right-back broke the spacing: Newcastle lost central retention and conceded 21 shots."
+            "text": "When Steur went off injured, moving Miley back into midfield and Malick Thiaw to right-back broke the spacing: Newcastle lost central retention and conceded 21 shots."
           },
           {
             "label": "Under a high press",
@@ -1564,7 +1635,7 @@
           },
           {
             "label": "Pivot retention",
-            "text": "What is Neave-Stir's pass completion under direct pressure in the central third?"
+            "text": "What is Steur's pass completion under direct pressure in the central third?"
           }
         ]
       }

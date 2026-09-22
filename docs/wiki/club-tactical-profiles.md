@@ -55,8 +55,10 @@ names its own. Most of these sources also carry a matchday checklist (what to wa
 kept as a final "Matchday checklist" section. Aston Villa, Crystal Palace, Nottingham Forest,
 Everton and Newcastle followed (`20260922200351_pl_managers_analysis_batch4.sql`), which also
 corrects four player names the batch-3 transcripts got wrong — source transcripts mangle names,
-so check them before shipping. 18 of 20 clubs now have an analysis; Bournemouth and Ipswich
-still carry their original profiles.
+so check them before shipping. Two more names were fixed in `20260922201448_pl_managers_name_fixes.sql`,
+and Bournemouth followed (`20260922201543_pl_managers_analysis_bournemouth.sql`). 19 of 20 clubs now
+have an analysis. Ipswich is held back: the analysis offered for it described a 2024/25 side under
+a different manager, with a striker now at another club.
 
 A second proposal hit the same wall for a related reason (Sprint 18): a GW1-3 xP penalty for
 players under a first-season manager. Refused on three grounds — `pl_managers` has no start
