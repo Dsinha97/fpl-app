@@ -266,6 +266,10 @@ export default function PlayersPage() {
   const [compareOpen, setCompareOpen] = useState(false);
   const [page, setPage] = useState(0);
   const compareTrigger = useRef<HTMLDivElement>(null);
+  // The compare panel's own table scrolls horizontally — the same axis as
+  // its right-edge swipe-to-dismiss — so only its header is a drag handle,
+  // not the whole panel. Wired to `SlideOver`'s `dragHandleRef`.
+  const compareDragHandle = useRef<((e: React.PointerEvent) => void) | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -1225,10 +1229,14 @@ export default function PlayersPage() {
         label="Player comparison"
         width="min(52rem, 96vw)"
         triggerRef={compareTrigger}
+        dragHandleRef={compareDragHandle}
       >
         <div className="p-2">
           <div className="flex items-start justify-between gap-3 pb-3">
-            <div>
+            <div
+              onPointerDown={(e) => compareDragHandle.current?.(e)}
+              className="touch-none"
+            >
               <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
                 Comparison
               </h2>
