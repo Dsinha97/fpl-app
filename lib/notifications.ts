@@ -49,13 +49,18 @@ export const LINK_CODE_TTL_MINUTES = 10;
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 6;
 
-export type NotifyKind = "deadline" | "status" | "news" | "price" | "fixture";
+export type NotifyKind = "deadline" | "status" | "news" | "price" | "fixture" | "price_watch";
 
 export const NOTIFY_KINDS: Array<{ kind: NotifyKind; label: string; help: string }> = [
   { kind: "deadline", label: "Deadline reminder", help: "Once per gameweek, before it locks." },
   { kind: "status", label: "Injury & availability", help: "Only for players in your squad." },
   { kind: "news", label: "Team news", help: "Only for players in your squad." },
   { kind: "price", label: "Price changes", help: "Only for players in your squad." },
+  {
+    kind: "price_watch",
+    label: "Nearing a price change",
+    help: "Squad and shortlist players, once net transfers cross the watch threshold — a heads-up, not a prediction of tonight.",
+  },
   { kind: "fixture", label: "Fixture changes", help: "Reschedules, for every club." },
 ];
 
@@ -70,7 +75,7 @@ export const DEFAULT_PREFS: NotificationPrefs = {
   // Everything off. A notifier that starts sending the moment a chat is linked
   // is a notifier people mute, and a muted channel is worse than no channel —
   // it looks like it is working.
-  enabled: { deadline: false, status: false, news: false, price: false, fixture: false },
+  enabled: { deadline: false, status: false, news: false, price: false, fixture: false, price_watch: false },
   deadlineHoursBefore: 4,
 };
 
@@ -78,7 +83,7 @@ export async function loadNotificationPrefs(userId: string): Promise<Notificatio
   const { data, error } = await supabase
     .from("user_notification_prefs")
     .select(
-      "telegram_chat_id, notify_deadline, notify_status, notify_news, notify_price, notify_fixture, deadline_hours_before",
+      "telegram_chat_id, notify_deadline, notify_status, notify_news, notify_price, notify_fixture, notify_price_watch, deadline_hours_before",
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -93,6 +98,7 @@ export async function loadNotificationPrefs(userId: string): Promise<Notificatio
       news: Boolean(data.notify_news),
       price: Boolean(data.notify_price),
       fixture: Boolean(data.notify_fixture),
+      price_watch: Boolean(data.notify_price_watch),
     },
     deadlineHoursBefore: (data.deadline_hours_before as number) ?? DEFAULT_PREFS.deadlineHoursBefore,
   };
@@ -118,6 +124,7 @@ export async function saveNotificationPrefs(
       notify_news: prefs.enabled.news,
       notify_price: prefs.enabled.price,
       notify_fixture: prefs.enabled.fixture,
+      notify_price_watch: prefs.enabled.price_watch,
       deadline_hours_before: prefs.deadlineHoursBefore,
     },
     { onConflict: "user_id" },

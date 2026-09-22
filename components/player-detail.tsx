@@ -17,15 +17,20 @@ const POSITION_NAME: Record<number, string> = {
 
 /**
  * Panel width and max height, also used to keep it inside the pitch.
- * Lowered back from 460 to 340 (Sprint 21) now that everything past the
- * metric grid and live breakdown sits behind "Show full details" and is
- * collapsed by default — both PitchView's positioning and the picker's
- * `fixed` placement read these constants directly, so they stay in sync
- * automatically. The expanded state still scrolls within the panel's own
- * `overflow-y-auto` rather than growing past this cap.
+ * Raised from 340 to 480 (Sprint 39, DSI-181): the metric grid grew from two
+ * rows to four (Exp. mins/Start %/Owned all landed after the Sprint 21 cap
+ * was set) and an owned squad player can render three stacked action rows
+ * (Set C/Set VC/Remove, Replace, Full profile) — together they exceed 340px
+ * even with the live breakdown and "Show full details" content both absent,
+ * so the action row was being pushed below the cap and required scrolling to
+ * reach on every squad player, not just an edge case. Both PitchView's
+ * positioning and the picker's `fixed` placement read these constants
+ * directly, so they stay in sync automatically. `overflow-y-auto` stays as a
+ * safety net for the live-breakdown case and short viewports, not the normal
+ * path.
  */
 export const PANEL_WIDTH = 320;
-export const PANEL_MAX_HEIGHT = 340;
+export const PANEL_MAX_HEIGHT = 480;
 
 interface PlayerDetailProps {
   player: PlayerData;

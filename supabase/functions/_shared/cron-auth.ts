@@ -72,16 +72,34 @@ export async function verifyCron(req: Request, db: SupabaseClient): Promise<Resp
   const supplied = req.headers.get(HEADER);
   if (!supplied) return unauthorized();
 
-  const { data, error } = await db.rpc("verify_cron_secret", { p_secret: supplied });
+  const verdict = await callVerifyCronSecret(db, supplied);
+  return verdict === true ? null : unauthorized();
+}
 
-  if (error) {
+/**
+ * One retry after a short backoff, and only on an RPC *error* — never on a
+ * clean `false`, which is a genuine secret mismatch and must fail closed
+ * immediately, no slower than before.
+ *
+ * DSI-142: `generate-predictions` was 401ing on roughly one cron run in
+ * three, dying inside this RPC after 6-8s of real work — the successful
+ * runs took 18-20s, so this is a transient Vault/Postgres hiccup partway
+ * through a path that normally completes, not a caller problem (the header
+ * and key were identical on the 200s and the 401s). A single retry turns
+ * that into a successful run instead of a silently dropped one; it does not
+ * change the fail-closed guarantee, since the final state is still
+ * "unauthorized" whenever both attempts come back false or erroring.
+ */
+async function callVerifyCronSecret(db: SupabaseClient, secret: string): Promise<boolean> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { data, error } = await db.rpc("verify_cron_secret", { p_secret: secret });
+    if (!error) return data === true;
     // Loud in the function logs, silent in the response — an attacker learns
     // nothing about why they were turned away.
-    console.error(`verify_cron_secret failed: ${error.message}`);
-    return unauthorized();
+    console.error(`verify_cron_secret failed (attempt ${attempt + 1}/2): ${error.message}`);
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 300));
   }
-
-  return data === true ? null : unauthorized();
+  return false;
 }
 
 function unauthorized(): Response {

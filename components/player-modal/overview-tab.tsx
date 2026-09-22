@@ -257,6 +257,13 @@ export function OverviewTab({
         />
         <StatCell label="Season in" value={lines === null ? loadingCell : compact(totals?.seasonIn)} />
         <StatCell label="Season out" value={lines === null ? loadingCell : compact(totals?.seasonOut)} />
+        <StatCell
+          label="Owned"
+          value={player.ownership !== undefined && player.ownership !== null ? `${player.ownership}%` : "—"}
+          rank={rank("ownership")}
+          positionShort={positionShort}
+          positionLong={positionLong}
+        />
       </StatGrid>
 
       {player.upcoming && player.upcoming.length > 0 && (

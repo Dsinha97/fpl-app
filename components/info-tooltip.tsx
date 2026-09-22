@@ -76,8 +76,12 @@ export function TapToReveal({
         // context: opened from inside a `sticky z-10` table cell on /players,
         // the panel was painted over by the *next row's* sticky cell, which
         // carries the same z-index and comes later in the DOM. Rendering at
-        // the body puts one comparison in charge of it — z-30 against the
-        // page — which is what `fixed z-30` already claimed to mean.
+        // the body puts one comparison in charge of it — against the page —
+        // which is what `fixed z-[60]` claims. Raised from z-30 to z-[60]
+        // (Sprint 39, DSI-181): a tooltip opened from inside the player
+        // profile modal (`components/player-modal.tsx`, panel `z-50`) was
+        // portalling behind the modal's own panel, since z-30 only ever
+        // needed to beat the z-10 table cell it was written for.
         createPortal(
           <span
             ref={panelRef}
@@ -88,7 +92,7 @@ export function TapToReveal({
             // ride Base UI's own data-starting-style/data-ending-style —
             // this panel is a plain conditional mount, so @starting-style
             // (Tailwind's `starting:` variant) is the mechanism instead.
-            className={`fixed z-30 w-72 max-w-[calc(100vw-1rem)] scale-100 rounded-lg border border-border bg-popover p-3 text-left text-xs font-normal leading-relaxed text-zinc-700 opacity-100 shadow-lg transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none starting:scale-95 starting:opacity-0 dark:text-zinc-300 ${
+            className={`fixed z-[60] w-72 max-w-[calc(100vw-1rem)] scale-100 rounded-lg border border-border bg-popover p-3 text-left text-xs font-normal leading-relaxed text-zinc-700 opacity-100 shadow-lg transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none starting:scale-95 starting:opacity-0 dark:text-zinc-300 ${
               align === "right" ? "origin-top-right" : "origin-top-left"
             }`}
           >
