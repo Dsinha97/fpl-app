@@ -49,6 +49,10 @@ Hull City, Arsenal, Tottenham, Chelsea and Manchester United followed the same d
 (`20260922192836_pl_managers_analysis_batch2.sql`), all from the same channel. A trait group the
 new source says nothing about is omitted rather than carried over from the old one — Spurs have
 three traits, Man Utd two.
+Coventry, Manchester City, Liverpool, Sunderland, Leeds, Fulham and Brentford followed
+(`20260922194547_pl_managers_analysis_batch3.sql`), from several channels — each `source_file`
+names its own. Most of these sources also carry a matchday checklist (what to watch in a game),
+kept as a final "Matchday checklist" section. Twelve of 20 clubs now have an analysis.
 
 A second proposal hit the same wall for a related reason (Sprint 18): a GW1-3 xP penalty for
 players under a first-season manager. Refused on three grounds — `pl_managers` has no start
