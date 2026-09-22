@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PlayerModal } from "@/components/player-modal";
 import { loadPositionRanks, type PositionRanks } from "@/lib/player-ranks";
+import { loadPriceProgress, type PriceProgress } from "@/lib/price-watch";
 import type { PlayerData } from "@/components/player-card";
 
 /**
@@ -31,8 +32,17 @@ export function useProfileModal({
 }) {
   const [player, setPlayer] = useState<PlayerData | null>(null);
   const [loadedRanks, setLoadedRanks] = useState<PositionRanks | undefined>(undefined);
+  // Keyed by the code it was loaded for, not reset eagerly on every player
+  // change — a synchronous setState at the top of an effect body cascades an
+  // extra render. Instead the stale reading is simply never handed to the
+  // modal below, via the code comparison.
+  const [loadedPriceProgress, setLoadedPriceProgress] = useState<
+    { code: number; progress: PriceProgress | undefined } | undefined
+  >(undefined);
 
   const ranks = providedRanks ?? loadedRanks;
+  const priceProgress =
+    player?.code && loadedPriceProgress?.code === player.code ? loadedPriceProgress.progress : undefined;
 
   useEffect(() => {
     if (player === null || season === null || providedRanks || loadedRanks) return;
@@ -47,6 +57,23 @@ export function useProfileModal({
     };
   }, [player, season, providedRanks, loadedRanks]);
 
+  // Price watch, lazily on first open — same pattern as ranks above. Only
+  // /players, /transfers and /shortlist loaded this for the modal (DSI-181);
+  // /team, /deadline and /builder all route through this shared hook, so
+  // loading it here once covers all three rather than repeating the fetch
+  // per page.
+  useEffect(() => {
+    if (player === null || season === null || !player.code) return;
+    const code = player.code;
+    let live = true;
+    loadPriceProgress(season, [code])
+      .then((m) => live && setLoadedPriceProgress({ code, progress: m.get(code) }))
+      .catch(() => live && setLoadedPriceProgress({ code, progress: undefined }));
+    return () => {
+      live = false;
+    };
+  }, [player, season]);
+
   const openProfile = useCallback((p: PlayerData) => setPlayer(p), []);
   const closeProfile = useCallback(() => setPlayer(null), []);
 
@@ -58,6 +85,7 @@ export function useProfileModal({
         teamShortById={teamShortById}
         currentEvent={currentEvent}
         ranks={ranks}
+        priceProgress={priceProgress}
         onClose={closeProfile}
       />
     ) : null;

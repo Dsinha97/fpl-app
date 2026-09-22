@@ -265,6 +265,54 @@ over these numbers, all of which reported the aggregate and the per-position bre
 
 — [sprints/gw5-check-in.md](../sprints/gw5-check-in.md) §2
 
+## When a fitted model beats a naive baseline that shares its inputs, check the inputs first
+
+DSI-54's price-fall classifier appeared to pass its walk-forward gate at K=10 (p=0.0156) and K=20
+(p=0.0039) — a real result, written up as such. It wasn't: the harness computed its feature the
+same broken way the shipped code once did (differencing net-transfer counters across a gameweek
+reset without accounting for the reset — see
+[data-pipeline.md](data-pipeline.md#the-reading-was-broken-since-it-shipped-and-sprint-38-found-why-2026-09-21)).
+Fixing the feature helped the *baseline* far more than the model, because the naive
+top-N-by-net-transfers rule **is** that feature — K=40 recall went 13.4%→23.0%, K=80 27.0%→42.0%.
+The apparent win was a broken shared input handicapping the thing the model was being compared
+against, not the model finding signal. Whenever a fitted arm and its naive baseline read the same
+underlying field, a suspicious win is at least as likely to be a broken feature as a real effect —
+check the feature before trusting the model.
+
+## Compare against a fairly tuned baseline, not the thing being replaced
+
+A gate that beat pre-existing flat constants doesn't tell you whether a new *shape* (e.g. scaling
+with ownership) is what won, or whether the old constants were just badly levelled. Sprint 38's
+price-threshold gate first compared a scaled arm against the shipped flat defaults and came back
+MIXED — a comparison that couldn't separate "ownership scaling helps" from "the old flat levels
+were simply wrong" (they were: rises fire at ~378k against a shipped 200k default, a pure level
+error). Re-run with a third arm — the best single constant per direction, refit walk-forward on the
+same training events the scaled arm sees, **minus ownership** — the `flat`-vs-`scaled` comparison
+becomes the one that actually isolates the shape's contribution: same data, same walk-forward,
+differing only in whether ownership is consulted. The decomposition showed rises need only the
+level correction (+3.5 F1 from the level, +0.8 from the shape) while falls need the shape (+1.4
+from the level, +4.6 from the shape) — exactly matching what a direct measurement of the mechanism
+had already found independently. A better-centred constant is also not automatically a better
+*classifier*: the fitted-flat arm ranked worse than the original legacy constants at tight budgets,
+because its lower mean threshold fires for more players. See
+[data-pipeline.md](data-pipeline.md#the-reading-was-broken-since-it-shipped-and-sprint-38-found-why-2026-09-21).
+
+## A gate on a consequence can stay inconclusive while the mechanism is measurable directly
+
+Sprint 38's price-threshold gate tested a *downstream* consequence — does a scaled threshold rank
+or classify real price changes better — and came back MIXED even after the three-arm re-run above,
+short of significance at 23 scored nights. A separate script
+(`scripts/price-window-probe.ts`) tested the *mechanism* directly instead: does the net-transfer
+magnitude at the moment of a real firing event scale tightly with ownership, which is what a
+threshold, by definition, would do if it were real. It fit falls at R²=0.811 and rises at R²=0.022
+— unambiguous in both directions, and independently corroborated the gate's own decomposition
+(+4.6 F1 for falls from the shape, +0.8 for rises). **The reading shipped on the probe's direct
+measurement, with the gate's re-run kept as corroboration of its shape, not as the evidence
+itself.** When a gate on a downstream consequence returns an inconclusive verdict, ask whether the
+underlying quantity can be measured directly rather than inferred from its effects — a direct fit
+needs far less statistical power than a ranking comparison to say something unambiguous. See
+[data-pipeline.md](data-pipeline.md#the-reading-was-broken-since-it-shipped-and-sprint-38-found-why-2026-09-21).
+
 ## A tool's local patches revert on upgrade — re-apply, don't re-derive
 
 Not a modelling rule; an operational one, recorded because it has already cost two rediscoveries.

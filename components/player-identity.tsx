@@ -34,22 +34,33 @@ function kitUrl(teamCode: number | null, isGk: boolean): string | null {
   }-110.png`;
 }
 
+/** FPL's club crests, per CLAUDE.md's Gotchas — the final fallback, below. */
+function crestUrl(teamCode: number | null): string | null {
+  if (teamCode === null) return null;
+  return `https://resources.premierleague.com/premierleague/badges/70/t${teamCode}.png`;
+}
+
 /**
- * Headshot, falling back to the club kit, falling back to nothing.
+ * Headshot, falling back to the club kit, falling back to the club crest,
+ * falling back to nothing.
  *
- * Two independent failures to survive: a player with no photo on file (a
- * January signing, most pre-season) and a photo that 404s. Both land on the
- * kit, which is the graphic the pitch already uses, so the card never shows
- * a broken-image glyph.
+ * Three independent failures to survive: a player with no photo on file (a
+ * January signing, most pre-season), a photo that 404s, and — added for
+ * DSI-181 — a kit graphic that also fails to resolve for that club/season.
+ * The crest is the one graphic that's essentially guaranteed to exist for any
+ * top-flight club, so it's the true last resort before the card shows a
+ * broken-image glyph.
  */
 function PlayerPortrait({ player, size }: { player: PlayerData; size: number }) {
   const [photoFailed, setPhotoFailed] = useState(false);
   const [kitFailed, setKitFailed] = useState(false);
+  const [crestFailed, setCrestFailed] = useState(false);
 
   const isGk = player.element_type === 1;
   const photo = photoFailed ? null : photoUrl(player.code, "250x250");
   const kit = kitFailed ? null : kitUrl(player.team_code, isGk);
-  const src = photo ?? kit;
+  const crest = crestFailed ? null : crestUrl(player.team_code);
+  const src = photo ?? kit ?? crest;
 
   return (
     <div
@@ -63,7 +74,11 @@ function PlayerPortrait({ player, size }: { player: PlayerData; size: number }) 
           alt=""
           aria-hidden="true"
           className="h-full w-full object-cover object-top"
-          onError={() => (photo ? setPhotoFailed(true) : setKitFailed(true))}
+          onError={() => {
+            if (photo) setPhotoFailed(true);
+            else if (kit) setKitFailed(true);
+            else setCrestFailed(true);
+          }}
         />
       ) : null}
     </div>

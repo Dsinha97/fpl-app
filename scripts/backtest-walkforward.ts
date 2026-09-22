@@ -158,6 +158,34 @@ function tierOf(minutes: number, points: number): "Zeros" | "Blanks" | "Tickers"
   return "Haulers";
 }
 
+/**
+ * DSI-178: the pooled bias hides two large, opposite biases that nearly
+ * cancel — a −0.714 no-show cohort against a +0.629 appeared cohort at the
+ * GW5 check-in (sprints/gw5-check-in.md §2). `tierOf`'s "Zeros" tier already
+ * isolates non-appearance for the *points* tiering, but this is the
+ * dedicated appeared/no-show split the issue asks for, scored the same way
+ * pooled and by-position are — through `accuracyStats`, not a second metric.
+ */
+function appearedOrNoShow(minutes: number): "appeared" | "no-show" {
+  return minutes > 0 ? "appeared" : "no-show";
+}
+
+/**
+ * Brier score for "did this player appear at all" — mean squared error
+ * between the model's own `startProbability` and the realised 0/1 outcome.
+ * The pooled bias is demonstrably blind to a discrimination failure (DSI-178:
+ * expected minutes read right in aggregate, 30.6 vs 30.4, and wrong per
+ * player, 47.1 vs 64.2), so this is a second, independent metric aimed at
+ * the failure mode a bias/MAE pair cannot see: whether the model tells
+ * players who will start apart from players who won't, not just whether its
+ * average level is right. Lower is better; 0 is perfect, 0.25 is a coin
+ * flip's worth of noise, 1 is confidently wrong every time.
+ */
+function brierScore(rows: { startProbability: number; minutes: number }[]): number {
+  if (rows.length === 0) return NaN;
+  return mean(rows.map((r) => (r.startProbability - (r.minutes > 0 ? 1 : 0)) ** 2));
+}
+
 // bias/MAE/RMSE/Pearson-r now live in lib/stats.ts as `accuracyStats`, shared
 // with the live prediction-accuracy scoreboard — this used to be a locally
 // declared `stats` here, which would have been a second implementation of
@@ -396,7 +424,7 @@ async function main() {
     );
     console.error(`  cohort (>=${MIN_WEIGHTED_MINUTES_COHORT} weighted minutes of prior evidence): ${cohortCodes.size} players`);
 
-    type Residual = { pred: number; actual: number; positionCode: string; minutes: number };
+    type Residual = { pred: number; actual: number; positionCode: string; minutes: number; startProbability: number };
     const residuals: Residual[] = [];
     const matchedResiduals: Residual[] = []; // model, restricted to rows where the last-5 baseline is also defined
     const last5ResidualsByCode = new Map<number, { pred: number; actual: number; positionCode: string; minutes: number }[]>();
@@ -429,7 +457,13 @@ async function main() {
           scoring,
         );
         const actual = row.total_points ?? 0;
-        const entry = { pred: prediction.xp, actual, positionCode: posCode, minutes: row.minutes ?? 0 };
+        const entry = {
+          pred: prediction.xp,
+          actual,
+          positionCode: posCode,
+          minutes: row.minutes ?? 0,
+          startProbability: prediction.startProbability,
+        };
         residuals.push(entry);
 
         // Results-derived FDR arm. Identical in every respect to the line
@@ -496,6 +530,21 @@ async function main() {
       ...stats(residuals.filter((r) => tierOf(r.minutes, r.actual) === tier)),
     }));
 
+    // DSI-178 — appeared vs no-show, pooled and GKP-only (goalkeepers either
+    // play ~90 or 0, so their no-show cohort should be the cleanest read of
+    // whether this is the same minutes story or something in the saves/
+    // clean-sheet terms). See appearedOrNoShow's own comment for why this is
+    // a dedicated split rather than reusing byTier's "Zeros".
+    const byAppearance = (["appeared", "no-show"] as const).map((cohort) => ({
+      cohort,
+      ...stats(residuals.filter((r) => appearedOrNoShow(r.minutes) === cohort)),
+    }));
+    const gkpByAppearance = (["appeared", "no-show"] as const).map((cohort) => ({
+      cohort,
+      ...stats(residuals.filter((r) => r.positionCode === "GKP" && appearedOrNoShow(r.minutes) === cohort)),
+    }));
+    const startBrier = brierScore(residuals);
+
     // accuracyStats returns NaN for every figure when n === 0 (deliberately,
     // so an empty set reads as "no data" rather than "zero error"). The last-5
     // baseline needs six played gameweeks before it produces a single row, so
@@ -511,6 +560,10 @@ async function main() {
     console.error(line("last5 baseline  ", last5Stats));
     for (const p of byPosition) console.error(`    ${p.position}: n=${p.n} mae=${isNaN(p.mae) ? "n/a" : p.mae.toFixed(3)} r=${isNaN(p.r) ? "n/a" : p.r.toFixed(3)}`);
     for (const t of byTier) console.error(`    ${t.tier}: n=${t.n} mae=${isNaN(t.mae) ? "n/a" : t.mae.toFixed(3)} r=${isNaN(t.r) ? "n/a" : t.r.toFixed(3)}`);
+    console.error(`  -- DSI-178: appeared vs no-show (a pooled bias near zero can still hide two large opposite ones) --`);
+    for (const a of byAppearance) console.error(`    ${a.cohort}: n=${a.n} bias=${isNaN(a.bias) ? "n/a" : a.bias.toFixed(3)} mae=${isNaN(a.mae) ? "n/a" : a.mae.toFixed(3)}`);
+    for (const a of gkpByAppearance) console.error(`    GKP ${a.cohort}: n=${a.n} bias=${isNaN(a.bias) ? "n/a" : a.bias.toFixed(3)} mae=${isNaN(a.mae) ? "n/a" : a.mae.toFixed(3)}`);
+    console.error(`    start-probability Brier score: ${isNaN(startBrier) ? "n/a" : startBrier.toFixed(4)} (0=perfect, 0.25=coin flip, 1=confidently wrong)`);
 
     // ---- results-derived FDR arm ----------------------------------------
     // Scored against the neutral (fdr=3) arm restricted to exactly the same
@@ -540,7 +593,19 @@ async function main() {
     }
     fdrResultsBySeason.set(archiveSeason, fdrResults);
 
-    results.push({ season: archiveSeason, modelVersion: MODEL_VERSION, overall, modelMatchedToBaseline: matchedStats, last5Baseline: last5Stats, byPosition, byTier, derivedFdr: fdrResults });
+    results.push({
+      season: archiveSeason,
+      modelVersion: MODEL_VERSION,
+      overall,
+      modelMatchedToBaseline: matchedStats,
+      last5Baseline: last5Stats,
+      byPosition,
+      byTier,
+      byAppearance,
+      gkpByAppearance,
+      startBrier,
+      derivedFdr: fdrResults,
+    });
 
     // ---------------------------------------------------------------------
     // Current-season blend sweep (docs/phase-4-model.md's "current season

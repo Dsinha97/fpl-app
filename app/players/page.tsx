@@ -168,7 +168,8 @@ type SortKey =
   | "gwPoints"
   | "goals"
   | "assists"
-  | "minutes";
+  | "minutes"
+  | "priceWatch";
 
 /** Fallback when `player_xp_horizons` has no rows yet — matches `generate-predictions`' own floor. */
 const FALLBACK_SEASON_WINDOW = 8;
@@ -675,6 +676,15 @@ export default function PlayersPage() {
           return p.assists ?? -1;
         case "minutes":
           return p.minutes ?? -1;
+        case "priceWatch": {
+          // Sorts by proximity to the threshold regardless of direction — a
+          // player close to falling is just as worth surfacing as one close
+          // to rising. `-1` for "unknown"/no reading, same sentinel every
+          // other case above uses, so those sort last in the default desc
+          // order rather than tying with a genuine 0%.
+          const pp = priceProgress.get(p.code);
+          return pp && pp.verdict !== "unknown" ? Math.abs(pp.progressRaw ?? 0) : -1;
+        }
       }
     };
 
@@ -686,7 +696,7 @@ export default function PlayersPage() {
     // clothes. Paged below instead.
     return rows;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, history, runs, xp, filters, sortKey, sortDesc, horizon, seasonWindow, gemsById, predictions]);
+  }, [players, history, runs, xp, filters, sortKey, sortDesc, horizon, seasonWindow, gemsById, predictions, priceProgress]);
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -885,15 +895,7 @@ export default function PlayersPage() {
                 <DataHeadCell className="px-2 py-2 uppercase tracking-wide">Team</DataHeadCell>
                 <DataHeadCell className="px-2 py-2 uppercase tracking-wide">Pos</DataHeadCell>
                 {header("Price", "price")}
-                {/* Right, like every numeric column's cells (DSI-120 sibling
-                    finding in DSI-126): these two headers were the only ones
-                    left-aligned over right-aligned data. */}
-                <DataHeadCell className="px-2 py-2" numeric>
-                  <span className="flex items-center justify-end gap-1.5">
-                    <span className="uppercase tracking-wide">Price watch</span>
-                    <ModelNote label="What is Price watch?">{PRICE_WATCH_MODEL_NOTE}</ModelNote>
-                  </span>
-                </DataHeadCell>
+                {header("Price watch", "priceWatch", PRICE_WATCH_MODEL_NOTE)}
                 {header("xP GW", "xp1", "Model-projected points for the next gameweek. The column beside it projects over the horizon selected above.")}
                 {header(`xP ${horizonLabel(horizon)}`, "xpH")}
                 {header("Pts", "gwPoints")}

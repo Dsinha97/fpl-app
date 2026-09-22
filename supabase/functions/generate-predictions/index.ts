@@ -72,7 +72,18 @@ Deno.serve(async (req) => {
   // `?force=1` escape hatch rather than merely guarding it — the URL below
   // is not even parsed until this passes.
   const denied = await verifyCron(req, db);
-  if (denied) return denied;
+  if (denied) {
+    // DSI-142: a refused run used to leave no trace anywhere — `verifyCron`
+    // rejected before any `sync_runs` row existed, so a third of the
+    // scheduled runs disappeared from `/settings` → Pipeline's own view of
+    // whether this function is healthy. The row is written only now that
+    // the verdict is already known; no season lookup or model work happens
+    // ahead of a valid secret, which is the invariant `verifyCron` being
+    // first still protects.
+    const deniedRun = await SyncRun.start(db, FUNCTION_NAME);
+    await deniedRun.finish("error", { error: "unauthorized: cron secret rejected" });
+    return denied;
+  }
 
   const run = await SyncRun.start(db, FUNCTION_NAME);
 

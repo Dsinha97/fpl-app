@@ -42,6 +42,7 @@ interface Prefs {
   notify_news: boolean;
   notify_price: boolean;
   notify_fixture: boolean;
+  notify_price_watch: boolean;
   deadline_hours_before: number;
 }
 
@@ -105,6 +106,125 @@ async function squadCodesFor(db: Db, season: string, entryId: number): Promise<S
     .eq("season", season)
     .in("id", elements);
   return new Set((players ?? []).map((p: { code: number }) => p.code as number));
+}
+
+/** The player *codes* on a user's shortlist. Owner-scoped like `squadCodesFor`,
+ *  but a straight read — `user_shortlist` is already keyed on `player_code`. */
+async function shortlistCodesFor(db: Db, season: string, userId: string): Promise<Set<number>> {
+  const { data } = await db
+    .from("user_shortlist")
+    .select("player_code")
+    .eq("season", season)
+    .eq("user_id", userId);
+  return new Set((data ?? []).map((r: { player_code: number }) => r.player_code as number));
+}
+
+/** The flat, unfitted net-transfer threshold that decides which players get
+ *  sampled every ~2h (20260830191442_sprint29_price_watchlist.sql). Reused
+ *  here as the notification trigger — see the Sprint 39 migration header for
+ *  why this is the fitted, ownership-scaled reading `lib/price-watch.ts`
+ *  shows on the site, not a copy of it. */
+async function priceWatchThreshold(db: Db, season: string): Promise<number> {
+  const { data } = await db
+    .from("game_settings")
+    .select("value")
+    .eq("season", season)
+    .eq("key", "price_watch_net_transfer_threshold")
+    .maybeSingle();
+  const n = Number(data?.value);
+  return Number.isFinite(n) && n > 0 ? n : 20_000;
+}
+
+interface PriceWatchAlert {
+  code: number;
+  direction: "rise" | "fall";
+  netTransfers: number;
+  anchorAt: string;
+}
+
+/**
+ * Which of `codes` have net transfers past the flat threshold since their
+ * last recorded price change — a fact-level crossing check, not the fitted
+ * progress-to-threshold reading `lib/price-watch.ts` computes for the site.
+ * Deliberately duplicates only the reset-aware accumulation
+ * (`netTransfersSinceLastPriceChange` there), which is careful counter
+ * handling rather than a fitted model — see that function's own comment for
+ * why `transfers_in_event`/`transfers_out_event` can't simply be
+ * differenced. Not paged like the site's `loadPriceProgress`: this only ever
+ * runs over a user's own squad plus shortlist, dozens of players rather than
+ * the ~700-player pool, so the 1000-row cap CLAUDE.md warns about is not in
+ * play at this scale.
+ */
+async function priceWatchAlerts(
+  db: Db,
+  season: string,
+  codes: Set<number>,
+  threshold: number,
+): Promise<PriceWatchAlert[]> {
+  if (codes.size === 0) return [];
+  const codeList = [...codes];
+
+  const { data: changes } = await db
+    .from("player_price_history")
+    .select("player_code, observed_at")
+    .eq("season", season)
+    .in("player_code", codeList)
+    .order("observed_at", { ascending: false });
+  const anchorAt = new Map<number, string>();
+  for (const row of changes ?? []) {
+    const code = row.player_code as number;
+    if (!anchorAt.has(code)) anchorAt.set(code, row.observed_at as string);
+  }
+  if (anchorAt.size === 0) return [];
+
+  let earliestAnchor = "";
+  for (const at of anchorAt.values()) {
+    if (earliestAnchor === "" || at < earliestAnchor) earliestAnchor = at;
+  }
+
+  const { data: samples } = await db
+    .from("player_ownership_history")
+    .select("player_code, observed_at, transfers_in_event, transfers_out_event")
+    .eq("season", season)
+    .in("player_code", [...anchorAt.keys()])
+    .gte("observed_at", earliestAnchor)
+    .order("observed_at", { ascending: true });
+
+  const byPlayer = new Map<number, Array<{ in: number; out: number }>>();
+  for (const row of samples ?? []) {
+    const code = row.player_code as number;
+    const anchor = anchorAt.get(code);
+    if (!anchor || (row.observed_at as string) < anchor) continue;
+    const list = byPlayer.get(code) ?? [];
+    list.push({ in: (row.transfers_in_event as number | null) ?? 0, out: (row.transfers_out_event as number | null) ?? 0 });
+    byPlayer.set(code, list);
+  }
+
+  const alerts: PriceWatchAlert[] = [];
+  for (const [code, list] of byPlayer) {
+    if (list.length < 2) continue;
+    // Reset-aware accumulation: transfers_in_event only ever increases within
+    // a gameweek, so a decrease between consecutive samples marks a deadline
+    // reset, and the new sample's own net *is* the accumulation since that
+    // reset rather than a delta from the pre-reset sample.
+    let total = 0;
+    for (let i = 1; i < list.length; i++) {
+      const prev = list[i - 1];
+      const cur = list[i];
+      const reset = cur.in < prev.in;
+      const netCur = cur.in - cur.out;
+      const netPrev = prev.in - prev.out;
+      total += reset ? netCur : netCur - netPrev;
+    }
+    if (Math.abs(total) < threshold) continue;
+    alerts.push({
+      code,
+      direction: total > 0 ? "rise" : "fall",
+      netTransfers: total,
+      anchorAt: anchorAt.get(code)!,
+    });
+  }
+  return alerts;
 }
 
 /** `12th Jan 10:00 am` — UTC, since that's what `kickoff_time` is stored in
@@ -210,6 +330,12 @@ async function detect(db: Db, season: string, prefs: Prefs[], lookbackMinutes: n
     }
   }
 
+  // Loaded once per invocation, not per user — the same flat threshold for
+  // everyone, same as the watchlist it's borrowed from.
+  const priceWatchThresholdValue = prefs.some((p) => p.notify_price_watch)
+    ? await priceWatchThreshold(db, season)
+    : 0;
+
   for (const p of prefs) {
     // Deadline. The key is the event, so the reminder fires once per gameweek
     // however often detection runs inside the window.
@@ -234,8 +360,10 @@ async function detect(db: Db, season: string, prefs: Prefs[], lookbackMinutes: n
       price: p.notify_price,
     };
     const needsSquad = wants.status || wants.news || wants.price;
+    const needsSquadOrShortlist = needsSquad || p.notify_price_watch;
 
-    if (needsSquad && (changes?.length ?? 0) > 0) {
+    let squadCodes: Set<number> | null = null;
+    if (needsSquadOrShortlist) {
       const { data: profile } = await db
         .from("user_profiles")
         .select("entry_id")
@@ -244,10 +372,12 @@ async function detect(db: Db, season: string, prefs: Prefs[], lookbackMinutes: n
 
       // No claimed entry means no squad to filter against. Sending every
       // player's news instead would be the wrong kind of helpful.
-      const codes = profile?.entry_id
+      squadCodes = profile?.entry_id
         ? await squadCodesFor(db, season, profile.entry_id as number)
         : new Set<number>();
+    }
 
+    if (needsSquad && (changes?.length ?? 0) > 0) {
       for (const c of changes ?? []) {
         // change_feed reports price moves as 'price_rise'/'price_fall' (the
         // direction is the fact), but prefs and the outbox's own check
@@ -256,7 +386,7 @@ async function detect(db: Db, season: string, prefs: Prefs[], lookbackMinutes: n
         const rawKind = c.kind as string;
         const kind = rawKind === "price_rise" || rawKind === "price_fall" ? "price" : rawKind;
         if (!wants[kind]) continue;
-        if (c.player_code === null || !codes.has(c.player_code as number)) continue;
+        if (c.player_code === null || !squadCodes!.has(c.player_code as number)) continue;
         const body = renderChange({ ...c, kind });
         if (!body) continue;
         rows.push({
@@ -266,6 +396,57 @@ async function detect(db: Db, season: string, prefs: Prefs[], lookbackMinutes: n
           body,
           payload: { player_code: c.player_code, observed_at: c.observed_at },
         });
+      }
+    }
+
+    // ---- price watch: squad + shortlist, net transfers past the flat
+    // threshold since the last price change (see priceWatchAlerts above). ----
+    if (p.notify_price_watch) {
+      const shortlistCodes = await shortlistCodesFor(db, season, p.user_id);
+      const watchCodes = new Set<number>([...(squadCodes ?? []), ...shortlistCodes]);
+      const alerts = await priceWatchAlerts(db, season, watchCodes, priceWatchThresholdValue);
+
+      if (alerts.length > 0) {
+        // Two-step join, not a nested embed — same reasoning as
+        // `fixtureLabelOf` above: an embed's FK constraint name would have
+        // to be guessed, and a wrong guess fails at query time, not review
+        // time.
+        const { data: playerRows } = await db
+          .from("players")
+          .select("code, web_name, team_id")
+          .eq("season", season)
+          .in("code", alerts.map((a) => a.code));
+        const teamIds = [...new Set((playerRows ?? []).map((r: { team_id: number }) => r.team_id))];
+        const { data: teamRows } = await db
+          .from("teams")
+          .select("id, short_name")
+          .eq("season", season)
+          .in("id", teamIds);
+        const shortOf = new Map<number, string>(
+          (teamRows ?? []).map((t: { id: number; short_name: string }) => [t.id, t.short_name]),
+        );
+        const nameOf = new Map<number, { name: string; club: string | null }>(
+          (playerRows ?? []).map((r: { code: number; web_name: string; team_id: number }) => [
+            r.code,
+            { name: r.web_name, club: shortOf.get(r.team_id) ?? null },
+          ]),
+        );
+
+        for (const a of alerts) {
+          const info = nameOf.get(a.code);
+          const name = info?.name ?? "A player";
+          const club = info?.club ? ` (${info.club})` : "";
+          const arrow = a.direction === "rise" ? "📈" : "📉";
+          rows.push({
+            user_id: p.user_id,
+            kind: "price_watch",
+            // One alert per anchor period — the net-transfer count keeps
+            // growing every run, so keying on it would re-fire constantly.
+            dedupe_key: `price_watch:${a.code}:${a.anchorAt}`,
+            body: `${arrow} ${name}${club} has crossed the watch threshold for a ${a.direction} (net ${a.netTransfers > 0 ? "+" : ""}${a.netTransfers.toLocaleString()} since its last price change). Not a prediction of tonight — see the Price watch card for the full reading.`,
+            payload: { player_code: a.code, direction: a.direction, net_transfers: a.netTransfers },
+          });
+        }
       }
     }
 
@@ -372,7 +553,7 @@ Deno.serve(async (req: Request) => {
     const { data: prefs, error: prefsError } = await db
       .from("user_notification_prefs")
       .select(
-        "user_id, telegram_chat_id, notify_deadline, notify_status, notify_news, notify_price, notify_fixture, deadline_hours_before",
+        "user_id, telegram_chat_id, notify_deadline, notify_status, notify_news, notify_price, notify_fixture, notify_price_watch, deadline_hours_before",
       )
       .not("telegram_chat_id", "is", null);
     if (prefsError) throw new Error(`user_notification_prefs: ${prefsError.message}`);
