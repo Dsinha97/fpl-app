@@ -155,6 +155,28 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                     </ul>
                   )}
 
+                  {profile.analysis.length > 0 && (
+                    <div className="mt-2.5 space-y-2.5 border-t border-zinc-100 pt-2 text-[11px] dark:border-purple-900/40">
+                      {profile.analysis.map((section) => (
+                        <section key={section.heading}>
+                          <h3 className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                            {section.heading}
+                          </h3>
+                          <ul className="mt-1 space-y-1 text-zinc-500">
+                            {section.points.map((point) => (
+                              <li key={point.label} className="min-w-0 break-words">
+                                <span className="font-medium text-zinc-600 dark:text-zinc-400">
+                                  {point.label}:
+                                </span>{" "}
+                                {point.text}
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      ))}
+                    </div>
+                  )}
+
                   {(profile.modifiers.lowBlockFdrModifier !== null ||
                     profile.modifiers.highPressFdrModifier !== null ||
                     profile.modifiers.setPieceBias !== null) && (

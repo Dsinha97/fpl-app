@@ -39,6 +39,13 @@ multiplier could quietly undo that validation.
 number isn't disclosed as a user input either, since there's no honest input to expose; it's shown
 as reference text only, pending a real per-player role source and a backtest.
 
+**Prose analysis (2026-09-22).** `pl_managers.analysis` (jsonb, nullable —
+`20260922190315_pl_managers_analysis.sql`) holds a sectioned breakdown — heading plus labelled
+points — for sources richer than the four role slots, rendered in the expanded card on `/fixtures`.
+Brighton is the first: re-sourced to Adam Clery's "Why Brighton Are The Premier League's SCARIEST
+Team", traits rewritten from it qualitatively, and its modifiers emptied because the new source
+gives no figures and the old ones should not sit under a credit that did not produce them.
+
 A second proposal hit the same wall for a related reason (Sprint 18): a GW1-3 xP penalty for
 players under a first-season manager. Refused on three grounds — `pl_managers` has no start
 date/tenure field at all, so nothing here can even say *which* clubs qualify; folding it into xP
