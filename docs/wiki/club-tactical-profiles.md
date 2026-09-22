@@ -45,6 +45,10 @@ points — for sources richer than the four role slots, rendered in the expanded
 Brighton is the first: re-sourced to Adam Clery's "Why Brighton Are The Premier League's SCARIEST
 Team", traits rewritten from it qualitatively, and its modifiers emptied because the new source
 gives no figures and the old ones should not sit under a credit that did not produce them.
+Hull City, Arsenal, Tottenham, Chelsea and Manchester United followed the same day
+(`20260922192836_pl_managers_analysis_batch2.sql`), all from the same channel. A trait group the
+new source says nothing about is omitted rather than carried over from the old one — Spurs have
+three traits, Man Utd two.
 
 A second proposal hit the same wall for a related reason (Sprint 18): a GW1-3 xP penalty for
 players under a first-season manager. Refused on three grounds — `pl_managers` has no start
