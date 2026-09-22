@@ -57,8 +57,10 @@ Everton and Newcastle followed (`20260922200351_pl_managers_analysis_batch4.sql`
 corrects four player names the batch-3 transcripts got wrong — source transcripts mangle names,
 so check them before shipping. Two more names were fixed in `20260922201448_pl_managers_name_fixes.sql`,
 and Bournemouth followed (`20260922201543_pl_managers_analysis_bournemouth.sql`). 19 of 20 clubs now
-have an analysis. Ipswich is held back: the analysis offered for it described a 2024/25 side under
-a different manager, with a striker now at another club.
+have an analysis. Ipswich came last (`20260922202706_pl_managers_analysis_ipswich.sql`): the first
+analysis offered described a 2024/25 side under a different manager, with a striker now at another
+club, so it was swapped for a current one. That source is a match preview; its one-fixture forecast
+(xG, win probability) was left out as not a standing tactical trait. All 20 clubs now have one.
 
 A second proposal hit the same wall for a related reason (Sprint 18): a GW1-3 xP penalty for
 players under a first-season manager. Refused on three grounds — `pl_managers` has no start
