@@ -132,16 +132,92 @@ rest of the population stays at ~20h. Verified live: watchlist size came back 11
 ~700-player full population.
 
 `lib/price-watch.ts`'s `priceProgress()` reads net transfers since a player's last recorded price
-change and reports a direction and 0–1 progress toward a threshold that is itself a documented,
-user-adjustable input (`DEFAULT_RISE_THRESHOLD`/`DEFAULT_FALL_THRESHOLD`) — FPL's real threshold is
-unpublished and ownership-dependent, so per
-[methodology.md](methodology.md#when-a-term-cannot-be-dropped-make-it-an-input) this is exposed
-rather than fitted. Returns `"unknown"`, not a guess, below two post-change samples — verified
-against a player who'd repriced the same day and correctly read unknown rather than a fabricated
-percentage. Surfaced on `/players` (a column) and `/transfers` (inline on the incoming player).
-Deliberately **not** a price-change classifier — that's gated on beating a naive
-top-N-by-net-transfers baseline, walk-forward, and stays out until enough watchlist history has
-accumulated. — [sprints/sprint-29.md](../sprints/sprint-29.md)
+change and reports a direction and 0–1 progress toward a threshold. Returns `"unknown"`, not a
+guess, below two post-change samples — verified against a player who'd repriced the same day and
+correctly read unknown rather than a fabricated percentage. Surfaced on `/players` (a sortable
+column, since Sprint 39) and `/transfers` (inline on the incoming player), and — since Sprint 38 —
+in the player-profile modal's Overview tab wherever it's opened from (see
+[player-profile.md](player-profile.md)). Deliberately **not** a price-change classifier — see
+below, that stays gated on beating a naive baseline and has now been run and failed.
+
+### The reading was broken since it shipped, and Sprint 38 found why (2026-09-21)
+
+Three separate bugs stacked on top of each other, each masking the next until the one before it was
+fixed:
+
+1. **`loadPriceProgress` fetched ownership samples unpaged.** The API caps every response at 1000
+   rows whatever `.limit()` asks for (see the row-cap note above), and there are ~42,000 samples
+   after the anchors — ordered ascending, that returned the *oldest* 1000, almost all from before
+   every anchor, which the per-player filter then discarded. Most players read under two samples,
+   so the column showed "unknown" or a flat 0% for nearly everyone. **It looked quiet rather than
+   broken**, which is why it survived from Sprint 29 to Sprint 38 — see
+   [methodology.md](methodology.md#work-that-silently-does-not-happen-renders-as-absence). Fixed by
+   paging both queries concurrently, the same count-then-fetch-all shape `lib/player-pool.ts` uses.
+2. **Fixing the paging exposed a second, worse bug: the counters reset at every deadline.**
+   `transfers_in_event`/`transfers_out_event` are FPL's *per-gameweek* counters, zeroed at every
+   deadline — `netTransfersSinceLastPriceChange` differenced the first and last sample since the
+   last price change, which is only valid when no deadline fell between them (true for 89% of
+   players, wrong for the other 11%). Found by asking why Palmer read "expected to fall, −321%" for
+   three days without falling: his anchor was two deadlines back, and differencing a post-reset
+   sample against a pre-reset one subtracted a whole gameweek's inflow — the sign inverted, not just
+   the magnitude (true figure **+364,022**, a net inflow). The fix needs no deadline lookup: the
+   in-counter only ever increases within a gameweek, so a decrease between consecutive samples *is*
+   a reset, and the new sample's own value is the accumulation since it.
+3. **Even corrected, the threshold itself was wrong — not just imprecise, the wrong shape.** The
+   flat `DEFAULT_FALL_THRESHOLD = 150,000` read a 39%-owned player as −736% past it. Measured at
+   every real 2026-27 price change (`scripts/price-window-probe.ts`, 248 falls + 55 rises): falls
+   scale steeply and near-linearly with ownership (**R²=0.811**, ~31,870 net transfers per 1%
+   owned), while rises are essentially flat (**R²=0.022**, ~378,000 regardless of ownership) — two
+   different mechanisms, not one constant that needed retuning. The probe also settled a competing
+   hypothesis: "since the last price change" beats "since the last deadline" on both measures in
+   both directions, so the window itself was never the bug.
+
+**This is a deliberate, sign-off'd exception to Sprint 29's "a documented input, never a fitted
+number" stance** (see
+[methodology.md](methodology.md#when-a-term-cannot-be-dropped-make-it-an-input)) — the flat pair
+wasn't an imprecise guess at the right kind of number, it was the wrong *kind* of number, and no
+amount of tuning the constant would have found the ownership-scaled shape. It remains overridable
+(`priceProgress`/`loadPriceProgress` both take an explicit `thresholds` argument), but the default
+is now `FALL_THRESHOLD_BASE + FALL_THRESHOLD_PER_PERCENT × ownership` for falls and a flat
+`RISE_THRESHOLD_FLAT` for rises, in `lib/price-watch.ts`.
+
+**The gate on this (`scripts/price-threshold-gate.ts`) came back MIXED, twice, and the reading
+shipped anyway — on the direct measurement above, not the gate.** A ranking gate (does a scaled
+threshold catch more real changes at budget K) needed Bonferroni correction across four budgets and
+never cleared it, even in a three-arm re-run built specifically to separate "ownership scaling
+helps" from "the old flat *levels* were simply wrong" (they were — rises fire at ~378k against a
+shipped 200k default). See
+[methodology.md](methodology.md#a-gate-on-a-consequence-can-stay-inconclusive-while-the-mechanism-is-measurable-directly)
+for why the window probe's direct fit is what actually settled it, and
+[methodology.md](methodology.md#compare-against-a-fairly-tuned-baseline-not-the-thing-being-replaced)
+for what the three-arm re-run added. One number worth keeping from the gate regardless of its
+verdict: **crossing the best obtainable threshold precedes a real change only ~10% of the time for
+falls and ~22% for rises** — which is why the verdict ladder (below) describes position, never
+"tonight".
+
+**The verdict ladder was renamed to match what it actually measures.** It used to word progress as
+a prediction — `"expected"`/`"very likely"`/`"possible"`/`"not tonight"` — which a reader takes as
+"this will happen", and the 10%/22% hit rate above says that reading is wrong nine times in ten. It
+now describes **position relative to the threshold**: `past` / `close` / `approaching` / `far` /
+`unknown`, worded by `priceVerdictLabel` as "Past your fall threshold", "Close to your rise
+threshold", and so on — see
+[methodology.md](methodology.md#say-what-the-number-means). `isImminent` was renamed
+`isNearThreshold` for the same reason. `progressRaw` (signed, unclamped) sits beside the clamped
+`progress` the UI bars fill from, so a player 11% past threshold reads `+111%` instead of pinning
+at 100%.
+
+**The classifier gate (DSI-54) ran on the falls half and failed at every budget** — walk-forward
+over 36 nights, nothing significant (best p=0.18 at K=40) against the naive top-N-by-net-transfers
+baseline. `priceProgress` remains the shipped reading; no classifier is wired in. An earlier run of
+this same gate had appeared to pass at K=10/K=20 — that result is **withdrawn**: it computed its own
+feature with the same broken counter-differencing bug as §2 above, which handicapped the baseline
+(the naive rule *is* that feature) far more than the model. Fixing it helped the baseline more than
+the model. See
+[methodology.md](methodology.md#when-a-fitted-model-beats-a-naive-baseline-that-shares-its-inputs-check-the-inputs-first).
+Rises stay held at ~GW10–12: only 55 recorded rises against 352 falls leaves too few test positives
+to separate "does not work" from "not enough data to tell".
+
+— [sprints/sprint-38.md](../sprints/sprint-38.md) §2-3
 
 ## `player_predictions` and the row cap
 

@@ -90,6 +90,24 @@ r to 0.830. Full detail: [phase-4-model.md §3](../phase-4-model.md#3-squad-reco
 - **`dc90` applies one aggregate defensive-contribution count to two different FPL scoring rules**
   (defenders score on CBIT, mid/forwards on CBIRT). The component stats exist in the database but no
   code path reads them yet — `XDC_MODEL_NOTE` in `lib/scoring.ts` discloses this in the UI.
+- **The defensive-contribution thresholds are measured, not guessed, and forwards do score it.**
+  Sprint 38's player-profile reconciliation (every stored xP component summed against the stored
+  total) gave a free audit over 677 player-gameweeks with ≥60 minutes and no
+  goals/assists/cards/penalties/own-goals/bonus, where the score reduces to
+  appearance + clean sheet + goals conceded + saves + DC. The residual was exactly +2 or exactly 0
+  in every cell, zero variance: **DEF 10, MID 12, FWD 12**
+  (`MODEL_PARAMS.dcThreshold` at `xp-model.ts:137`, gated on `threshold > 0` in `predict()` — GKP is
+  the only position excluded). A first read of this filed it as "the model excludes forwards from DC
+  points" (DSI-179) — **wrong**: the model already scores them, just at a low expectation, since
+  forwards rarely clear 12 defensive actions (1 of 79 non-zero in `player_xp_horizons`, max 0.01).
+  What was actually wrong was two UI-side copies of the fact disagreeing with it —
+  `XDC_MODEL_NOTE`'s "forwards and goalkeepers never score it" prose, and an independently declared
+  `XDC_POSITIONS = new Set([2, 3])` in both `app/players/page.tsx` and `components/compare-panel.tsx`
+  that hid the column for forwards who *had* cleared the threshold. Fixed by giving the fact one
+  home, `DC_THRESHOLD_BY_ELEMENT_TYPE`/`scoresDefensiveContribution()` in `lib/scoring.ts`,
+  documented as mirroring `MODEL_PARAMS.dcThreshold` — duplicated rather than imported because this
+  file is Deno and excluded from tsconfig, so if the two ever disagree the model's copy is the
+  truth. — [sprints/sprint-38.md](../sprints/sprint-38.md) §4
 - **No current-season form reaches the model — a fix was built and measured (2026-08-27), and did
   not clear the shipping gate.** `generate-predictions/index.ts` still reads `player_season_history`
   as its only per-player evidence; between any two gameweeks a player's xP still moves only on
@@ -242,15 +260,24 @@ noise, fitting it to the over-prediction half makes the played cohort worse.
 **So the open question moved from points calibration to expected-minutes calibration** — `mpg` and
 `start_share`, the terms that actually set the non-appearance half. `roadmap.md`'s GW10 batch item
 3 was rewritten accordingly: do not refit `positionCalibration` at GW10. GKP is the one cohort
-still carrying a non-trivial bias of its own (−0.352, ≈3 SE) and is worth a separate look.
+still carrying a non-trivial bias of its own (−0.352, ≈3 SE) and is worth a separate look. Spun out
+as its own issue, [DSI-178](https://linear.app/dsinha-org/issue/DSI-178) — with a further check
+already in hand (see below): the pooled bias is scored per-cohort as well as pooled, plus a Brier
+score on the model's own `startProbability` against whether a player actually appeared, since a
+bias/MAE pair is demonstrably blind to a discrimination failure of exactly this shape. Once
+[DSI-53](https://linear.app/dsinha-org/issue/DSI-53) (the original "refit `positionCalibration`"
+issue) was answered this way, it was canceled rather than left open — the decision is "don't", not
+"not yet".
 
 This is the same shape as the blend attempts recorded under **Known, disclosed gaps** above: the
 aggregate that a correction would be fitted to is not the quantity that is actually wrong.
 
-**Caveat, stated because it moved the answer once already:** GW5's bonus was still provisional when
-this ran, and provisional bonus is exactly what halved Sprint 34's figure. The numbers above should
-move slightly — upward, since confirmed bonus adds points — and
-[DSI-50](https://linear.app/dsinha-org/issue/DSI-50) stays open for that re-read.
+**The caveat resolved, and nothing moved.** GW5's bonus was still provisional when the numbers
+above were first run; the re-read at locked data (10/10 fixtures `finished`, bonus confirmed,
+2026-09-21) came back **identical** — pooled −0.080/n=2,587, the same four per-gameweek figures,
+the same −0.714/+0.627 cohort split. [DSI-50](https://linear.app/dsinha-org/issue/DSI-50) stays
+open, now for a fifth read once GW6 is played (2026-10-10, after a three-week international
+break) — see [sprints/sprint-38.md](../sprints/sprint-38.md) §1.
 
 ### The coverage gate the check-in had to build first
 

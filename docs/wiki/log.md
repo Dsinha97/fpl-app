@@ -2,6 +2,28 @@
 
 One line per entry, most recent first.
 
+- 2026-09-21 — Ingested Sprint 38 (the player profile, the price reading, and a shortlist), plus the
+  Sprint 39 fixes to the same code already in the working tree (DSI-181's price-outlook-loading gap
+  and popover panel-height fix — included because leaving them out would have made the new page
+  describe code that no longer matches what's shipped). **New page**: `player-profile.md` — the
+  three-tab modal and the owner-scoped shortlist; no existing page covered either topic.
+  **`data-pipeline.md`**'s price-watch section rewritten in full: three stacked bugs (the 1000-row
+  unpaged fetch, the gameweek-counter-reset sign inversion, the flat threshold's wrong *shape*), the
+  window-probe measurement that settled it (R²=0.811 falls, R²=0.022 rises), the verdict-ladder
+  rename (position, not a false "tonight" prediction), and DSI-54's falls-classifier gate result
+  (failed at every budget, heuristic ships, an earlier apparent pass withdrawn as a broken shared
+  feature). **`xp-model.md`**: the GW5 check-in's provisional-bonus caveat resolved (re-read at
+  locked data came back identical), DSI-53 canceled and spun into DSI-178 by name, and the DSI-179
+  finding recorded correctly this time — forwards do score defensive contribution, a UI-side
+  threshold copy hid the column, not a model exclusion. **Three new `methodology.md` rules**: "when
+  a fitted model beats a naive baseline that shares its inputs, check the inputs first", "compare
+  against a fairly tuned baseline, not the thing being replaced", and "a gate on a consequence can
+  stay inconclusive while the mechanism is measurable directly" — the three-arm ablation and the
+  window probe are the worked examples for the last two. `blocked-and-data-gaps.md`'s price-change
+  row split in two (falls answered, rises still held) and `timeline.md` gained a 2026-09-21 row.
+  Tidy check: `lib/scoring.ts`'s `XDC_MODEL_NOTE` spot-checked against the new xp-model.ts claim —
+  matches, no code fix needed this pass.
+
 - 2026-09-20 — Ingested the GW5 check-in and the coverage bug it found first. **Two new
   methodology rules**, both earned the same day: `methodology.md`'s "A row that exists is not a
   result" (a populated-but-unwritten `player_gameweek_stats` row joins cleanly and reads zero — the
