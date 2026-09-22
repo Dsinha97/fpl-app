@@ -30,15 +30,17 @@ export interface ClubTactics {
 
 export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [analysisOpen, setAnalysisOpen] = useState<Set<number>>(new Set());
   if (clubs.length === 0) return null;
 
-  const toggle = (teamId: number) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(teamId)) next.delete(teamId);
-      else next.add(teamId);
-      return next;
-    });
+  const flip = (prev: Set<number>, teamId: number) => {
+    const next = new Set(prev);
+    if (next.has(teamId)) next.delete(teamId);
+    else next.add(teamId);
+    return next;
+  };
+  const toggle = (teamId: number) => setExpanded((prev) => flip(prev, teamId));
+  const toggleAnalysis = (teamId: number) => setAnalysisOpen((prev) => flip(prev, teamId));
 
   return (
     <section>
@@ -153,6 +155,57 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                         );
                       })}
                     </ul>
+                  )}
+
+                  {/* Second expand step: a full breakdown runs several times
+                      the height of the rest of the card, and on the
+                      three-column desktop grid one open card pushed the whole
+                      next row down with it. The summary above stays one tap
+                      away; the essay is a second. */}
+                  {profile.analysis.length > 0 && (
+                    <div className="mt-2.5 border-t border-zinc-100 pt-2 dark:border-purple-900/40">
+                      <button
+                        type="button"
+                        onClick={() => toggleAnalysis(teamId)}
+                        aria-expanded={analysisOpen.has(teamId)}
+                        className="group flex w-full items-center justify-between gap-2 rounded text-left text-[11px] font-medium text-zinc-600 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-zinc-400 dark:hover:text-zinc-100"
+                      >
+                        <span>
+                          {analysisOpen.has(teamId) ? "Hide" : "Show"} full analysis
+                          <span className="font-normal text-zinc-500">
+                            {" "}· {profile.analysis.length} sections
+                          </span>
+                        </span>
+                        <ExpandToggle expanded={analysisOpen.has(teamId)} interactive={false} size="sm" />
+                      </button>
+                      <div
+                        className={`grid transition-[grid-template-rows] duration-base ease-emphasis motion-reduce:transition-none ${
+                          analysisOpen.has(teamId) ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                        }`}
+                      >
+                      <div className="overflow-hidden">
+                      <div className="space-y-2.5 pt-2 text-[11px]">
+                      {profile.analysis.map((section) => (
+                        <section key={section.heading}>
+                          <h3 className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                            {section.heading}
+                          </h3>
+                          <ul className="mt-1 space-y-1 text-zinc-500">
+                            {section.points.map((point) => (
+                              <li key={point.label} className="min-w-0 break-words">
+                                <span className="font-medium text-zinc-600 dark:text-zinc-400">
+                                  {point.label}:
+                                </span>{" "}
+                                {point.text}
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      ))}
+                      </div>
+                      </div>
+                      </div>
+                    </div>
                   )}
 
                   {(profile.modifiers.lowBlockFdrModifier !== null ||

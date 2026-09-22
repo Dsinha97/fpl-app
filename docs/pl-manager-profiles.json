@@ -3,609 +3,1924 @@
     "manager_id": "arteta_mikel",
     "name": "Mikel Arteta",
     "current_club": "Arsenal",
-    "preferred_formation": "4-3-3 / 3-2-4-1 in buildup",
+    "preferred_formation": "4-3-3 / 4-4-2 press",
     "buildup_style": "possession_control",
     "pressing_intensity": "high",
-    "source_file": "The Complete Tactical Evolution Of Mikel Arteta",
+    "source_file": "Why Arsenal Are STILL Getting Better Under Mikel Arteta (The Adam Clery Football Channel)",
     "tactical_traits": {
-      "wingers": {
-        "role": "inverted_inside_scorer",
-        "xp_impact": "+10% npxG for wingers isolating 1v1 in wide/half-spaces"
-      },
       "fullbacks": {
         "role": "inverted_pivot",
-        "xp_impact": "Reduced crossing xA; increased clean sheet & baseline minutes security"
+        "xp_impact": "Calafiori leaves left-back to play as an inverted midfielder or join the last line; Ben White combines in the right-side triangle. The left channel he vacates is the target on turnovers"
+      },
+      "wingers": {
+        "role": "width_holder",
+        "xp_impact": "Tzolis holds the left touchline to be released 1v1 after the right-side overload; Saka combines in tight triangles on the right"
       },
       "pivots": {
-        "profile_required": "press_resistant_small_space",
-        "rotation_risk_factors": "Low rotation risk for press-resistant line breakers"
+        "profile_required": "rest_defence_anchor",
+        "xp_impact": "Rice anchors a 2+1 rest defence with Gabriel and Saliba; if he is drawn forward, turnovers find open ground in front of the centre-backs"
       },
       "strikers": {
-        "profile_required": "pressing_enabler",
-        "xp_impact": "High pressure/defensive contribution; creates zone 14 pockets for #10"
+        "profile_required": "dropping_forward",
+        "xp_impact": "Havertz drops deep to drag a centre-back out of the line, then spins into the vacated half-space; second-line runners attack the gap"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 1.05,
-      "high_press_fdr_modifier": 1.15,
-      "set_piece_bias": 1.20
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: fluid rotations and fullback inversion",
+        "points": [
+          {
+            "label": "4-3-3 to a free-form front line",
+            "text": "In possession Arsenal drop rigid positions and rotate players across all five vertical channels. Calafiori often leaves left-back to play as an inverted midfielder or an extra striker on the last line."
+          },
+          {
+            "label": "Local triangles, global width",
+            "text": "Saka, Ødegaard, Havertz and Ben White combine tightly on the right, while Christos Tzolis holds full width on the opposite touchline to keep the back line stretched."
+          },
+          {
+            "label": "Dragging man-markers",
+            "text": "Havertz and Ødegaard drop into midfield together. When defenders follow, gaps open between the centre-backs for second-line runners such as Myles Lewis-Skelly or Gabriel."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and rest defence",
+        "points": [
+          {
+            "label": "High press",
+            "text": "Arsenal press from a 4-2-4 / 4-4-2 base, locking passing lanes and forcing long clearances."
+          },
+          {
+            "label": "Rest-defence exposure",
+            "text": "When Calafiori attacks centrally or joins the front line, Arsenal rely on a 2+1 rest defence (Gabriel, William Saliba, Declan Rice). A middle-third turnover leaves the vacated left channel open to direct balls."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: dilemmas between the lines",
+        "points": [
+          {
+            "label": "Drop and spin",
+            "text": "Havertz drops deep to receive facing his own goal, pulling a centre-back out of line, then spins into the vacated half-space."
+          },
+          {
+            "label": "Overload to isolate",
+            "text": "Sustained passing draws the block toward the right before the ball goes through Calafiori to release Tzolis 1v1 on the left."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Calafiori's vacated flank",
+            "text": "Quick diagonals into the wide channel Calafiori vacates arrive before Gabriel can slide across to cover the 1v1."
+          },
+          {
+            "label": "Rest-defence gaps on turnovers",
+            "text": "If Rice is drawn forward, transitions into the space between midfield and the back line leave the centre-backs isolated in open ground."
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "emery_unai",
     "name": "Unai Emery",
     "current_club": "Aston Villa",
-    "preferred_formation": "4-4-2 / 4-2-2-2",
+    "preferred_formation": "4-4-2 / 5-3-2",
     "buildup_style": "bait_press",
     "pressing_intensity": "medium",
-    "source_file": "A Tactical Guide to Unai Emery's Aston Villa",
+    "source_file": "This New Aston Villa Are Going to Shock Everyone (Bains Analysis)",
     "tactical_traits": {
-      "wingers": {
-        "role": "transition_runner",
-        "xp_impact": "+15% xP in high-offside trap / vertical transition games"
-      },
       "fullbacks": {
-        "role": "flexible_back_three",
-        "xp_impact": "Asymmetric fullback: one tucks into back 3, one bombs high for xA"
+        "role": "flexible_back_five",
+        "xp_impact": "In the flat 4-4-2 Rogério was left 1v1 against Savinho; the 5-3-2 fix drops McGinn in as a temporary right wing-back and brings Buendía across to double up on the left"
       },
-      "pivots": {
-        "profile_required": "deep_playmaker",
-        "rotation_risk_factors": "Low rotation for double pivot with high positional discipline"
+      "wingers": {
+        "role": "two_way_wide_midfielder",
+        "xp_impact": "McGinn tracks overlapping fullbacks into the back line; Buendía tucks inside to cover central midfield while helping on the left touchline"
       },
       "strikers": {
-        "profile_required": "transitional_runner",
-        "xp_impact": "High penalty box xG on direct vertical through-balls"
+        "profile_required": "mobile_front_two",
+        "xp_impact": "Jackson alternates dropping to feet and spinning into the channels, isolating centre-backs 1v1 in transition; Manzambi arrives late from the #10 space into the box"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.95,
-      "high_press_fdr_modifier": 1.20,
-      "set_piece_bias": 1.10
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: the mid-match shift from 4-4-2 to 5-3-2",
+        "points": [
+          {
+            "label": "4-4-2 under strain",
+            "text": "Unai Emery started in Villa's signature flat 4-4-2 mid-block. Tottenham pushed Andrew Robertson onto the last line to make a five-man front, pinning Villa's back line and leaving left-back Rogério 1v1 with Savinho."
+          },
+          {
+            "label": "Switch to a back five",
+            "text": "Emery moved to a 5-3-2, with right midfielder John McGinn tracking Robertson deep into the back line as a temporary right wing-back."
+          },
+          {
+            "label": "Tucking in, doubling up",
+            "text": "Emiliano Buendía moved inside to cover central midfield while helping Rogério on the left touchline, removing the wide disadvantage and closing interior lanes."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Touchline funnelling",
+            "text": "Villa use the sideline as an extra boundary to trap ball carriers once play leaves the central corridor."
+          },
+          {
+            "label": "Contain, then jump",
+            "text": "Rather than press high man-to-man, Villa drop into a compact block and only challenge aggressively once the ball is forced into contested wide zones."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: mobile front two and direct releases",
+        "points": [
+          {
+            "label": "Jackson–Manzambi pair",
+            "text": "Nicolas Jackson and Johan Manzambi play as a fluid front two, with Jackson alternating between dropping to feet and spinning behind the centre-backs into the channels."
+          },
+          {
+            "label": "Isolating centre-backs",
+            "text": "Jackson repeatedly isolated Micky van de Ven and Jan Paul van Hecke in 1v1 transition duels, while Manzambi timed late runs from the #10 space into the box."
+          },
+          {
+            "label": "Keeper as release valve",
+            "text": "Zion Suzuki's direct long passes bypass a high line to find Jackson early on the counter."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Flat midfield four",
+            "text": "Back in a flat four, the lack of vertical staggering lets opponents find players in the pockets between the lines."
+          },
+          {
+            "label": "Wide overloads",
+            "text": "If McGinn doesn't drop into the back line in time, overlapping fullbacks can isolate Villa's outside backs."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "McGinn's depth",
+            "text": "In what share of defensive possessions does McGinn drop level with the centre-backs to make a back five?"
+          },
+          {
+            "label": "Jackson's touches",
+            "text": "Are his touches facing goal after channel runs, or back to goal as a dropping link player?"
+          },
+          {
+            "label": "Suzuki's long balls",
+            "text": "What share of Suzuki's direct passes into the attacking half within five seconds of a turnover are completed?"
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "rose_marco",
     "name": "Marco Rose",
     "current_club": "Bournemouth",
-    "preferred_formation": "4-2-2-2 / 4-2-3-1",
+    "preferred_formation": "4-2-3-1",
     "buildup_style": "high_regain_pressing",
     "pressing_intensity": "high",
-    "source_file": "Marco Rose's FM26 Blueprint | Full Tactical Breakdown",
+    "source_file": "Marco Rose BOTTLES It Again! | Newcastle 2-2 Bournemouth Tactical Analysis (The Football Connect)",
     "tactical_traits": {
-      "wingers": {
-        "role": "transition_runner",
-        "xp_impact": "+10% xG on high turnovers in opposition half"
+      "pivots": {
+        "profile_required": "screening_double_pivot",
+        "xp_impact": "The double pivot protects the centre so the attacking midfielders can press, and collapses on opponents receiving back to goal in midfield; Scott sets the tempo and picks forward passes into the channels"
       },
       "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "+15% xA on direct wide transitions and overlapping deliveries"
+        "role": "touchline_marker",
+        "xp_impact": "Truffert tracks opposing wide runners stride for stride down the left"
       },
-      "pivots": {
-        "profile_required": "box_to_box_carrier",
-        "rotation_risk_factors": "Aggressive man-marking eights face booking risk"
-      },
-      "strikers": {
-        "profile_required": "transitional_runner",
-        "xp_impact": "+15% xP for dual-striker partnerships exploiting second balls"
+      "wingers": {
+        "role": "transition_runner",
+        "xp_impact": "Tavernier and Kluivert are the targets of fast, direct sequences, running behind the back line on the first pass"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.95,
-      "high_press_fdr_modifier": 1.15,
-      "set_piece_bias": 1.10
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: the vertical 4-2-3-1",
+        "points": [
+          {
+            "label": "Mid-block base",
+            "text": "Marco Rose sets Bournemouth up in an athletic 4-2-3-1, with the double pivot protecting the centre so the attacking midfield line can press aggressively."
+          },
+          {
+            "label": "Rest defence",
+            "text": "When attacking, Bournemouth keep four players behind the ball to secure the central corridor against counters."
+          },
+          {
+            "label": "Touchline containment",
+            "text": "Left-back Adrien Truffert matches opposing wide runners stride for stride, stopping progress down that flank."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Central turnover trap",
+            "text": "Pressure starts when an opponent receives back to goal in the middle third; the double pivot collapses around the ball carrier to force a quick turnover."
+          },
+          {
+            "label": "Counter-pressing high",
+            "text": "Rather than drop into a low block early, Bournemouth hunt loose balls in advanced areas — 13 shots in the first half against Newcastle."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: Scott and fast transitions",
+        "points": [
+          {
+            "label": "Scott sets the tempo",
+            "text": "Alex Scott is the central playmaker, picking out forward passes into open channels."
+          },
+          {
+            "label": "Direct box entries",
+            "text": "Fast, direct sequences into Marcus Tavernier and Justin Kluivert produced 1.50 xG from 17 shots."
+          },
+          {
+            "label": "Running in behind",
+            "text": "Attackers run behind the back line on the first pass, creating immediate 1v1 chances in the box."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Late-game collapse",
+            "text": "In the last ten minutes Bournemouth retreat into an uncoordinated, passive low block — four of their five goals conceded this season came after the 88th minute."
+          },
+          {
+            "label": "Poor clearances",
+            "text": "When pinned deep, defenders don't clear second balls decisively beyond the arc, leaving free shooting lanes for late midfield runners."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "Block height late on",
+            "text": "Compare the back four's average depth in minutes 1–75 with minutes 76–90."
+          },
+          {
+            "label": "Scott's forward passing",
+            "text": "What share of Scott's progressive passes reach the final third on counters?"
+          },
+          {
+            "label": "Clearance zones",
+            "text": "Do clearances in the box go out wide, or drop into the central arc?"
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "andrews_keith",
     "name": "Keith Andrews",
     "current_club": "Brentford",
-    "preferred_formation": "3-5-2 / 4-3-3 hybrid",
+    "preferred_formation": "4-3-3 / diamond in buildup",
     "buildup_style": "direct_possession",
     "pressing_intensity": "high",
-    "source_file": "How a Set-Piece Coach Is DESTROYING The Premier League",
+    "source_file": "How Keith Andrews' Brentford OUTSMARTED De Zerbi (Bains Analysis)",
     "tactical_traits": {
-      "wingers": {
-        "role": "wide_crosser",
-        "xp_impact": "+15% xA from curved runs in behind & second-ball flick-ons"
-      },
       "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "+20% xA from long throws & early wide deliveries"
+        "role": "inverted_pivot",
+        "xp_impact": "Lewis-Potter moves from left-back into central midfield for overloads; the left touchline is open if the ball is lost quickly"
       },
       "pivots": {
-        "profile_required": "box_to_box_carrier",
-        "rotation_risk_factors": "Midfielders required to cover second-ball horseshoe zones"
+        "profile_required": "man_marking_pivot",
+        "xp_impact": "Janelt and Sangare alternate dropping beside the centre-backs for a 3v2 in build-up and track opposing midfielders man-to-man; Sangare carries second balls forward"
       },
       "strikers": {
         "profile_required": "box_presence_target",
-        "xp_impact": "+20% header xG & physical duel winning percentage"
+        "xp_impact": "Kelleher goes long to Thiago and Schade; Thiago and Jensen press the centre-backs while cover-shadowing the opposing pivot"
+      },
+      "wingers": {
+        "role": "aerial_flick_on",
+        "xp_impact": "Schade contests aerial duels against fullbacks and stepping centre-backs, flicking into space for runners; Schade and Anthony tight-mark opposing fullbacks"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 1.10,
-      "high_press_fdr_modifier": 1.05,
-      "set_piece_bias": 1.35
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: hybrid 4-3-3 / midfield diamond",
+        "points": [
+          {
+            "label": "Base shape",
+            "text": "Keith Andrews' Brentford play a flexible 4-3-3 that becomes a diamond through the middle in build-up."
+          },
+          {
+            "label": "Inverted left-back",
+            "text": "Keane Lewis-Potter moves from left-back into central midfield pockets to create central overloads."
+          },
+          {
+            "label": "Rotating pivots",
+            "text": "Vitaly Janelt and Mamadou Sangare take turns dropping beside the centre-backs for a 3v2 in build-up."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Screening the build-up",
+            "text": "Igor Thiago and Mathias Jensen press the centre-backs while using their cover shadows to block passes into the double pivot."
+          },
+          {
+            "label": "Man-to-man midfield",
+            "text": "Janelt and Sangare track the opposing central midfielders, cutting off short options and forcing the goalkeeper long."
+          },
+          {
+            "label": "Flank containment",
+            "text": "Wide attackers Kevin Schade and Jaidon Anthony tight-mark the opposing fullbacks to stop wide progression."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: aerial duels and direct transition",
+        "points": [
+          {
+            "label": "Target directness",
+            "text": "Goalkeeper Caoimhín Kelleher plays direct aerial balls to Schade and Thiago, bypassing the opponent's midfield press."
+          },
+          {
+            "label": "Knockdown duels",
+            "text": "Schade contests aerial duels with fullbacks or stepping centre-backs, flicking the ball into space for running midfielders."
+          },
+          {
+            "label": "Ball carrying",
+            "text": "Sangare collects second balls and drives through midfield, linking with Lewis-Potter on the edge of the box."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Behind Lewis-Potter",
+            "text": "When Lewis-Potter moves inside, the left touchline is open if possession is lost quickly."
+          },
+          {
+            "label": "Physical load",
+            "text": "Man-to-man tracking over long distances tires the midfield late in games, opening gaps in front of the back line."
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "hurzeler_fabian",
     "name": "Fabian Hürzeler",
     "current_club": "Brighton & Hove Albion",
-    "preferred_formation": "4-2-3-1 / 3-4-2-1",
+    "preferred_formation": "4-2-3-1",
     "buildup_style": "bait_press",
     "pressing_intensity": "high",
-    "source_file": "How Fabian Hürzeler's Brighton Tactics Are Fighting For EUROPE & Nobody Noticed...",
+    "source_file": "Why Brighton Are The Premier League's SCARIEST Team (The Adam Clery Football Channel)",
     "tactical_traits": {
-      "wingers": {
-        "role": "transition_runner",
-        "xp_impact": "+10% xG on high turnovers in opposition half"
-      },
-      "fullbacks": {
-        "role": "inverted_pivot",
-        "xp_impact": "+10% tackles & recovery points; moderate crossing volume"
-      },
       "pivots": {
         "profile_required": "press_resistant_small_space",
-        "rotation_risk_factors": "High card risk due to tactical fouls in high rest-defense"
+        "xp_impact": "A deep pivot (e.g. Groß) drops between or alongside the centre-backs for a +1 against the first pressing line; the double pivot forms triangles with dropping attacking midfielders to circulate"
       },
       "strikers": {
         "profile_required": "pressing_enabler",
-        "xp_impact": "High pressing output leading to high team turnover xG"
+        "xp_impact": "Presses on the trigger — a back pass to the goalkeeper or a centre-back — then locks onto the nearest receiver man-to-man"
+      },
+      "wingers": {
+        "role": "box_attacker",
+        "xp_impact": "Up to five players flood the penalty box once the opponent commits centrally"
+      },
+      "fullbacks": {
+        "role": "ball_side_trap",
+        "xp_impact": "Collapse toward the ball-side touchline to trap an opposing fullback; the far side is left open to quick switches"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.90,
-      "high_press_fdr_modifier": 1.15,
-      "set_piece_bias": 1.05
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Out of possession: base block and triggers",
+        "points": [
+          {
+            "label": "Zonal mid-block",
+            "text": "A base 4-2-3-1 that holds compact distances between the lines rather than chasing, denying interior passing channels when the opponent circulates centrally."
+          },
+          {
+            "label": "Sideline traps",
+            "text": "When play goes to an opposing fullback, the block collapses laterally toward the ball side for a local 5v3, cutting off forward options and forcing the ball back toward the goalkeeper or centre-backs."
+          },
+          {
+            "label": "Pressing trigger",
+            "text": "A back pass to the goalkeeper or a centre-back is the cue: the whole side steps out of the mid-block together, from zonal cover into an aggressive high press."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing: man-oriented jumps",
+        "points": [
+          {
+            "label": "Man-marking",
+            "text": "Once triggered, every nearby receiver is picked up man-to-man. Centre-backs step deep into the opponent's defensive third to follow dropping forwards so target players can't turn."
+          },
+          {
+            "label": "Body shape",
+            "text": "Pressing opponents who have their backs to goal forces turnovers or rushed clearances into touch — the video counts 41 danger-zone possession losses forced against Arsenal."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: proximity and space",
+        "points": [
+          {
+            "label": "Close proximity",
+            "text": "Players stay within 8–15 metres of each other, so the ball carrier always has three to five short passing options."
+          },
+          {
+            "label": "Build-up",
+            "text": "Deep players such as Pascal Groß drop between or alongside the centre-backs to create a +1 against the first pressing line."
+          },
+          {
+            "label": "Middle third",
+            "text": "The double pivot and dropping attacking midfielders form triangles to circulate the ball and pull the defensive block out of shape."
+          },
+          {
+            "label": "Final third",
+            "text": "Once the opponent commits centrally, up to five players flood the penalty box to attack the open channels."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Over the top",
+            "text": "A high line locked into man-to-man duels can be bypassed with direct, aerial balls into the space behind the back line."
+          },
+          {
+            "label": "Switches of play",
+            "text": "Committing five to the ball side leaves the far flank open — a quick switch to an isolated wide runner exploits the reorganisation."
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "alonso_xabi",
     "name": "Xabi Alonso",
     "current_club": "Chelsea",
-    "preferred_formation": "4-2-3-1 / 3-4-3",
-    "buildup_style": "high_regain_pressing",
+    "preferred_formation": "3-4-2-1 / 5-4-1",
+    "buildup_style": "bait_press",
     "pressing_intensity": "high",
-    "source_file": "Is Xabi Alonso the answer to Chelsea's problems? | Sensible Transfers",
+    "source_file": "Why Chelsea Are SERIOUS Title Contenders (The Adam Clery Football Channel)",
     "tactical_traits": {
-      "wingers": {
-        "role": "transition_runner",
-        "xp_impact": "+10% xG from depth runs attacking space behind high lines"
-      },
       "fullbacks": {
         "role": "flexible_back_three",
-        "xp_impact": "High clean sheet probability due to final-third regains"
+        "xp_impact": "Gusto and Hato hold the width; outside centre-backs Lacroix and Acheampong underlap into the front line, and Acheampong and Gusto jump high on the sideline pressing trigger"
       },
       "pivots": {
-        "profile_required": "deep_playmaker",
-        "rotation_risk_factors": "Low rotation risk for central double-pivot with high pass volume"
+        "profile_required": "box_midfield_pivot",
+        "xp_impact": "Reece James and Lavia form the base of a box midfield with Palmer and Rogers, giving central superiority in the middle third"
+      },
+      "wingers": {
+        "role": "inside_playmaker",
+        "xp_impact": "Palmer and Rogers play inside at the top of the box; Palmer drops into the half-space a forward-running Lacroix vacates. First targets in a two-to-four-pass vertical release"
       },
       "strikers": {
-        "profile_required": "pressing_enabler",
-        "xp_impact": "+5% bonus point probability via defensive workrate & pressing traps"
+        "profile_required": "vertical_outlet",
+        "xp_impact": "João Pedro is a first vertical target in transition, attacking the equal-numbers (3v3, 2v2) situations Chelsea engineer by inviting pressure"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 1.05,
-      "high_press_fdr_modifier": 1.10,
-      "set_piece_bias": 1.05
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: hybrid 3-4-2-1 / 5-4-1",
+        "points": [
+          {
+            "label": "Structural flexibility",
+            "text": "Xabi Alonso's Chelsea play a 3-4-2-1 in possession that drops into a 5-4-1 low-to-mid block without the ball."
+          },
+          {
+            "label": "Box midfield",
+            "text": "With Malo Gusto and Jorrel Hato holding the width, two pivots (Reece James, Roméo Lavia) and two inside playmakers (Cole Palmer, Morgan Rogers) form a central box for numerical superiority in midfield."
+          },
+          {
+            "label": "Extreme rotations",
+            "text": "Outside centre-backs such as Maxence Lacroix or Josh Acheampong make deep underlapping runs into the front line. When Lacroix goes high, Palmer drops into the half-space he left, scrambling the opponent's marking."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Central funnelling",
+            "text": "The front three and midfield screen the central corridors, daring the opponent to go wide to the fullbacks."
+          },
+          {
+            "label": "Sideline jump",
+            "text": "A pass toward the touchline triggers a collective jump: Acheampong and Gusto press high into the opponent's defensive third while the other two centre-backs dominate the resulting aerial clearances."
+          }
+        ]
+      },
+      {
+        "heading": "Transition: vertical directness",
+        "points": [
+          {
+            "label": "Direct release",
+            "text": "Rather than linger in build-up, Chelsea go forward to João Pedro, Palmer or Rogers in two to four passes."
+          },
+          {
+            "label": "Manufacturing 1v1s",
+            "text": "Inviting opponents to hold the ball and push men forward creates equal-numbers transitions (3v3, 2v2) instead of attacks into a packed low block."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Stretched back three",
+            "text": "Wide rotations by the outside centre-backs stretch the distances across the back three; quick vertical combinations run through the seams between Levi Colwill and the wide centre-backs."
+          },
+          {
+            "label": "Goalkeeper hesitation",
+            "text": "A high starting position plus indecision about sweeping or holding the line exposes Chelsea to transitional cutbacks."
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "lampard_frank",
     "name": "Frank Lampard",
     "current_club": "Coventry City",
-    "preferred_formation": "4-2-3-1 / 4-3-3",
+    "preferred_formation": "5-3-2 / 5-4-1",
     "buildup_style": "direct_possession",
     "pressing_intensity": "medium",
-    "source_file": "How Frank Lampard's Ingenious Tactics Got Coventry City Back To The Premier League",
+    "source_file": "Coventry City Updated Tactical Analysis | Can new look Sky Blues shock the Premier League? (Simon Lillibury)",
     "tactical_traits": {
-      "wingers": {
-        "role": "transition_runner",
-        "xp_impact": "+15% xA on rapid switches to dynamic wide runners (e.g., Sakamoto)"
-      },
       "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "+15% xA for attacking full-backs (e.g., Van Ewijk) overlapping"
+        "role": "back_five_wing_back",
+        "xp_impact": "DaSilva and van Ewijk drop into the back five and step out to trap opposing fullbacks; in possession the back three frees them to push high for early diagonal crosses"
       },
       "pivots": {
-        "profile_required": "box_to_box_carrier",
-        "rotation_risk_factors": "High physical demand; booking risk for central ball-winners"
+        "profile_required": "runner_tracker",
+        "xp_impact": "Grimes and Torp step to passes into dropping attackers while the back three hold depth; they drop in against crosses, which leaves the edge of the box open"
       },
       "strikers": {
         "profile_required": "box_presence_target",
-        "xp_impact": "+10% goal xP for physical strikers running channels (e.g., Simms/Wright)"
+        "xp_impact": "Awoniyi or Simms receive direct balls to hold up, with Rudoni contesting the knockdowns"
+      },
+      "wingers": {
+        "role": "one_v_one_winger",
+        "xp_impact": "Mason-Clark or Sakamoto are fed from second balls to attack 1v1 out wide"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.95,
-      "high_press_fdr_modifier": 1.15,
-      "set_piece_bias": 1.10
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: hybrid 5-3-2 / 5-4-1 low-to-mid block",
+        "points": [
+          {
+            "label": "Back five",
+            "text": "Frank Lampard's Coventry set up in a 5-3-2 that drops into a 5-4-1 without the ball: centre-backs Bobby Thomas, Ethan Pinnock and Joël Amenda, with wing-backs Jay DaSilva and Milan van Ewijk."
+          },
+          {
+            "label": "Interior denial",
+            "text": "They pack the box and the half-spaces, limiting open shooting channels through the middle."
+          },
+          {
+            "label": "Funnelling to the perimeter",
+            "text": "Coventry concede the outside channels and wide delivery angles on purpose, relying on Pinnock and Thomas to win headers in the box."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Contain, don't jump",
+            "text": "A containing mid-block rather than an aggressive high press — they defend the middle and defensive thirds and challenge once the ball goes wide."
+          },
+          {
+            "label": "Sideline traps",
+            "text": "When the ball reaches an opposing fullback, the wing-back steps out and the near-side central midfielder shifts across to seal the touchline, using the sideline as an extra defender."
+          },
+          {
+            "label": "Tracking runners",
+            "text": "Matt Grimes and Victor Torp step to passes into dropping attackers while the back three stay put to protect depth."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: target release and wing-back overlaps",
+        "points": [
+          {
+            "label": "Direct to the front line",
+            "text": "Coventry go vertical with direct passes into Taiwo Awoniyi or Ellis Simms."
+          },
+          {
+            "label": "Wing-backs push on",
+            "text": "With the back three covering, van Ewijk and DaSilva push high to deliver early diagonal crosses."
+          },
+          {
+            "label": "Second balls",
+            "text": "Dropping attackers such as Jack Rudoni contest knockdowns in the final third and feed wingers Ephron Mason-Clark or Tatsuhiro Sakamoto for 1v1s."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Back-four switch",
+            "text": "When Coventry revert to a back four (4-2-3-1), the wide areas open up — the gap between fullback and wide midfielder allows 2v1 overloads."
+          },
+          {
+            "label": "Cutbacks to the arc",
+            "text": "Central midfielders drop into the line to help against crosses, leaving the space outside the box free for late runners."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "Block depth",
+            "text": "Do the wing-backs sit flat with the centre-backs in a back five, or stay in the midfield line during the opponent's build-up?"
+          },
+          {
+            "label": "Awoniyi knockdowns",
+            "text": "How many direct balls to Awoniyi produce a controlled second touch for Rudoni or Grimes?"
+          },
+          {
+            "label": "Crosses conceded",
+            "text": "Count crosses conceded from wide and check whether the centre-backs keep an aerial duel success rate above 65%."
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "sage_pierre",
     "name": "Pierre Sage",
     "current_club": "Crystal Palace",
-    "preferred_formation": "3-4-3 / 5-4-1 low-block",
-    "buildup_style": "high_regain_pressing",
+    "preferred_formation": "3-4-2-1 / 5-2-3",
+    "buildup_style": "direct_possession",
     "pressing_intensity": "high",
-    "source_file": "How Pierre Sage's RC Lens Tactics Are DOMINATING France.",
+    "source_file": "How Sage's Palace Edge Arbeloa's Fulham | Fulham vs Crystal Palace 2-3 | In-Depth Analysis (Greatest Sport)",
     "tactical_traits": {
-      "wingers": {
-        "role": "inverted_inside_scorer",
-        "xp_impact": "+15% npxG for dual inverted wingers playing narrow/centrally"
-      },
       "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "+15% xA for wide wing-backs crossing into opposite wing-back box runs"
+        "role": "asymmetric_wing_back",
+        "xp_impact": "The right wing-back pins high while Mitchell starts deeper to draw the opposing right-back out, then attacks the space behind him; the far-side wing-back (Mitchell or Chilwell) crashes the far post"
+      },
+      "wingers": {
+        "role": "inside_forward_ten",
+        "xp_impact": "Pino and Nketiah play as twin #10s in the half-spaces; Pino plays first-time around the corner into the channel, and both drop to collect second balls"
       },
       "pivots": {
-        "profile_required": "press_resistant_small_space",
-        "rotation_risk_factors": "Central overload reduces transition conceded goals"
-      },
-      "strikers": {
-        "profile_required": "box_presence_target",
-        "xp_impact": "+10% goal xP on continuous wide delivery into box"
+        "profile_required": "stretched_double_pivot",
+        "xp_impact": "Only two central midfielders cover transitions across the full width behind the twin #10s"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.95,
-      "high_press_fdr_modifier": 1.15,
-      "set_piece_bias": 1.10
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: staggered wing-backs and twin #10s",
+        "points": [
+          {
+            "label": "3-4-2-1 / 5-2-3",
+            "text": "Pierre Sage's Palace play a back three, two central midfielders, two inside #10s (Yeremy Pino and Eddie Nketiah) and attacking wing-backs."
+          },
+          {
+            "label": "Asymmetric wing-backs",
+            "text": "The right wing-back pushes high to pin a defender while left wing-back Tyreek Mitchell stays deeper during progression, drawing Fulham's right-back (Timothy Castagne) out to press and opening space behind him."
+          },
+          {
+            "label": "Half-space overloads",
+            "text": "Pino and Nketiah operate in the channels between the opposing fullbacks and centre-backs, giving immediate forward passing angles."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Forcing it long",
+            "text": "On opposition goal kicks Palace mark the short options man-to-man, forcing the ball long."
+          },
+          {
+            "label": "First header",
+            "text": "Chris Richards steps up to contest and win the first header against the target attacker."
+          },
+          {
+            "label": "Second-ball trap",
+            "text": "Pino and Nketiah drop into central pockets on the flick-on to collect second balls before the opponent's midfield can react."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: vertical directness and third-man runs",
+        "points": [
+          {
+            "label": "Around the corner",
+            "text": "Once Pino receives, he plays first-time passes around the corner into the channel."
+          },
+          {
+            "label": "Blind-side runs",
+            "text": "Mitchell uses his pace to attack the space behind Castagne, receiving in stride to cross low or finish at the near post."
+          },
+          {
+            "label": "Far-post crashes",
+            "text": "When attacks go down the right, the opposite wing-back (Mitchell or Ben Chilwell) attacks the far post unmarked as the back line shifts."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Exposed midfield pair",
+            "text": "With two inside #10s, only two central midfielders cover defensive transitions across the width."
+          },
+          {
+            "label": "Isolated centre-backs",
+            "text": "If the first pressing wave is bypassed, the wide centre-backs can be pulled into uncomfortable 1v1s in the channels."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "Mitchell's starting position",
+            "text": "How deep does Mitchell sit relative to the midfield line during goal-kick build-up?"
+          },
+          {
+            "label": "Pino's layoffs",
+            "text": "Count Pino's first-time vertical releases into the wide channels after receiving between the lines."
+          },
+          {
+            "label": "Second balls",
+            "text": "What share of Richards' won headers turn into controlled Palace possession?"
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "moyes_david",
     "name": "David Moyes",
     "current_club": "Everton",
-    "preferred_formation": "4-4-1-1 / 4-4-2 mid-block",
+    "preferred_formation": "4-4-2 / 4-5-1 low block",
     "buildup_style": "direct_possession",
-    "pressing_intensity": "medium",
-    "source_file": "How David Moyes Built the Premier League’s Most Intelligent Machine: Everton",
+    "pressing_intensity": "low",
+    "source_file": "\"You can't change him!\" | Gavin Buckland Breaks Down David Moyes' Tactics (Royal Blue: Everton FC)",
     "tactical_traits": {
-      "wingers": {
-        "role": "wide_crosser",
-        "xp_impact": "+15% xA for wide midfielders delivering early diagonal crosses"
-      },
-      "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "+15% xA for overlapping full-backs exploiting wide overloads"
-      },
       "pivots": {
-        "profile_required": "box_to_box_carrier",
-        "rotation_risk_factors": "Deep double-pivot provides high clean-sheet security"
+        "profile_required": "compact_bank_of_four",
+        "xp_impact": "The midfield four sits tight to the back line to deny any space between the lines"
+      },
+      "wingers": {
+        "role": "defensive_wide_midfielder",
+        "xp_impact": "Double up with the fullback when the ball is played tight to the touchline — the only real pressing trigger"
       },
       "strikers": {
-        "profile_required": "box_presence_target",
-        "xp_impact": "+25% set-piece & aerial target xG for physical target men"
+        "profile_required": "isolated_lone_striker",
+        "xp_impact": "Left isolated when Everton sit deep after the 60th minute, reducing the counter-attacking threat"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 1.00,
-      "high_press_fdr_modifier": 1.05,
-      "set_piece_bias": 1.30
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: low-block compactness",
+        "points": [
+          {
+            "label": "Two banks of four",
+            "text": "David Moyes sets Everton up in a disciplined low-to-mid 4-4-2 / 4-5-1, with the main aim of denying penetration through the middle."
+          },
+          {
+            "label": "Conceding the flanks",
+            "text": "Opponents are allowed to circulate around the perimeter and progress wide while the box stays congested."
+          },
+          {
+            "label": "Tight inter-line spacing",
+            "text": "The midfield four stays close to the back line so opponents can't find space between the lines."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Contain, don't hunt",
+            "text": "No proactive high pressing — Everton hold a containing block until the ball enters their defensive third."
+          },
+          {
+            "label": "Sideline trigger",
+            "text": "Pressing starts only when an opponent plays into tight space against the touchline, where the wide midfielder and fullback can double the receiver."
+          }
+        ]
+      },
+      {
+        "heading": "Game-state management",
+        "points": [
+          {
+            "label": "Steady points",
+            "text": "Moyes prioritises risk control and steady away points — Everton have the third-highest away points total in the league this way."
+          },
+          {
+            "label": "After 60 minutes",
+            "text": "If the game is level after the 60th minute, Everton lock their shape rather than push numbers forward, relying on solidity to take the draw or nick a goal from a set piece or a counter."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Sustained box pressure",
+            "text": "Sitting deep for long spells hands opponents repeated second balls and shots from around the box."
+          },
+          {
+            "label": "Little transition support",
+            "text": "Defending deep late on leaves the lone striker isolated, blunting the counter."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "Block height after 60'",
+            "text": "How far is Everton's defensive line from their own goal before and after the 60-minute mark?"
+          },
+          {
+            "label": "Rest defence at set pieces",
+            "text": "How many outfield players stay behind halfway on attacking corners and free kicks?"
+          },
+          {
+            "label": "Inter-line distance",
+            "text": "Does the gap between midfield and defence exceed 12 metres during settled opponent possession?"
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "arbeloa_alvaro",
     "name": "Álvaro Arbeloa",
     "current_club": "Fulham",
-    "preferred_formation": "4-4-2 / 5-3-2 low-block",
-    "buildup_style": "bait_press",
-    "pressing_intensity": "low",
-    "source_file": "Álvaro Arbeloa’s Tactics at Real Madrid Destroyed Man City | Valverde Hat-Trick | Tactical Analysis",
+    "preferred_formation": "2-3-5 in possession / 4-2-3-1 press",
+    "buildup_style": "possession_control",
+    "pressing_intensity": "high",
+    "source_file": "Fulham Are Better Than You Think (Bains Analysis)",
     "tactical_traits": {
-      "wingers": {
-        "role": "wide_crosser",
-        "xp_impact": "+10% xA on long-throw flicks & far-post overload crosses"
-      },
       "fullbacks": {
-        "role": "flexible_back_three",
-        "xp_impact": "High clean-sheet xP due to rigid low-block spatial control"
+        "role": "high_overlapping_crosser",
+        "xp_impact": "Robinson and Castagne push into the final third together for a 2-3-5, and Castagne jumps high onto opposing wing-backs; with both high, the centre-backs are isolated across the width"
       },
       "pivots": {
         "profile_required": "deep_playmaker",
-        "rotation_risk_factors": "Single central anchor covers massive space; low rotation risk"
+        "xp_impact": "Berge drops between the split centre-backs as the main distributor; the Berge–Iwobi pivot lacks the recovery pace to cover after high turnovers"
+      },
+      "wingers": {
+        "role": "inverted_inside_creator",
+        "xp_impact": "Iwobi drifts inside from the left to open the touchline for Robinson; on the right King underlaps into the box for cutbacks, rotating with Bobb and Castagne"
       },
       "strikers": {
-        "profile_required": "box_presence_target",
-        "xp_impact": "+15% set-piece & long-throw header goal threat"
+        "profile_required": "central_screen",
+        "xp_impact": "Jiménez screens the central lane in the 4-2-3-1 press"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.85,
-      "high_press_fdr_modifier": 1.20,
-      "set_piece_bias": 1.30
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: asymmetric 2-3-5 high-possession grid",
+        "points": [
+          {
+            "label": "Split centre-backs",
+            "text": "Álvaro Arbeloa's Fulham build from the back with Calvin Bassey and Joachim Andersen split wide inside the box."
+          },
+          {
+            "label": "Both fullbacks high",
+            "text": "Antonee Robinson and Timothy Castagne push into the opponent's third at the same time, forming a 2-3-5 / 2-2-6."
+          },
+          {
+            "label": "Right-side rotations",
+            "text": "Castagne, Oscar Bobb and Josh King rotate on the right, with King underlapping into the box to create cutback angles."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "High 4-2-3-1 press",
+            "text": "Fulham press high, with Raúl Jiménez screening the central lane and King covering the holding midfielder."
+          },
+          {
+            "label": "Fullback jumps",
+            "text": "When the ball goes wide, Castagne jumps high onto the opposing wing-back to pin them in their corner."
+          },
+          {
+            "label": "Carrying around the press",
+            "text": "In build-up, rather than going long or forcing central passes, Bassey drives forward into the opposition half to beat the first line."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: box penetration and rotations",
+        "points": [
+          {
+            "label": "Box presence",
+            "text": "Near the top of the league for touches in the opposition box, generating high open-play xG."
+          },
+          {
+            "label": "Inverted wing play",
+            "text": "Alex Iwobi drifts inside from the left into the central attacking channel, opening the touchline for Robinson to overlap."
+          },
+          {
+            "label": "Short circulation",
+            "text": "Sander Berge drops between the wide centre-backs as the main distributor, keeping the ball moving quickly."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Isolated centre-backs",
+            "text": "With both fullbacks high, Andersen and Bassey are left covering about 60 metres of width; transitions into the channel behind Castagne exploit it."
+          },
+          {
+            "label": "Midfield ground coverage",
+            "text": "The Berge–Iwobi pivot lacks the recovery pace to cover big spaces after turnovers high up the pitch."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "Fullback rest defence",
+            "text": "Does one fullback stay back for a 3+2 rest defence, or do both go beyond the midfield line?"
+          },
+          {
+            "label": "Bassey's carries",
+            "text": "Track the success rate of Bassey's dribbles out of the defensive third under high pressure."
+          },
+          {
+            "label": "Box-entry types",
+            "text": "Split Fulham's box entries into low cutbacks, wide overloads and aerial crosses."
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "jakirovic_sergej",
     "name": "Sergej Jakirović",
     "current_club": "Hull City",
-    "preferred_formation": "4-3-3 / 3-5-2 flexible",
+    "preferred_formation": "5-4-1",
     "buildup_style": "direct_possession",
-    "pressing_intensity": "high",
-    "source_file": "Hull City Broke English Football.",
+    "pressing_intensity": "medium",
+    "source_file": "Why The Premier League Is So EASY For Hull City (The Adam Clery Football Channel)",
     "tactical_traits": {
-      "wingers": {
-        "role": "wide_crosser",
-        "xp_impact": "+15% xA for attacking wing-backs in high-turnover fast-paced games"
-      },
-      "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "+15% xA for wide wing-backs; high defensive conceded risk"
-      },
       "pivots": {
-        "profile_required": "box_to_box_carrier",
-        "rotation_risk_factors": "High yellow card risk due to back-and-forth end-to-end chaos"
+        "profile_required": "central_screen",
+        "xp_impact": "Two central midfielders stay compact in front of the back five and jump onto receivers baited into the pocket between the lines; going long to McBurnie keeps them from being dragged out of shape"
       },
       "strikers": {
         "profile_required": "box_presence_target",
-        "xp_impact": "+35% total team goal dependency on focal target striker (McBurnie type)"
+        "xp_impact": "McBurnie is the direct outlet — he drifts into the wide channels to contest aerial and physical duels against fullbacks, with teammates collecting the knockdowns"
+      },
+      "wingers": {
+        "role": "second_ball_runner",
+        "xp_impact": "Lock onto the knockdown zones around McBurnie to win possession high; tuck inside when defending, which leaves the far touchline exposed"
+      },
+      "fullbacks": {
+        "role": "back_five_wing_back",
+        "xp_impact": "Defend narrow in the back five and concede the flanks to invite crosses; exposed 1v1 by fast switches before the line shifts"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.85,
-      "high_press_fdr_modifier": 1.15,
-      "set_piece_bias": 1.25
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Out of possession: the deliberately decompacted block",
+        "points": [
+          {
+            "label": "Base 5-4-1",
+            "text": "A low-to-mid 5-4-1 block, a move away from the 4-2-3-1 used in the Championship."
+          },
+          {
+            "label": "Baiting space between the lines",
+            "text": "Hull deliberately leave gaps between the defensive and midfield lines, inviting the ball carrier to play into the interior corridor rather than circulate around the block."
+          },
+          {
+            "label": "Synchronised jumping",
+            "text": "Once an opponent plays into that central pocket, the back five or the midfield pivot jump together to collapse onto the receiver, with teammates covering immediately behind."
+          }
+        ]
+      },
+      {
+        "heading": "Funnelling to the flanks: aerial superiority traps",
+        "points": [
+          {
+            "label": "Central congestion",
+            "text": "Three centre-backs (John Egan, Semi Ajayi, Noble Mendy) and two central midfielders stay compact inside the box, forcing attacks out wide."
+          },
+          {
+            "label": "Cross domination",
+            "text": "Hull concede the flanks on purpose to draw high cross volumes — 34 crosses faced against Coventry, 39 against Manchester United. Egan and Ajayi win 60–70%+ of their ground and aerial duels, clearing the first ball before a good chance develops."
+          }
+        ]
+      },
+      {
+        "heading": "Transition: target directness",
+        "points": [
+          {
+            "label": "Direct over the block",
+            "text": "In transition Hull skip midfield circulation entirely and go straight to Ollie McBurnie."
+          },
+          {
+            "label": "Target isolation in wide channels",
+            "text": "McBurnie leaves the central corridor to contest duels against opposing fullbacks out wide. That keeps Hull's midfielders in shape and stops clearances coming straight back toward goal."
+          },
+          {
+            "label": "Second balls",
+            "text": "Wingers and midfielders crowd the knockdown zones around McBurnie to secure possession in advanced areas."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Rapid switches",
+            "text": "Defending narrow with a back five and tucked-in wide midfielders leaves the far touchline open. Quick switches that avoid McBurnie's channel pressure can isolate a wing-back 1v1 before the line shifts."
+          },
+          {
+            "label": "Low cutbacks",
+            "text": "High crosses play into Hull's aerial strength. Low cutbacks to the edge of the area — the space vacated by retreating centre-backs — exploit the gap in front of the five-man line."
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "oneil_gary",
     "name": "Gary O'Neil",
     "current_club": "Ipswich Town",
     "preferred_formation": "4-2-3-1 / 3-4-2-1 flexible",
-    "buildup_style": "high_regain_pressing",
-    "pressing_intensity": "high",
-    "source_file": "How Ipswich Setup Under Gary O’Neil 🚜",
+    "buildup_style": "direct_possession",
+    "pressing_intensity": "medium",
+    "source_file": "Everton vs Ipswich | Prediction & xG Analysis (Tactical Logic AI)",
     "tactical_traits": {
       "wingers": {
         "role": "transition_runner",
-        "xp_impact": "+10% xP on rapid turnover counterattacks"
-      },
-      "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "+10% xA from wide wing-back width"
+        "xp_impact": "Released straight into open channels off loose balls and clearances, attacking the space behind a block before it sets"
       },
       "pivots": {
-        "profile_required": "box_to_box_carrier",
-        "rotation_risk_factors": "High aggressive ball-winning demand in double pivot"
-      },
-      "strikers": {
-        "profile_required": "box_presence_target",
-        "xp_impact": "Striker acts as central reference point for long balls & hold-up"
+        "profile_required": "second_ball_collector",
+        "xp_impact": "Crowd the central channel around knockdowns rather than hold a passing structure; after 60 minutes a gap opens between midfield and defence as cup fatigue bites"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.90,
-      "high_press_fdr_modifier": 1.10,
-      "set_piece_bias": 1.10
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: fluid and stretched",
+        "points": [
+          {
+            "label": "No fixed shape",
+            "text": "Midweek cup congestion and rotation stop Ipswich holding a rigid structure; Gary O'Neil favours an adaptable game model over a fixed formation, shifting shape between phases."
+          },
+          {
+            "label": "High-event spacing",
+            "text": "An open, high-variance style stretches the distance between the defensive and forward lines — seven scored and ten conceded in the first four league games."
+          },
+          {
+            "label": "Central second-ball clusters",
+            "text": "When play breaks down, Ipswich crowd the central channel around knockdowns instead of forming set passing networks."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Press or drop",
+            "text": "In the first half-hour Ipswich alternate between jumping into an aggressive high press and sitting in a passive block, stepping up together to disrupt build-up when energy allows."
+          },
+          {
+            "label": "Rest-defence trade-off",
+            "text": "Pressing high without enough cover behind leaves defenders isolated 1v1 against direct passes."
+          },
+          {
+            "label": "Turnover cue",
+            "text": "Loose balls and clearances are the main transition trigger — forward runners are released into open channels immediately."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: transition pace and scramble play",
+        "points": [
+          {
+            "label": "Fast final-third attacks",
+            "text": "Rather than build slowly, Ipswich attack in rapid transition, targeting the space behind the opponent before a low block can set."
+          },
+          {
+            "label": "Unstructured second balls",
+            "text": "After long clearances and set-piece deliveries, numbers around the drop zone win possession in advanced areas."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Defensive leaks",
+            "text": "Committing bodies forward without secure rest defence leaves the centre-backs isolated 1v1 — a direct cause of ten goals conceded in four games."
+          },
+          {
+            "label": "After 60 minutes",
+            "text": "Midweek cup fatigue brings a physical drop-off in the last half-hour, opening big gaps between midfield and defence and free central corridors for opponents."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "Block height after 60'",
+            "text": "Compare the defensive line's distance from its own box before minute 60 with minutes 61–90."
+          },
+          {
+            "label": "Second balls",
+            "text": "Count knockdowns and loose-ball scrambles won in the middle third after long distribution."
+          },
+          {
+            "label": "Rest defence on counters",
+            "text": "Do Ipswich keep at least three outfield players behind the ball when launching fast counters?"
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "farke_daniel",
     "name": "Daniel Farke",
     "current_club": "Leeds United",
-    "preferred_formation": "3-5-2 / 4-3-3",
-    "buildup_style": "direct_possession",
+    "preferred_formation": "3-4-3 / 3-1-3-3 in buildup",
+    "buildup_style": "possession_control",
     "pressing_intensity": "medium",
-    "source_file": "How Daniel Farke's NEW Tactics SAVED Leeds United",
+    "source_file": "Why Every Premier League Club Should Fear This Leeds Team. (Jacob Horsfall)",
     "tactical_traits": {
-      "wingers": {
-        "role": "transition_runner",
-        "xp_impact": "+10% xA from wide overloads and physical box crashes"
-      },
       "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "+15% xA for aggressive full-backs (e.g., Bogle/Gudmundsson)"
+        "role": "inverted_wing_back",
+        "xp_impact": "Bogle inverts from right wing-back into the #10 pocket, drawing centre-backs out; James Justin overlaps from right centre-back, which leaves the right side open on turnovers"
       },
       "pivots": {
-        "profile_required": "box_to_box_carrier",
-        "rotation_risk_factors": "Physical dominance required; strong set-piece target value"
+        "profile_required": "single_pivot_screen",
+        "xp_impact": "Ampadu anchors a 3-1 base with Trafford as a third centre-back, and forms a central triangle with Tanaka and Stach out of possession; balls over the triangle find the space behind him"
       },
       "strikers": {
         "profile_required": "box_presence_target",
-        "xp_impact": "+20% penalty box touches & goal xP for target forwards (e.g., Calvert-Lewin)"
+        "xp_impact": "Calvert-Lewin occupies the centre-backs and is the diagonal outlet under pressure, with midfielders surrounding the drop zone"
+      },
+      "wingers": {
+        "role": "blind_side_runner",
+        "xp_impact": "Okafor pins the far side and makes blind-side runs to the far post for crosses"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.95,
-      "high_press_fdr_modifier": 1.10,
-      "set_piece_bias": 1.25
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: asymmetric 3-4-3 / 3-1-3-3 build-up",
+        "points": [
+          {
+            "label": "Keeper as a third centre-back",
+            "text": "Daniel Farke's Leeds build asymmetrically: goalkeeper James Trafford joins the two centre-backs and Ethan Ampadu to form a 3-1 base."
+          },
+          {
+            "label": "Overlapping centre-back",
+            "text": "Right centre-back James Justin pushes into the right wing or attacking midfield, while right wing-back Jayden Bogle inverts into the #10 pocket, dragging centre-backs out of position."
+          },
+          {
+            "label": "Left-side isolation",
+            "text": "With the right overloaded, Noah Okafor and Dominic Calvert-Lewin pin the defence on the far side, opening space for Anton Stach to attack the box."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Split press",
+            "text": "Calvert-Lewin and Okafor split the centre-backs, blocking angles into the fullbacks without lunging at the ball carrier."
+          },
+          {
+            "label": "Central jamming",
+            "text": "Ampadu, Ao Tanaka and Stach form a compact central triangle in a mid-block, forcing play into wide traps."
+          },
+          {
+            "label": "Touchline traps",
+            "text": "Once the ball reaches an opposing fullback, the wing-back jumps aggressively with the near-side midfielder in support, forcing a turnover or a hurried clearance."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: counter-movements and box overloads",
+        "points": [
+          {
+            "label": "Suck and release",
+            "text": "Bogle drives inside to draw three defenders, lays off to Stach, who spreads it to Justin in wide space."
+          },
+          {
+            "label": "Blind-side runs",
+            "text": "Calvert-Lewin occupies the centre-backs, freeing Okafor to run blind-side to the far post for crosses."
+          },
+          {
+            "label": "Controlled long balls",
+            "text": "Under heavy pressure Leeds hit targeted diagonals to Calvert-Lewin and surround the drop zone with midfielders to win the second ball."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Right side on turnovers",
+            "text": "Justin's advanced position leaves the right side of defence open; quick switches can isolate the two remaining centre-backs."
+          },
+          {
+            "label": "Over the midfield triangle",
+            "text": "Direct aerial balls over the central triangle exploit the space behind Ampadu."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "Bogle's inversion",
+            "text": "How much time does Bogle spend in the #10 pocket compared with touches on the right touchline?"
+          },
+          {
+            "label": "Rest defence",
+            "text": "Do Ampadu and Trafford form a two-man screen behind the remaining centre-backs during deep possession?"
+          },
+          {
+            "label": "Second balls",
+            "text": "What share of Calvert-Lewin's knockdowns do Stach or Tanaka win in the middle third?"
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "iraola_andoni",
     "name": "Andoni Iraola",
     "current_club": "Liverpool",
-    "preferred_formation": "4-2-3-1 heavy metal press",
+    "preferred_formation": "4-2-3-1 / 4-3-3",
     "buildup_style": "high_regain_pressing",
     "pressing_intensity": "high",
-    "source_file": "What To Expect From Iraola At Liverpool | The Overlap Breakdown",
+    "source_file": "How Iraola's Liverpool will get better (The Athletic FC)",
     "tactical_traits": {
-      "wingers": {
-        "role": "transition_runner",
-        "xp_impact": "+20% npxG on high turnover transitions in chaos conditions"
-      },
-      "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "+15% xA from aggressive high-line pressing traps"
+      "strikers": {
+        "profile_required": "pressing_enabler",
+        "xp_impact": "Isak arcs his press at the goalkeeper, blocking the switch and forcing the ball to one centre-back — the trigger for the chain of jumps behind him"
       },
       "pivots": {
-        "profile_required": "box_to_box_carrier",
-        "rotation_risk_factors": "Extreme stamina & pressing demand; high card risk"
+        "profile_required": "half_turn_receiver",
+        "xp_impact": "Mac Allister, Morton or Gravenberch drop between defenders to receive on the half-turn; Szoboszlai steps up to cover the near-side pivot in the press"
       },
-      "strikers": {
-        "profile_required": "transitional_runner",
-        "xp_impact": "+15% goal probability on high turnovers inside opponent box"
+      "fullbacks": {
+        "role": "jumping_fullback",
+        "xp_impact": "Kerkez and Barcola jump onto opposing fullbacks to intercept clearances and hurried sideline passes"
+      },
+      "wingers": {
+        "role": "width_holder",
+        "xp_impact": "Pin the opposing fullbacks wide while the midfield staggers between the lines"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.90,
-      "high_press_fdr_modifier": 1.25,
-      "set_piece_bias": 1.10
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: the hybrid pressing grid",
+        "points": [
+          {
+            "label": "Zonal base, man-to-man jumps",
+            "text": "Andoni Iraola's Liverpool set up nominally in a zonal 4-2-3-1 / 4-3-3 but jump into man-to-man assignments as the ball moves."
+          },
+          {
+            "label": "Compressing the pocket",
+            "text": "When opposing playmakers drop deep, centre-backs such as Jérémy Jacquet step into midfield to squeeze the space between the lines."
+          },
+          {
+            "label": "Accordion build-up",
+            "text": "In possession the ball goes back to Alisson to draw the opponent out, opening vertical space between their forwards and midfield."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Arc-run trigger",
+            "text": "Alexander Isak curves his run at the goalkeeper, blocking the switch and forcing the ball toward one centre-back."
+          },
+          {
+            "label": "Chain-reaction jumps",
+            "text": "Isak's run triggers Florian Wirtz to jump onto the other centre-back, while Dominik Szoboszlai steps up onto the near-side pivot."
+          },
+          {
+            "label": "Fullback interceptions",
+            "text": "Milos Kerkez and Bradley Barcola jump onto the opposing fullbacks to intercept clearances or hurried sideline passes."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: vertical staggering",
+        "points": [
+          {
+            "label": "Runs from deep",
+            "text": "Vertical runs from deep positions are the main way Liverpool break a block."
+          },
+          {
+            "label": "Line staggering",
+            "text": "Midfielders (Alexis Mac Allister, Tyler Morton or Ryan Gravenberch) drop between defenders to receive on the half-turn while the wingers pin the fullbacks wide."
+          },
+          {
+            "label": "Bounce passes",
+            "text": "One-touch wall passes in the half-spaces bypass the opponent's pressing lines."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Late second-line jumps",
+            "text": "If the second presser (e.g. Wirtz) hesitates, the ball carrier has time to find midfield runners."
+          },
+          {
+            "label": "Overcommitting to inside runners",
+            "text": "When several defenders track an inverted winger, the opposing fullback is left free on the far side for a switch."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "Wirtz's timing",
+            "text": "How long between Isak's run and Wirtz closing down the other centre-back?"
+          },
+          {
+            "label": "Van Dijk stepping out",
+            "text": "How often does Virgil van Dijk step out of the line into midfield versus holding depth?"
+          },
+          {
+            "label": "First-touch direction",
+            "text": "In build-up, do the midfielders take their first touch forward into space or back toward the centre-backs?"
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "maresca_enzo",
     "name": "Enzo Maresca",
     "current_club": "Manchester City",
-    "preferred_formation": "3-2-4-1 / 4-3-3 positional",
-    "buildup_style": "possession_control",
+    "preferred_formation": "4-3-3",
+    "buildup_style": "direct_possession",
     "pressing_intensity": "high",
-    "source_file": "How Man City Setup Under Enzo Maresca.",
+    "source_file": "The Problem with City's Press | Man City 5-3 Sunderland Analysis (LNobbins)",
     "tactical_traits": {
-      "wingers": {
-        "role": "inverted_inside_scorer",
-        "xp_impact": "+15% xA/xG from 1v1 wide isolations feeding central runners"
-      },
       "fullbacks": {
-        "role": "inverted_pivot",
-        "xp_impact": "Inverted full-back acts as secondary midfielder; low crossing xA"
+        "role": "jumping_fullback",
+        "xp_impact": "Gvardiol jumps into the attacking third to mark the opposing right-back when Semenyo presses, leaving a gap in City's left half-space; in possession he underlaps into the box for low crosses"
       },
       "pivots": {
-        "profile_required": "press_resistant_small_space",
-        "rotation_risk_factors": "High positional discipline required; GK used as +1 spare man"
+        "profile_required": "no_natural_holder",
+        "xp_impact": "Anderson and Enzo Fernández get pulled apart — Anderson presses forward, Enzo drops into the back line — vacating the central corridor"
       },
       "strikers": {
-        "profile_required": "box_presence_target",
-        "xp_impact": "Elite gravity striker (Haaland) frees secondary box crashers"
+        "profile_required": "pressing_enabler",
+        "xp_impact": "Haaland curves his press at the goalkeeper to block the near centre-back and funnel play to one flank; the target for Donnarumma's long distribution"
+      },
+      "wingers": {
+        "role": "rotating_forward",
+        "xp_impact": "Semenyo, Cherki and Ndiaye rotate across the front line for 1v1 dribbles and shooting lanes in the box"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 1.15,
-      "high_press_fdr_modifier": 1.10,
-      "set_piece_bias": 1.05
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: the jumping fullback and an overextended press",
+        "points": [
+          {
+            "label": "4-3-3 into man-to-man",
+            "text": "Enzo Maresca sets City up in a man-marking high press, each player locked onto an opponent. Erling Haaland curves his run at the goalkeeper while blocking the pass to the near centre-back."
+          },
+          {
+            "label": "Asymmetric left-back",
+            "text": "Joško Gvardiol jumps into the attacking third to mark the opposing right-back whenever Antoine Semenyo presses high, leaving a big gap behind him in the left half-space."
+          },
+          {
+            "label": "Midfield disconnect",
+            "text": "With no natural holding pivot, Elliot Anderson and Enzo Fernández get pulled apart: Anderson presses aggressively while Enzo drops into the back line, vacating the centre."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Curved-run trigger",
+            "text": "The press starts when the opposing goalkeeper receives, with Haaland's angle of approach funnelling the ball to one flank."
+          },
+          {
+            "label": "Cover-shadow failures",
+            "text": "Midfielders repeatedly fail to keep opponents in their cover shadow, watching the ball instead of the runners behind them."
+          },
+          {
+            "label": "Extreme high line",
+            "text": "The back line steps up near halfway to compress space but doesn't pressure the passer, so timed runs beat the offside trap."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: overloads and final-third power",
+        "points": [
+          {
+            "label": "More direct",
+            "text": "City build more vertically, with Gianluigi Donnarumma going long to Haaland to bypass midfield pressing."
+          },
+          {
+            "label": "Front-line rotations",
+            "text": "Semenyo, Rayan Cherki and Iliman Ndiaye rotate across the front line, creating 1v1 dribbles and shooting lanes in the box."
+          },
+          {
+            "label": "Weak-side underlap",
+            "text": "As play condenses on the right, Gvardiol underlaps into the box to put low crosses across goal."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "The Gvardiol channel",
+            "text": "Early passes into the space Gvardiol vacates bypass City's high line."
+          },
+          {
+            "label": "Central corridor",
+            "text": "When Anderson lunges forward, a first-time bounce pass to an interior runner takes City's whole midfield out."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "Gvardiol's recovery runs",
+            "text": "How long does he take to recover when he has jumped forward and a vertical pass goes into his channel?"
+          },
+          {
+            "label": "Rest-defence numbers",
+            "text": "Does City keep a 3+1 rest defence, or leave the two centre-backs isolated 2v2?"
+          },
+          {
+            "label": "Central bypasses",
+            "text": "Count how often Enzo Fernández or Anderson are bypassed by forward passes from the opponent's defensive third."
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "carrick_michael",
     "name": "Michael Carrick",
     "current_club": "Manchester United",
-    "preferred_formation": "4-2-3-1",
+    "preferred_formation": "4-2-3-1 / 4-4-2",
     "buildup_style": "fluid_freedom",
     "pressing_intensity": "medium",
-    "source_file": "How Manchester United can build on Carrick’s success | Sensible Transfers",
+    "source_file": "Why Michael Carrick's Man United ISN'T Working (The Adam Clery Football Channel)",
     "tactical_traits": {
-      "wingers": {
-        "role": "wide_crosser",
-        "xp_impact": "+10% xA for wide creators"
+      "pivots": {
+        "profile_required": "deep_playmaker",
+        "xp_impact": "Mainoo and Tielemans step to passes after they are struck rather than anticipating, and hold no cover shadow — opponents pass straight through the double pivot"
       },
       "fullbacks": {
         "role": "high_overlapping_crosser",
-        "xp_impact": "+10% attacking contribution & crossing volume"
-      },
-      "pivots": {
-        "profile_required": "deep_playmaker",
-        "rotation_risk_factors": "PL-proven midfielders receive high baseline minutes security"
-      },
-      "strikers": {
-        "profile_required": "box_presence_target",
-        "xp_impact": "+15% set-piece xG header probability"
+        "xp_impact": "Advance high; with little counter-pressing behind them, opposing runners attack the space they leave in transition"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 1.00,
-      "high_press_fdr_modifier": 1.00,
-      "set_piece_bias": 1.25
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: the chasm between the lines",
+        "points": [
+          {
+            "label": "Passive mid-block",
+            "text": "Michael Carrick's United defend in a 4-2-3-1 / 4-4-2, but the vertical gap between the back line and the double pivot is far too large."
+          },
+          {
+            "label": "No compact funnelling",
+            "text": "When pressing toward the touchline, United don't slide across as a unit. Instead of an overload they are left 5v4 down on the ball side, opening interior passing lanes."
+          },
+          {
+            "label": "Hesitant back line",
+            "text": "When the opposing striker drops, the centre-backs hold position instead of tracking him, leaving room to turn unchallenged."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Reactive stepping",
+            "text": "Midfielders such as Kobbie Mainoo and Youri Tielemans react once a pass is struck rather than moving while it travels, arriving late to challenges."
+          },
+          {
+            "label": "Unscreened centre",
+            "text": "Opponents pass straight through the double pivot because neither midfielder sets an active cover shadow."
+          },
+          {
+            "label": "Slow recovery",
+            "text": "Once the first line is bypassed, tracking back is slow, stranding the back four in open 4v4s on the halfway line."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: the possession dichotomy",
+        "points": [
+          {
+            "label": "Better without the ball",
+            "text": "United take 2.66 points per game with under 50% possession, living off counterattacks, but only 1.6 with over 50%."
+          },
+          {
+            "label": "No half-space operator",
+            "text": "There is no genuine interior playmaker who thrives in the tight space between the opposition's midfield and defence."
+          },
+          {
+            "label": "Bruno drops deep",
+            "text": "Bruno Fernandes drops into the defensive third, onto the centre-backs' toes, to play from deep — leaving the central pocket empty and the low block unthreatened."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Central corridor",
+            "text": "Opponents progress repeatedly with ground passes through the gaps between United's central midfielders."
+          },
+          {
+            "label": "Isolated fullbacks in transition",
+            "text": "With no effective counter-press, runners exploit the space behind the advancing fullbacks to create quick overloads."
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "jaissle_matthias",
     "name": "Matthias Jaissle",
     "current_club": "Newcastle United",
-    "preferred_formation": "4-3-1-2 diamond / 4-3-3",
+    "preferred_formation": "4-3-3",
     "buildup_style": "high_regain_pressing",
     "pressing_intensity": "high",
-    "source_file": "How Newcastle Setup Under Matthias Jaissle.",
+    "source_file": "Why Newcastle's Fast Start Changed EVERYTHING Against Hull (A Game Of Two Halves)",
     "tactical_traits": {
-      "wingers": {
-        "role": "transition_runner",
-        "xp_impact": "+10% xG on wide pressing traps & funnelled turnovers"
+      "pivots": {
+        "profile_required": "single_pivot_tempo",
+        "xp_impact": "Steur anchors as a lone pivot dictating tempo; when he went off injured, the reshuffle cost central ball retention and Newcastle conceded 21 shots"
       },
       "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "+15% xA from full-backs providing sole width in diamond shape"
+        "role": "inverted_pivot",
+        "xp_impact": "Miley tucks in from right-back to help build-up and rest defence; Hall overlaps for width on the left and steps in front of target men to win long balls"
       },
-      "pivots": {
-        "profile_required": "box_to_box_carrier",
-        "rotation_risk_factors": "High channel-running demand for central eights"
+      "wingers": {
+        "role": "inside_carrier",
+        "xp_impact": "Barnes cuts inside and carries through the inside-left channel, drawing centre-backs before slipping reverse passes to Willock and Hall"
       },
       "strikers": {
-        "profile_required": "transitional_runner",
-        "xp_impact": "Split strikers create space for attacking #10 late runs"
+        "profile_required": "pressing_enabler",
+        "xp_impact": "Fernández-Pardo presses several defenders in a row, forcing rushed clearances into touch"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.95,
-      "high_press_fdr_modifier": 1.15,
-      "set_piece_bias": 1.05
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: single-pivot 4-3-3 and an inverted fullback",
+        "points": [
+          {
+            "label": "Asymmetric 4-3-3",
+            "text": "Matthias Jaissle moved Newcastle from a 4-2-4 to a 4-3-3 against Hull's low block, with 18-year-old Sean Steur anchoring as a lone pivot, dictating tempo."
+          },
+          {
+            "label": "Inverted right-back",
+            "text": "Lewis Miley moved from central midfield to right-back, tucking into inside pockets to help build-up and secure rest defence."
+          },
+          {
+            "label": "Left-side fluidity",
+            "text": "Joe Willock dropped into the left half-space, Harvey Barnes cut inside toward the box, and left-back Lewis Hall overlapped for outside width."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Fast start",
+            "text": "Newcastle opened with high-intensity pressing to disrupt Hull before their 5-4-1 block could settle."
+          },
+          {
+            "label": "Attacking the target man",
+            "text": "When Hull went long to Ollie McBurnie, Hall stepped in front to win the ball before it reached him."
+          },
+          {
+            "label": "Chain pressing",
+            "text": "Striker Fernández-Pardo pressed several defenders back-to-back, forcing rushed clearances into touch."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: rest defence and half-space combinations",
+        "points": [
+          {
+            "label": "Winning loose balls",
+            "text": "Newcastle kept their rest defence high to win 50/50s outside Hull's box after blocked shots, keeping attacks alive in the final third."
+          },
+          {
+            "label": "Carry and release",
+            "text": "Barnes carried through the inside-left channel, drew centre-backs, and slipped reverse passes to runners (Willock, Hall) for both opening goals."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Losing the pivot",
+            "text": "When Steur went off injured, moving Miley back into midfield and Malick Thiaw to right-back broke the spacing: Newcastle lost central retention and conceded 21 shots."
+          },
+          {
+            "label": "Under a high press",
+            "text": "When opponents press the back line hard, there are no rehearsed escape routes, so Newcastle resort to hurried long balls."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "Rest-defence reactions",
+            "text": "How quickly do Miley or Hall contest loose clearances outside the opponent's box?"
+          },
+          {
+            "label": "Barnes' releases",
+            "text": "Count Barnes' passes from the inside-left channel to runners breaking into the box."
+          },
+          {
+            "label": "Pivot retention",
+            "text": "What is Steur's pass completion under direct pressure in the central third?"
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "glasner_oliver",
     "name": "Oliver Glasner",
     "current_club": "Nottingham Forest",
-    "preferred_formation": "3-4-2-1 / 5-2-3",
-    "buildup_style": "high_regain_pressing",
-    "pressing_intensity": "high",
-    "source_file": "Oliver Glasner tactics deep dive | How they really work | Winners and losers | What the data says",
+    "preferred_formation": "5-2-2-1 / 5-4-1",
+    "buildup_style": "direct_possession",
+    "pressing_intensity": "medium",
+    "source_file": "I Analysed Oliver Glasner's Nottingham Forest System (The Villans)",
     "tactical_traits": {
-      "wingers": {
-        "role": "inverted_inside_scorer",
-        "xp_impact": "+15% npxG for dual #10s operating in central half-spaces"
-      },
       "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "+20% xA & goal threat for aggressive wing-backs (e.g., Munoz)"
+        "role": "wide_wing_back",
+        "xp_impact": "Williams and Aina provide nearly all of Forest's width, with Williams the target for Murillo's diagonals; fast switches drag the outside centre-backs wide"
       },
       "pivots": {
-        "profile_required": "box_to_box_carrier",
-        "rotation_risk_factors": "High card & foul risk for central ball-winners in 2-man midfield"
+        "profile_required": "flat_double_pivot",
+        "xp_impact": "Schlager and McAtee often sit on the same line, leaving pockets either side of them; Schlager plays vertical passes into Gibbs-White on the half-turn"
+      },
+      "wingers": {
+        "role": "narrow_ten_runner",
+        "xp_impact": "Gibbs-White and Ndoye play narrow as twin #10s, run beyond Delap when he drops, and fall into a flat midfield four without the ball"
       },
       "strikers": {
-        "profile_required": "box_presence_target",
-        "xp_impact": "+15% goal probability via aerial flick-ons and hold-up play"
+        "profile_required": "dropping_forward",
+        "xp_impact": "Delap drops into midfield facing his own goal to pull a centre-back forward for the runners behind him"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.95,
-      "high_press_fdr_modifier": 1.20,
-      "set_piece_bias": 1.15
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: narrow 5-2-2-1 and a flat midfield pair",
+        "points": [
+          {
+            "label": "Base 5-2-2-1",
+            "text": "Oliver Glasner's Forest play a 5-2-2-1 that becomes a 5-4-1 or 5-3-2 without the ball: centre-backs Murillo, Nikola Milenković and Morato/Cunha, with wing-backs Neco Williams and Ola Aina."
+          },
+          {
+            "label": "Unstaggered pivot",
+            "text": "Xaver Schlager and James McAtee often occupy the same horizontal line in average-position data, opening big pockets either side of the pair."
+          },
+          {
+            "label": "Narrow attack",
+            "text": "The two #10s, Morgan Gibbs-White and Dan Ndoye, play very narrow, concentrating play centrally and leaving the width almost entirely to the wing-backs."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing and triggers",
+        "points": [
+          {
+            "label": "Centre-back stepping",
+            "text": "When an opposing playmaker receives in the pocket, Milenković steps out of the back three to challenge — and if he misses, space opens straight behind him."
+          },
+          {
+            "label": "5-4-1 reshuffle",
+            "text": "Holding shape, Gibbs-White and Ndoye drop wide into a flat midfield four to protect the half-spaces."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: striker drops and runners beyond",
+        "points": [
+          {
+            "label": "The false-target drop",
+            "text": "Liam Delap drops into the midfield line facing his own goal, pulling a centre-back forward."
+          },
+          {
+            "label": "Runs beyond",
+            "text": "As Delap drops, Gibbs-White and Ndoye run beyond him together into the vacated central space."
+          },
+          {
+            "label": "Progression routes",
+            "text": "Forest progress with direct diagonals from Murillo out to Williams, or vertical passes from Schlager into Gibbs-White on the half-turn."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Either side of the midfield two",
+            "text": "A three-man midfield or inverted wingers can exploit the space outside Schlager and McAtee."
+          },
+          {
+            "label": "Stretching the back five",
+            "text": "Fast switches force the back line to slide, pulling the outside centre-backs into wide coverage."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "Pivot staggering",
+            "text": "In settled defence, how far apart vertically are Schlager and McAtee — and how often are they on the same line?"
+          },
+          {
+            "label": "Delap's drops",
+            "text": "How often does Delap drop to the centre circle, and does a midfield runner go beyond him when he does?"
+          },
+          {
+            "label": "Milenković stepping out",
+            "text": "What's his success rate when he steps out of the line to challenge interior receivers?"
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "lebris_regis",
     "name": "Régis Le Bris",
     "current_club": "Sunderland",
-    "preferred_formation": "4-2-3-1 / 4-4-2 low-block",
+    "preferred_formation": "5-3-2 / 3-4-1-2",
     "buildup_style": "bait_press",
     "pressing_intensity": "medium",
-    "source_file": "Tactical Blueprint: How Régis Le Bris Turned Sunderland Into GIANT KILLERS",
+    "source_file": "Man City vs Sunderland (5-3) — Brobbey Was The Key — Tactical Analysis — GW6 FPL Info 26/27 (Steven Doherty)",
     "tactical_traits": {
-      "wingers": {
-        "role": "transition_runner",
-        "xp_impact": "+15% xA on long-throw flicks & far-post overload crosses"
-      },
-      "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "High clean-sheet xP due to rigid 442 low-block spatial control"
-      },
-      "pivots": {
-        "profile_required": "deep_playmaker",
-        "rotation_risk_factors": "Single central anchor (e.g., Xhaka) covers massive space"
-      },
       "strikers": {
         "profile_required": "box_presence_target",
-        "xp_impact": "+20% set-piece & long-throw header goal threat"
+        "xp_impact": "Brobbey is the route-one target — Roefs goes long to him, and he pins centre-backs and cushions layoffs to Le Fée or Sadiki"
+      },
+      "fullbacks": {
+        "role": "inverting_wing_back",
+        "xp_impact": "Methalie and Mukiele make diagonal runs into central midfield; when they push high, switches leave the wide centre-backs 1v1"
+      },
+      "pivots": {
+        "profile_required": "second_ball_collector",
+        "xp_impact": "Sadiki and Xhaka sit behind the opponent's press to collect knockdowns from long balls"
+      },
+      "wingers": {
+        "role": "transition_runner",
+        "xp_impact": "Angulo or Muñoz are released by Le Fée into the channels behind advancing fullbacks"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.85,
-      "high_press_fdr_modifier": 1.25,
-      "set_piece_bias": 1.35
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: the extreme vertical stretch",
+        "points": [
+          {
+            "label": "Base 5-3-2",
+            "text": "Régis Le Bris sets Sunderland up in a 5-3-2 out of possession that becomes a 3-4-1-2 / 3-4-3 going forward."
+          },
+          {
+            "label": "Stretching the pitch",
+            "text": "Centre-backs drop deep in their own third to draw the opponent's press high, stretching the central corridor and leaving Brian Brobbey 1v1 with a centre-back."
+          },
+          {
+            "label": "Wing-backs come inside",
+            "text": "Wing-backs Dayann Methalie and Nordi Mukiele make diagonal runs into central midfield, pulling defenders out of position."
+          }
+        ]
+      },
+      {
+        "heading": "Baiting traps",
+        "points": [
+          {
+            "label": "Deliberate deep possession",
+            "text": "Defenders circulate slowly near their own box to bait the opponent into committing numbers forward."
+          },
+          {
+            "label": "Second-ball positioning",
+            "text": "Noah Sadiki and Granit Xhaka position themselves behind the opponent's press, ready to collect knockdowns from long balls."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: the route-one target engine",
+        "points": [
+          {
+            "label": "Direct to Brobbey",
+            "text": "Goalkeeper Robin Roefs bypasses midfield with direct balls into Brobbey."
+          },
+          {
+            "label": "Hold-up and layoffs",
+            "text": "Brobbey pins centre-backs with his frame and cushions aerial balls down to runners such as Enzo Le Fée or Sadiki."
+          },
+          {
+            "label": "Third-man release",
+            "text": "Once the ball is secured centrally, Le Fée releases wingers Nilson Angulo or Chema Muñoz into the channels behind advancing fullbacks."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Space behind the wing-backs",
+            "text": "With the wing-backs high, direct switches to opposing wingers leave the wide centre-backs 1v1."
+          },
+          {
+            "label": "Set-piece marking",
+            "text": "Lapses tracking runners on quick restarts leave open shooting lanes in the box."
+          }
+        ]
+      },
+      {
+        "heading": "Matchday checklist",
+        "points": [
+          {
+            "label": "Brobbey's duels",
+            "text": "Track his aerial and ground duel success in the middle third during the first half."
+          },
+          {
+            "label": "Le Fée facing forward",
+            "text": "Count passes Le Fée receives facing forward after Brobbey's hold-up play."
+          },
+          {
+            "label": "Wing-back recovery",
+            "text": "How long do Methalie and Mukiele take to drop into a back five after a turnover in the opposition half?"
+          }
+        ]
+      }
+    ]
   },
   {
     "manager_id": "de_zerbi_roberto",
@@ -614,29 +1929,83 @@
     "preferred_formation": "4-2-3-1 / 2-4-4",
     "buildup_style": "bait_press",
     "pressing_intensity": "high",
-    "source_file": "How Roberto De Zerbi is fixing Spurs | Sensible Transfers",
+    "source_file": "Why De Zerbi's Tottenham Have Started The Season SO Badly (The Adam Clery Football Channel)",
     "tactical_traits": {
-      "wingers": {
-        "role": "inverted_inside_scorer",
-        "xp_impact": "+15% npxG for wingers cutting inside behind high lines"
+      "pivots": {
+        "profile_required": "single_pivot_screen",
+        "xp_impact": "Tonali anchors as a single or double pivot but often mistimes his steps, leaving space in front of the centre-backs — and has to cover wide when the fullbacks are caught high"
       },
       "fullbacks": {
-        "role": "high_overlapping_crosser",
-        "xp_impact": "+10% xA against low-block opponents"
-      },
-      "pivots": {
-        "profile_required": "press_resistant_small_space",
-        "rotation_risk_factors": "Large-space carriers face sub/role risk in tight buildup"
+        "role": "high_advanced_fullback",
+        "xp_impact": "Push high in possession; direct balls into the channels behind them bypass the press"
       },
       "strikers": {
-        "profile_required": "box_presence_target",
-        "xp_impact": "+10% goal probability vs deep blocks"
+        "profile_required": "pressing_enabler",
+        "xp_impact": "Part of the league's highest pressing-sequence volume, but only ~5% of high turnovers become shots for lack of supporting runs and angles"
       }
     },
-    "modifiers": {
-      "low_block_fdr_modifier": 0.90,
-      "high_press_fdr_modifier": 1.15,
-      "set_piece_bias": 1.00
-    }
+    "modifiers": {},
+    "analysis": [
+      {
+        "heading": "Structure: vertical compression vs defensive disconnect",
+        "points": [
+          {
+            "label": "Stretched build-up",
+            "text": "Roberto De Zerbi sets Tottenham up to hold the ball high and bait the opponent's press before playing through the central lines."
+          },
+          {
+            "label": "Broken pivot screen",
+            "text": "Sandro Tonali anchors as a single or double pivot but often mistimes his steps. Big distances open between the pressing forwards and the back line, leaving space in front of the centre-backs."
+          },
+          {
+            "label": "Overextended fullbacks",
+            "text": "The fullbacks push high, so the defensive midfielder has to cover wide areas whenever the ball is lost."
+          }
+        ]
+      },
+      {
+        "heading": "Pressing: volume without conversion",
+        "points": [
+          {
+            "label": "High pressing volume",
+            "text": "First in the league for pressing sequences and fifth for high turnovers — Tottenham hunt the ball in the opponent's defensive third."
+          },
+          {
+            "label": "No decisive support",
+            "text": "After winning the ball high, forward options lack supporting angles and timing: only about 5% of those turnovers end in a shot."
+          },
+          {
+            "label": "Edge of the box unprotected",
+            "text": "In settled defence, midfielders watch the ball instead of tracking runners into the arc, conceding open shooting lanes."
+          }
+        ]
+      },
+      {
+        "heading": "In possession: inefficient chance creation",
+        "points": [
+          {
+            "label": "Low-xG shots",
+            "text": "Territorial control without coordinated box entries leads to speculative long-range shots rather than high-probability cutbacks."
+          },
+          {
+            "label": "No central ball carrying",
+            "text": "The midfield rarely carries through a congested block, so circulation stays on the predictable perimeter."
+          }
+        ]
+      },
+      {
+        "heading": "Vulnerabilities",
+        "points": [
+          {
+            "label": "Balls over the high line",
+            "text": "Opponents bypass the front press with direct passes into the wide channels behind the advanced fullbacks."
+          },
+          {
+            "label": "Space behind Tonali",
+            "text": "Midfield runners driving through the centre exploit the gap between Tottenham's midfield and retreating centre-backs."
+          }
+        ]
+      }
+    ]
   }
 ]

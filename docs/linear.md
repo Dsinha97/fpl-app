@@ -97,6 +97,7 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | Fix: 7 Sprint-38 UI bugs — card overflow, tooltip z-index, price watch off /players, crest fallback, # Owned, sort-by-Price-Watch, price-proximity notifications | DSI-181 | — | [sprints/sprint-39.md](sprints/sprint-39.md) |
 | Fix: `generate-predictions` 401s — retry on transient RPC error, `sync_runs` row written even on denial | DSI-142 | — | [sprints/sprint-39.md](sprints/sprint-39.md) |
 | Expected-minutes cohort split (appeared/no-show, GKP) + start-probability Brier score added to the backtest harness | DSI-178 | M7 | [sprints/sprint-39.md](sprints/sprint-39.md) |
+| Swipe-to-dismiss gestures for nav, player card, and compare panel | DSI-183 | M8 | [sprints/swipe-to-dismiss.md](sprints/swipe-to-dismiss.md) |
 | GW5 check-in — **run 2026-09-20, issue left In Progress** for a re-read once GW5's bonus confirms | DSI-50 | M6 | [sprints/gw5-check-in.md](sprints/gw5-check-in.md) |
 | Accuracy scoreboard counted a half-synced gameweek's zeros as real blanks | — (found in flight, PR [#30](https://github.com/Dsinha97/fpl-app/pull/30)) | M6 | [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §1 |
 | `/deadline` transfer cards → one CTA; `/team` ledger full-width; countdowns drop seconds above 24h | — (owner request, same PR) | M6 | [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §4 |

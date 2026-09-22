@@ -31,6 +31,12 @@ export interface TacticalModifiers {
   setPieceBias: number | null;
 }
 
+/** One section of a prose breakdown — e.g. "Vulnerabilities" with its labelled points. */
+export interface TacticalAnalysisSection {
+  heading: string;
+  points: { label: string; text: string }[];
+}
+
 export interface TacticalProfile {
   managerKey: string;
   name: string;
@@ -42,6 +48,8 @@ export interface TacticalProfile {
   /** Keyed by position group as given in the source — "wingers", "fullbacks", "pivots", "strikers". */
   tacticalTraits: Record<string, TacticalTrait>;
   modifiers: TacticalModifiers;
+  /** Sectioned prose breakdown, where the source supplies one. Empty for clubs without. */
+  analysis: TacticalAnalysisSection[];
 }
 
 export const TACTICAL_PROFILE_NOTE =
@@ -77,6 +85,8 @@ export interface PlManagerRow {
     high_press_fdr_modifier?: number | null;
     set_piece_bias?: number | null;
   };
+  /** Only selected by surfaces that render it (the /fixtures club card). */
+  analysis?: TacticalAnalysisSection[] | null;
 }
 
 export function toTacticalProfile(row: PlManagerRow): TacticalProfile {
@@ -106,6 +116,7 @@ export function toTacticalProfile(row: PlManagerRow): TacticalProfile {
       highPressFdrModifier: row.modifiers?.high_press_fdr_modifier ?? null,
       setPieceBias: row.modifiers?.set_piece_bias ?? null,
     },
+    analysis: row.analysis ?? [],
   };
 }
 

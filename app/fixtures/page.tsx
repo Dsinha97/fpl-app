@@ -77,7 +77,7 @@ export default function FixturesPage() {
           supabase
             .from("pl_managers")
             .select(
-              "manager_key, name, current_club, preferred_formation, buildup_style, pressing_intensity, source_file, tactical_traits, modifiers",
+              "manager_key, name, current_club, preferred_formation, buildup_style, pressing_intensity, source_file, tactical_traits, modifiers, analysis",
             )
             .eq("season", gw.season),
           // Names for the expandable fixture-event breakdown. The API caps

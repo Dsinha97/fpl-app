@@ -39,6 +39,29 @@ multiplier could quietly undo that validation.
 number isn't disclosed as a user input either, since there's no honest input to expose; it's shown
 as reference text only, pending a real per-player role source and a backtest.
 
+**Prose analysis (2026-09-22).** `pl_managers.analysis` (jsonb, nullable —
+`20260922190315_pl_managers_analysis.sql`) holds a sectioned breakdown — heading plus labelled
+points — for sources richer than the four role slots, rendered in the expanded card on `/fixtures`.
+Brighton is the first: re-sourced to Adam Clery's "Why Brighton Are The Premier League's SCARIEST
+Team", traits rewritten from it qualitatively, and its modifiers emptied because the new source
+gives no figures and the old ones should not sit under a credit that did not produce them.
+Hull City, Arsenal, Tottenham, Chelsea and Manchester United followed the same day
+(`20260922192836_pl_managers_analysis_batch2.sql`), all from the same channel. A trait group the
+new source says nothing about is omitted rather than carried over from the old one — Spurs have
+three traits, Man Utd two.
+Coventry, Manchester City, Liverpool, Sunderland, Leeds, Fulham and Brentford followed
+(`20260922194547_pl_managers_analysis_batch3.sql`), from several channels — each `source_file`
+names its own. Most of these sources also carry a matchday checklist (what to watch in a game),
+kept as a final "Matchday checklist" section. Aston Villa, Crystal Palace, Nottingham Forest,
+Everton and Newcastle followed (`20260922200351_pl_managers_analysis_batch4.sql`), which also
+corrects four player names the batch-3 transcripts got wrong — source transcripts mangle names,
+so check them before shipping. Two more names were fixed in `20260922201448_pl_managers_name_fixes.sql`,
+and Bournemouth followed (`20260922201543_pl_managers_analysis_bournemouth.sql`). 19 of 20 clubs now
+have an analysis. Ipswich came last (`20260922202706_pl_managers_analysis_ipswich.sql`): the first
+analysis offered described a 2024/25 side under a different manager, with a striker now at another
+club, so it was swapped for a current one. That source is a match preview; its one-fixture forecast
+(xG, win probability) was left out as not a standing tactical trait. All 20 clubs now have one.
+
 A second proposal hit the same wall for a related reason (Sprint 18): a GW1-3 xP penalty for
 players under a first-season manager. Refused on three grounds — `pl_managers` has no start
 date/tenure field at all, so nothing here can even say *which* clubs qualify; folding it into xP
