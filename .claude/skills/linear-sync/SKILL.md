@@ -48,7 +48,8 @@ writes the sprint into existence. Don't do its job here.
 Propose the next sprint from the **Linear backlog's own priority and milestone order**, not from
 `roadmap.md`'s narrative order. For each candidate, name the gate its doc states and say plainly
 when that gate is not yet met — a data-blocked item stays blocked; do not plan around it or
-narrow it. Milestone dates (GW5 ~2026-09-21, GW10 ~2026-11-09) are the schedule.
+narrow it. The milestones' target dates in Linear (`get_project` with `includeMilestones: true`)
+are the schedule.
 
 ## 5. Never write silently
 
