@@ -6,7 +6,8 @@ Personal Fantasy Premier League analytics and decision-support app. Static Next.
 front end on Cloudflare, Supabase Postgres + Edge Functions behind it.
 
 - Live: https://fpldecision.com/ on Cloudflare Workers static assets ·
-  repo `Dsinha97/fpl-app` (**private**)
+  repo `Dsinha97/fpl-app` (**public**; fork-PR workflows need approval for every external
+  contributor, confirmed DSI-55)
 - Supabase project `FPL-App`, ref `fyxyqxpscmqjyjxsyhms`
 - Owner's FPL manager ID **274486**; season being ingested 2026-27 (GW1 deadline 2026-08-21)
 - Full documentation index, including status: [docs/README.md](docs/README.md). Start there.

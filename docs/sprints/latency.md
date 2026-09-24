@@ -146,6 +146,13 @@ matched exactly between the old serial loop and the new concurrent+ordered one, 
 comparable); the ~30-wave serial pattern collapsed to 4 concurrent waves.
 
 ### 2. Route-level code splitting for the heaviest engines and components
+> **Sprint 40 (2026-09-24): built, and the hypothesis below was wrong.** The engines were already
+> split per route. Measured with `next experimental-analyze`, the ~1.1 MB every route shared was
+> the framework, `motion` (via the nav's `SlideOver`, ~135 KB), Supabase, `@base-ui`, and engines
+> pulled in through the root layout's imports. `motion` is now lazy and the layout imports go
+> through `lib/transfer-rules.ts`: every route is down 135–153 KB. The text below is kept as
+> the original proposal. See [sprint-40.md](sprint-40.md) §1.
+
 **Cost today:** every route ships ~1.1 MB of raw JS regardless of use; no route is below 1.0 MB.
 **Fix:** Wrap the page-specific heavy modules in `next/dynamic` — starting with
 `lib/transfer-optimizer.ts`, `lib/optimizer.ts`, and `lib/squad-score.ts` (the engines only
@@ -175,7 +182,12 @@ check in `lib/player-pool.ts` — verified by reading that code path, not by a l
 capture (browser-automation reproduced the correctness case but not a real SPA client-side
 transition in the time available for this pass).
 
-**Still open:** `/players/` (13 requests, 4 waves) and `/transfers/` (35 requests, 5 waves) both
+> **Sprint 40 (2026-09-24): built.** The "still open" pages below were fixed by collapsing false
+> dependencies: `/players` ~3.2 → ~1.3 s, `/transfers` ~3.2 → ~2.2 s, `/team` ~2.7 → ~2.2 s
+> (signed-in dev). See [sprint-40.md](sprint-40.md) §2. The same pass found a larger cost this
+> document never measured: the price-watch ownership scan (§3 there).
+
+**Still open (as of 2026-08-27):** `/players/` (13 requests, 4 waves) and `/transfers/` (35 requests, 5 waves) both
 show later waves that look like they depend on earlier ones finishing rather than being
 independently fetchable — e.g. `/players/`'s last two Supabase calls start at 901 ms and 1,103 ms,
 well after the first wave of 7 parallel calls at 567 ms. **`/team` shows the same pattern too**
@@ -193,6 +205,12 @@ which calls are truly independent before reordering.
 request count.
 
 ### 4. Identify what's in the two ~230 KB chunks before proposing a fix
+> **Sprint 40 (2026-09-24): answered, and no dependency was needed.** Next 16.3 ships
+> `next experimental-analyze --output`, which writes per-route `analyze.data` files with
+> per-source byte counts. The breakdown is in [sprint-40.md](sprint-40.md) §1. The largest
+> remaining shared item that could be trimmed is `@supabase/*`'s unused realtime/storage
+> clients (~83 KB), left for its own issue because it touches the auth client.
+
 **Cost today:** unknown composition, ~40% of the shared bundle.
 **Fix:** Add a one-off bundle analyzer run (e.g. `@next/bundle-analyzer`, dev dependency only,
 run locally and not committed to the build pipeline) to see what's actually in

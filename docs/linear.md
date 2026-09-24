@@ -109,6 +109,7 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | Fix: price/news notifications silently dropped, fixture alert wording | DSI-133 | M8 | — |
 | Fix: played chips not greyed out in Chip Plan | DSI-117 | M8 | — |
 | Fix: Builder player-info panel running off screen | DSI-116 | M8 | — |
+| Fork-PR workflow approval confirmed: `approval_policy: all_external_contributors`, read via `gh api …/actions/permissions/fork-pr-contributor-approval` (2026-09-24) | DSI-55 | M8 | [sprints/sprint-40.md](sprints/sprint-40.md) — closed in passing, not sprint work |
 
 ## Open
 
@@ -119,23 +120,23 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | DSI-52 | Derived FDR vs **official** FDR | M7 | GW10 scored. Sprint 35 measured vs *neutral* only; n=471 at GW3 was far too thin |
 | DSI-53 | ~~Refit `positionCalibration`~~ — **Canceled in Linear** (2026-09-21): its precondition is answered, and the answer is "don't" | M7 | DSI-50's sign held but the magnitude collapsed to −0.084 (≈1.8 SE from zero), and the residuals are a −0.714 non-appearance cohort cancelling a +0.627 appearance cohort — which a multiplicative points scale cannot separate. Rescoped to **expected-minutes** calibration (and GKP separately, −0.352), tracked as [DSI-178](https://linear.app/dsinha-org/issue/DSI-178), rather than running as originally scoped. See [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §2 |
 | DSI-54 | Price-change prediction step 3 — **falls half run 2026-09-21; gate FAILS. Ship the heuristic** | M7 | Walk-forward over 36 nights: no budget shows a significant win (best p=0.18 at K=40). An earlier run of the same gate appeared to pass at K=10/K=20 — that was a broken feature (gameweek-reset differencing) handicapping the baseline, which shares the same input. Corrected, the baseline gains far more than the model. Nothing wired in; `priceProgress` remains the reading. Re-run once more history accumulates **and** the ownership-scaled threshold (sprint-38 §2b) is settled. See [sprints/sprint-38.md](sprints/sprint-38.md) §3 |
-| DSI-55 | ~~Flip the repo public + post-flip hardening~~ — **rescoped 2026-09-21** to "confirm outside-collaborator fork-PR workflow-approval setting" | M8 | The repo is already public, and of the two post-flip hardening steps, secret scanning + push protection are already enabled (`security_and_analysis` on the repo). Only the fork-PR workflow-approval setting is unconfirmed — a Settings → Actions UI toggle with no git-history footprint, unverifiable read-only, and a single owner check rather than sprint work |
-| DSI-56 | Latency — route-level code splitting | M8 | None. `next/dynamic` is unused; every route ships ~1.1 MB JS |
-| DSI-57 | Latency — serial-waterfall page reads | M8 | None. `/players`, `/transfers`, `/team` |
-| DSI-59 | Sprint 32 leftovers — **two of three settled, now In Review** (2026-09-14) | M8 | Residue only: the `verify_jwt` flip is prepped in `config.toml` but **not deployed** (bundled with DSI-55), and the 429's HTTP render is unproven. `scratch-path-test` deleted; the 429's counting half proved |
+| DSI-184 | Sprint 40 — Latency: the shared bundle and the read waterfalls. **Built 2026-09-24, In Review** (branch `perf/sprint-40-latency`, unmerged) | M8 | Parent of DSI-56, DSI-57, DSI-77. Move all four to Shipped when the branch merges. See [sprints/sprint-40.md](sprints/sprint-40.md) |
+| DSI-56 | Latency — route-level code splitting. **Built, In Review** under DSI-184 | M8 | None. Every route's first-load JS down 135–153 KB. The engines were already per-route; the shared cost was `motion` and the root layout's imports. See [sprints/sprint-40.md](sprints/sprint-40.md) §1 |
+| DSI-57 | Latency — serial-waterfall page reads. **Built, In Review** under DSI-184 | M8 | None. `/players`, `/transfers`, `/team`. See [sprints/sprint-40.md](sprints/sprint-40.md) §2 |
+| DSI-59 | Sprint 32 leftovers — **two of three settled, now In Review** (2026-09-14) | M8 | Residue only: the `verify_jwt` flip is prepped in `config.toml` but **not deployed** (it was bundled with DSI-55, which closed 2026-09-24, so it's now waiting only on DSI-75's deploy), and the 429's HTTP render is unproven. `scratch-path-test` deleted; the 429's counting half proved |
 | DSI-62 | Sprint 6 gap — EO column on `/players` | M8 | None — Sprint 10's engine exists. Opportunistic |
 | DSI-63 | Cloudflare Access gating | M8 | Weigh against `/settings` → Pipeline being deliberately public |
 | DSI-64 | Sprint 15 — Action Layer | M8 | Shaped by the FPL-login finding; read it before scoping |
-| DSI-73 | Sprint 17 part 2 — predictive models | M8 | Blocked by DSI-53. Accuracy claims inherit an in-sample calibration |
+| DSI-73 | Sprint 17 part 2 — predictive models | M8 | **Gate needs restating.** It read "Blocked by DSI-53", but DSI-53 was canceled 2026-09-21 and replaced by DSI-178 (Done), so the gate points at nothing. Its underlying concern still stands (accuracy claims inherit an in-sample calibration); an owner call is needed on what now gates it. Flagged by `/linear-sync` 2026-09-24 |
 | DSI-67 | Blocked — `TeamAttackStrength` | M8 | `strength_*` is 0 for all 20 clubs in-season too (checked 2026-09-02) |
 | DSI-68 | ~~Blocked — cold-start phase 2 remainder~~ **Canceled in Linear** (2026-09-14) | M8 | 66 overseas/academy players and `dc90` have no fittable source — closed rather than left pending, since no source is expected to appear |
 | DSI-69 | Blocked — new-manager discount | M8 | `pl_managers` has no tenure/start-date field |
 | DSI-70 | Blocked — Sprint 12.5 phases 3–6 | M8 | Manager-side thresholds are transcribed opinion, not measured data |
 | DSI-71 | Blocked — manager behavioural history | M8 | The FPL API exposes none for past seasons |
 | DSI-72 | Blocked — automated FPL login | M8 | Superseded, not pending. PingOne offers no password grant |
-| DSI-75 | One CLI functions deploy reconciles four drifts | M8 | Blocked by DSI-55 by choice — the `verify_jwt` flip, `sync-manager`'s `last_success_at`, and two hand-inlined bundles. The cost it saves is near-zero while the repo is private |
+| DSI-75 | One CLI functions deploy reconciles four drifts | M8 | **Unblocked 2026-09-24**: DSI-55, the blocker it waited on by choice, is closed. Covers the `verify_jwt` flip, `sync-manager`'s `last_success_at`, and two hand-inlined bundles. The repo is public now, so the old "near-zero while private" reasoning no longer holds |
 | DSI-76 | Gateway Timeouts cluster on cron boundaries | M8 | None — a hypothesis with six data points. Self-correcting since `last_success_at` landed, so watch rather than chase |
-| DSI-77 | Two dead eslint-disable directives, and the lint check that hid an error | M8 | None. The reading habit matters more than the directives |
+| DSI-77 | Two dead eslint-disable directives, and the lint check that hid an error. **Built, In Review** under DSI-184 | M8 | None. The reading habit matters more than the directives. See [sprints/sprint-40.md](sprints/sprint-40.md) §4 |
 | DSI-143 | Decide whether to keep graft's `UserPromptSubmit` prompt hints | — | Not a gated item — an open call. Referenced from `CLAUDE.md`'s graft-patch note ("Whether the per-prompt hint hook earns its keep is open in DSI-143"). In Review in Linear; found missing from this table by `/linear-sync`'s 2026-09-21 run |
 
 ## How to keep it true
