@@ -1,6 +1,6 @@
 import { totalSpend } from "./squad-budget";
 import { emptyTeamState, type SquadRules, type TeamState } from "./team-state";
-import { sellPrice } from "./transfers";
+import { sellPrice } from "./transfer-rules";
 
 // Converts a real FPL squad into a TeamState — the gap Sprint 8 recorded as
 // waiting on Sprint 14: "a real-FPL-squad starting point". Once built, every

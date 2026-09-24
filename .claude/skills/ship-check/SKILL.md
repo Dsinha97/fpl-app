@@ -20,7 +20,10 @@ PASS/FAIL line per stage plus the tail of any failing stage's output.
 ## Usage
 
 1. Run `bash .claude/skills/ship-check/scripts/check.sh` from the repo root.
-2. Report the PASS/FAIL line for each stage back to the user.
+2. Report the PASS/FAIL line for each stage back to the user. The verdict is the exit
+   code, never a line of output. If you do read eslint's output yourself, the summary is
+   the `✖ N problems (X errors, Y warnings)` line; the line after it counts only *fixable*
+   problems and can read "0 errors" over a run that has one (DSI-77).
 3. If any stage FAILs, fix it and re-run the whole script — don't commit/push until all
    three pass. Don't hand-run the individual commands instead; running them separately is
    exactly what this replaces.

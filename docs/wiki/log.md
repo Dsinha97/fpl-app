@@ -2,6 +2,27 @@
 
 One line per entry, most recent first.
 
+- 2026-09-24 — Ingested Sprint 39 (the parts the 09-21 entry left out), swipe-to-dismiss, Sprint 40
+  and its `latency.md` annotations, the DSI-73 split, and CLAUDE.md's public-repo correction. No new
+  pages. **`performance.md`**: new Sprint 40 section (analyzer attribution; `motion` and root-layout
+  imports were the shared cost, not the engines; waterfall table; the price-watch scan), and the
+  "Still open" list struck through where built. **`design-system.md`**: swipe-to-dismiss (first
+  animation library, `AnimatePresence`, real-range drag) and the lazy `SlideOver` split.
+  **`frontend-conventions.md`**: `lib/transfer-rules.ts` as the leaf module for anything the root
+  layout reaches; a new section, "a supabase-js query doesn't start until something calls
+  `.then`"; the `SlideOver` fill-mode claim marked superseded. **`data-pipeline.md`**: the
+  ownership-scan cost, and DSI-142 as a fourth "silently does not happen" instance.
+  **`edge-function-security.md`**: a failed cron-secret lookup is no longer a denial.
+  **`xp-model.md`** and **`blocked-and-data-gaps.md`**: DSI-178's outcome and the DSI-185/186 split;
+  DSI-50 recorded as explicitly not a gate. **`notifications-and-bot.md`**: the price-proximity
+  alert (flat threshold, by design), and a **live bug found during this ingest**: `priceWatchAlerts`
+  reads ownership unpaged, so for the owner's squad it asks for 4,284 rows and gets the oldest
+  1,000. **`player-profile.md`**: the rest of DSI-181. **`deployment.md`**: three "the repo is
+  private" claims corrected in place. **`methodology.md`**: one new rule, "a plan written from a
+  measurement is still a hypothesis about the fix". `timeline.md`: rows for 2026-09-21 (Sprint 39,
+  swipe) and 2026-09-24 (Sprint 40). Not rewritten: sprint-39.md's scope line saying the alert
+  would read `lib/price-watch.ts` (a historical record; code and roadmap agree it doesn't).
+
 - 2026-09-21 — Ingested Sprint 38 (the player profile, the price reading, and a shortlist), plus the
   Sprint 39 fixes to the same code already in the working tree (DSI-181's price-outlook-loading gap
   and popover panel-height fix — included because leaving them out would have made the new page

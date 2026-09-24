@@ -221,10 +221,6 @@ function fmtCountdown(deadline: string): string {
 /** The API caps every response at 1000 rows however big `.limit()` asks — see CLAUDE.md. */
 const PAGE_ROWS = 1000;
 
-// Sprint 23 — same tokens `/deadline` and `/chips` already use, so this page
-// stops repeating `border-zinc-200 bg-white … dark:border-purple-900/40
-// dark:bg-card` inline on every card.
-const card = "rounded-lg border border-zinc-200 bg-card p-4 dark:border-purple-900/40";
 const cardSupporting =
   "rounded-lg border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border";
 const supportingHeading = "text-xs font-medium uppercase tracking-wide text-zinc-500";
@@ -448,6 +444,39 @@ export default function TeamPage() {
         }
       }
 
+      // Rivals' rows depend only on who is signed in, not on anything
+      // readBack returns, so they load alongside it rather than after it
+      // (Sprint 40). What's computed from them — the comparisons — still waits
+      // for this manager's own profile below.
+      const rivalRowsP = (async () => {
+        if (!user) return null;
+        const { data: rivalRows } = await supabase
+          .from("manager_rivals")
+          .select("entry_id")
+          .eq("user_id", user.id);
+        const rivalEntryIds = (rivalRows ?? []).map((r) => r.entry_id as number);
+        if (rivalEntryIds.length === 0) return { rivalEntryIds, otherManagers: [], rivalSeasons: [], rivalGws: [] };
+        const { data: otherManagers } = await supabase
+          .from("managers")
+          .select("entry_id, team_name")
+          .in("entry_id", rivalEntryIds);
+        if (!otherManagers || otherManagers.length === 0) {
+          return { rivalEntryIds, otherManagers: [], rivalSeasons: [], rivalGws: [] };
+        }
+        const rivalIds = otherManagers.map((r) => r.entry_id);
+        const [{ data: rivalSeasons }, { data: rivalGws }] = await Promise.all([
+          supabase
+            .from("manager_season_history")
+            .select("entry_id, season_name, rank_percentage")
+            .in("entry_id", rivalIds),
+          supabase
+            .from("manager_gameweek_history")
+            .select("entry_id, event, points, total_points, overall_rank")
+            .in("entry_id", rivalIds),
+        ]);
+        return { rivalEntryIds, otherManagers, rivalSeasons: rivalSeasons ?? [], rivalGws: rivalGws ?? [] };
+      })();
+
       // 2. Read everything back from Supabase.
       let [managerRes, seasonsRes, gwRes, nextGwRes] = await readBack();
 
@@ -478,6 +507,57 @@ export default function TeamPage() {
       if (managerRes.error) throw new Error(managerRes.error.message);
       const manager = managerRes.data as ManagerRow;
       const nextGw = (nextGwRes.data as NextGw | null) ?? null;
+
+      // 3. Every entered gameweek's picks, if any exist yet. All events are
+      // kept — the per-gameweek squad view reads them.
+      //
+      // Through lib/manager-picks' loadManagerPicks rather than an inline
+      // query, which is what every other page uses: it scopes to the season
+      // (an unscoped read collides across seasons on rollover, since `event`
+      // restarts at 1) and it pages, which the inline version did not — the
+      // API caps every response at 1000 rows however big `.limit()` asks, so
+      // a long enough career would have silently lost its oldest gameweeks.
+      // Season-gated on nextGw, like the rest of this loader already is.
+      //
+      // Sprint 40: everything below that needs only the season — picks,
+      // players, teams, gameweeks, rules, fixtures — is fired as one wave
+      // here. They used to run as four waves in a row (picks, then players,
+      // then the rest), each waiting for a result it never read.
+      const seasonReads = nextGw
+        ? Promise.all([
+            loadManagerPicks(nextGw.season, entryId),
+            // The whole season's players, not just the ones picked: the squad
+            // view also renders an imported draft, whose players need not
+            // appear in any manager_picks row (pre-GW1 there are none at all).
+            // One list serves every gameweek the selector can reach, too.
+            // Paged — the cap is silent, and this table is already close to it.
+            (async () => {
+              const rows: PlayerRow[] = [];
+              for (let from = 0; ; from += PAGE_ROWS) {
+                const { data: playerRows } = await supabase
+                  .from("players")
+                  .select(
+                    "id, code, web_name, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, element_type, team_id",
+                  )
+                  .eq("season", nextGw.season)
+                  .order("id")
+                  .range(from, from + PAGE_ROWS - 1);
+                rows.push(...((playerRows ?? []) as PlayerRow[]));
+                if ((playerRows?.length ?? 0) < PAGE_ROWS) break;
+              }
+              return rows;
+            })(),
+            supabase.from("teams").select("id, name, code, short_name").eq("season", nextGw.season),
+            supabase.from("gameweeks").select("id, finished").eq("season", nextGw.season),
+            loadSeasonContext().catch(() => null),
+            // The whole season's fixtures (at most 380 rows), filtered to the
+            // picked gameweeks below, so this no longer waits for the picks.
+            supabase
+              .from("fixtures")
+              .select("event, team_h, team_a, team_h_difficulty, team_a_difficulty")
+              .eq("season", nextGw.season),
+          ])
+        : null;
 
       // Sprint 12A — career percentile profile, built from the same rows the
       // Past Seasons table already fetched. buildManagerProfile assumes
@@ -513,34 +593,12 @@ export default function TeamPage() {
       );
 
       let rivals: RivalRow[] = [];
-      let rivalEntryIds: number[] = [];
-      if (user) {
-        const { data: rivalRows } = await supabase
-          .from("manager_rivals")
-          .select("entry_id")
-          .eq("user_id", user.id);
-        rivalEntryIds = (rivalRows ?? []).map((r) => r.entry_id as number);
-      }
+      const rivalData = await rivalRowsP;
+      const rivalEntryIds: number[] = rivalData?.rivalEntryIds ?? [];
 
-      if (rivalEntryIds.length > 0) {
-        const { data: otherManagers } = await supabase
-          .from("managers")
-          .select("entry_id, team_name")
-          .in("entry_id", rivalEntryIds);
-
-        if (otherManagers && otherManagers.length > 0) {
-          const rivalIds = otherManagers.map((r) => r.entry_id);
-          const [{ data: rivalSeasons }, { data: rivalGws }] = await Promise.all([
-            supabase
-              .from("manager_season_history")
-              .select("entry_id, season_name, rank_percentage")
-              .in("entry_id", rivalIds),
-            supabase
-              .from("manager_gameweek_history")
-              .select("entry_id, event, points, total_points, overall_rank")
-              .in("entry_id", rivalIds),
-          ]);
-
+      if (rivalData) {
+        const { otherManagers, rivalSeasons, rivalGws } = rivalData;
+        if (otherManagers.length > 0) {
           const seasonsByRival = new Map<number, { season_name: string; rank_percentage: number }[]>();
           for (const row of rivalSeasons ?? []) {
             if (row.rank_percentage === null) continue;
@@ -580,17 +638,7 @@ export default function TeamPage() {
         }
       }
 
-      // 3. Every entered gameweek's picks, if any exist yet. All events are
-      // kept — the per-gameweek squad view reads them.
-      //
-      // Through lib/manager-picks' loadManagerPicks rather than an inline
-      // query, which is what every other page uses: it scopes to the season
-      // (an unscoped read collides across seasons on rollover, since `event`
-      // restarts at 1) and it pages, which the inline version did not — the
-      // API caps every response at 1000 rows however big `.limit()` asks, so
-      // a long enough career would have silently lost its oldest gameweeks.
-      // Season-gated on nextGw, like the rest of this loader already is.
-      const picksByEvent = nextGw ? await loadManagerPicks(nextGw.season, entryId) : new Map<number, ManagerPick[]>();
+      const picksByEvent = seasonReads ? (await seasonReads)[0] : new Map<number, ManagerPick[]>();
 
       // The latest gameweek's picks in the row shape the import flow and the
       // squad list still take (teamStateFromPicks wants FPL's own snake_case).
@@ -614,35 +662,9 @@ export default function TeamPage() {
       const finishedEvents = new Set<number>();
       let rules = DEFAULT_RULES;
 
-      if (nextGw) {
-        // The whole season's players, not just the ones picked: the squad view
-        // also renders an imported draft, whose players need not appear in any
-        // manager_picks row (pre-GW1 there are none at all). One list serves
-        // every gameweek the selector can reach, too. Paged — the cap is
-        // silent, and this table is already close to it.
-        for (let from = 0; ; from += PAGE_ROWS) {
-          const { data: playerRows } = await supabase
-            .from("players")
-            .select(
-              "id, code, web_name, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, element_type, team_id",
-            )
-            .eq("season", nextGw.season)
-            .order("id")
-            .range(from, from + PAGE_ROWS - 1);
-          for (const p of playerRows ?? []) players.set(p.id, p as PlayerRow);
-          if ((playerRows?.length ?? 0) < PAGE_ROWS) break;
-        }
-
-        const [teamsRes, gwsRes, ctxRes, fixturesRes] = await Promise.all([
-          supabase.from("teams").select("id, name, code, short_name").eq("season", nextGw.season),
-          supabase.from("gameweeks").select("id, finished").eq("season", nextGw.season),
-          loadSeasonContext().catch(() => null),
-          supabase
-            .from("fixtures")
-            .select("event, team_h, team_a, team_h_difficulty, team_a_difficulty")
-            .eq("season", nextGw.season)
-            .in("event", [...picksByEvent.keys()]),
-        ]);
+      if (seasonReads) {
+        const [, playerRows, teamsRes, gwsRes, ctxRes, fixturesRes] = await seasonReads;
+        for (const p of playerRows) players.set(p.id, p);
 
         for (const t of teamsRes.data ?? []) {
           teamNames.set(t.id, t.name);
@@ -660,7 +682,7 @@ export default function TeamPage() {
         // is the same convention deadline uses).
         for (const f of fixturesRes.data ?? []) {
           const event = f.event as number | null;
-          if (event === null) continue;
+          if (event === null || !picksByEvent.has(event)) continue;
           let byTeam = fixturesByEvent.get(event);
           if (!byTeam) {
             byTeam = new Map<number, NextFixture>();
@@ -709,11 +731,15 @@ export default function TeamPage() {
 
       // Signed in: this is the entry the user has claimed, so it survives
       // across devices instead of living only in this browser's storage.
+      // Not awaited (Sprint 40): the page already has everything it shows, so
+      // the spinner shouldn't wait on a write whose failure is only logged.
       if (user) {
-        const { error: profileError } = await supabase
+        void supabase
           .from("user_profiles")
-          .upsert({ user_id: user.id, entry_id: entryId }, { onConflict: "user_id" });
-        if (profileError) console.error(`user_profiles upsert failed: ${profileError.message}`);
+          .upsert({ user_id: user.id, entry_id: entryId }, { onConflict: "user_id" })
+          .then(({ error: profileError }) => {
+            if (profileError) console.error(`user_profiles upsert failed: ${profileError.message}`);
+          });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -997,7 +1023,6 @@ export default function TeamPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEvent, data, livePointsTick]);
 
   /** Shared card mapping for both views — the two differ only in the number they carry. */

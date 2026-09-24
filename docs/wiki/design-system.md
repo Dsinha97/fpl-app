@@ -563,6 +563,45 @@ needs this.
 This is the third variant of the same underlying idea in the codebase — after the bottom sheet and
 the left drawer above — and the first one extracted as a primitive rather than written in place.
 
+### Swipe-to-dismiss, and the first animation library (2026-09-21)
+
+Because all three panels (nav `left`, compare `right`, player sheet `bottom`) already went through
+this one primitive, a single change gave each of them a gesture that closes it back the way it
+opened. `motion` was added, the repo's first gesture/animation library, rather than hand-rolling
+drag physics.
+
+- **Exit animations needed the early return gone.** `if (!open) return null` tore down
+  `AnimatePresence` along with the panel. The conditional now lives on the children, so
+  `AnimatePresence` stays mounted and sees `open` go false.
+- **A real numeric drag range, not a point constraint.** The close direction gets the panel's
+  full extent; the wrong direction gets a thin sliver of resistance. A drag commits past 35% of
+  the extent or at 500px/s in the dismiss direction, gated on sign. Short of that, an explicit
+  spring returns the panel to 0. The textbook zero-width point constraint misbehaved here.
+- **Drag handles where content scrolls on the same axis.** The sheet drags from its grab handle,
+  and the compare panel from its header (its table scrolls horizontally). The nav drags from
+  anywhere.
+- **Touch only.** Drag is off for fine pointers, read once at mount; an effect-corrected hook
+  raced the gesture recognizer's setup.
+- **Reduced motion keeps the gesture.** It gets stiffer and faster, not removed.
+
+The swipe feel (threshold, spring tuning) was not confirmed on a real device.
+— [swipe-to-dismiss.md](../sprints/swipe-to-dismiss.md)
+
+### Split in two for the bundle (Sprint 40, 2026-09-24)
+
+`motion` cost every route ~135KB, because the mobile nav renders a `SlideOver` from the root
+layout. The implementation moved unchanged to `components/ui/slide-over-panel.tsx`, and
+`slide-over.tsx` is now a thin wrapper that:
+
+- loads the panel with `next/dynamic`, prefetched when the browser goes idle;
+- mounts it the first time `open` is true, then **keeps it mounted**, for the same
+  `AnimatePresence` reason as above.
+
+Callers didn't change. The one visible cost: a panel opened before the idle prefetch lands
+appears when the chunk arrives, still with its entrance animation. See
+[performance.md](performance.md#sprint-40-the-shared-bundle-and-the-read-waterfalls-2026-09-24).
+— [sprint-40.md](../sprints/sprint-40.md) §1
+
 ## M9 — the audit, the primitives layer, and what the audit got wrong (2026-09-12/13)
 
 An external design audit of every screen, worked in four sprints: **A** built primitives, **B**

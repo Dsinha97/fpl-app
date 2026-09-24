@@ -142,6 +142,31 @@ interface PriceWatchAlert {
   anchorAt: string;
 }
 
+/** PostgREST caps every response at 1000 rows whatever `.limit()` asks. */
+const PAGE_ROWS = 1000;
+
+/**
+ * Every row of a query, one `.range()` page at a time until a short page.
+ * `page` must impose a total order or pages can overlap or skip rows. Serial
+ * rather than concurrent: this is a cron job reading a few pages per user,
+ * not a page load. Returns null (and logs) on any page error, so a caller
+ * can skip rather than compute on a partial read.
+ */
+async function readAllPages<T>(
+  page: (from: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[] | null> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_ROWS) {
+    const { data, error } = await page(from);
+    if (error) {
+      console.error(`notify: paged read failed at offset ${from}: ${error.message}`);
+      return null;
+    }
+    rows.push(...(data ?? []));
+    if ((data?.length ?? 0) < PAGE_ROWS) return rows;
+  }
+}
+
 /**
  * Which of `codes` have net transfers past the flat threshold since their
  * last recorded price change — a fact-level crossing check, not the fitted
@@ -150,10 +175,16 @@ interface PriceWatchAlert {
  * (`netTransfersSinceLastPriceChange` there), which is careful counter
  * handling rather than a fitted model — see that function's own comment for
  * why `transfers_in_event`/`transfers_out_event` can't simply be
- * differenced. Not paged like the site's `loadPriceProgress`: this only ever
- * runs over a user's own squad plus shortlist, dozens of players rather than
- * the ~700-player pool, so the 1000-row cap CLAUDE.md warns about is not in
- * play at this scale.
+ * differenced.
+ *
+ * Paged. This used to argue the 1000-row cap was out of play at "dozens of
+ * players", but the row count is players × samples since the *earliest*
+ * anchor, not players: for the owner's 15-player squad on 2026-09-24 the read
+ * asked for 4,284 rows and the cap returned the oldest 1,000, so most
+ * players' post-anchor samples were never seen and alerts ran on partial
+ * windows. Same bug Sprint 38 fixed in `loadPriceProgress`. A failed page
+ * returns no alerts for this user (logged) rather than alerts computed on
+ * whatever arrived.
  */
 async function priceWatchAlerts(
   db: Db,
@@ -164,14 +195,19 @@ async function priceWatchAlerts(
   if (codes.size === 0) return [];
   const codeList = [...codes];
 
-  const { data: changes } = await db
-    .from("player_price_history")
-    .select("player_code, observed_at")
-    .eq("season", season)
-    .in("player_code", codeList)
-    .order("observed_at", { ascending: false });
+  const changes = await readAllPages<{ player_code: number; observed_at: string }>((from) =>
+    db
+      .from("player_price_history")
+      .select("player_code, observed_at")
+      .eq("season", season)
+      .in("player_code", codeList)
+      .order("observed_at", { ascending: false })
+      .order("player_code")
+      .range(from, from + PAGE_ROWS - 1),
+  );
+  if (changes === null) return [];
   const anchorAt = new Map<number, string>();
-  for (const row of changes ?? []) {
+  for (const row of changes) {
     const code = row.player_code as number;
     if (!anchorAt.has(code)) anchorAt.set(code, row.observed_at as string);
   }
@@ -182,16 +218,29 @@ async function priceWatchAlerts(
     if (earliestAnchor === "" || at < earliestAnchor) earliestAnchor = at;
   }
 
-  const { data: samples } = await db
-    .from("player_ownership_history")
-    .select("player_code, observed_at, transfers_in_event, transfers_out_event")
-    .eq("season", season)
-    .in("player_code", [...anchorAt.keys()])
-    .gte("observed_at", earliestAnchor)
-    .order("observed_at", { ascending: true });
+  const anchored = [...anchorAt.keys()];
+  const samples = await readAllPages<{
+    player_code: number;
+    observed_at: string;
+    transfers_in_event: number | null;
+    transfers_out_event: number | null;
+  }>((from) =>
+    db
+      .from("player_ownership_history")
+      .select("player_code, observed_at, transfers_in_event, transfers_out_event")
+      .eq("season", season)
+      .in("player_code", anchored)
+      .gte("observed_at", earliestAnchor)
+      // (observed_at, player_code) is the table's own key: a total order, so
+      // consecutive offset pages can neither overlap nor skip a row.
+      .order("observed_at", { ascending: true })
+      .order("player_code")
+      .range(from, from + PAGE_ROWS - 1),
+  );
+  if (samples === null) return [];
 
   const byPlayer = new Map<number, Array<{ in: number; out: number }>>();
-  for (const row of samples ?? []) {
+  for (const row of samples) {
     const code = row.player_code as number;
     const anchor = anchorAt.get(code);
     if (!anchor || (row.observed_at as string) < anchor) continue;

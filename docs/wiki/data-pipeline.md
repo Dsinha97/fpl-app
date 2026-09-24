@@ -219,6 +219,26 @@ to separate "does not work" from "not enough data to tell".
 
 — [sprints/sprint-38.md](../sprints/sprint-38.md) §2-3
 
+### The fix for bug 1 made the scan the site's biggest download (found 2026-09-24, not fixed)
+
+Paging concurrently made the reading correct, but it also made the read unbounded, and the
+window the code narrows to is wider than it looks. `earliestAnchor` is the *oldest* last-price-
+change across every requested player. As of 2026-09-24 that was 2026-08-03, pre-season, so the
+server-side filter excludes nothing: every visit to `/players` or `/transfers` pulls the whole
+`player_ownership_history` table.
+
+- That was **73,287 rows** (up from the ~42,000 Sprint 38 counted) as ~74 concurrent pages,
+  keeping the connection busy for 15+ seconds after first paint.
+- A per-player anchor would still ship **46,938**, so moving the filter server-side only
+  removes about a third.
+- The table grows ~15,000 rows a day (23 samples × 667 players).
+
+The fix is server-side windowing or a precomputed reading. Either one must leave the counter-reset
+detection and the fitted thresholds above in **one** implementation, not a TypeScript copy and a
+SQL copy. Measured in Sprint 40 and tracked as DSI-187. See
+[performance.md](performance.md#sprint-40-the-shared-bundle-and-the-read-waterfalls-2026-09-24).
+— [sprints/sprint-40.md](../sprints/sprint-40.md) §3
+
 ## `player_predictions` and the row cap
 
 One row per player per fixture per model version, with full component provenance (`prior_weight`,
@@ -382,6 +402,15 @@ broken. Signed out reports "nothing to show" and explicitly *not* "healthy", bec
 tables are owner-scoped and a signed-out visitor genuinely cannot be told. A blank panel is
 indistinguishable from a broken one, which is the exact failure being fixed — which is also why it
 reads verbose for a status panel.
+
+**A fourth instance, 2026-09-21 (DSI-142).** `generate-predictions` 401'd on roughly one run in
+three and wrote **no `sync_runs` row** when it did, so this panel reported it healthy through a
+third of its dropped runs. The cause was a transient RPC error in the cron-secret check, treated
+as a denial (see [edge-function-security.md](edge-function-security.md#class-a--cron-only)). Two
+fixes: a bounded retry on the RPC, and a `sync_runs` row written even when the secret is
+rejected, so a refused run appears as a failure rather than as nothing. The live confirmation (a
+day of clean cron rows) hadn't been checked when the sprint closed.
+— [sprints/sprint-39.md](../sprints/sprint-39.md)
 
 `STALE_AFTER_HOURS` mirrors `STALE_AFTER_MS` in `sync-claimed-managers` and is deliberately
 duplicated: `supabase/functions/**` is Deno and cannot import from `lib/`. Same trade

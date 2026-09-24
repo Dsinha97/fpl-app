@@ -36,6 +36,13 @@ Vault-backed secret. Two properties worth keeping:
   reached `new URL(req.url)`.
 - **It fails closed when the Vault secret is missing**, logging loudly to the function console and
   saying nothing useful in the response body.
+- **A failed lookup is not a denial, and a denial still leaves a record** (2026-09-21, DSI-142).
+  Failing closed on *any* RPC error meant a transient error became a 401. `generate-predictions`
+  lost about one run in three that way, and wrote no `sync_runs` row for them, so the drops were
+  invisible. `verifyCron` now retries the RPC a bounded number of times before refusing, and a
+  refused run writes its `sync_runs` row. Still fail-closed, just not on a blip.
+  See [data-pipeline.md](data-pipeline.md#sync-health-what-has-quietly-not-happened).
+  — [sprints/sprint-39.md](../sprints/sprint-39.md)
 
 ### The secret is never known outside Postgres
 

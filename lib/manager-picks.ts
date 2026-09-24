@@ -158,6 +158,19 @@ export async function loadEventPoints(
   const ids = [...new Set(playerIds)];
   const finalisedByPlayer = new Map<number, ActualPoints>();
 
+  // Always fetch the live snapshot too — not just for players with no
+  // finalised row — since a finalised row can itself be the stale
+  // pre-kickoff placeholder described above. It doesn't depend on the
+  // finalised rows, so it starts now rather than after them (Sprint 40).
+  const liveP = supabase
+    .from("player_live_stats")
+    .select("player_id, total_points, minutes, goals_scored, assists")
+    .eq("season", season)
+    .eq("event", event)
+    .in("player_id", ids)
+    // Builders are lazy: `.then` is what sends the request.
+    .then((r) => r);
+
   for (let from = 0; ; from += PAGE_ROWS) {
     const { data, error } = await supabase
       .from("player_gameweek_stats")
@@ -183,15 +196,7 @@ export async function loadEventPoints(
     if ((data?.length ?? 0) < PAGE_ROWS) break;
   }
 
-  // Always fetch the live snapshot too — not just for players with no
-  // finalised row — since a finalised row can itself be the stale
-  // pre-kickoff placeholder described above.
-  const { data: live, error: liveError } = await supabase
-    .from("player_live_stats")
-    .select("player_id, total_points, minutes, goals_scored, assists")
-    .eq("season", season)
-    .eq("event", event)
-    .in("player_id", ids);
+  const { data: live, error: liveError } = await liveP;
   if (liveError) throw new Error(liveError.message);
 
   const liveByPlayer = new Map<number, ActualPoints>();
