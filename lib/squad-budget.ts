@@ -16,7 +16,7 @@
 
 import { hasConsistentLineup, type PlayerMeta, type SquadRules, type TeamState } from "./team-state";
 import type { LineupResult } from "./lineup";
-import { sellPrice } from "./transfers";
+import { sellPrice } from "./transfer-rules";
 
 /** The one implementation of "money spent on a set of picks" — see
  *  docs/wiki/methodology.md's "one quantity, one implementation" rule. This

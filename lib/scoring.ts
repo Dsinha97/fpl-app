@@ -13,7 +13,7 @@ import {
 } from "./team-state";
 import { clamp, mean, stdevPopulation } from "./stats";
 import { squadBank } from "./squad-budget";
-import { sellPrice } from "./transfers";
+import { sellPrice } from "./transfer-rules";
 
 export interface ScoredPlayer {
   id: number;

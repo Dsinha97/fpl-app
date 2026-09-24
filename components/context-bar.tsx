@@ -11,7 +11,7 @@ import { loadSeasonContext, type SeasonContext } from "@/lib/season-context";
 import { squadBank, squadSellValue } from "@/lib/squad-budget";
 import { supabase } from "@/lib/supabase/client";
 import type { TeamState } from "@/lib/team-state";
-import { freeTransfersDisplay } from "@/lib/transfers";
+import { freeTransfersDisplay } from "@/lib/transfer-rules";
 
 /**
  * The audit's one genuinely good finding: a deadline-driven tool with no

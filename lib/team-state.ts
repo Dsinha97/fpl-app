@@ -1,4 +1,4 @@
-import { sellPrice } from "./transfers";
+import { sellPrice } from "./transfer-rules";
 import { bankFrom } from "./squad-budget";
 
 // TeamState — the normalised squad object every downstream feature consumes.
