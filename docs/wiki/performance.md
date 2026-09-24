@@ -131,7 +131,8 @@ arithmetic. See [data-pipeline.md](data-pipeline.md).
 - ~~**Serial waterfalls on `/players` and `/transfers`**~~ (and `/team`). Built, Sprint 40.
 - ~~**Bundle composition.**~~ Answered, Sprint 40, with `next experimental-analyze`. No
   dependency was needed.
-- **The price-watch ownership scan.** Now the largest measured cost; see above.
+- **The price-watch ownership scan.** Now the largest measured cost; see above. Tracked as
+  DSI-187.
 - **`@supabase/*`'s unused realtime/storage clients** (~83KB on every route). This touches the
   auth client, a real access boundary, so it gets its own issue rather than a latency side-quest.
 - **DOM virtualization for `/players`'** ~600-player list: flagged, not measured (no scroll-jank

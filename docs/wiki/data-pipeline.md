@@ -235,7 +235,7 @@ server-side filter excludes nothing: every visit to `/players` or `/transfers` p
 
 The fix is server-side windowing or a precomputed reading. Either one must leave the counter-reset
 detection and the fitted thresholds above in **one** implementation, not a TypeScript copy and a
-SQL copy. Measured in Sprint 40 and left as its own item. See
+SQL copy. Measured in Sprint 40 and tracked as DSI-187. See
 [performance.md](performance.md#sprint-40-the-shared-bundle-and-the-read-waterfalls-2026-09-24).
 — [sprints/sprint-40.md](../sprints/sprint-40.md) §3
 

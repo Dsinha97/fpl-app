@@ -144,8 +144,32 @@ returns the entire season's `player_ownership_history`:
 
 A fix needs server-side work (an RPC or view that does the per-player windowing, or a
 precomputed reading). The price-watch arithmetic (counter-reset detection, the fitted
-thresholds) has to keep one implementation. Proposed as its own issue; see the sprint's
-closing notes in `docs/linear.md`.
+thresholds) has to keep one implementation. Tracked as
+[DSI-187](https://linear.app/dsinha-org/issue/DSI-187), which lists the candidate shapes and
+the gate (identical readings per player, before and after).
+
+### 3a. The same bug in `notify`'s copy, fixed and deployed
+
+The wiki ingest after this sprint found that `notify`'s price-proximity alert (Sprint 39) makes the
+same ownership read, **unpaged**. Its comment argued the cap was out of play at "dozens of
+players". But the row count is players × samples since the earliest anchor: for the owner's
+15-player squad the read asked for 4,284 rows and the cap returned the oldest 1,000.
+
+- **Fix.** `readAllPages` in `supabase/functions/notify/index.ts` reads serial `.range()` pages
+  with a total order (`observed_at, player_code`) on both the price-history and ownership reads.
+  A failed page returns no alerts for that user and logs it, rather than alerting on a partial
+  read.
+- **Verified before deploy** with a throwaway harness that ran the old and new functions (source
+  extracted from `git show HEAD` and the working copy) against live data for the owner's squad:
+  - the old version computed a total for only **6 of 15** players, all 6 wrong;
+  - the new version computes all 15, and **every total matches the site's own
+    `loadPriceProgress` exactly**;
+  - at the 20,000 threshold, 10 players are past it, not 6.
+- **One alert already sent was false.** 215136 went out on 2026-09-22 at −67,848; the true figure
+  is about −9,419, under the threshold.
+- **Deployed as `notify` v7.** Deploying from the repo also brought `notify`'s bundled
+  `_shared/cron-auth.ts` up to DSI-142's retry. The deployed v6 bundle still had the pre-retry
+  copy, because each function bundles its own `_shared`, which is the drift DSI-75 is about.
 
 ## 4. DSI-77: lint
 

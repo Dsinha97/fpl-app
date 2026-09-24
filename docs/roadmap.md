@@ -88,7 +88,9 @@ three things for the next pick:
 - **The price-watch ownership scan** (sprint-40 §3) is now the largest measured latency cost.
   `loadPriceProgress` fetches all ~73k `player_ownership_history` rows on every `/players` or
   `/transfers` visit, and the table grows ~15k rows a day. It needs server-side windowing, and
-  the price-watch arithmetic must keep one implementation. Proposed as its own issue.
+  the price-watch arithmetic must keep one implementation. Tracked as **DSI-187**. (`notify`'s
+  price-proximity alert had the same bug in its own unpaged copy of the read; that one is fixed
+  and deployed, see sprint-40 §3a.)
 - **DSI-75 is unblocked**: DSI-55 closed 2026-09-24, with the fork-PR approval setting confirmed
   via `gh api`. The one CLI deploy also lands DSI-59's `verify_jwt` flip.
 - **DSI-73 split 2026-09-24.** Its gate pointed at the canceled DSI-53. The gradient-boosted

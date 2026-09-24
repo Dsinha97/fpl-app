@@ -69,7 +69,7 @@ said the alert would read `isNearThreshold()`/`priceProgress()`; the shipped cod
 code and `roadmap.md` agree, and the sprint file is a historical record.
 — [sprint-39.md](../sprints/sprint-39.md), `supabase/functions/notify/index.ts`
 
-**It reads a truncated sample (found 2026-09-24, not fixed).** `priceWatchAlerts` reads
+**It read a truncated sample (found and fixed 2026-09-24, `notify` v7).** `priceWatchAlerts` read
 `player_ownership_history` **unpaged**. Its comment argues the 1000-row cap is out of play at
 "dozens of players", but the row count is players × samples since the **earliest** anchor, not
 players. Checked live for the owner's 15-player squad:
@@ -81,8 +81,19 @@ players. Checked live for the owner's 15-player squad:
 So a player whose last price change is recent sees few or none of their samples, and alerts compute
 on partial windows. It is the same "quiet rather than broken" failure Sprint 38 fixed on the site
 (see [data-pipeline.md](data-pipeline.md#the-reading-was-broken-since-it-shipped-and-sprint-38-found-why-2026-09-21)).
-Six `price_watch` alerts had been sent by then, possibly on partial data. The fix is paging the read
-(or narrowing it per player), plus a function redeploy.
+Six `price_watch` alerts had been sent by then.
+
+**Fixed the same day.** Both reads are now paged serially with a total order, and a failed page
+means no alerts for that user rather than alerts on a partial read. Before deploying, a harness ran
+the old and new functions on live data for the owner's squad:
+
+- the old version computed totals for 6 of 15 players, all wrong;
+- the new version computes all 15, **matching the site's `loadPriceProgress` exactly**;
+- one of the six alerts already sent (215136, −67,848 reported, about −9,419 true) should never
+  have fired.
+
+Deploying from the repo also gave `notify` DSI-142's cron-auth retry; its v6 bundle still carried
+the old `_shared` copy. — [sprint-40.md](../sprints/sprint-40.md) §3a
 
 ### Secrets: neither one was ever handled outside Postgres
 
