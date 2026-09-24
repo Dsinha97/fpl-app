@@ -1,6 +1,6 @@
 # Sprint 40 — Latency: the shared bundle and the read waterfalls
 
-**Started and built 2026-09-24.** Scoped from that day's `/linear-sync`. DSI-56 was the only
+**Started, built and shipped 2026-09-24** (PR [#36](https://github.com/Dsinha97/fpl-app/pull/36)). Scoped from that day's `/linear-sync`. DSI-56 was the only
 issue promoted to Todo since the last sprint, and none of the three items had a gate. Parent
 issue: DSI-184 · DSI-56 (code splitting) · DSI-57 (serial read waterfalls) · DSI-77 (lint
 filler). Method, baseline and the ranked plan this works through:
