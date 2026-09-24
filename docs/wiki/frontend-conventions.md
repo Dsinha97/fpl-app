@@ -193,7 +193,29 @@ vocabulary, the busy-state pattern, and the disclosure rule) is
   actually surfaced the bug live (a real "FT 15"). Returns `{ kind: "unlimited" }` when a wildcard
   or free hit is the squad's `activeChip`, otherwise a count clamped to `[0, MAX_FREE_TRANSFERS]`
   with anything above the cap — the sentinel — falling back to the documented default of 1. See
-  [mobile-reachability.md](../sprints/mobile-reachability.md).
+  [mobile-reachability.md](../sprints/mobile-reachability.md). *Moved 2026-09-24 (Sprint 40)* to
+  `lib/transfer-rules.ts`, with `MAX_FREE_TRANSFERS`, `accrueFreeTransfers` and `sellPrice`, and
+  re-exported from `lib/transfers.ts`, so callers didn't change. The reason is the bundle:
+  `team-state` and `ContextBar` load on every route and need only these pure rules, but importing
+  them from `lib/transfers` dragged the scoring, lineup and squad-score engines into every page.
+  **Anything the root layout reaches should import from the leaf module.**
+  — [sprint-40.md](../sprints/sprint-40.md) §1
+
+## A supabase-js query doesn't start until something calls `.then` (2026-09-24)
+
+`const p = supabase.from("t").select(…)` builds a request and sends nothing. The request goes out
+when the builder is awaited or `.then`'d. So hoisting a read "to start it early" and awaiting it
+later changes nothing unless the early line calls `.then((r) => r)` (or it's passed straight into a
+`Promise.all`, which calls `.then` immediately). Sprint 40's first `/players` reorder looked
+parallel in code and wasn't on the wire. The request timeline (`performance.getEntriesByType("resource")`
+start times) is what shows it; reading the code doesn't. Two related traps from the same pass:
+- A reorder only helps if the thing now awaited *first* isn't itself a new critical path. `/team`'s
+  first attempt made the rivals chain the bottleneck.
+- A `.then`'d read that can fail should be awaited before anything that can throw, or its
+  rejection goes unhandled.
+
+Supabase builders resolve with `{ error }` rather than rejecting, which is why the early reads
+here don't need a `.catch`. — [sprint-40.md](../sprints/sprint-40.md) §2
 
 ## `NavLinks` split into `DesktopNav`/`MobileNav` (2026-08-22, drawer header 2026-09-13)
 
@@ -321,3 +343,12 @@ So `SegmentedControl` scrolls instantly when the document is hidden or motion is
 smoothly otherwise. This is the same rule `SlideOver` already states about its own entry animation:
 it deliberately sets no `fill-mode`, so an animation that never runs leaves a usable panel rather
 than one pinned invisible at its `from` frame. — [sprints/m9.md](../sprints/m9.md)
+
+*Superseded for `SlideOver`, 2026-09-21.* Swipe-to-dismiss moved it from CSS keyframes to
+`motion`'s `AnimatePresence`, which is promise-driven rather than `fill-mode`-driven, so the
+"stuck invisible" case above can't occur. What remains is the reverse case, observed in Sprint 40:
+with rAF suspended, a *closed* panel stays in the DOM at opacity 0 until frames resume. That
+includes its full-screen backdrop. That only happens in a hidden tab, and the exit finishes as soon
+as it's visible again. But it means "is the dialog gone" can't be asserted from a hidden preview
+pane. — [swipe-to-dismiss.md](../sprints/swipe-to-dismiss.md), [sprint-40.md](../sprints/sprint-40.md)
+§Verification

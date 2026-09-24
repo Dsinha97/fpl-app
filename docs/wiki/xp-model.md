@@ -71,7 +71,9 @@ a gameweek it hasn't seen. — [sprint-17a.md](../sprints/sprint-17a.md)
 Recalibration itself was deliberately **not** done in the same pass that found this — refitting on
 the same run that produced the finding risks exactly the "tune until it looks reasonable" failure
 [methodology.md](methodology.md) warns against. The evidence now exists; the refit is a follow-up
-with its own held-out check.
+with its own held-out check. *(Later: the refit itself was canceled in 2026-09 once the error
+turned out to be in expected minutes, not a points scale. See
+[below](#the-check-in-at-n4-2026-09-20--and-why-the-refit-should-not-run) and DSI-185/186.)*
 
 ## Squad reconciliation
 
@@ -278,6 +280,31 @@ above were first run; the re-read at locked data (10/10 fixtures `finished`, bon
 the same −0.714/+0.627 cohort split. [DSI-50](https://linear.app/dsinha-org/issue/DSI-50) stays
 open, now for a fifth read once GW6 is played (2026-10-10, after a three-week international
 break) — see [sprints/sprint-38.md](../sprints/sprint-38.md) §1.
+
+**DSI-178 shipped the measurement, not a fix (2026-09-21).** `scripts/backtest-walkforward.ts` now
+scores `byAppearance` (appeared vs no-show), `gkpByAppearance`, and a `startBrier` on the model's
+own `startProbability`, using the same `accuracyStats` as the live scoreboard. Run live across the
+four backtest seasons, the new fields show the same cancelling appeared/no-show pattern DSI-50
+found. No calibration change shipped; that was the issue's own scope.
+— [sprints/sprint-39.md](../sprints/sprint-39.md)
+
+**What the fix and the accuracy claim are now gated on (2026-09-24).** The follow-up DSI-178 left
+open had no issue, and [DSI-73](https://linear.app/dsinha-org/issue/DSI-73) (Sprint 17 part 2) was
+still "blocked by DSI-53", which pointed at nothing once DSI-53 was canceled. It was split along
+its two different gates:
+
+- **[DSI-185](https://linear.app/dsinha-org/issue/DSI-185): an expected-minutes model** (the
+  gradient-boosted minutes/injury model Sprint 17 always named) that targets the appeared/no-show
+  failure directly. It's buildable now against the standing gate: walk-forward vs the last-5
+  baseline, judged **per cohort plus `startBrier`**, not pooled.
+- **[DSI-186](https://linear.app/dsinha-org/issue/DSI-186): claiming the model is accurate.**
+  Blocked by DSI-185, then it must beat the last-5 baseline on 2026-27 on MAE **and** r, pooled
+  **and** per cohort, no earlier than the GW10 batch.
+
+**DSI-50's bias-sign read is explicitly not a gate for either.** It reads the pooled bias, which is
+≈0 *because* the cohorts cancel, so a clean reading there certifies nothing. Its GW6 date matters
+only as the first day the last-5 baseline exists for this season.
+— [linear.md](../linear.md), [roadmap.md](../roadmap.md) "Next up"
 
 ### The coverage gate the check-in had to build first
 

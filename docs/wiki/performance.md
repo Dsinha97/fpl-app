@@ -13,7 +13,8 @@ fetched client-side after hydration. Full detail: [sprints/latency.md](../sprint
 `https://fpldecision.com`, no synthetic throttling. `/deadline/` stood out: 40 Supabase requests,
 ~30 of them in serial waves, settling at 6.2s versus every other route's sub-2.3s. Every route
 ships within 15% of the same ~1.1MB of raw JS — there is essentially one bundle for the whole app,
-not six route-specific ones.
+not six route-specific ones. *(Sprint 40 measured why, and it wasn't what this pass assumed; see
+[below](#sprint-40-the-shared-bundle-and-the-read-waterfalls-2026-09-24).)*
 
 **Pass 2 (signed in, local dev, real manager)** closed the signed-out blind spot and found a
 bigger cost than anything pass 1 had ranked: `/team` blocking 3.7s on a single Edge Function call
@@ -61,31 +62,86 @@ four pillars assume infrastructure this app deliberately doesn't have.
 | Brotli compression | Already done, by the platform | Cloudflare Workers static assets serves it automatically per `Accept-Encoding`; nothing to build. |
 | TanStack Query / SWR client caching | Partially already done | `lib/player-pool.ts`'s in-memory 5-minute TTL cache is a hand-rolled version of the same idea, scoped to one hot path. Extending the *pattern* to more pages is the still-open item below. |
 | WebSocket/SSE for real-time updates | Doesn't apply | No server to hold a socket open (static export, no route handlers); nothing here changes fast enough to need push over poll-on-navigate. |
-| Route-level code splitting | Real, not yet built | Zero `next/dynamic`/`React.lazy` usage anywhere — every route ships the same ~1.1MB bundle regardless of what it uses. |
+| Route-level code splitting | Real, built Sprint 40, but not where expected | Zero `next/dynamic`/`React.lazy` usage anywhere as of this pass. When Sprint 40 measured it, the engines were already split per route; the shared cost was elsewhere (see below). |
+
+## Sprint 40: the shared bundle and the read waterfalls (2026-09-24)
+
+Three of the items this page listed as open were built in one sprint. Two of the plan's
+hypotheses turned out to be wrong. Source: [sprints/sprint-40.md](../sprints/sprint-40.md).
+
+**The bundle.** The 2026-08-27 plan proposed wrapping the heavy engines in `next/dynamic`. But
+Turbopack already splits them per route; only one to four routes import each one. The plan also
+said identifying chunk contents needed a new dev dependency. It didn't: Next 16.3 ships
+`next experimental-analyze --output`, whose per-route `analyze.data` has a JSON header with bytes
+per source module. Attributed on `/news`, a route that runs none of the engines:
+
+- ~583KB framework and React runtime;
+- ~210KB `@supabase/*`, of which ~83KB is realtime and storage clients the app never uses;
+- **~135KB `motion`**, arriving via the mobile nav's `SlideOver`;
+- ~117KB `@base-ui/react`, the nav dropdowns;
+- ~30KB of engines, pulled in through the root layout's imports.
+
+Two fixes:
+
+- `SlideOver` became a thin wrapper. It prefetches the motion-based panel on idle and mounts it
+  on first open. After that it stays mounted, because `AnimatePresence` has to see `open` go
+  false to animate the exit. See [design-system.md](design-system.md).
+- The pure transfer rules (`sellPrice`, `freeTransfersDisplay`, …) that `team-state` and the
+  context bar needed moved to `lib/transfer-rules.ts`, re-exported from `lib/transfers.ts`. See
+  [frontend-conventions.md](frontend-conventions.md).
+
+**Every route's first-load JS dropped 135–153KB.** Supabase's unused clients were left alone
+because trimming them means composing the auth client by hand. `@base-ui`'s Menu stays because
+the desktop nav paints it on first render.
+
+**The waterfalls.** The same queries, reordered so nothing waits for a result it never reads.
+Measured signed in, dev mode, three runs before and after in one session:
+
+| Page | Settle before → after |
+|---|---|
+| `/players` | ~3.2s → ~1.3s |
+| `/transfers` | ~3.2s → ~2.2s |
+| `/team` | ~2.7s → ~2.2s, rendered text byte-identical |
+
+`/team`'s first attempt measured **no improvement**, and the request trace showed why: the new
+parallel wave was still awaited behind the rivals chain, which had now become the critical path.
+Reading the trace rather than re-running is what found it. Two planned `/team` changes were
+dropped as wrong:
+
+- Reading the entry id from the auth provider would be *slower*: the provider settles only after
+  a second, serial read.
+- Concurrent paging buys nothing on tables that are one page today.
+
+**Found and not fixed: the price-watch scan.** It was the largest cost measured, and no earlier
+pass had looked. `loadPriceProgress` narrows its ownership read to the *oldest* last-price-change
+across all players, which is pre-season. So every `/players` or `/transfers` visit downloads the
+whole `player_ownership_history` table:
+
+- 73,287 rows as of 2026-09-24, sent as ~74 concurrent pages;
+- the connection stays saturated for 15+ seconds after first paint;
+- the table grows ~15k rows a day.
+
+It needs server-side windowing without creating a second implementation of the price-watch
+arithmetic. See [data-pipeline.md](data-pipeline.md).
 
 ## Still open
 
-- **Route-level code splitting.** `lib/transfer-optimizer.ts`, `lib/optimizer.ts`,
-  `lib/squad-score.ts` — the heavy engines only `/builder`/`/transfers`/`/deadline` actually run —
-  are candidates for `next/dynamic` (a static export supports client-side dynamic imports, just not
-  SSR streaming). Medium effort, needs each split point checked against a synchronous call site.
-- **Serial waterfalls on `/players` and `/transfers`** that don't reduce to the pagination bug
-  above — later Supabase calls that look dependent on earlier ones finishing rather than
-  independently fetchable. The same pattern showed up on `/team` too, once item 3 above removed
-  the bigger cost hiding it (a `player_xp_horizons` read alone took 1.6s in that chain). Needs
-  reading each page's fetch sequence to confirm which calls are genuinely independent before
-  reordering — not assumed.
-- **Bundle composition.** Two chunks (~230KB each, ~40% of the shared bundle) have unidentified
-  contents — Turbopack's production minification strips module path strings. A bundle analyzer run
-  is a prerequisite investigation, not a fix by itself.
-- **DOM virtualization for `/players`'** ~600-player list — flagged, not measured (no scroll-jank
-  capture taken this pass).
+- ~~**Route-level code splitting.**~~ Built, Sprint 40. The engine-splitting hypothesis was wrong;
+  see above.
+- ~~**Serial waterfalls on `/players` and `/transfers`**~~ (and `/team`). Built, Sprint 40.
+- ~~**Bundle composition.**~~ Answered, Sprint 40, with `next experimental-analyze`. No
+  dependency was needed.
+- **The price-watch ownership scan.** Now the largest measured cost; see above.
+- **`@supabase/*`'s unused realtime/storage clients** (~83KB on every route). This touches the
+  auth client, a real access boundary, so it gets its own issue rather than a latency side-quest.
+- **DOM virtualization for `/players`'** ~600-player list: flagged, not measured (no scroll-jank
+  capture taken yet).
 
 ## Non-goals
 
 No move off `output: "export"` / Cloudflare Workers static assets — every item above works within
 that constraint. No new runtime dependency added on the strength of the notebook alone
-(`next/dynamic` is first-party Next.js; a bundle analyzer would be dev-only, unshipped).
+(`next/dynamic` is first-party Next.js; the bundle analyzer turned out to be built into Next itself).
 OpenTelemetry-grade observability is a real gap, named as a follow-up requiring its own approval,
 not folded into this pass.
 

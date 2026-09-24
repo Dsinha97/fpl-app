@@ -67,6 +67,17 @@ the metric grid had grown two rows since the cap was set, and an owned squad pla
 action rows (Set C/Set VC/Remove, Replace, Full profile) no longer fit under it, forcing a scroll
 to reach the action buttons on every squad player, not just an edge case.
 
+The rest of that DSI-181 sweep, each verified live in the preview:
+
+- `TapToReveal`'s tooltip now renders above the modal (z-60 against the modal's z-50).
+- A player with no profile photo falls back through the kit to the **club crest**
+  (`components/player-identity.tsx`'s `onError` chain).
+- The transfers tab shows "# Owned".
+- `/players` can sort by Price Watch, ordered by how close a player is to either threshold,
+  whichever direction.
+
+— [sprints/sprint-39.md](../sprints/sprint-39.md)
+
 ## The shortlist
 
 `user_shortlist` — players the owner marks to come back to, keyed on `player_code` (survives a

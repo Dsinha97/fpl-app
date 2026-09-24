@@ -52,6 +52,38 @@ The second pass re-read the same fact, composed the same key, and the unique ind
 into a no-op. That is the mechanism working, rather than an absence of input — a distinction the
 first run could not have made.
 
+### Price-proximity alerts (Sprint 39, 2026-09-21)
+
+`notify_price_watch` is a new preference covering the squad **and** the shortlist (see
+[player-profile.md](player-profile.md)). It fires when a player's net transfers since their last
+price change cross a threshold. The dedupe key is `price_watch:<code>:<anchor>`, so it fires once
+per price-change window, not once per run.
+
+It is **deliberately not the site's reading.** `lib/price-watch.ts`'s ownership-scaled thresholds
+are fitted, and `supabase/functions/**` can't import `lib/`. Per the line drawn
+[below](#the-line-the-deno-boundary-draws), the alert uses the **flat, unfitted** Sprint 29
+watchlist threshold from `game_settings`, as a fact-level crossing check. The message says "Not a
+prediction of tonight". The one thing it does duplicate is the reset-aware net-transfer
+accumulation, because that is counter handling rather than a model. The sprint doc's scope line
+said the alert would read `isNearThreshold()`/`priceProgress()`; the shipped code doesn't. The
+code and `roadmap.md` agree, and the sprint file is a historical record.
+— [sprint-39.md](../sprints/sprint-39.md), `supabase/functions/notify/index.ts`
+
+**It reads a truncated sample (found 2026-09-24, not fixed).** `priceWatchAlerts` reads
+`player_ownership_history` **unpaged**. Its comment argues the 1000-row cap is out of play at
+"dozens of players", but the row count is players × samples since the **earliest** anchor, not
+players. Checked live for the owner's 15-player squad:
+
+- the read asks for **4,284** rows;
+- the cap returns the oldest 1,000, starting 2026-08-03;
+- the alert needs **2,488**, the rows after each player's own anchor.
+
+So a player whose last price change is recent sees few or none of their samples, and alerts compute
+on partial windows. It is the same "quiet rather than broken" failure Sprint 38 fixed on the site
+(see [data-pipeline.md](data-pipeline.md#the-reading-was-broken-since-it-shipped-and-sprint-38-found-why-2026-09-21)).
+Six `price_watch` alerts had been sent by then, possibly on partial data. The fix is paging the read
+(or narrowing it per player), plus a function redeploy.
+
 ### Secrets: neither one was ever handled outside Postgres
 
 The bot token went from BotFather into Vault directly. The webhook secret was **generated inside

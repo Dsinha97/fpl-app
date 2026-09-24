@@ -56,7 +56,11 @@ baseline and which of a third-party optimization playbook's ideas actually apply
 
 ## Privacy note
 
-The repository is private; **the deployed site is not** — both `fpldecision.com` and the original
+*Corrected 2026-09-24:* the repository is now **public** (confirmed by `gh repo view` for DSI-55
+on 2026-09-21; this sentence originally read "The repository is private"). Fork-PR workflows need
+approval for every external contributor (`approval_policy: all_external_contributors`), and CI runs
+on `pull_request`, never `pull_request_target`, so a fork's run never sees repo secrets. Either way,
+**the deployed site is not private**: both `fpldecision.com` and the original
 Workers URL are open to anyone holding them, and Postgres RLS (see
 [database-and-rls.md](database-and-rls.md)) is the only real access boundary. Gating with
 Cloudflare Access is a recorded, not-yet-built follow-up — if enabled, preview deployments need
@@ -80,7 +84,8 @@ gating too, since they get their own public URLs.
   [design-audit-response.md](../sprints/design-audit-response.md).
 - **Actions minutes are metered** on a private repo (unlike public repos, which were unlimited) —
   `deploy.yml` was deleted since Cloudflare's own Git integration handles deploys, roughly halving
-  per-push consumption.
+  per-push consumption. *(Written while the repo was private; it has since gone public, so the
+  metering no longer applies. Deleting `deploy.yml` still stands on its own: Cloudflare deploys.)*
 ## Supabase Edge Functions: a second deploy surface with its own rules
 
 Cloudflare serves the static front end; the functions deploy separately, and that half has bitten
@@ -145,5 +150,6 @@ linked CLI):
 
 It is deliberately deferred rather than forgotten: the invocation cost the `verify_jwt` flip saves
 is near-zero while the repo is private and nobody knows the function URLs, and becomes real the
-moment it is public. See
+moment it is public. *(That moment has passed: the repo is public, and DSI-75's deploy was
+unblocked 2026-09-24 when DSI-55 closed. See [linear.md](../linear.md).)* See
 [edge-function-security.md](edge-function-security.md#verify_jwt-measured-rather-than-assumed).

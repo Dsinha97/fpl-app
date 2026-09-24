@@ -47,7 +47,7 @@ is maintained, and [log.md](log.md) for the edit history.
 | [fpl-api-constraints.md](fpl-api-constraints.md) | Row caps, pre-season placeholder fields, asset URL shapes |
 | [fpl-authentication.md](fpl-authentication.md) | Why credential login is blocked, and the three generations of workaround |
 | [deployment.md](deployment.md) | Static export on Cloudflare Workers — build-vs-runtime variables, routing gotchas |
-| [performance.md](performance.md) | Measured latency baseline, the serial-pagination and `/team` sync-on-load fixes, and what a generic web-perf playbook does/doesn't apply here |
+| [performance.md](performance.md) | Measured latency baseline, the serial-pagination and `/team` sync-on-load fixes, Sprint 40's bundle attribution and waterfall collapse, the price-watch scan still open, and what a generic web-perf playbook does/doesn't apply here |
 
 ## Cross-cutting
 

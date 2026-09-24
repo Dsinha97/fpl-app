@@ -313,6 +313,24 @@ underlying quantity can be measured directly rather than inferred from its effec
 needs far less statistical power than a ranking comparison to say something unambiguous. See
 [data-pipeline.md](data-pipeline.md#the-reading-was-broken-since-it-shipped-and-sprint-38-found-why-2026-09-21).
 
+## A plan written from a measurement is still a hypothesis about the fix
+
+The 2026-08-27 latency pass measured the symptom correctly (every route ships the same ~1.1MB),
+then proposed a cause no one had measured: split the heavy engines. When Sprint 40 attributed the
+bundle by module before building anything, the engines were already per-route, and the shared
+bytes were `motion` and the root layout's imports. Building the plan as written would have shipped
+`next/dynamic` wrappers that saved nothing.
+
+The same sprint dropped a second planned change on the same grounds. Swapping `/team`'s own
+profile read for the auth provider's copy *looks* like removing a request, but the provider only
+settles after a second serial read, so it would have been slower.
+
+The rule: a ranked plan tells you *where* the cost is. Before building the named fix, measure the
+mechanism it assumes. And when a change measures as no improvement, read the request trace rather
+than re-running: `/team`'s first reorder had created a new critical path, which the trace showed
+and a re-run wouldn't have. — [sprint-40.md](../sprints/sprint-40.md), see
+[performance.md](performance.md#sprint-40-the-shared-bundle-and-the-read-waterfalls-2026-09-24)
+
 ## A tool's local patches revert on upgrade — re-apply, don't re-derive
 
 Not a modelling rule; an operational one, recorded because it has already cost two rediscoveries.
