@@ -299,7 +299,10 @@ export default function PlayersPage() {
         const rateProfileP = supabase
           .from("player_rate_profile")
           .select("player_code, observed_minutes, dc90, cbit90, cbirt90, xgi90")
-          .limit(1000);
+          .limit(1000)
+          // A supabase-js builder only sends its request once something calls
+          // `.then`; this starts it now instead of when Promise.all reaches it.
+          .then((r) => r);
 
         const { data: gw, error: gwError } = await supabase
           .from("gameweeks")

@@ -160,6 +160,17 @@ export async function loadLiveDetail(
 
   const finalisedByPlayer = new Map<number, LivePlayerDetail>();
 
+  // Independent of the finalised rows, so it starts alongside them rather
+  // than after (Sprint 40).
+  const liveP = supabase
+    .from("player_live_stats")
+    .select("player_id, total_points, minutes, bonus, bps, in_dreamteam, explain")
+    .eq("season", season)
+    .eq("event", event)
+    .in("player_id", ids)
+    // Builders are lazy: `.then` is what sends the request.
+    .then((r) => r);
+
   for (let from = 0; ; from += PAGE_ROWS) {
     const { data, error } = await supabase
       .from("player_gameweek_stats")
@@ -186,12 +197,7 @@ export async function loadLiveDetail(
     if ((data?.length ?? 0) < PAGE_ROWS) break;
   }
 
-  const { data: live, error: liveError } = await supabase
-    .from("player_live_stats")
-    .select("player_id, total_points, minutes, bonus, bps, in_dreamteam, explain")
-    .eq("season", season)
-    .eq("event", event)
-    .in("player_id", ids);
+  const { data: live, error: liveError } = await liveP;
   if (liveError) throw new Error(liveError.message);
 
   const liveByPlayer = new Map<number, LivePlayerDetail>();
