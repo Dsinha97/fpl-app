@@ -274,6 +274,33 @@ export default function PlayersPage() {
   useEffect(() => {
     (async () => {
       try {
+        // Sprint 40: these three reads aren't season-scoped, so they no longer
+        // wait for the gameweek lookup. The history rows chain directly off
+        // the season-name read instead of waiting for the whole wave below.
+        const latestSeasonP = supabase
+          .from("player_season_history")
+          .select("season_name")
+          .order("season_name", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const historyP = latestSeasonP.then(async ({ data: latest }) => {
+          const name = latest?.season_name as string | undefined;
+          if (!name) return { latestSeason: undefined, rows: [] as HistoryRow[] };
+          const { data } = await supabase
+            .from("player_season_history")
+            .select("player_code, total_points, minutes, expected_goals, expected_assists")
+            .eq("season_name", name)
+            .limit(1000);
+          return { latestSeason: name, rows: (data ?? []) as HistoryRow[] };
+        });
+        // Not season-scoped: player_rate_profile is keyed by player_code
+        // off the whole player_season_history table, same as the model's
+        // own recency-weighted rates.
+        const rateProfileP = supabase
+          .from("player_rate_profile")
+          .select("player_code, observed_minutes, dc90, cbit90, cbirt90, xgi90")
+          .limit(1000);
+
         const { data: gw, error: gwError } = await supabase
           .from("gameweeks")
           .select("season, id")
@@ -285,7 +312,7 @@ export default function PlayersPage() {
         setSeason(gw.season as string);
         setNextEvent(gw.id as number);
 
-        const [playersRes, teamsRes, fixturesRes, latestSeasonRes, rateProfileRes, predictionsRes] =
+        const [playersRes, teamsRes, fixturesRes, history, rateProfileRes, predictionsRes, xpRes] =
           await Promise.all([
             supabase
               .from("players")
@@ -308,19 +335,8 @@ export default function PlayersPage() {
               .select("event, team_h, team_a, team_h_difficulty, team_a_difficulty")
               .eq("season", gw.season)
               .gte("event", gw.id),
-            supabase
-              .from("player_season_history")
-              .select("season_name")
-              .order("season_name", { ascending: false })
-              .limit(1)
-              .maybeSingle(),
-            // Not season-scoped — player_rate_profile is keyed by player_code
-            // off the whole player_season_history table, same as the model's
-            // own recency-weighted rates.
-            supabase
-              .from("player_rate_profile")
-              .select("player_code, observed_minutes, dc90, cbit90, cbirt90, xgi90")
-              .limit(1000),
+            historyP,
+            rateProfileP,
             // The model's per-fixture minutes projection for the upcoming
             // gameweek — real per-player evidence, distinct from the status-
             // only availabilityFromStatus fallback this page used before.
@@ -330,22 +346,22 @@ export default function PlayersPage() {
               .eq("season", gw.season)
               .eq("event", gw.id)
               .limit(1000),
+            // Needs only the season, so it joins this wave rather than waiting
+            // for it (Sprint 40).
+            supabase
+              .from("player_xp_horizons")
+              .select(
+                "player_id, xp_1, xp_3, xp_5, xp_8, xp_19, xp_total, xp_1_lower, xp_1_upper, xp_3_lower, xp_3_upper, xp_5_lower, xp_5_upper, xp_8_lower, xp_8_upper, xp_19_lower, xp_19_upper, xp_total_lower, xp_total_upper, xdc_1, xdc_3, xdc_5, xdc_8, xdc_19, xdc_total, first_event, last_event, reliability, prior_weight",
+              )
+              .eq("season", gw.season)
+              .limit(1000),
           ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
         if (teamsRes.error) throw new Error(teamsRes.error.message);
         if (fixturesRes.error) throw new Error(fixturesRes.error.message);
 
-        const latestSeason = latestSeasonRes.data?.season_name as string | undefined;
-        let historyRows: HistoryRow[] = [];
-        if (latestSeason) {
-          const { data } = await supabase
-            .from("player_season_history")
-            .select("player_code, total_points, minutes, expected_goals, expected_assists")
-            .eq("season_name", latestSeason)
-            .limit(1000);
-          historyRows = (data ?? []) as HistoryRow[];
-          setHistorySeason(latestSeason);
-        }
+        const historyRows = history.rows;
+        if (history.latestSeason) setHistorySeason(history.latestSeason);
 
         const shorts = new Map<number, string>(
           (teamsRes.data ?? []).map((t) => [t.id as number, t.short_name as string]),
@@ -374,15 +390,7 @@ export default function PlayersPage() {
         }
         for (const cells of runMap.values()) cells.sort((a, b) => a.gw - b.gw);
 
-        const { data: xpRows } = await supabase
-          .from("player_xp_horizons")
-          .select(
-            "player_id, xp_1, xp_3, xp_5, xp_8, xp_19, xp_total, xp_1_lower, xp_1_upper, xp_3_lower, xp_3_upper, xp_5_lower, xp_5_upper, xp_8_lower, xp_8_upper, xp_19_lower, xp_19_upper, xp_total_lower, xp_total_upper, xdc_1, xdc_3, xdc_5, xdc_8, xdc_19, xdc_total, first_event, last_event, reliability, prior_weight",
-          )
-          .eq("season", gw.season)
-          .limit(1000);
-
-        const xpList = (xpRows ?? []) as XpRow[];
+        const xpList = (xpRes.data ?? []) as XpRow[];
         const rateProfileList = (rateProfileRes.data ?? []) as RateProfileRow[];
         const predictionList = (predictionsRes.data ?? []) as PredictionRow[];
         const playerRows = (playersRes.data ?? []) as PlayerRow[];

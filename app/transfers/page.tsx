@@ -222,6 +222,7 @@ export default function TransfersPage() {
           xpRes,
           fixturesRes,
           chipsRes,
+          seriesRows,
         ] = await Promise.all([
             supabase
               .from("players")
@@ -258,6 +259,16 @@ export default function TransfersPage() {
               .from("chip_definitions")
               .select("name, chip_type, start_event, stop_event")
               .eq("season", gw.season),
+            // `loadPredictionSeries` pages past the API's thousand-row cap
+            // (concurrently, and memoised — see lib/player-pool.ts) and tracks
+            // whatever window generate-predictions last ran without being told
+            // it. Carries the columns /chips and /deadline already fetch —
+            // expected_minutes, start_probability, availability, fdr — so a
+            // chip plan's Bench Boost / Triple Captain bonus can be valued per
+            // event here too. It needs only `gw`, so it runs in this wave
+            // rather than after it (Sprint 40: it used to wait ~1.9 s behind
+            // player_xp_horizons).
+            loadPredictionSeries(gw.season, gw.id),
           ]);
         if (playersRes.error) throw new Error(playersRes.error.message);
         if (teamsRes.error) throw new Error(teamsRes.error.message);
@@ -289,14 +300,6 @@ export default function TransfersPage() {
               : "No wildcard window covers this gameweek",
         });
 
-        // `loadPredictionSeries` pages past the API's thousand-row cap
-        // (concurrently, and memoised — see lib/player-pool.ts) and tracks
-        // whatever window generate-predictions last ran without being told
-        // it, same as the loop it replaces. Carries the columns /chips and
-        // /deadline already fetch — expected_minutes, start_probability,
-        // availability, fdr — so a chip plan's Bench Boost / Triple Captain
-        // bonus can be valued per event here too.
-        const seriesRows = await loadPredictionSeries(gw.season, gw.id);
         const series = new Map<number, XpByEvent>();
         const preds = new Map<number, Map<number, EventPrediction>>();
         for (const r of seriesRows) {
