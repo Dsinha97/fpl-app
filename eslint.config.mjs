@@ -41,6 +41,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Supabase Edge Functions are Deno, not Next.js — linted by `deno lint`.
     "supabase/functions/**",
+    // Gitignored machine-local tooling (graft's hook scripts). CI never sees
+    // it, so linting it locally only made the local gate fail where CI
+    // passed (DSI-77).
+    ".claude/helpers/**",
   ]),
 ]);
 

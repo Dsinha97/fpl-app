@@ -221,10 +221,6 @@ function fmtCountdown(deadline: string): string {
 /** The API caps every response at 1000 rows however big `.limit()` asks — see CLAUDE.md. */
 const PAGE_ROWS = 1000;
 
-// Sprint 23 — same tokens `/deadline` and `/chips` already use, so this page
-// stops repeating `border-zinc-200 bg-white … dark:border-purple-900/40
-// dark:bg-card` inline on every card.
-const card = "rounded-lg border border-zinc-200 bg-card p-4 dark:border-purple-900/40";
 const cardSupporting =
   "rounded-lg border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border";
 const supportingHeading = "text-xs font-medium uppercase tracking-wide text-zinc-500";
@@ -1027,7 +1023,6 @@ export default function TeamPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEvent, data, livePointsTick]);
 
   /** Shared card mapping for both views — the two differ only in the number they carry. */

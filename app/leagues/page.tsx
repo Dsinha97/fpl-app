@@ -60,7 +60,6 @@ export default function LeaguesPage() {
       return;
     }
     const stored = localStorage.getItem("fpl_manager_id");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored) setEntryId(Number(stored));
   }, [authLoading, linkedEntryId, user]);
 
