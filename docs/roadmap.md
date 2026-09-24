@@ -91,8 +91,11 @@ three things for the next pick:
   the price-watch arithmetic must keep one implementation. Proposed as its own issue.
 - **DSI-75 is unblocked**: DSI-55 closed 2026-09-24, with the fork-PR approval setting confirmed
   via `gh api`. The one CLI deploy also lands DSI-59's `verify_jwt` flip.
-- **DSI-73's gate points at a canceled issue** (DSI-53). It needs restating before it can be
-  planned.
+- **DSI-73 split 2026-09-24.** Its gate pointed at the canceled DSI-53. The gradient-boosted
+  minutes model is now **DSI-185**, buildable now against the standing walk-forward gate (per
+  cohort plus start Brier). It is the missing fix for the appeared/no-show failure DSI-178
+  measured. Accuracy claims are **DSI-186**, blocked by DSI-185 and by beating the last-5
+  baseline out-of-sample at the GW10 batch. DSI-50's bias-sign read is not a gate for either.
 
 **Sprint 39 shipped 2026-09-21** — see [sprints/sprint-39.md](sprints/sprint-39.md). Three
 ready-now items with no data or owner-decision gate, scoped from that day's `/linear-sync`
