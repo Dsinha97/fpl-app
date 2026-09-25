@@ -110,3 +110,7 @@ domain root. There is deliberately no `basePath` in `next.config.ts` any more.
 Every schema change is a versioned SQL file in `supabase/migrations/`, applied to the Supabase
 project and committed here. Migrations and function deploys go through the Supabase MCP OAuth
 integration — the database password is never requested, stored, or accepted.
+
+## Licence
+
+Source code is MIT; written content, branding and third-party data are excluded. See [LICENSE](LICENSE).
