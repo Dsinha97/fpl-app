@@ -2,6 +2,7 @@
 
 One line per entry, most recent first.
 
+- 2026-09-26 — Ingested PR #38 (scoped MIT licence) and PR #39 (search indexing), neither of which had reached the wiki. New sprint record `sprints/seo.md` (added to `docs/README.md` and a `roadmap.md` row). **`deployment.md`**: new "Search indexing" section, plus the licence scope under the privacy note. **`frontend-conventions.md`**: new section, "Route metadata lives in a sibling layout". **`timeline.md`**: rows for 2026-09-25 and 2026-09-26. No `docs/linear.md` row, because no Linear issue exists for either PR.
 - 2026-09-24 — Ingested Sprint 39 (the parts the 09-21 entry left out), swipe-to-dismiss, Sprint 40
   and its `latency.md` annotations, the DSI-73 split, and CLAUDE.md's public-repo correction. No new
   pages. **`performance.md`**: new Sprint 40 section (analyzer attribution; `motion` and root-layout
