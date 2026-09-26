@@ -1,7 +1,7 @@
 # Search indexing (SEO): built 2026-09-26
 
 No new sprint number. The owner submitted `fpldecision.com` to Google Search Console and asked
-what else was needed. PR #39.
+what else was needed. PR #39, Linear DSI-203.
 
 ## What was there before
 

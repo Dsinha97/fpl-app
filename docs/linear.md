@@ -111,6 +111,8 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | Fix: Builder player-info panel running off screen | DSI-116 | M8 | — |
 | Fork-PR workflow approval confirmed: `approval_policy: all_external_contributors`, read via `gh api …/actions/permissions/fork-pr-contributor-approval` (2026-09-24) | DSI-55 | M8 | [sprints/sprint-40.md](sprints/sprint-40.md) — closed in passing, not sprint work |
 | 40 Latency — the shared bundle and the read waterfalls (PR [#36](https://github.com/Dsinha97/fpl-app/pull/36), merged 2026-09-24) | DSI-184 (+ DSI-56, DSI-57, DSI-77) | M8 | [sprints/sprint-40.md](sprints/sprint-40.md) |
+| Scoped MIT licence for the public repo (PR [#38](https://github.com/Dsinha97/fpl-app/pull/38), merged 2026-09-25) | DSI-202 | M8 | `LICENSE`; [wiki/deployment.md](wiki/deployment.md#privacy-note) |
+| Search indexing: sitemap, robots.txt, per-route metadata, preview card (PR [#39](https://github.com/Dsinha97/fpl-app/pull/39), merged 2026-09-26) | DSI-203 | M8 | [sprints/seo.md](sprints/seo.md) |
 | Every route's first-load JS down 135–153 KB: `motion` lazy-loaded, engines out of the root layout | DSI-56 | M8 | [sprints/sprint-40.md](sprints/sprint-40.md) §1 |
 | False read dependencies collapsed on `/players`, `/transfers`, `/team` | DSI-57 | M8 | [sprints/sprint-40.md](sprints/sprint-40.md) §2 |
 | Dead lint suppressions removed; lint verdict unambiguous | DSI-77 | M8 | [sprints/sprint-40.md](sprints/sprint-40.md) §4 |
