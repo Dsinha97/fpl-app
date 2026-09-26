@@ -1,0 +1,46 @@
+name: Rebuild portfolio
+
+# The FPL Decision case study on deepayansinha.com shows "Recent updates" synced
+# from docs/wiki/timeline.md — but only at build time, so a timeline change here
+# stayed invisible until the portfolio happened to deploy again. This pokes the
+# portfolio's Cloudflare Workers Builds deploy hook whenever the timeline lands
+# on main, so the panel refreshes within a couple of minutes.
+#
+# PORTFOLIO_DEPLOY_HOOK is the hook URL (Workers & Pages -> deepayansinha-com ->
+# Settings -> Builds -> Deploy Hooks, branch main). The URL is the credential,
+# so it lives only in repository secrets. Push-to-main never runs for fork PRs,
+# so the secret is not exposed to outside contributors.
+
+on:
+  push:
+    branches: [main]
+    paths: [docs/wiki/timeline.md]
+  workflow_dispatch:
+
+# Needs no repository access at all — it only makes one outbound request.
+permissions: {}
+
+concurrency:
+  group: rebuild-portfolio
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: POST the portfolio deploy hook
+        env:
+          HOOK: ${{ secrets.PORTFOLIO_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::error::PORTFOLIO_DEPLOY_HOOK is not set in this repository's secrets"
+            exit 1
+          fi
+          curl -fsS --retry 3 --retry-delay 5 -X POST "$HOOK" -o response.json
+          if [ "$(jq -r '.success' response.json)" != "true" ]; then
+            echo "::error::Deploy hook did not report success"
+            jq '{success, errors}' response.json
+            exit 1
+          fi
+          echo "Portfolio build started: $(jq -r '.result.build_uuid' response.json) on $(jq -r '.result.branch' response.json)"
