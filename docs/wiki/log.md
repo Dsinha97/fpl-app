@@ -2,6 +2,7 @@
 
 One line per entry, most recent first.
 
+- 2026-09-26 — New workflow `.github/workflows/rebuild-portfolio.yml`: a push to `main` that changes `timeline.md` (or a manual run) POSTs the portfolio's Workers Builds deploy hook, stored as the `PORTFOLIO_DEPLOY_HOOK` secret. The portfolio's FPL case study syncs its Recent Updates panel from `timeline.md` at build time only, so the 09-26 ingest's rows stayed invisible until the portfolio next deployed. `permissions: {}`; push-to-main never runs for fork PRs, so the secret is not exposed.
 - 2026-09-26 — Ingested PR #38 (scoped MIT licence) and PR #39 (search indexing), neither of which had reached the wiki. New sprint record `sprints/seo.md` (added to `docs/README.md` and a `roadmap.md` row). **`deployment.md`**: new "Search indexing" section, plus the licence scope under the privacy note. **`frontend-conventions.md`**: new section, "Route metadata lives in a sibling layout". **`timeline.md`**: rows for 2026-09-25 and 2026-09-26. Linear issues created after the fact: DSI-202 (licence) and DSI-203 (SEO), both Done under M8, with rows in `docs/linear.md`.
 - 2026-09-24 — Ingested Sprint 39 (the parts the 09-21 entry left out), swipe-to-dismiss, Sprint 40
   and its `latency.md` annotations, the DSI-73 split, and CLAUDE.md's public-repo correction. No new
