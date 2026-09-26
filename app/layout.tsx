@@ -8,6 +8,7 @@ import { DesktopNav, MobileNav } from "@/components/nav-links";
 import { AccountMenu } from "@/components/account-menu";
 import { ContextBar } from "@/components/context-bar";
 import { THEME_BOOT_SCRIPT } from "@/components/theme";
+import { OG_IMAGE, SITE_NAME, SITE_ROUTES, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,10 +22,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://fpldecision.com"),
-  title: "FPL Decision — Analytics Hub",
-  description:
-    "Fantasy Premier League analytics and decision support: transfers, captaincy, chips, and fixtures.",
+  metadataBase: new URL(SITE_URL),
+  // Routes set their own titles through lib/seo.ts; the template only fills in
+  // for the noindex routes, which pass a bare name. No canonical here — a
+  // child that forgot its own would inherit "/" and ask to be merged into home.
+  title: { default: SITE_ROUTES.home.title, template: `%s | ${SITE_NAME}` },
+  description: SITE_ROUTES.home.description,
+  applicationName: SITE_NAME,
+  openGraph: { type: "website", siteName: SITE_NAME, locale: "en_GB", images: [OG_IMAGE] },
+  twitter: { card: "summary_large_image", images: [OG_IMAGE.url] },
 };
 
 export default function RootLayout({
