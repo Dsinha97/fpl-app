@@ -45,6 +45,29 @@ way to turn it off for a Git-integration Worker — so it stays a live fallback 
 longer linked from any doc, and stays in the Supabase Auth redirect allowlist alongside the new
 domain rather than being removed.
 
+## Search indexing
+
+Built 2026-09-26 ([seo.md](../sprints/seo.md)). One list, `SITE_ROUTES` in `lib/seo.ts`, drives
+both `app/sitemap.ts` and each indexable route's title, description, canonical and preview tags,
+so the sitemap and the tags can't disagree. Every page is a client component, so each route's
+metadata sits in a sibling `layout.tsx` (see
+[frontend-conventions.md](frontend-conventions.md#route-metadata-lives-in-a-sibling-layout)).
+Personal, auth and redirect-stub routes are `noindex, follow`.
+
+Three things are easy to get wrong here:
+
+- **Never put a canonical in the root layout.** Children inherit it, so any route that forgot its
+  own would ask Google to merge it into the home page. Home gets its canonical from a server
+  `app/page.tsx` wrapping `home-client.tsx`.
+- **The `opengraph-image` file convention exports without a `.png` extension** under
+  `output: "export"`, and a route that sets its own `openGraph` object drops an inherited image.
+  The preview card is a plain `public/og-image.png`, referenced explicitly.
+- **Cloudflare's "Bot Preference Sync"** (AI bot policies) prepends Cloudflare's rules to
+  `robots.txt`. It's off, and the live file matches the built one.
+
+Outside the repo: the sitemap is submitted in Google Search Console and imported into Bing
+Webmaster Tools, and Cloudflare Crawler Hints (IndexNow) is on.
+
 ## What static export means for the codebase
 
 No server components fetching at request time, no route handlers, no `next/image` optimisation.
@@ -65,6 +88,11 @@ Workers URL are open to anyone holding them, and Postgres RLS (see
 [database-and-rls.md](database-and-rls.md)) is the only real access boundary. Gating with
 Cloudflare Access is a recorded, not-yet-built follow-up — if enabled, preview deployments need
 gating too, since they get their own public URLs.
+
+Public also means licensed (2026-09-25, `LICENSE`): the source code is MIT, but `docs/`, README
+prose and the FPL Decision name, logo and icons are all rights reserved. FPL/Premier League data
+and imagery, and FootyStats-derived data, are excluded because they aren't the project's to
+license.
 
 ## CI/hosting housekeeping worth knowing about
 

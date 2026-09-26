@@ -115,6 +115,8 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | False read dependencies collapsed on `/players`, `/transfers`, `/team` | DSI-57 | M8 | [sprints/sprint-40.md](sprints/sprint-40.md) §2 |
 | Dead lint suppressions removed; lint verdict unambiguous | DSI-77 | M8 | [sprints/sprint-40.md](sprints/sprint-40.md) §4 |
 | Fix: `notify`'s price-proximity alert read the oldest 1,000 of 4,284 ownership rows (deployed as v7) | — (found in flight, same PR) | M8 | [sprints/sprint-40.md](sprints/sprint-40.md) §3a |
+| Scoped MIT licence for the public repo (PR [#38](https://github.com/Dsinha97/fpl-app/pull/38), merged 2026-09-25) | DSI-202 | M8 | `LICENSE`; [wiki/deployment.md](wiki/deployment.md#privacy-note) |
+| Search indexing: sitemap, robots.txt, per-route metadata, preview card (PR [#39](https://github.com/Dsinha97/fpl-app/pull/39), merged 2026-09-26) | DSI-203 | M8 | [sprints/seo.md](sprints/seo.md) |
 
 ## Open
 

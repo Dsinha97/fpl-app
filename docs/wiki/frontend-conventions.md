@@ -352,3 +352,12 @@ includes its full-screen backdrop. That only happens in a hidden tab, and the ex
 as it's visible again. But it means "is the dialog gone" can't be asserted from a hidden preview
 pane. — [swipe-to-dismiss.md](../sprints/swipe-to-dismiss.md), [sprint-40.md](../sprints/sprint-40.md)
 §Verification
+
+## Route metadata lives in a sibling layout
+
+Every route's `page.tsx` is a client component, and a client component can't export `metadata`.
+Since 2026-09-26 each route has a small `layout.tsx` that exports it through `routeMetadata()` or
+`noindexMetadata()` from `lib/seo.ts` and returns `children` unchanged. A new public route needs
+an entry in `SITE_ROUTES` plus that layout, or it ships with the root layout's default title and
+no canonical. See [deployment.md](deployment.md#search-indexing) and
+[seo.md](../sprints/seo.md).
