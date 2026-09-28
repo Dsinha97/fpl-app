@@ -16,6 +16,7 @@ runbook before assuming the behaviour it describes is live).
 | [architecture.md](architecture.md) | live | Data flow, schema, Edge Functions, routes table, `lib/` module map. |
 | [phase-4-model.md](phase-4-model.md) | live | The xP model's method, calibration and backtest. |
 | [linear.md](linear.md) | live | **Linear ↔ docs.** The issue-to-doc mapping for the `FPL-App` Linear project, which owns what is planned and what its status is. Start there for "what's the next thing to pick up". |
+| [linear-archive/](linear-archive/fpl-app.md) | record | **Full-text export of every FPL-App Linear issue** (descriptions, comments, dates), taken by `scripts/linear-archive.ts` before closed issues are archived. `linear.md` stays the mapping; this is the record. |
 | [wiki/index.md](wiki/index.md) | live | **Topic map.** One page per engine/feature/platform concern, cross-linked and source-attributed — organised by *what*, not *when*. Start here for "how does X work" or "why is X blocked". |
 
 ## Sprint history

@@ -200,6 +200,14 @@ description disagree, the comment wins — now a standing step in
 `.claude/skills/start-sprint/SKILL.md`. See
 [notifications-and-bot.md](notifications-and-bot.md#why-a-two-way-bot-and-how-that-requirement-was-nearly-missed).
 
+Closed issues are **archived, not deleted**, to stay under Linear's free-plan cap of 250
+non-archived issues — 182 went on 2026-09-28, leaving 47 open. Because the comment thread is where
+requirements like DSI-65's live, `scripts/linear-archive.ts` exports every issue's description
+**and comments** before it archives anything; the FPL-App record is
+[linear-archive/fpl-app.md](../linear-archive/fpl-app.md). Archived issues keep their URLs, and
+`/linear-sync` lists with `includeArchived` so they aren't read as drift. See
+[linear.md](../linear.md) "How to keep it true".
+
 ## Read the line that says what you asked for
 
 `npm run lint`'s **last** line counts problems that are *fixable with `--fix`*, not errors. Reading

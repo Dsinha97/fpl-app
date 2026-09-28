@@ -115,5 +115,10 @@ supabase/.temp/
 /References/
 /Screens/
 
+# Linear issues outside the FPL-App project, exported by scripts/linear-archive.ts
+# before archiving. The FPL-App record is committed under docs/linear-archive/;
+# other teams' issues aren't this public repo's to publish.
+/linear-export/
+
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
