@@ -23,7 +23,7 @@ Optionally `get_project` with `includeMilestones: true` when milestone dates mat
 
 ## 2. Compare against the repo
 
-- `docs/linear.md` — the Shipped and Open tables. Every issue should appear in exactly one.
+- `docs/linear.md` — the Shipped, Canceled and Open tables. Every issue should appear in exactly one.
 - `docs/roadmap.md` — the sprint index, "Next up" and "Blocked, with reasons".
 
 ## 3. Report drift, in both directions

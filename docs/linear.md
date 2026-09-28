@@ -82,7 +82,7 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | M9 B Pick-one controls on SegmentedControl | DSI-138 | M9 | [sprints/m9.md](sprints/m9.md) |
 | M9 C1 Per-screen visual work | DSI-136 | M9 | [sprints/m9.md](sprints/m9.md) |
 | M9 C2 Feature-shaped audit items | DSI-137 | M9 | [sprints/m9.md](sprints/m9.md) |
-| Design audit, per screen | DSI-118 … DSI-129 | M9 | [sprints/m9.md](sprints/m9.md) |
+| Design audit, per screen | DSI-118 … DSI-130 | M9 | [sprints/m9.md](sprints/m9.md) |
 | draft_snapshots sync hits a missing UPDATE policy | DSI-139 | M9 | [sprints/m9.md](sprints/m9.md) — both halves, the surface closed by DSI-141 |
 | Long methodology explainers render inline | DSI-140 | M9 | [sprints/m9.md](sprints/m9.md) |
 | Mobile defects found testing M9, and M9's two parked items | DSI-141 | M9 | [sprints/m9.md](sprints/m9.md) |
@@ -118,6 +118,15 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | Scoped MIT licence for the public repo (PR [#38](https://github.com/Dsinha97/fpl-app/pull/38), merged 2026-09-25) | DSI-202 | M8 | `LICENSE`; [wiki/deployment.md](wiki/deployment.md#privacy-note) |
 | Search indexing: sitemap, robots.txt, per-route metadata, preview card (PR [#39](https://github.com/Dsinha97/fpl-app/pull/39), merged 2026-09-26) | DSI-203 | M8 | [sprints/seo.md](sprints/seo.md) |
 
+## Canceled
+
+Closed without being built. The reason stays with the row, since the issue itself is archived.
+
+| Issue | Item | Milestone | Why |
+|---|---|---|---|
+| DSI-53 | ~~Refit `positionCalibration`~~ — **Canceled in Linear** (2026-09-21): its precondition is answered, and the answer is "don't" | M7 | DSI-50's sign held but the magnitude collapsed to −0.084 (≈1.8 SE from zero), and the residuals are a −0.714 non-appearance cohort cancelling a +0.627 appearance cohort — which a multiplicative points scale cannot separate. Rescoped to **expected-minutes** calibration (and GKP separately, −0.352), tracked as [DSI-178](https://linear.app/dsinha-org/issue/DSI-178), rather than running as originally scoped. See [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §2 |
+| DSI-68 | ~~Blocked — cold-start phase 2 remainder~~ **Canceled in Linear** (2026-09-14) | M8 | 66 overseas/academy players and `dc90` have no fittable source — closed rather than left pending, since no source is expected to appear |
+
 ## Open
 
 | Issue | Item | Milestone | Gate / blocker |
@@ -125,7 +134,6 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | DSI-50 | GW5 check-in — bias *sign* at n=4. **Re-read 2026-09-21 at locked data; unchanged. In Progress** | M6 | Gate met and read twice. GW5's bonus confirmed and moved nothing — the figures are identical to 2026-09-20 (pooled −0.080, SE 0.044, t=−1.82). Held open for a fifth read at **GW6, 2026-10-10** (three-week international break first). See [sprints/sprint-38.md](sprints/sprint-38.md) §1 |
 | DSI-51 | Re-run the current-season blend sweep | M7 | GW10 scored. `scope=all` and `scope=minutes` each clear 2 of 4 seasons today |
 | DSI-52 | Derived FDR vs **official** FDR | M7 | GW10 scored. Sprint 35 measured vs *neutral* only; n=471 at GW3 was far too thin |
-| DSI-53 | ~~Refit `positionCalibration`~~ — **Canceled in Linear** (2026-09-21): its precondition is answered, and the answer is "don't" | M7 | DSI-50's sign held but the magnitude collapsed to −0.084 (≈1.8 SE from zero), and the residuals are a −0.714 non-appearance cohort cancelling a +0.627 appearance cohort — which a multiplicative points scale cannot separate. Rescoped to **expected-minutes** calibration (and GKP separately, −0.352), tracked as [DSI-178](https://linear.app/dsinha-org/issue/DSI-178), rather than running as originally scoped. See [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §2 |
 | DSI-54 | Price-change prediction step 3 — **falls half run 2026-09-21; gate FAILS. Ship the heuristic** | M7 | Walk-forward over 36 nights: no budget shows a significant win (best p=0.18 at K=40). An earlier run of the same gate appeared to pass at K=10/K=20 — that was a broken feature (gameweek-reset differencing) handicapping the baseline, which shares the same input. Corrected, the baseline gains far more than the model. Nothing wired in; `priceProgress` remains the reading. Re-run once more history accumulates **and** the ownership-scaled threshold (sprint-38 §2b) is settled. See [sprints/sprint-38.md](sprints/sprint-38.md) §3 |
 | DSI-187 | Latency — the price-watch scan downloads the whole ownership-history table on every `/players` or `/transfers` visit | M8 | None to *start*; the design is open (three candidate shapes in the issue). Gate: identical per-player readings before and after, plus signed-in settle time and request count. The price-watch arithmetic must keep one implementation. Found by Sprint 40; see [sprints/sprint-40.md](sprints/sprint-40.md) §3 |
 | DSI-59 | Sprint 32 leftovers — **two of three settled, now In Review** (2026-09-14) | M8 | Residue only: the `verify_jwt` flip is prepped in `config.toml` but **not deployed** (it was bundled with DSI-55, which closed 2026-09-24, so it's now waiting only on DSI-75's deploy), and the 429's HTTP render is unproven. `scratch-path-test` deleted; the 429's counting half proved |
@@ -136,7 +144,6 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | DSI-185 | Expected-minutes model: fix the appeared/no-show discrimination failure (gradient-boosted minutes/injury) | M8 | **Buildable now**, and faces the standing gate: walk-forward vs the last-5 baseline, judged per cohort (`byAppearance`, `gkpByAppearance`) plus `startBrier`, not just pooled. The DSI-178 follow-up. Current-season scoring waits for GW6 (2026-10-10); a meaningful read comes at the GW10 batch |
 | DSI-186 | Accuracy claims, only once the model beats the last-5 baseline out-of-sample | M8 | Blocked by DSI-185 (shipped, or reported null). Must then beat the last-5 baseline on 2026-27 on MAE **and** r, pooled **and** per cohort, no earlier than the GW10 batch (~2026-11-09). **DSI-50's bias-sign read is explicitly not a gate:** the pooled bias is ~0 because the cohorts cancel. See [sprints/sprint-17a.md](sprints/sprint-17a.md), [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §2 |
 | DSI-67 | Blocked — `TeamAttackStrength` | M8 | `strength_*` is 0 for all 20 clubs in-season too (checked 2026-09-02) |
-| DSI-68 | ~~Blocked — cold-start phase 2 remainder~~ **Canceled in Linear** (2026-09-14) | M8 | 66 overseas/academy players and `dc90` have no fittable source — closed rather than left pending, since no source is expected to appear |
 | DSI-69 | Blocked — new-manager discount | M8 | `pl_managers` has no tenure/start-date field |
 | DSI-70 | Blocked — Sprint 12.5 phases 3–6 | M8 | Manager-side thresholds are transcribed opinion, not measured data |
 | DSI-71 | Blocked — manager behavioural history | M8 | The FPL API exposes none for past seasons |

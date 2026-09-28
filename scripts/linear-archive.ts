@@ -118,7 +118,8 @@ async function fetchAllIssues(): Promise<Issue[]> {
 
 const num = (i: Issue) => Number(i.identifier.split("-")[1]);
 const day = (s: string | null) => (s ? s.slice(0, 10) : "—");
-const cell = (s: string) => s.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+// Backslashes first, or an input ending in `\` would escape the `\|` added after it.
+const cell = (s: string) => s.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 
 function renderMarkdown(title: string, issues: Issue[], exportedAt: string): string {
   const groups: [string, Issue[]][] = [
