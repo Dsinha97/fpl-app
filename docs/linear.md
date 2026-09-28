@@ -158,5 +158,10 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
   entry in `roadmap.md`.
 - **An issue with no row here, and a doc item with no issue, are both drift.** `/linear-sync`
   reports both directions; it does not silently fix either.
+- **Closed issues get archived, not deleted.** The free plan caps the workspace at 250
+  non-archived issues. `npx tsx scripts/linear-archive.ts archive --dry-run` exports every issue
+  first — the FPL-App full text (descriptions and comments) lands in
+  [linear-archive/](linear-archive/fpl-app.md) — then lists what `--apply` would archive.
+  Archived issues keep their URLs, so the links in the tables above still resolve.
 - **Don't copy a gate into Linear.** Link the doc that states it — the gate has exactly one home,
   and it isn't here.
