@@ -1,7 +1,6 @@
 # Sprint 42 — Mobile redesign: Deadline, Transfers, Fixtures, Builder
 
-**Built 2026-10-08** on `feat/sprint-42-mobile`, stacked on Sprint 41 (`feat/sprint-41-mobile`,
-PR #43). It rebases onto `main` once #43 merges. This is the follow-on that
+**Built 2026-10-08**, based on `main` after Sprint 41 (PR #43) merged. This is the follow-on that
 [sprint-41.md](sprint-41.md) scoped out: the same primitives, applied to the four routes it left
 on the old layout. The Linear Todo column was empty. The parent issue is still to be created, and
 needs the owner's sign-off first (see "Linear" below).
