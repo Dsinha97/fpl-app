@@ -5,6 +5,10 @@ The full three-tab player card (`components/player-modal.tsx`) and the owner-sco
 
 ## Two surfaces, one deliberately shallow
 
+> **2026-10-08 (Sprint 42):** the Overview's `StatCell`s are no longer boxed tiles. Each sits
+> under a hairline, so the profile sheet doesn't contain a grid of cards, and its 10px labels are
+> now 11px ([sprints/sprint-42.md](../sprints/sprint-42.md)).
+>
 > **2026-10-08 (Sprint 41):** on a phone the popover is a bottom sheet modelled on the official
 > app's. It shows:
 > - xP as a corner `HeroStat`;
