@@ -23,15 +23,44 @@ function systemPrefersDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
+/**
+ * Sprint 41 — the browser chrome / iOS status bar colour. It must match the
+ * header (`bg-white` / `dark:bg-card`), not the brand accent, or the bar and
+ * the header read as two different surfaces. One `<meta>` whose content
+ * follows `.dark`, rather than a pair keyed on `prefers-color-scheme`, because
+ * an explicit Light/Dark choice here overrides the OS.
+ */
+export const THEME_COLOR_LIGHT = "#ffffff";
+export const THEME_COLOR_DARK = "#1e0234";
+
 function applyMode(mode: ThemeMode) {
   const dark = mode === "dark" || (mode === "system" && systemPrefersDark());
   document.documentElement.classList.toggle("dark", dark);
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute("content", dark ? THEME_COLOR_DARK : THEME_COLOR_LIGHT);
 }
 
-/** Script string for the layout: sets .dark before paint. Keep in sync with applyMode. */
-export const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem(${JSON.stringify(
-  STORAGE_KEY,
-)});var d=t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d)}catch(e){}})()`;
+/**
+ * Script string for the layout: sets .dark (and theme-color) before paint.
+ * Keep in sync with applyMode, STORAGE_KEY and the THEME_COLOR_* constants.
+ *
+ * A fully literal string, no interpolation: CodeQL flags any value spliced
+ * into code that's later run (js/bad-code-sanitization), even a constant, and
+ * a script with nothing spliced in has nothing to sanitise. The assertion
+ * below keeps the literals honest at module load.
+ */
+export const THEME_BOOT_SCRIPT =
+  '(function(){try{var t=localStorage.getItem("theme");var d=t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);var m=document.querySelector(\'meta[name="theme-color"]\');if(m)m.setAttribute("content",d?"#1e0234":"#ffffff")}catch(e){}})()';
+
+if (
+  process.env.NODE_ENV !== "production" &&
+  ![`"${STORAGE_KEY}"`, `"${THEME_COLOR_DARK}"`, `"${THEME_COLOR_LIGHT}"`].every((s) =>
+    THEME_BOOT_SCRIPT.includes(s),
+  )
+) {
+  throw new Error("THEME_BOOT_SCRIPT is out of sync with STORAGE_KEY / THEME_COLOR_*");
+}
 
 export const THEME_LABEL: Record<ThemeMode, string> = {
   system: "System",

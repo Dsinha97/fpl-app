@@ -6,6 +6,8 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { SlideOver } from "@/components/ui/slide-over";
 import { useMinWidth, SM } from "@/components/ui/use-viewport";
 import { PlayerIdentityHeader, POSITION_NAME } from "@/components/player-identity";
+import { HeroStat } from "@/components/ui/stat-strip";
+import { useHideBottomTabs } from "@/components/bottom-tabs";
 import type { PlayerData } from "@/components/player-card";
 import type { PositionRanks } from "@/lib/player-ranks";
 import type { PriceProgress } from "@/lib/price-watch";
@@ -79,7 +81,11 @@ export function PlayerModal(props: PlayerModalProps) {
 
   const label = `${player.web_name} — full profile`;
 
-  const body = <ProfileBody {...props} tab={tab} setTab={setTab} />;
+  // Sprint 41 — a full-screen task: the general navigation steps aside so the
+  // bottom edge belongs to this player's actions.
+  useHideBottomTabs(!isDesktop);
+
+  const body = <ProfileBody {...props} tab={tab} setTab={setTab} actionsAtBottom={!isDesktop} />;
 
   // Below `sm` this is a different surface, not the same one restyled: a
   // full-height sheet rising from the thumb zone rather than a centred box
@@ -203,7 +209,13 @@ function ProfileBody({
   onFindReplacement,
   tab,
   setTab,
-}: PlayerModalProps & { tab: ProfileTab; setTab: (t: ProfileTab) => void }) {
+  actionsAtBottom = false,
+}: PlayerModalProps & {
+  tab: ProfileTab;
+  setTab: (t: ProfileTab) => void;
+  /** Phone: the actions sit in a bar along the bottom edge, in the thumb zone, instead of under the header. */
+  actionsAtBottom?: boolean;
+}) {
   const positionShort = POSITION_NAME[player.element_type] ?? "—";
 
   // The shortlist is owned here rather than passed in, so the control behaves
@@ -260,28 +272,8 @@ function ProfileBody({
 
   const hasSquadActions = Boolean(onSetCaptain || onSetVice || onRemove || onFindReplacement);
 
-  return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {/* Header — sticky so the player's name stays visible while scrolling */}
-      <div className="flex min-w-0 items-start gap-2 border-b border-zinc-200 px-4 py-3 dark:border-purple-900/60">
-        <PlayerIdentityHeader player={player} size={56} className="flex-1" />
-        <Button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          variant="ghost"
-          size="icon-sm"
-          // 44px is the minimum comfortable touch target; the glyph is
-          // smaller than its hit area on purpose.
-          className="-mr-1 shrink-0 [touch-action:manipulation] [user-select:none]"
-        >
-          ×
-        </Button>
-      </div>
-
-      {/* Actions */}
-      {(primary || secondaryCompare || hasSquadActions || code !== null) && (
-        <div className="flex min-w-0 flex-col gap-2 border-b border-zinc-200 px-4 py-3 dark:border-purple-900/60">
+  const actions = (primary || secondaryCompare || hasSquadActions || code !== null) && (
+        <div className={`flex min-w-0 flex-col gap-2 ${actionsAtBottom ? "border-t" : "border-b"} border-zinc-200 px-4 py-3 dark:border-purple-900/60`}>
           {primary && (
             <Button
               type="button"
@@ -351,7 +343,45 @@ function ProfileBody({
             </div>
           )}
         </div>
-      )}
+      );
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {/* Header — sticky so the player's name stays visible while scrolling */}
+      <div className="flex min-w-0 items-start gap-2 border-b border-zinc-200 px-4 py-3 dark:border-purple-900/60">
+        <PlayerIdentityHeader player={player} size={56} className="min-w-0 flex-1" />
+        {/* The headline number, pinned to the header's right corner — the
+            same place on the pitch sheet and here, so it is never hunted for
+            among the stat tiles below (Sprint 41). */}
+        <HeroStat
+          label={player.value_note ? "Points" : "xP"}
+          title={player.value_note ?? "Expected points (xP)"}
+          value={
+            player.expected_points !== undefined && player.expected_points !== null
+              ? player.expected_points.toFixed(player.value_decimals ?? 1)
+              : "—"
+          }
+          caption={
+            <span className="text-sm font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">
+              £{(player.now_cost / 10).toFixed(1)}m
+            </span>
+          }
+        />
+        <Button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          variant="ghost"
+          size="icon-sm"
+          // 44px is the minimum comfortable touch target; the glyph is
+          // smaller than its hit area on purpose.
+          className="-mr-1 shrink-0 [touch-action:manipulation] [user-select:none]"
+        >
+          ×
+        </Button>
+      </div>
+
+      {!actionsAtBottom && actions}
 
       {/* Tabs */}
       <div className="min-w-0 border-b border-zinc-200 px-4 py-2 dark:border-purple-900/60">
@@ -398,6 +428,8 @@ function ProfileBody({
         )}
         {tab === "history" && <HistoryTab player={player} />}
       </div>
+
+      {actionsAtBottom && actions}
     </div>
   );
 }

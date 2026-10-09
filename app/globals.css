@@ -285,6 +285,45 @@
   }
   html {
     @apply font-sans;
+    /* Sprint 41 (mobile-native baseline). The grey tap flash is the loudest
+       "this is a website" tell, and every control already has its own
+       :active / focus-visible state to replace it. text-size-adjust stops
+       iOS inflating text in landscape. */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  /* Fires click on touch-up without waiting to rule out a double-tap zoom. */
+  a,
+  button,
+  summary,
+  label,
+  [role="button"],
+  [role="tab"] {
+    touch-action: manipulation;
+  }
+  /* Controls, not content: a long press on a button or tab should not select
+     its label. Links stay selectable — people copy them. */
+  button,
+  [role="button"],
+  [role="tab"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+/*
+ * iOS zooms the page into any focused field under 16px and never zooms back
+ * out. Unlayered on purpose: inputs carry `text-sm` utilities, and utilities
+ * beat anything in @layer base. Gated on a coarse pointer so desktop keeps
+ * its denser 14px fields. Never fixed with maximum-scale — that disables
+ * pinch-zoom for everyone.
+ */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
   }
 }
 /* Drift for the landing hero's line field (components/ui/background-paths).

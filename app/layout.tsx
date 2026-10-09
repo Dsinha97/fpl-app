@@ -1,13 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/auth-provider";
 import { DraftSyncProvider } from "@/components/draft-sync-provider";
 import { Monogram, Wordmark } from "@/components/brand";
-import { DesktopNav, MobileNav } from "@/components/nav-links";
+import { DesktopNav } from "@/components/nav-links";
 import { AccountMenu } from "@/components/account-menu";
 import { ContextBar } from "@/components/context-bar";
-import { THEME_BOOT_SCRIPT } from "@/components/theme";
+import { BottomTabs } from "@/components/bottom-tabs";
+import { THEME_BOOT_SCRIPT, THEME_COLOR_DARK } from "@/components/theme";
 import { OG_IMAGE, SITE_NAME, SITE_ROUTES, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
@@ -33,6 +34,23 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", images: [OG_IMAGE.url] },
 };
 
+/*
+ * Sprint 41 — `viewport-fit=cover` is what makes every `env(safe-area-inset-*)`
+ * in the app (the header, the bottom tab bar, SlideOver's bottom sheet) a real
+ * value on iOS; without it they are all 0px and the home indicator sits on
+ * top of the tab bar. `resizes-content` makes Android's keyboard shrink the
+ * layout viewport the way iOS already does, so bottom-pinned UI moves with it.
+ * No `themeColor` here: the theme is class-based, so the tag is rendered below
+ * and kept in step with `.dark` by THEME_BOOT_SCRIPT / applyMode instead of by
+ * the OS media query Next would emit.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -45,6 +63,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        <meta name="theme-color" content={THEME_COLOR_DARK} />
         {/*
          * Applies the stored (or system) theme before first paint. Without
          * this a dark-mode user sees a white flash on every navigation, since
@@ -55,14 +74,8 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           <DraftSyncProvider />
-          <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
+          <header className="sticky top-0 z-40 border-b pt-[env(safe-area-inset-top)] border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
             <nav className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4 sm:gap-6">
-              {/* MobileNav renders first so its trigger is leftmost below
-                  `lg` — reachable without reaching across the wordmark from
-                  either hand. It's `lg:hidden` internally, so at desktop
-                  widths it contributes nothing and this has no effect on the
-                  logo/nav/account order below. */}
-              <MobileNav />
               <Link href="/" className="flex shrink-0 items-center gap-2.5">
                 <Monogram size={30} />
                 <Wordmark />
@@ -74,7 +87,12 @@ export default function RootLayout({
             </nav>
             <ContextBar />
           </header>
-          <div className="flex flex-1 flex-col">{children}</div>
+          {/* Below `lg` the bottom tab bar is fixed over the page's last
+              4rem; the padding keeps the final row of content above it. */}
+          <div className="flex flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
+            {children}
+          </div>
+          <BottomTabs />
         </AuthProvider>
       </body>
     </html>

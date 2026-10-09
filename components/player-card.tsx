@@ -2,10 +2,9 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { FDRBadge } from "./fdr-badge";
 import { StatusBadge } from "./player-status-icons";
 import { Skeleton } from "./ui/skeleton";
-import { asRating, venueRing } from "@/lib/fdr";
+import { fdrClasses, fdrLabel, venueRing } from "@/lib/fdr";
 
 export interface UpcomingFixture {
   event: number;
@@ -248,21 +247,21 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
       </span>
 
       {/* Name */}
-      {/* xP used to be smaller than the name it sits under (9px vs 10px) on
-          the one screen that exists to show it — inverted within the same
-          64-80px budget rather than growing the card (Sprint 19, Stage 4b). */}
-      <span className="w-full rounded-t-md border border-purple-700/80 bg-purple-950/90 px-1 py-0.5 text-center shadow-md backdrop-blur-sm">
-        <span className="block truncate text-[9px] font-semibold text-white">{player.web_name}</span>
+      {/* Sprint 41 — 11px at every width. The name was 9px and the fixture
+          7–8px: unreadable on the phone this view is mostly used on. The
+          64px card has the room once each fact gets its own full-width row
+          (name, number, fixture — the official app's stack) instead of
+          sharing one row and splitting it in half. */}
+      <span className="w-full rounded-t-md border border-purple-700/80 bg-purple-950/90 px-0.5 py-0.5 text-center shadow-md backdrop-blur-sm">
+        <span className="block truncate text-[11px] font-semibold leading-tight text-white">{player.web_name}</span>
       </span>
 
-      {/* xP + next fixture. Always xP, never price — mixing the two units in
-          one column made a no-projection player look like a cheap one.
-          With no next fixture to show alongside it (e.g. a live gameweek's
-          score on /team), the number is the only thing in this row — center
-          it and size it up rather than leaving it stranded on the left. */}
+      {/* xP (or the gameweek's points). Always xP, never price — mixing the
+          two units in one column made a no-projection player look like a
+          cheap one. */}
       <span
-        className={`flex w-full items-center rounded-b-md border-x border-b border-purple-700/80 bg-purple-900/90 px-1 py-0.5 text-purple-200 shadow-md dark:bg-slate-900/95 ${
-          player.next_fixture ? "justify-between py-0.5 text-[9px]" : "justify-center py-1"
+        className={`flex w-full items-center justify-center border-x border-purple-700/80 bg-purple-900/90 px-0.5 py-0.5 text-purple-200 shadow-md dark:bg-slate-900/95 ${
+          player.next_fixture ? "" : "rounded-b-md border-b py-1"
         }`}
       >
         {player.value_loading ? (
@@ -272,50 +271,40 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
             title="Expected points still being calculated"
             className="inline-flex"
           >
-            <Skeleton className={player.next_fixture ? "h-2.5 w-4" : "h-4 w-6"} />
+            <Skeleton className="h-3.5 w-6" />
           </span>
         ) : hasXp ? (
           <span
-            className={`inline-flex items-baseline gap-px font-bold text-emerald-400 ${player.next_fixture ? "text-[10px]" : "text-base"}`}
+            className={`inline-flex items-baseline gap-px font-bold text-emerald-400 ${player.next_fixture ? "text-xs" : "text-base"}`}
             title={player.value_note ?? "Expected points (xP) over the selected horizon"}
           >
             {player.expected_points!.toFixed(player.value_decimals ?? 1)}
-            <span
-              aria-hidden
-              className={`font-normal text-emerald-400/70 ${player.next_fixture ? "text-[7px]" : "text-[9px]"}`}
-            >
+            <span aria-hidden className="text-[10px] font-normal text-emerald-400/70">
               {player.value_unit ?? "xP"}
             </span>
           </span>
         ) : (
           <span
-            className={`font-bold text-purple-400 ${player.next_fixture ? "text-[10px]" : "text-base"}`}
+            className={`font-bold text-purple-400 ${player.next_fixture ? "text-xs" : "text-base"}`}
             title={player.value_note ?? "No xP projection — not enough prior-season minutes to model"}
           >
             —
           </span>
         )}
-        {player.next_fixture && (
-          <FDRBadge
-            rating={asRating(player.next_fixture.fdr)}
-            /* venueRing(), not a second green/red pair defined here. The
-               matrix moved off hue for venue because red-green is the one axis
-               colour blindness destroys; this card kept its own copy and so
-               kept the defect (CLAUDE.md: one quantity, one implementation). */
-            className={`px-1 py-0 text-[8px] font-bold ${venueRing(player.next_fixture.is_home)}`}
-          >
-            {player.next_fixture.opponent_short_name}
-            {/* Home/away as text only from sm up — below that this single span,
-                shown or hidden as a whole, is the only way to keep the venue
-                ring (kept at every width) from also needing wrappable text. A
-                bare " (H)" text node next to the opponent code is a legal
-                line-break point inside this 64px card. */}
-            <span className="hidden sm:inline">
-              {player.next_fixture.is_home ? " (H)" : " (A)"}
-            </span>
-          </FDRBadge>
-        )}
       </span>
+      {player.next_fixture && (
+        /* The fixture is its own full-width row in its difficulty colour.
+           Venue is spelled out as (H)/(A) at every width — there's room now —
+           and still carries venueRing(), not a second green/red pair defined
+           here: red-green is the one axis colour blindness destroys
+           (CLAUDE.md: one quantity, one implementation). */
+        <span
+          title={`${player.next_fixture.opponent_short_name} (${player.next_fixture.is_home ? "home" : "away"}) — ${fdrLabel(player.next_fixture.fdr)}`}
+          className={`block w-full truncate rounded-b-md px-0.5 py-0.5 text-center text-[10px] font-bold leading-tight shadow-md ${fdrClasses(player.next_fixture.fdr)} ${venueRing(player.next_fixture.is_home)}`}
+        >
+          {player.next_fixture.opponent_short_name} ({player.next_fixture.is_home ? "H" : "A"})
+        </span>
+      )}
     </button>
   );
 }

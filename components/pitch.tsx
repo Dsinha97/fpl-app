@@ -7,7 +7,13 @@ import React from "react";
  */
 export const InteractivePitch = ({ children }: { children?: React.ReactNode }) => {
   return (
-    <div className="relative mx-auto w-full max-h-[70vh] aspect-[7/10] overflow-hidden rounded-2xl border-2 border-purple-800/80 shadow-2xl transition-colors sm:aspect-[4/3] dark:border-purple-600/60">
+    // Sprint 41 — the clipping lives on the artwork layer, not on the pitch
+    // itself. An `overflow-hidden` box ignores its own content for the
+    // aspect-ratio minimum, so once the cards grew a fixture row the
+    // forwards were cut off below a pitch that refused to get taller. With
+    // overflow visible the aspect ratio is a floor, not a cap.
+    <div className="relative mx-auto flex w-full aspect-[7/10] flex-col rounded-2xl border-2 border-purple-800/80 shadow-2xl transition-colors sm:aspect-[4/3] sm:max-h-[70vh] dark:border-purple-600/60">
+      <div aria-hidden="true" className="absolute inset-0 overflow-hidden rounded-[14px]">
       {/* Green pitch background */}
       <div className="absolute inset-0 bg-pitch-turf transition-colors " />
 
@@ -47,9 +53,10 @@ export const InteractivePitch = ({ children }: { children?: React.ReactNode }) =
 
       {/* Vignette */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_60%,rgba(59,7,100,0.4)_100%)] dark:bg-[radial-gradient(ellipse_at_center,transparent_50%,rgba(19,6,36,0.6)_100%)]" />
+      </div>
 
       {/* Player rows */}
-      <div className="relative z-10 flex h-full w-full flex-col justify-between p-2 sm:p-4">
+      <div className="relative z-10 flex w-full flex-1 flex-col justify-between gap-2 p-2 sm:p-4">
         {children}
       </div>
     </div>

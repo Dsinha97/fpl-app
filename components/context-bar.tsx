@@ -131,8 +131,11 @@ export function ContextBar() {
           </Link>
         )}
 
+        {/* Sprint 41 — hidden below `sm` so the bar stays one line on a
+            phone; Bank and FT are what a transfer decision needs, Value is
+            not. A wrapped second line made the sticky header taller. */}
         {hasSquad && squadValue !== null && (
-          <span className="flex items-center gap-1">
+          <span className="hidden items-center gap-1 sm:flex">
             Value
             <span className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
               £{(squadValue / 10).toFixed(1)}m

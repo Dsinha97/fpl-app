@@ -219,6 +219,11 @@ here don't need a `.catch`. — [sprint-40.md](../sprints/sprint-40.md) §2
 
 ## `NavLinks` split into `DesktopNav`/`MobileNav` (2026-08-22, drawer header 2026-09-13)
 
+> **2026-10-08 (Sprint 41):** `MobileNav` no longer exists. Below `lg`, navigation is the bottom tab
+> bar and `/more` (`components/bottom-tabs.tsx`). See
+> [design-system.md](design-system.md#mobile-bottom-tabs-a-more-hub-and-the-key-number-in-a-fixed-corner-sprint-41-2026-10-08).
+> The point below about placing breakpoint-gated siblings still holds.
+
 One component used to return a two-element fragment: the `hidden lg:flex` desktop row and the
 `lg:hidden` mobile trigger. That's fine as long as both siblings' relative position in the header
 never needs to differ — but moving just the mobile trigger to the header's left edge (see
