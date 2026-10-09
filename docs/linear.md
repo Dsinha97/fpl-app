@@ -118,6 +118,7 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | Scoped MIT licence for the public repo (PR [#38](https://github.com/Dsinha97/fpl-app/pull/38), merged 2026-09-25) | DSI-202 | M8 | `LICENSE`; [wiki/deployment.md](wiki/deployment.md#privacy-note) |
 | Search indexing: sitemap, robots.txt, per-route metadata, preview card (PR [#39](https://github.com/Dsinha97/fpl-app/pull/39), merged 2026-09-26) | DSI-203 | M8 | [sprints/seo.md](sprints/seo.md) |
 | 41 Mobile redesign — foundation + 3 key screens (PR [#43](https://github.com/Dsinha97/fpl-app/pull/43), merged 2026-10-08) | DSI-214 | M8 | [sprints/sprint-41.md](sprints/sprint-41.md) |
+| 42 Mobile redesign — Deadline, Transfers, Fixtures, Builder (PR [#44](https://github.com/Dsinha97/fpl-app/pull/44), merged 2026-10-08) | DSI-215 | M8 | [sprints/sprint-42.md](sprints/sprint-42.md) |
 
 ## Canceled
 
