@@ -1056,10 +1056,16 @@ export default function PlayersPage() {
                 return (
                   <li
                     key={p.id}
-                    className={`flex min-h-16 items-center ${isSelected ? "bg-primary/[0.06] shadow-[inset_3px_0_0_0_var(--primary)]" : ""}`}
+                    // The row is one tap target via a stretched name button
+                    // (its ::after covers the row), not a <button> wrapping the
+                    // row: GemBadge is itself a TapToReveal button, and a
+                    // button inside a button is invalid HTML that also opened
+                    // the profile when the badge was tapped. Controls that must
+                    // stay their own target sit above the overlay (relative z-10).
+                    className={`relative flex min-h-16 items-center transition-colors has-[[data-row-open]:active]:bg-zinc-100 dark:has-[[data-row-open]:active]:bg-purple-950/60 ${isSelected ? "bg-primary/[0.06] shadow-[inset_3px_0_0_0_var(--primary)]" : ""}`}
                   >
                     {/* 44px hit area around a 16px box. */}
-                    <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center">
+                    <label className="relative z-10 flex size-11 shrink-0 cursor-pointer items-center justify-center">
                       <Checkbox
                         checked={isSelected}
                         disabled={!isSelected && selected.length >= MAX_COMPARE}
@@ -1067,22 +1073,25 @@ export default function PlayersPage() {
                         aria-label={`Select ${p.web_name} to compare`}
                       />
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => openProfile(p.code)}
-                      className="flex min-w-0 flex-1 items-center gap-3 self-stretch py-2.5 pr-4 text-left transition-colors active:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring dark:active:bg-purple-950/60"
-                    >
+                    <div className="flex min-w-0 flex-1 items-center gap-3 self-stretch py-2.5 pr-4">
                       <span className="min-w-0 flex-1">
                         <span className="flex min-w-0 items-center gap-1.5">
-                          <span className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                          <button
+                            type="button"
+                            data-row-open
+                            onClick={() => openProfile(p.code)}
+                            className="truncate text-left text-base font-semibold text-zinc-900 after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring dark:text-zinc-100"
+                          >
                             {p.web_name}
-                          </span>
+                          </button>
                           <AvailabilityBadge
                             status={p.status}
                             chanceOfPlaying={p.chance_of_playing_next_round}
                             news={p.news}
                           />
-                          <GemBadge verdict={gemsById.get(p.id)} />
+                          <span className="relative z-10 inline-flex">
+                            <GemBadge verdict={gemsById.get(p.id)} />
+                          </span>
                         </span>
                         <span className="block truncate text-sm text-zinc-500 dark:text-zinc-400">{meta}</span>
                       </span>
@@ -1094,7 +1103,7 @@ export default function PlayersPage() {
                           <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{SORT_SHORT[sortKey]}</span>
                         )}
                       </span>
-                    </button>
+                    </div>
                   </li>
                 );
               })}
