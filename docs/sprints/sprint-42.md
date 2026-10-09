@@ -2,8 +2,8 @@
 
 **Built 2026-10-08**, based on `main` after Sprint 41 (PR #43) merged. This is the follow-on that
 [sprint-41.md](sprint-41.md) scoped out: the same primitives, applied to the four routes it left
-on the old layout. The Linear Todo column was empty. The parent issue is still to be created, and
-needs the owner's sign-off first (see "Linear" below).
+on the old layout. Parent issue: DSI-215, related to DSI-214. The Linear Todo column was empty;
+the owner asked for this directly.
 
 The principles are Sprint 41's, unchanged:
 
@@ -122,8 +122,5 @@ tab bar. So `ABOVE_BOTTOM_TABS` had nothing new to lift.
 
 ## Linear
 
-Not written yet: `/start-sprint` asks for approval before any Linear write. Proposed:
-
-- create `Sprint 42 — Mobile redesign: Deadline, Transfers, Fixtures, Builder` in milestone
-  "M8 · Beyond this season", related to DSI-214, In Progress;
-- on merge, close it and add its row to [../linear.md](../linear.md).
+DSI-215 was created in milestone "M8 · Beyond this season", related to DSI-214, and set to In Progress.
+On merge, close it and add its row to [../linear.md](../linear.md).
