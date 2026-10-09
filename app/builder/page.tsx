@@ -31,6 +31,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Delta } from "@/components/ui/delta";
 import { Pager } from "@/components/ui/pager";
 import { SlideOver } from "@/components/ui/slide-over";
+import { HeroStat, StatStrip } from "@/components/ui/stat-strip";
 import { SM, useMinWidth } from "@/components/ui/use-viewport";
 import { stickyHeaderBottom } from "@/components/ui/use-anchored-panel";
 import { ModelNote } from "@/components/ui/model-note";
@@ -1457,7 +1458,7 @@ export default function BuilderPage() {
                 </span>
                 <span className="shrink-0 text-right text-sm font-semibold tabular-nums">
                   {x?.xp_5?.toFixed(1) ?? "—"}
-                  <span className="ml-0.5 text-[10px] font-normal text-muted-foreground">xP</span>
+                  <span className="ml-0.5 text-[11px] font-normal text-muted-foreground">xP</span>
                 </span>
               </button>
             </li>
@@ -1820,7 +1821,7 @@ export default function BuilderPage() {
                  and pushed Save onto its own line on a phone. The cap matches
                  the rename input's w-36 below, so entering rename mode doesn't
                  reflow the row. */
-              className="w-36 max-w-[9rem] truncate rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 sm:w-auto sm:max-w-[14rem] dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
+              className="min-h-11 w-36 max-w-[9rem] truncate rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 sm:min-h-0 sm:w-auto sm:max-w-[14rem] dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
             >
               {drafts.every((d) => d.draftId !== team.draftId) && (
                 <option value={team.draftId}>{team.name} (unsaved)</option>
@@ -1941,8 +1942,50 @@ export default function BuilderPage() {
         {/* ============================================ pitch column */}
         <section className="min-w-0 space-y-4">
           {/* prominent xP panel */}
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
-            <div className="flex flex-wrap items-end gap-6">
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent max-sm:dark:bg-transparent max-sm:px-0 max-sm:py-0 dark:border-purple-900/40 dark:bg-card">
+            {/* Sprint 42 — on a phone the squad's projection is the hero,
+                pinned top-right, and the numbers that qualify it are one
+                strip below rather than three blocks wrapping round it. */}
+            <div className="sm:hidden">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 pt-1 text-xs text-zinc-500">
+                  {team.captain !== null ? (
+                    <span className="flex items-center gap-1.5">
+                      <CaptainBadge className="h-5 w-5 shrink-0" />
+                      <span className="min-w-0 truncate">{captainName ?? "Captain set"}</span>
+                    </span>
+                  ) : (
+                    <p>Pick a captain to add the armband bonus</p>
+                  )}
+                  {viceName && (
+                    <span className="mt-1 flex items-center gap-1.5">
+                      <ViceCaptainBadge className="h-5 w-5 shrink-0" />
+                      <span className="min-w-0 truncate">{viceName}</span>
+                    </span>
+                  )}
+                </div>
+                <HeroStat
+                  label={horizon === "season" ? "xP · season*" : `xP · ${horizon} GW${horizon === 1 ? "" : "s"}`}
+                  title={horizon === "season" ? seasonHorizonNote(seasonWindow) : undefined}
+                  value={projection.total.toFixed(1)}
+                />
+              </div>
+              <div className="mt-3">
+                <StatStrip
+                  items={[
+                    ...(horizon !== 1 ? [{ label: "Next GW", value: projectionGw.total.toFixed(1) }] : []),
+                    { label: "Armband", value: team.captain !== null ? `+${projection.captainBonus.toFixed(1)}` : "—" },
+                    { label: "Players", value: `${team.players.length}/${rules.squadSize}` },
+                  ]}
+                />
+              </div>
+              {projection.missing > 0 && (
+                <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                  {projection.missing} pick{projection.missing === 1 ? "" : "s"} without an xP projection
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-end gap-6 max-sm:hidden">
               <div>
                 <div
                   className="text-xs uppercase tracking-wide text-zinc-500"
@@ -2100,7 +2143,7 @@ export default function BuilderPage() {
         <section className="min-w-0 space-y-4">
           {/* Sprint 3/15.7: lineup + armband recommendation, walkable by gameweek */}
           {lineup && effectiveEvent !== null && (
-            <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
+            <div className="rounded-xl border border-zinc-200 bg-white p-4 max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:dark:bg-transparent max-sm:px-0 max-sm:pb-0 max-sm:pt-4 dark:border-purple-900/40 dark:bg-card">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500">
                   Gameweek lineup
@@ -2108,7 +2151,7 @@ export default function BuilderPage() {
                     value={effectiveEvent}
                     onChange={(e) => setSelectedEvent(Number(e.target.value))}
                     aria-label="Planning gameweek"
-                    className="rounded border border-input bg-surface-3 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-zinc-300"
+                    className="rounded border border-input bg-surface-3 px-1.5 py-0.5 text-[11px] font-semibold normal-case max-sm:min-h-11 max-sm:px-2 max-sm:text-sm text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-zinc-300"
                   >
                     {(nextEvent !== null
                       ? Array.from(
@@ -2148,8 +2191,37 @@ export default function BuilderPage() {
                 </p>
               )}
 
-              {/* team projection */}
-              <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+              {/* team projection — one strip on a phone (Sprint 42), the
+                  labelled two-column list from `sm` up where there is room
+                  for "Bench (raw)" beside its auto-sub counterpart. */}
+              <div className="mt-3 sm:hidden">
+                <StatStrip
+                  items={[
+                    { label: "Formation", value: lineup.formation },
+                    { label: "XI", value: lineup.startersXp.toFixed(1), title: "Starting XI xP" },
+                    {
+                      label: "Bench",
+                      value: lineup.benchExpectedContribution.toFixed(1),
+                      title: "Bench xP expected through auto-subs",
+                    },
+                    {
+                      label: "Armband",
+                      value: (eventProjection?.captainBonus ?? 0).toFixed(1),
+                    },
+                    {
+                      label: "Total",
+                      accent: true,
+                      title: "Overall projection: XI + bench via auto-subs + armband",
+                      value: (
+                        lineup.startersXp +
+                        lineup.benchExpectedContribution +
+                        (eventProjection?.captainBonus ?? 0)
+                      ).toFixed(1),
+                    },
+                  ]}
+                />
+              </div>
+              <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs max-sm:hidden">
                 {[
                   ["Formation", lineup.formation],
                   ["Starting XI", `${lineup.startersXp.toFixed(1)} xP`],
@@ -2235,7 +2307,7 @@ export default function BuilderPage() {
           )}
 
           {/* optimizer */}
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:dark:bg-transparent max-sm:px-0 max-sm:pb-0 max-sm:pt-4 dark:border-purple-900/40 dark:bg-card">
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               Optimise squad
             </h2>
@@ -2245,7 +2317,7 @@ export default function BuilderPage() {
                 <select
                   value={strategy}
                   onChange={(e) => setStrategy(e.target.value as Strategy)}
-                  className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
+                  className="min-h-11 rounded-md sm:min-h-0 border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
                 >
                   {Object.entries(STRATEGY_LABELS).map(([k, v]) => (
                     <option key={k} value={k}>
@@ -2260,7 +2332,7 @@ export default function BuilderPage() {
                   value={risk}
                   onChange={(e) => setRisk(e.target.value as RiskLevel)}
                   title={RISK_LABELS[risk]}
-                  className="rounded-md border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="min-h-11 rounded-md sm:min-h-0 border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {Object.entries(RISK_LABELS).map(([k, v]) => (
                     <option key={k} value={k} title={v}>
@@ -2322,7 +2394,7 @@ export default function BuilderPage() {
           {replaceFor !== null && (
             <div
               ref={replacePanelRef}
-              className="scroll-mt-4 rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40"
+              className="scroll-mt-4 rounded-xl border border-purple-300 bg-card p-4 max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:px-0 max-sm:pb-0 max-sm:pt-4 max-sm:border-purple-300 dark:border-primary/40"
             >
               <div className="flex items-start justify-between gap-2">
                 <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -2363,8 +2435,10 @@ export default function BuilderPage() {
                     (replaceArchetype !== 0 ? 1 : 0) +
                     (replaceLimit !== 5 ? 1 : 0)
                   }
+                  label="Filter replacements"
                 >
-                  <div className="flex flex-wrap items-end gap-x-5 gap-y-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {/* One control per line in the phone's bottom sheet (Sprint 42), a wrapped row in the desktop popover. */}
+                  <div className="flex flex-col gap-4 text-sm text-zinc-500 sm:flex-row sm:flex-wrap sm:items-end sm:gap-x-5 sm:gap-y-2 sm:text-[11px] dark:text-zinc-400">
                     <label className="flex items-center gap-2">
                       <span className="tabular-nums">
                         Min start {Math.round(minStartOverride * 100)}%
@@ -2431,7 +2505,7 @@ export default function BuilderPage() {
                         onChange={(e) =>
                           setReplaceArchetype(e.target.value === "0" ? 0 : (e.target.value as GemArchetype))
                         }
-                        className="rounded border border-input bg-surface-3 px-1.5 py-0.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="min-h-11 rounded sm:min-h-0 border border-input bg-surface-3 px-1.5 py-0.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <option value={0}>Any</option>
                         {(Object.entries(GEM_ARCHETYPE_LABELS) as [GemArchetype, string][]).map(([id, label]) => (
@@ -2527,7 +2601,7 @@ export default function BuilderPage() {
                               .map((n) => n.text)
                               .join(" · ")}
                           </p>
-                          <p className="mt-0.5 text-[10px] tabular-nums text-zinc-400">
+                          <p className="mt-0.5 text-[11px] tabular-nums text-zinc-400">
                             risk {r.riskDelta >= 0 ? "+" : ""}
                             {r.riskDelta} · fit {r.teamFit.toFixed(1)}
                             {r.exitRoutes !== undefined && (
@@ -2564,20 +2638,20 @@ export default function BuilderPage() {
                 </>
               )}
               {seriesLoading && (
-                <p className="mt-2 text-[10px] text-zinc-400">
+                <p className="mt-2 text-[11px] text-zinc-400">
                   Loading the week-by-week signal for SquadBalance…
                 </p>
               )}
               <details className="group mt-2">
-                <summary className="flex cursor-pointer list-none items-center gap-1 text-[10px] text-zinc-500">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] text-zinc-500">
                   <span>How TeamFit is scored</span>
                   <span className="text-zinc-400 group-open:hidden">▸</span>
                   <span className="hidden text-zinc-400 group-open:inline">▾</span>
                 </summary>
-                <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-400">
+                <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
                   {REPLACEMENT_MODEL_NOTE}
                 </p>
-                <p className="mt-1 text-[10px] leading-relaxed text-zinc-400">
+                <p className="mt-1 text-[11px] leading-relaxed text-zinc-400">
                   {RISK_MODEL_NOTE}
                 </p>
               </details>
@@ -2587,7 +2661,7 @@ export default function BuilderPage() {
           {/* player search */}
           <div
             ref={pickerCard}
-            className="relative rounded-xl border border-zinc-200 bg-card p-3 dark:border-purple-900/40"
+            className="relative rounded-xl border border-zinc-200 bg-card p-3 max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:px-0 max-sm:pb-0 max-sm:pt-4 dark:border-purple-900/40"
           >
             {replaceEligibility && (
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md bg-purple-50 px-2.5 py-1.5 text-xs text-purple-900 dark:bg-purple-950/50 dark:text-purple-200">
@@ -2715,7 +2789,7 @@ export default function BuilderPage() {
                                 size="w-3.5 h-3.5"
                               />
                             </span>
-                            <span className="block truncate text-[10px] text-zinc-500">
+                            <span className="block truncate text-[11px] text-zinc-500">
                               {teamShort.get(p.team_id)} · {POSITIONS[p.element_type]}
                               {/* Full name, so a hit on a hidden field doesn't look like a bug. */}
                               {fullName(p) ? ` · ${fullName(p)}` : ""}

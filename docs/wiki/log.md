@@ -2,6 +2,7 @@
 
 One line per entry, most recent first.
 
+- 2026-10-08 — Ingested Sprint 42 (DSI-215). **`design-system.md`**: a new section on the four routes' heroes, flattening below `sm` (including the `max-sm:dark:bg-transparent` cascade trap), the bottom sheets, and the `/transfers` `min-w-0` overflow. **`player-profile.md`**: a note on the hairline `StatCell`s. **`timeline.md`**: a 2026-10-08 row. `.pending-ingest` (`roadmap.md`, `sprints/sprint-42.md`) cleared.
 - 2026-10-08 — Ingested Sprint 41 (mobile redesign, DSI-214). **`design-system.md`**: new section on bottom tabs, the More hub, the mobile-native baseline, `HeroStat`/`StatStrip`/`FixtureRun`, and the pitch-clipping bug; Sprint 22's drawer section marked superseded below `lg`. **`frontend-conventions.md`**: a note that `MobileNav` no longer exists. **`player-profile.md`**: a note on the mobile sheet and the modal changes. **`timeline.md`**: 2026-10-08 row. `.pending-ingest` (`roadmap.md`, `sprints/sprint-41.md`) cleared.
 - 2026-09-28 — Linear archive (PR #42): 182 closed DSI issues archived to get under the free plan's 250 cap (229 → 47). **`methodology.md`**: a paragraph under "Read the comments, not just the issue" — `scripts/linear-archive.ts` exports descriptions and comments before archiving, FPL-App's record lives at `docs/linear-archive/`, archived URLs still resolve, `/linear-sync` passes `includeArchived`. No `timeline.md` row: tooling, not a change to the app. The `.pending-ingest` entries (`roadmap.md`, `sprints/seo.md`) were already covered by the 09-26 ingest; cleared.
 

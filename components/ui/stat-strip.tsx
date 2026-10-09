@@ -36,7 +36,7 @@ export function HeroStat({
       <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         {label}
       </span>
-      <span className="text-3xl font-bold leading-none tabular-nums text-purple-800 dark:text-primary">
+      <span className="whitespace-nowrap text-3xl font-bold leading-none tabular-nums text-purple-800 dark:text-primary">
         {value}
       </span>
       {caption ? <span className="mt-1">{caption}</span> : null}
