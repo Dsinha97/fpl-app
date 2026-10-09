@@ -120,22 +120,25 @@ export function PlayerFilters({
   };
 
   return (
-    <div className="flex flex-wrap items-start gap-3 text-sm">
+    // Below `sm` the search box takes the row and everything else lives in
+    // FilterDisclosure's bottom sheet (Sprint 42), stacked one control per
+    // line at a 44px height — the same controls, laid out on one axis.
+    <div className="flex items-start gap-3 text-sm sm:flex-wrap">
       <input
         type="search"
         value={value.search}
         onChange={(e) => onChange({ ...value, search: e.target.value })}
         placeholder="Search player…"
-        className="w-44 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
+        className="min-h-11 min-w-0 flex-1 rounded-md sm:min-h-0 sm:w-44 sm:flex-none border border-zinc-300 bg-white px-3 py-1.5 text-zinc-900 outline-none focus-visible:border-purple-700 focus-visible:ring-2 focus-visible:ring-ring dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
       />
 
-      <FilterDisclosure activeCount={activeCount}>
-        <div className="flex flex-wrap items-center gap-3">
+      <FilterDisclosure activeCount={activeCount} label="Filter players">
+        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
           <select
             value={lockedPosition ?? value.position}
             disabled={lockedPosition !== undefined}
             onChange={(e) => onChange({ ...value, position: Number(e.target.value) })}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:opacity-50 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
+            className="min-h-11 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:opacity-50 sm:min-h-0 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
           >
             <option value={0}>All positions</option>
             {Object.entries(positionOptions).map(([id, label]) => (
@@ -148,7 +151,7 @@ export function PlayerFilters({
           <select
             value={value.team}
             onChange={(e) => onChange({ ...value, team: Number(e.target.value) })}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
+            className="min-h-11 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 sm:min-h-0 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
           >
             <option value={0}>All teams</option>
             {teamOptions.map(([id, short]) => (
@@ -158,7 +161,7 @@ export function PlayerFilters({
             ))}
           </select>
 
-          <label className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+          <label className="flex flex-wrap items-center gap-2 text-zinc-600 dark:text-zinc-400">
             <span className="tabular-nums">
               £{(value.price[0] / 10).toFixed(1)}m – £{(value.price[1] / 10).toFixed(1)}m
             </span>
@@ -182,8 +185,8 @@ export function PlayerFilters({
             )}
           </label>
 
-          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 border-l border-zinc-200 pl-3 dark:border-purple-900/40">
-            <span className="text-xs uppercase tracking-wide text-zinc-500">Special</span>
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-zinc-200 pt-3 sm:gap-y-1 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-3 dark:border-purple-900/40">
+            <span className="w-full text-xs uppercase tracking-wide text-zinc-500 sm:w-auto">Special</span>
             {/* Toggle pills, not a checkbox list (DSI-126). These are six
                 mutually-compatible filters that get flipped on and off
                 repeatedly, and a 14px checkbox is both a small target and the
@@ -197,7 +200,7 @@ export function PlayerFilters({
                   key={f}
                   variant="toggle"
                   size="xs"
-                  className="rounded-full"
+                  className="rounded-full max-sm:h-11 max-sm:px-3 max-sm:text-sm"
                   onClick={() => toggleSpecial(f)}
                   aria-pressed={on}
                 >

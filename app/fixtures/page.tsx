@@ -8,6 +8,7 @@ import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { FdrMatrix } from "@/components/fdr-matrix";
 import { LeagueTable, type StandingsTeam } from "@/components/league-table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { HeroStat } from "@/components/ui/stat-strip";
 import {
   FixtureSchedule,
   localZone,
@@ -149,12 +150,22 @@ export default function FixturesPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-      <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
-        Fixtures &amp; FDR
-        <InfoTooltip>
-          <FdrLegendContent />
-        </InfoTooltip>
-      </h1>
+      <div className="flex items-start justify-between gap-3">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+          Fixtures &amp; FDR
+          <InfoTooltip>
+            <FdrLegendContent />
+          </InfoTooltip>
+        </h1>
+        {/* Sprint 42 — every view here is read relative to the next
+            gameweek (its schedule opens there, the FDR window starts there),
+            so that is the number pinned to the corner on a phone. */}
+        {nextGw !== null && (
+          <div className="sm:hidden">
+            <HeroStat label="Next" value={`GW${nextGw}`} />
+          </div>
+        )}
+      </div>
 
       <SegmentedControl
         className="mt-4"

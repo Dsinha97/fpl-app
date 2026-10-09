@@ -153,7 +153,9 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
         return (
           <section
             key={event}
-            className={`overflow-hidden rounded-lg border ${
+            // Sprint 42 — below `sm` a gameweek is a section under a hairline,
+            // not a bordered card: the page is one list, read top to bottom.
+            className={`overflow-hidden rounded-lg border max-sm:rounded-none max-sm:border-x-0 max-sm:border-t-0 max-sm:bg-transparent max-sm:dark:bg-transparent ${
               compact
                 ? "border-zinc-200/70 bg-zinc-50/60 dark:border-purple-900/25 dark:bg-surface-1"
                 : "border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card"
@@ -188,7 +190,7 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
                     says Completed — it only earns its place on a finished round
                     still sitting up top (one mid-play, or the last of the season). */}
                 {meta?.finished && !compact && (
-                  <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:bg-surface-3">
+                  <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] uppercase tracking-wide text-zinc-500 dark:bg-surface-3">
                     complete
                   </span>
                 )}
@@ -319,12 +321,12 @@ function FixtureRow({
             <span>
               {f.team_h_score} <span className="text-zinc-400">–</span> {f.team_a_score}
             </span>
-            <span className="text-[9px] font-normal uppercase tracking-wide text-zinc-500">FT · bonus tbc</span>
+            <span className="text-[11px] font-normal uppercase tracking-wide text-zinc-500">FT · bonus tbc</span>
           </span>
         ) : live ? (
           <span className="flex min-w-[4.5rem] items-center justify-center gap-1.5 rounded border border-emerald-500/60 bg-emerald-50 px-2 py-1 font-semibold tabular-nums text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
             {hasScore ? `${f.team_h_score} – ${f.team_a_score}` : "LIVE"}
-            {f.minutes !== null && <span className="text-[10px]">{f.minutes}′</span>}
+            {f.minutes !== null && <span className="text-[11px]">{f.minutes}′</span>}
           </span>
         ) : (
           /* No border here, unlike the three states above (DSI-127): an outlined
@@ -360,7 +362,7 @@ function FixtureRow({
         </span>
       </div>
 
-      <span className="hidden w-10 shrink-0 text-right text-[10px] uppercase text-zinc-400 sm:block">
+      <span className="hidden w-10 shrink-0 text-right text-[11px] uppercase text-zinc-400 sm:block">
         GW{f.event}
       </span>
       {expandable && <ExpandToggle expanded={expanded} interactive={false} size="sm" />}
