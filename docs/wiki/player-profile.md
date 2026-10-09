@@ -5,6 +5,17 @@ The full three-tab player card (`components/player-modal.tsx`) and the owner-sco
 
 ## Two surfaces, one deliberately shallow
 
+> **2026-10-08 (Sprint 41):** on a phone the popover is a bottom sheet modelled on the official
+> app's. It shows:
+> - xP as a corner `HeroStat`;
+> - a five-stat `StatStrip`;
+> - a `FixtureRun`;
+> - 48px action rows and a full-width "Full profile" button.
+>
+> In the modal, `HeroStat` sits in the header, the actions move to a bottom bar on phones, and the
+> fixture run opens the Overview tab. See
+> [design-system.md](design-system.md#mobile-bottom-tabs-a-more-hub-and-the-key-number-in-a-fixed-corner-sprint-41-2026-10-08).
+
 `/players`, `/builder`, `/team` and `/deadline` already had `PlayerDetail` — a 320px popover
 anchored to a pitch card, used dozens of times a session for the fast taps (set captain, check the
 next fixture) and deliberately **never-fetch**: it renders only what its caller already has loaded,

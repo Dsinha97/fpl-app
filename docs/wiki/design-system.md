@@ -316,6 +316,11 @@ gameweek/countdown/Bank) could run off the viewport.
 
 ### Grouped nav, a left drawer, and one shared anchored-panel hook (Sprint 22, 2026-08-22)
 
+> **Superseded below `lg` by Sprint 41 (2026-10-08):** the drawer and `MobileNav` were removed in
+> favour of a bottom tab bar and a `/more` hub. See
+> [Mobile: bottom tabs, a More hub…](#mobile-bottom-tabs-a-more-hub-and-the-key-number-in-a-fixed-corner-sprint-41-2026-10-08).
+> The desktop dropdowns described here are unchanged.
+
 A round of real-device review (the owner's phone plus the desktop app) found the FT tooltip above
 overflowing the viewport (its copy also named `CLAUDE.md` directly — rewritten to describe the
 constraint without leaking an internal filename to the user), and — separately — the [bottom
@@ -779,3 +784,50 @@ The rule the rail has now earned: **put a thing in the rail because it is short,
 is room today.** A card that grows with the season will outgrow it.
 
 — [sprints/gw5-check-in.md](../sprints/gw5-check-in.md) §4
+
+## Mobile: bottom tabs, a More hub, and the key number in a fixed corner (Sprint 41, 2026-10-08)
+
+The app at 375px was the desktop site squeezed down. Sprint 41 rebuilt the phone layout around a
+set of mobile-layout principles the owner supplied, and around the official FPL app's player sheet.
+
+**Navigation.** Below `lg`, the [left drawer](#grouped-nav-a-left-drawer-and-one-shared-anchored-panel-hook-sprint-22-2026-08-22)
+and its hamburger are **gone**, replaced by:
+
+- **A bottom tab bar** (`components/bottom-tabs.tsx`): Deadline · My Team · Players · More. Four tabs,
+  each about 94px wide with an icon and a label. The active tab is marked with a pill that presses
+  in on touch-down.
+- **A full-page `/more` hub.** Every other route, one row each with a one-line description, plus
+  the account rows. Its list comes from `NAV_GROUPS` through `MORE_GROUPS`, so the desktop nav and
+  the hub cannot drift apart.
+
+Two helpers come with the tab bar:
+
+- `useHideBottomTabs(active)` hides the bar during a focused task. The full player profile uses it.
+- `ABOVE_BOTTOM_TABS` keeps every other bottom-fixed bar above the tab bar.
+
+**Platform baseline.** Applied with the `mobile-native` skill:
+
+- `viewport-fit=cover`. Until then every `env(safe-area-inset-*)` evaluated to 0, including
+  `SlideOver`'s.
+- One `theme-color` meta tag whose value follows `.dark`, rather than a pair keyed on the OS
+  scheme, because the account menu's explicit choice overrides the OS.
+- Tap highlight off, `touch-action: manipulation` on controls.
+- 16px inputs on a coarse pointer. That rule is unlayered, because utilities beat `@layer base`.
+  Zoom stays enabled.
+
+**Key numbers.** `components/ui/stat-strip.tsx` adds three pieces:
+
+- **`HeroStat`:** the one number a screen answers, pinned top-right.
+- **`StatStrip`:** at most five supporting numbers in a single row divided by hairlines, not boxed
+  as cards.
+- **`FixtureRun`:** the next five fixtures as difficulty pills.
+
+All three are used on the pitch sheet, `/players`' card rows and the player profile header. A
+stat the caller has no value for is dropped from the strip rather than shown as a dash.
+
+**A latent pitch bug.** `InteractivePitch` was `overflow-hidden`, and an overflow-hidden box ignores
+its content for the aspect-ratio automatic minimum. When the cards grew a fixture row, the forwards
+were clipped under a pitch that would not get taller. The clipping now lives on the artwork layer,
+so the aspect ratio acts as a floor.
+
+— [sprints/sprint-41.md](../sprints/sprint-41.md)
