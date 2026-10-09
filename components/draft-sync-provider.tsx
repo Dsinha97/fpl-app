@@ -1,5 +1,6 @@
 "use client";
 
+import { ABOVE_BOTTOM_TABS } from "@/components/bottom-tabs";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { Alert } from "@/components/ui/alert";
@@ -46,7 +47,7 @@ export function DraftSyncProvider() {
     <div
       // Above the content, below any dialog. Fixed rather than in flow: the
       // sync runs from the root, so there is no one page this belongs on.
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center p-3"
+      className={`pointer-events-none fixed inset-x-0 ${ABOVE_BOTTOM_TABS} z-40 flex justify-center p-3`}
     >
       <Alert tone="warning" className="pointer-events-auto max-w-md shadow-lg">
         <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">

@@ -1,15 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Menu } from "@base-ui/react/menu";
-// `Menu` is Base UI's menu primitive in this file, so the icon takes the alias.
-import { ChevronDown, Menu as MenuIcon, X as XIcon } from "lucide-react";
-import { IconSwap } from "@/components/ui/icon-swap";
-import { SlideOver } from "@/components/ui/slide-over";
-import { Monogram, Wordmark } from "@/components/brand";
+import { ChevronDown } from "lucide-react";
 
 /**
  * Sprint 22 — eleven flat top-level links overwhelmed a new user, so they're
@@ -64,11 +59,6 @@ export const NAV_GROUPS = [
 
 /** Strip the trailing slash that `trailingSlash: true` adds, so "/team/" matches "/team". */
 const normalize = (path: string) => (path !== "/" ? path.replace(/\/$/, "") : path);
-
-const activeLinkClass =
-  "bg-purple-50 font-medium text-purple-800 dark:bg-purple-950/60 dark:text-primary";
-const inactiveLinkClass =
-  "text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-purple-950/40";
 
 /**
  * The `hidden lg:flex` desktop row only — split out from the mobile trigger
@@ -180,179 +170,8 @@ export function DesktopNav() {
   );
 }
 
-/** One expanding group section inside the mobile drawer — plain conditional
- * render for now; Sprint 24 upgrades this to the shared grid-rows accordion
- * alongside every other expander in the app. */
-function MobileNavGroup({
-  group,
-  pathname,
-  onNavigate,
-}: {
-  group: (typeof NAV_GROUPS)[number];
-  pathname: string;
-  onNavigate: () => void;
-}) {
-  const active = group.items.some((item) => pathname === item.href);
-  const [open, setOpen] = useState(active);
-
-  return (
-    <div>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={`flex w-full items-center justify-between rounded-md px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-          active
-            ? "text-purple-800 dark:text-primary"
-            : "text-zinc-700 dark:text-zinc-300"
-        }`}
-      >
-        {group.label}
-        <ChevronDown
-          aria-hidden="true"
-          className={`h-4 w-4 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      {/* CSS Grid 0fr→1fr rather than mount/unmount (Sprint 24) — the same
-          pattern every other expander in the app uses, so the drawer's
-          groups animate instead of snapping open. */}
-      <div
-        className={`grid transition-[grid-template-rows] duration-base ease-emphasis motion-reduce:transition-none ${
-          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        }`}
-      >
-        <div className="overflow-hidden">
-          <div className="pb-1 pl-2">
-            {group.items.map((item) => {
-              const itemActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onNavigate}
-                  aria-current={itemActive ? "page" : undefined}
-                  className={`block rounded-md px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    itemActive ? activeLinkClass : inactiveLinkClass
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Shared by the header trigger and the drawer's close button, which have to
- *  land in the same place for the swap between them to read as one control. */
-const TRIGGER_CLASS =
-  "size-11 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-purple-950/60";
-
-/** The `lg:hidden` hamburger trigger + left-side drawer. See `DesktopNav` above for why this is a separate component. */
-export function MobileNav() {
-  const pathname = normalize(usePathname() ?? "/");
-  const [open, setOpen] = useState(false);
-  const wrapper = useRef<HTMLDivElement>(null);
-
-  // Sprint 33: the backdrop, dialog semantics, body-scroll lock and
-  // dismissal that used to be inlined here now live in `SlideOver`
-  // (components/ui/slide-over.tsx) — `/players`' compare panel needed the
-  // same thing on the other edge, and two copies of a focus-trapping
-  // overlay is a bug with a delay on it. `wrapper` is passed as the trigger
-  // so tapping the hamburger to close isn't first read as a click outside.
-
-  // Close the drawer after following a link rather than leaving it open
-  // behind the new page.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => setOpen(false), [pathname]);
-
-  return (
-    /* No `ml-auto` here — this used to be the header's other `ml-auto`
-       alongside AccountMenu's, and two auto margins in one flex row split
-       the leftover space between them instead of pushing either all the
-       way to an edge. That left the trigger floating mid-header rather
-       than at either side. Rendered first in layout.tsx so it's the
-       leftmost item — reachable from a left-hand grip without reaching
-       across the wordmark, and the account avatar keeps the right edge to
-       itself via its own `ml-auto` in layout.tsx. */
-    <div ref={wrapper} className="relative lg:hidden">
-      <Button
-        type="button"
-        aria-label={open ? "Close navigation menu" : "Open navigation menu"}
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        variant="ghost"
-        size="icon"
-        className={TRIGGER_CLASS}
-      >
-        <IconSwap showSecond={open} first={<MenuIcon className="size-5" />} second={<XIcon className="size-5" />} />
-      </Button>
-
-      {/* A trigger at the header's left edge is one tap; docking the drawer
-          to the same edge it opened from (rather than the bottom, as an
-          earlier version did) keeps the tap and its result at the same side
-          of the screen instead of opposite ends of the viewport. */}
-      <SlideOver
-        open={open}
-        onClose={() => setOpen(false)}
-        side="left"
-        label="Navigation"
-        width="min(20rem, 85vw)"
-        triggerRef={wrapper}
-      >
-        {/* Sprint 25 put the app's wordmark here, Gmail-sidebar style, and
-            argued against a close button on the grounds that the hamburger
-            "is already an × while open". It is — but the drawer is `z-50`
-            over a `z-40` header, so that × is *underneath this panel* and
-            nobody has ever seen it. The affordance was not redundant, it was
-            invisible.
-
-            So the row reproduces the header it covers, to the pixel: the
-            drawer's `p-2` plus this `px-2` puts the close button's left edge
-            at the 16px the header's `px-4` gives the hamburger, `h-14`
-            matches the header's height, and the gap and monogram size are
-            the header's own. The wordmark therefore does not move when the
-            drawer opens — only the icon inside the button changes, and it
-            morphs rather than cutting. */}
-        <div className="-mt-2 flex h-14 shrink-0 items-center gap-3 border-b border-zinc-200 px-2 dark:border-purple-800/50">
-          <Button
-            type="button"
-            aria-label="Close navigation menu"
-            onClick={() => setOpen(false)}
-            variant="ghost"
-            size="icon"
-            className={TRIGGER_CLASS}
-          >
-            {/* Two elements, one swap: this button mounts already meaning
-                "close", so it starts on the hamburger for a frame and
-                transitions from there — otherwise the morph is over before
-                the panel is painted. */}
-            <IconSwap
-              showSecond
-              animateOnMount
-              first={<MenuIcon className="size-5" />}
-              second={<XIcon className="size-5" />}
-            />
-          </Button>
-          <Link href="/" onClick={() => setOpen(false)} className="flex items-center gap-2.5">
-            <Monogram size={30} />
-            <Wordmark />
-          </Link>
-        </div>
-        <div className="space-y-0.5 pt-1">
-          {NAV_GROUPS.map((group) => (
-            <MobileNavGroup
-              key={group.label}
-              group={group}
-              pathname={pathname}
-              onNavigate={() => setOpen(false)}
-            />
-          ))}
-        </div>
-      </SlideOver>
-    </div>
-  );
-}
+/*
+ * Sprint 41 — `MobileNav` (the hamburger + left drawer) is gone. Below `lg`
+ * navigation is the bottom tab bar plus the `/more` hub
+ * (`components/bottom-tabs.tsx`), both reading `NAV_GROUPS` above.
+ */

@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { ModelNote } from "@/components/ui/model-note";
-import { FixtureCell } from "@/components/fdr-badge";
 import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons";
 import { sourceBadge } from "@/lib/news-feed";
 import { ago } from "@/lib/change-feed";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCell, StatGrid, MiniBar } from "@/components/player-modal/stat-cell";
+import { FixtureRun } from "@/components/ui/stat-strip";
 import { rankOf, RANK_MODEL_NOTE, type PositionRanks } from "@/lib/player-ranks";
 import {
   loadPlayerGameweeks,
@@ -124,6 +124,18 @@ export function OverviewTab({
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      {/* Sprint 41 — the run of fixtures opens the profile rather than sitting
+          mid-page: it is what a manager checks first, and the same strip as
+          the pitch sheet's, so the two surfaces read alike. */}
+      {player.upcoming && player.upcoming.length > 0 && (
+        <section className="min-w-0">
+          <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            Next fixtures
+          </h3>
+          <FixtureRun fixtures={player.upcoming.slice(0, 5)} />
+        </section>
+      )}
+
       <StatGrid label="Snapshot">
         <StatCell
           label="Total pts"
@@ -265,25 +277,6 @@ export function OverviewTab({
           positionLong={positionLong}
         />
       </StatGrid>
-
-      {player.upcoming && player.upcoming.length > 0 && (
-        <section className="min-w-0">
-          <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-            Next fixtures
-          </h3>
-          <div className="flex min-w-0 flex-wrap gap-1.5">
-            {player.upcoming.slice(0, 5).map((f) => (
-              <FixtureCell
-                key={`${f.event}-${f.opponent_short_name}-${f.is_home ? "H" : "A"}`}
-                opponent={f.opponent_short_name}
-                home={f.is_home}
-                fdr={f.fdr}
-                gw={f.event}
-              />
-            ))}
-          </div>
-        </section>
-      )}
 
       <StatGrid label="Season stats">
         <StatCell

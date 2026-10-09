@@ -1,5 +1,6 @@
 "use client";
 
+import { ABOVE_BOTTOM_TABS } from "@/components/bottom-tabs";
 import { Pin } from "lucide-react";
 import { DataCell, DataHeadCell, DataRow } from "@/components/ui/data-table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1220,7 +1221,7 @@ export default function ScenariosPage() {
       )}
 
       {chosen.length >= 2 && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-card/95">
+        <div className={`fixed inset-x-0 ${ABOVE_BOTTOM_TABS} z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-card/95`}>
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
               Comparing {chosen.length} draft{chosen.length === 1 ? "" : "s"}

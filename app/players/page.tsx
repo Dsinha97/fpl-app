@@ -15,6 +15,8 @@ import { AvailabilityBadge, RoleBadges } from "@/components/player-status-icons"
 import { GemBadge } from "@/components/gem-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SlideOver } from "@/components/ui/slide-over";
+import { ABOVE_BOTTOM_TABS } from "@/components/bottom-tabs";
+import { ArrowDownUp, Check } from "lucide-react";
 import { ComparePanel, type CompareFixture } from "@/components/compare-panel";
 import { fullName } from "@/lib/player-search";
 import { shortSeason } from "@/lib/utils";
@@ -256,6 +258,8 @@ export default function PlayersPage() {
   const [horizon, setHorizon] = useState<Horizon>(5);
   const [sortKey, setSortKey] = useState<SortKey>("price");
   const [sortDesc, setSortDesc] = useState(true);
+  /** Sprint 41 — the phone's sort control, a bottom sheet over the card list. */
+  const [sortSheetOpen, setSortSheetOpen] = useState(false);
   /**
    * Ordered, not a Set: the compare panel's columns are laid out in
    * selection order, and a Set has no order to lay them out in. This was a
@@ -717,6 +721,128 @@ export default function PlayersPage() {
   const safePage = Math.min(page, pageCount - 1);
   const visible = sorted.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
+  const lastSeason = historySeason ? shortSeason(historySeason) : "LY";
+  /**
+   * Sprint 41 — what each sort means, in words, for the phone's card list
+   * and its sort sheet. The table's column headers say the same things; the
+   * card list has no columns, so the active sort *is* the column it shows.
+   */
+  const SORT_LABEL: Record<SortKey, string> = {
+    xpH: `xP ${horizonLabel(horizon)}`,
+    xp1: "xP next GW",
+    value: "xP per £m",
+    price: "Price",
+    priceWatch: "Price watch",
+    gwPoints: "Points this season",
+    ownership: "Owned",
+    goals: "Goals",
+    assists: "Assists",
+    minutes: "Minutes",
+    xgCur: "xG per 90",
+    xaCur: "xA per 90",
+    xmins: "Expected minutes",
+    xdc: `xDefcon ${horizonLabel(horizon)}`,
+    run: `Fixture run (next ${horizonLength(horizon, seasonWindow)})`,
+    points: `Points ${lastSeason}`,
+    xg: `xG ${lastSeason}`,
+    xa: `xA ${lastSeason}`,
+  };
+  /** Short label under the card's headline number. */
+  const SORT_SHORT: Partial<Record<SortKey, string>> = {
+    xpH: `xP ${horizonLabel(horizon)}`,
+    xp1: "xP GW",
+    value: "xP/£m",
+    gwPoints: "pts",
+    xgCur: "xG/90",
+    xaCur: "xA/90",
+    xmins: "xMins",
+    xdc: "xDC",
+    run: "avg FDR",
+    points: `pts ${lastSeason}`,
+    xg: `xG ${lastSeason}`,
+    xa: `xA ${lastSeason}`,
+  };
+  const SORT_ORDER: SortKey[] = [
+    "xpH", "xp1", "value", "price", "priceWatch", "gwPoints", "ownership", "xmins",
+    "goals", "assists", "minutes", "xgCur", "xaCur", "xdc", "run", "points", "xg", "xa",
+  ];
+
+  /** The active sort's value for one player, formatted as the card's headline. */
+  const sortMetric = (p: PlayerRow): string => {
+    const x = xp.get(p.id);
+    const h = history.get(p.code);
+    const f = (n: number | null | undefined, d = 1) =>
+      n === null || n === undefined ? "—" : n.toFixed(d);
+    switch (sortKey) {
+      case "xpH": return f(xpForHorizon(x, horizon));
+      case "xp1": return f(x?.xp_1);
+      case "value": return f(valueOf(p, x), 2);
+      case "price": return `£${((p.now_cost ?? 0) / 10).toFixed(1)}m`;
+      case "priceWatch": {
+        const pp = priceProgress.get(p.code);
+        if (!pp || pp.verdict === "unknown") return "—";
+        const pct = Math.abs(Math.round((pp.progressRaw ?? 0) * 100));
+        return pp.direction === "flat" ? "0%" : `${pp.direction === "rise" ? "▲" : "▼"}${pct}%`;
+      }
+      case "gwPoints": return f(p.total_points, 0);
+      case "ownership": return p.selected_by_percent !== null ? `${p.selected_by_percent}%` : "—";
+      case "goals": return f(p.goals_scored, 0);
+      case "assists": return f(p.assists, 0);
+      case "minutes": return f(p.minutes, 0);
+      case "xgCur": return f(perNinety(p.expected_goals, p.minutes), 2);
+      case "xaCur": return f(perNinety(p.expected_assists, p.minutes), 2);
+      case "xmins": return f(predictions.get(p.id)?.expected_minutes, 0);
+      case "xdc":
+        return scoresDefensiveContribution(p.element_type) ? f(xdcForHorizon(x, horizon), 2) : "—";
+      case "run": return f(avgFdr(p.team_id));
+      case "points": return f(h?.total_points, 0);
+      case "xg": return f(h?.expected_goals, 2);
+      case "xa": return f(h?.expected_assists, 2);
+    }
+  };
+
+  const filtersActive =
+    filters.search.trim() !== "" ||
+    filters.position !== 0 ||
+    filters.team !== 0 ||
+    filters.special.size > 0 ||
+    filters.price[0] !== PRICE_MIN ||
+    filters.price[1] !== PRICE_MAX;
+  const clearFilters = () => {
+    setFilters(defaultPlayerFilters([PRICE_MIN, PRICE_MAX]));
+    setPage(0);
+  };
+
+  /**
+   * Zero results: say what was searched, suggest the likeliest fix, and offer
+   * the way out — never an empty list. The name search already matches full
+   * names and accents (matchesPlayerQuery), so a miss is usually a typo or a
+   * filter left on from earlier.
+   */
+  const noMatches = () => {
+    const q = filters.search.trim();
+    const otherFilters = filtersActive && (q === "" || filters.position !== 0 || filters.team !== 0 || filters.special.size > 0);
+    return (
+      <div className="space-y-2 text-sm text-zinc-500">
+        <p className="font-medium text-zinc-800 dark:text-zinc-200">
+          {q ? <>No players match &ldquo;{q}&rdquo;</> : "No players match these filters"}
+        </p>
+        <p>
+          {q
+            ? otherFilters
+              ? "Check the spelling, or clear the position, club and price filters too."
+              : "Check the spelling — a surname or the name on the shirt both work."
+            : "Widen the price range or remove a filter."}
+        </p>
+        {filtersActive && (
+          <Button type="button" variant="outline" size="md" className="min-h-11" onClick={clearFilters}>
+            Clear search and filters
+          </Button>
+        )}
+      </div>
+    );
+  };
+
 
   /** Every sortable column here holds a number, so the header right-aligns to
    *  sit over its own decimals — a left-aligned label above a right-aligned
@@ -887,7 +1013,96 @@ export default function PlayersPage() {
 
       {!loading && !error && (
         <>
-        <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
+        {/*
+          Sprint 41 — below `sm`, a card list instead of a 21-column table.
+          The table needed sideways scrolling to reach xP at all and fitted six
+          80px rows on a screen. Each card carries the player and ONE number —
+          whatever the list is sorted by, large and right-aligned where the eye
+          lands — so changing the sort changes the column. Everything else is
+          a tap away in the profile.
+        */}
+        <div className="mt-4 sm:hidden">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              className="min-h-11"
+              onClick={() => setSortSheetOpen(true)}
+              aria-haspopup="dialog"
+            >
+              <ArrowDownUp aria-hidden="true" className="size-4" />
+              {SORT_LABEL[sortKey]}
+              <span className="text-zinc-500">{sortDesc ? "↓" : "↑"}</span>
+            </Button>
+            {selected.length > 0 && (
+              <span className="text-xs text-zinc-500">{selected.length} to compare</span>
+            )}
+          </div>
+          {visible.length === 0 ? (
+            <div className="rounded-xl border border-zinc-200 px-4 py-8 text-center dark:border-purple-900/40">
+              {noMatches()}
+            </div>
+          ) : (
+            <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-purple-900/40 dark:border-purple-900/40 dark:bg-card">
+              {visible.map((p) => {
+                const isSelected = selected.includes(p.id);
+                const pos = POSITIONS[p.element_type];
+                const club = teamShort.get(p.team_id);
+                const meta =
+                  sortKey === "price"
+                    ? `${club} · ${pos} · xP ${xpForHorizon(xp.get(p.id), horizon)?.toFixed(1) ?? "—"}`
+                    : `${club} · ${pos} · £${((p.now_cost ?? 0) / 10).toFixed(1)}m`;
+                return (
+                  <li
+                    key={p.id}
+                    className={`flex min-h-16 items-center ${isSelected ? "bg-primary/[0.06] shadow-[inset_3px_0_0_0_var(--primary)]" : ""}`}
+                  >
+                    {/* 44px hit area around a 16px box. */}
+                    <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center">
+                      <Checkbox
+                        checked={isSelected}
+                        disabled={!isSelected && selected.length >= MAX_COMPARE}
+                        onChange={() => toggleSelected(p.id)}
+                        aria-label={`Select ${p.web_name} to compare`}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => openProfile(p.code)}
+                      className="flex min-w-0 flex-1 items-center gap-3 self-stretch py-2.5 pr-4 text-left transition-colors active:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring dark:active:bg-purple-950/60"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                            {p.web_name}
+                          </span>
+                          <AvailabilityBadge
+                            status={p.status}
+                            chanceOfPlaying={p.chance_of_playing_next_round}
+                            news={p.news}
+                          />
+                          <GemBadge verdict={gemsById.get(p.id)} />
+                        </span>
+                        <span className="block truncate text-sm text-zinc-500 dark:text-zinc-400">{meta}</span>
+                      </span>
+                      <span className="flex shrink-0 flex-col items-end">
+                        <span className="text-xl font-bold leading-tight tabular-nums text-purple-800 dark:text-primary">
+                          {sortMetric(p)}
+                        </span>
+                        {SORT_SHORT[sortKey] && (
+                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{SORT_SHORT[sortKey]}</span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="mt-4 hidden overflow-x-auto rounded-lg border border-zinc-200 bg-white sm:block dark:border-purple-900/40 dark:bg-card">
           <table className="w-full min-w-[56rem] text-sm">
             {/* NOT sticky, deliberately. `overflow-x-auto` on the wrapper above
                 computes `overflow-y: auto` too, which makes that wrapper the
@@ -1162,7 +1377,7 @@ export default function PlayersPage() {
               {visible.length === 0 && (
                 <DataRow>
                   <DataCell colSpan={20} className="px-3 py-6 text-center text-zinc-500">
-                    No players match the current filters.
+                    {noMatches()}
                   </DataCell>
                 </DataRow>
               )}
@@ -1190,7 +1405,7 @@ export default function PlayersPage() {
       {selected.length >= 1 && (
         <div
           ref={compareTrigger}
-          className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-card/95"
+          className={`fixed inset-x-0 ${ABOVE_BOTTOM_TABS} z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur dark:border-purple-900/40 dark:bg-card/95`}
         >
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -1232,6 +1447,55 @@ export default function PlayersPage() {
           }
         />
       )}
+
+      {/* Sprint 41 — sorting on the phone. A sheet rather than a dropdown:
+          eighteen options need the height, and the list stays in view above
+          it. Picking one closes the sheet; the direction toggle doesn't. */}
+      <SlideOver
+        open={sortSheetOpen}
+        onClose={() => setSortSheetOpen(false)}
+        side="bottom"
+        label="Sort players"
+        maxHeight="min(80dvh, 40rem)"
+      >
+        <div className="flex items-center justify-between gap-3 px-2 pb-2">
+          <h2 className="text-lg font-semibold">Sort by</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="md"
+            className="min-h-11"
+            onClick={() => setSortDesc(!sortDesc)}
+          >
+            {sortDesc ? "Highest first ↓" : "Lowest first ↑"}
+          </Button>
+        </div>
+        <ul role="radiogroup" aria-label="Sort by" className="divide-y divide-zinc-100 overflow-y-auto overscroll-contain dark:divide-purple-900/40">
+          {SORT_ORDER.map((key) => (
+            <li key={key}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={sortKey === key}
+                onClick={() => {
+                  if (sortKey !== key) {
+                    setSortKey(key);
+                    setSortDesc(true);
+                    setPage(0);
+                  }
+                  setSortSheetOpen(false);
+                }}
+                className={`flex min-h-12 w-full items-center justify-between px-2 text-left text-base transition-colors active:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring dark:active:bg-purple-950/60 ${
+                  sortKey === key ? "font-semibold text-purple-800 dark:text-primary" : "text-zinc-800 dark:text-zinc-200"
+                }`}
+              >
+                {SORT_LABEL[key]}
+                {sortKey === key && <Check aria-hidden="true" className="size-5" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </SlideOver>
 
       <SlideOver
         open={compareOpen}

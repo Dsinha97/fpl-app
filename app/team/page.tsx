@@ -14,7 +14,7 @@ import { groupByEvent, hitCost, loadTransfers, type TransferRow } from "@/lib/ma
 import { diffSquads } from "@/lib/squad-diff";
 import { PitchView, type SquadLayout } from "@/components/pitch-view";
 import { useProfileModal } from "@/components/player-modal/use-profile-modal";
-import type { PlayerData } from "@/components/player-card";
+import type { PlayerData, UpcomingFixture } from "@/components/player-card";
 import { loadSquadHeadlines, type NewsHeadline } from "@/lib/news-feed";
 import {
   buildManagerProfile,
@@ -149,6 +149,8 @@ interface PlayerRow {
   web_name: string | null;
   now_cost: number | null;
   selected_by_percent: number | null;
+  total_points: number | null;
+  form: number | null;
   status: string | null;
   news: string | null;
   chance_of_playing_next_round: number | null;
@@ -537,7 +539,7 @@ export default function TeamPage() {
                 const { data: playerRows } = await supabase
                   .from("players")
                   .select(
-                    "id, code, web_name, now_cost, selected_by_percent, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, element_type, team_id",
+                    "id, code, web_name, now_cost, selected_by_percent, total_points, form, status, news, chance_of_playing_next_round, penalties_order, direct_freekicks_order, corners_and_indirect_freekicks_order, element_type, team_id",
                   )
                   .eq("season", nextGw.season)
                   .order("id")
@@ -680,9 +682,13 @@ export default function TeamPage() {
         // double gameweek keeps the earlier kickoff (fixtures come back
         // ordered by id, not guaranteed by kickoff, but first-seen-per-team
         // is the same convention deadline uses).
+        // Sprint 41 — every gameweek after the latest pick is kept too, so a
+        // squad player's sheet can show their next few fixtures (`upcoming`),
+        // not only the one this gameweek played.
+        const latestPickedEvent = Math.max(0, ...picksByEvent.keys());
         for (const f of fixturesRes.data ?? []) {
           const event = f.event as number | null;
-          if (event === null || !picksByEvent.has(event)) continue;
+          if (event === null || (!picksByEvent.has(event) && event <= latestPickedEvent)) continue;
           let byTeam = fixturesByEvent.get(event);
           if (!byTeam) {
             byTeam = new Map<number, NextFixture>();
@@ -1025,6 +1031,23 @@ export default function TeamPage() {
     };
   }, [selectedEvent, data, livePointsTick]);
 
+  /**
+   * A club's next five fixtures after `event`, for the player sheet's
+   * fixture strip. A blank gameweek is skipped rather than shown, and a
+   * double keeps its earlier kickoff — the same convention as `next_fixture`.
+   */
+  const upcomingAfter = useCallback(
+    (event: number, teamId: number): UpcomingFixture[] => {
+      const out: UpcomingFixture[] = [];
+      for (let e = event + 1; e <= event + 5; e += 1) {
+        const f = data?.fixturesByEvent.get(e)?.get(teamId);
+        if (f) out.push({ event: e, ...f });
+      }
+      return out;
+    },
+    [data],
+  );
+
   /** Shared card mapping for both views — the two differ only in the number they carry. */
   const toCard = useCallback(
     (
@@ -1064,6 +1087,10 @@ export default function TeamPage() {
         team_short: data?.teamMeta.get(row.team_id)?.short ?? null,
         news: row.news,
         ownership: row.selected_by_percent,
+        // Sprint 41 — the player sheet's stat strip; without them /team's
+        // sheet read "—" for the season total it had every reason to know.
+        season_total_points: row.total_points,
+        form: row.form,
         headlines: headlinesByCode.get(row.code),
       };
     },
@@ -1133,6 +1160,7 @@ export default function TeamPage() {
         {
           ...card,
           next_fixture: nextFixture,
+          upcoming: teamId !== undefined ? upcomingAfter(p.event, teamId) : undefined,
           live_breakdown: notStarted ? null : (explainByElement.get(p.element) ?? null),
           gw_goals: notStarted ? null : (scored?.goals ?? null),
           gw_assists: notStarted ? null : (scored?.assists ?? null),
@@ -1140,7 +1168,7 @@ export default function TeamPage() {
         },
       ];
     });
-  }, [gwPicks, eventPoints, explainByElement, toCard, data, matchStatusByElement]);
+  }, [gwPicks, eventPoints, explainByElement, toCard, data, matchStatusByElement, upcomingAfter]);
 
   const gwLayout: SquadLayout | null = useMemo(() => {
     if (!gwPicks || !data || !gwScore) return null;
