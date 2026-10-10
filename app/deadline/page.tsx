@@ -1033,21 +1033,10 @@ export default function DeadlinePage() {
             Everything to decide before the deadline, in one place.
           </p>
         </div>
-        {/* Sprint 42 — on a phone the countdown is the page's one key
-            number, pinned top-right where Sprint 41 put every screen's hero.
-            From `sm` up it stays where it was, under its own heading. */}
-        {!loading && team && ctx && countdown && (
-          <div className="sm:hidden">
-            <HeroStat
-              label={`GW${ctx.nextEvent} deadline`}
-              value={
-                <span className={countdown.passed ? "text-red-700 dark:text-red-400" : undefined}>
-                  {countdown.text}
-                </span>
-              }
-            />
-          </div>
-        )}
+        {/* Sprint 42 pinned the countdown here as the phone hero; demoted so the
+            live points are the one big number on screen. The sticky ContextBar
+            still carries the countdown on every page, and the date line below
+            keeps the deadline itself. From `sm` up it is the 3xl clock below. */}
         {drafts.length > 1 && (
           <label className="hidden items-center gap-2 text-sm text-zinc-600 sm:flex dark:text-zinc-400">
             Squad
