@@ -817,7 +817,9 @@ Two helpers come with the tab bar:
 
 **Key numbers.** `components/ui/stat-strip.tsx` adds three pieces:
 
-- **`HeroStat`:** the one number a screen answers, pinned top-right.
+- **`HeroStat`:** the one number a screen answers, pinned top-right. `align="center"` (and a
+  `labelAddon` beside the label, e.g. an `InfoTooltip`) is for a hero that owns its own row — the
+  live GW points on `/deadline` use it at `text-5xl`.
 - **`StatStrip`:** at most five supporting numbers in a single row divided by hairlines, not boxed
   as cards.
 - **`FixtureRun`:** the next five fixtures as difficulty pills.

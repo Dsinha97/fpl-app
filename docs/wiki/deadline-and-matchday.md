@@ -395,6 +395,21 @@ new button lands on a warm page rather than a cold one. Net −274 lines.
 [transfer-engine.md](transfer-engine.md#one-answer-per-deadline-sprint-28-2026-08-29) for the
 Sprint 28 half of this story.
 
+## Mobile declutter of `/deadline` and `/team` (2026-10-10)
+
+Sprint 41 left Deadline unmigrated; below `sm` the page repeated the ContextBar's countdown as a 3xl
+clock and stacked a badge row, a paragraph, a status sentence and five BPS rows around the live
+total. Now: the duplicate countdown and tagline are hidden (the date stays, short); the squad
+dropdown shows only with more than one saved squad; the live total is a centred `HeroStat` with
+its explainer as a tooltip and `Provisional` as its caption; player status is a `StatStrip`; the BPS
+race is a collapsed card summarised by its leader; the frame around the section is dropped below
+`lg` so fixture cards are not cards inside a card. On `/team`, the transfer ledger shows the hit
+FPL actually recorded (`event_transfers_cost`; a Wildcard/Free Hit week says "no hit" — the old
+"transfers − 1 × 4" read −76 for a 20-player Wildcard) and folds gameweeks with more than three
+transfers; the six key numbers are one framed 3×2 block that leads the page above the pitch on
+phones; the GW card is a title row plus a three-cell strip. Layout review via the `better-layout`
+skill. Desktop layout unchanged.
+
 ## The ContextBar countdown drops seconds above 24h (2026-09-20)
 
 The sticky countdown described above ran a seconds term at every distance, so nineteen days out it
