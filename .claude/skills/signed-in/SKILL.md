@@ -5,9 +5,8 @@ description: Put the preview browser into the signed-in state (or back to signed
 
 # Signed-in state
 
-Every signed-in verification in this repo used to be the owner signing in by hand. That cost us
-the `health_check` RLS bug (granted `to anon` only — the home page broke *only* for signed-in
-users), and `CLAUDE.md` records the lesson three separate times. This skill is the mechanism.
+Use this to look at signed-in UI yourself instead of asking the owner to sign in. A policy
+granted `to anon` only breaks pages *only* for signed-in users, and a signed-out pass can't see it.
 
 **Test both states.** A pass done only signed-out hides anon-only RLS policies; a pass done only
 signed-in hides the `router.replace()`-in-render warning on the branch a page redirects *from*.
@@ -74,7 +73,7 @@ Use this when the change touches sign-in, not for routine testing: the magic lin
    `fpldecision.com`. Then navigate the preview browser to it.
 4. The callback is a client route; PKCE is exchanged by `detectSessionInUrl`.
 
-Two things bite here, both verified 2026-09-13:
+Three things bite here, all verified 2026-09-13:
 
 - **The preview browser refuses to navigate to `supabase.co`**, so the `/auth/v1/verify` hop can't
   be driven from the pane. Resolve the 303 with `curl -o /dev/null -w '%{redirect_url}'` and

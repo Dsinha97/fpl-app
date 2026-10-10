@@ -5,7 +5,7 @@ description: Verify a Row Level Security policy by simulating anon and authentic
 
 # Verify RLS
 
-CLAUDE.md calls this "the load-bearing check" — never trust a new RLS policy without
+RLS is a real access boundary (CLAUDE.md, Ground rules): never trust a new policy without
 running it, and never test only the role the feature you're building happens to exercise.
 
 ## Procedure
@@ -14,7 +14,9 @@ running it, and never test only the role the feature you're building happens to 
    - `{{TABLE}}` — the table being checked
    - `{{OWNER_COLUMN}}` — usually `user_id`
    - `{{ROW_OWNER_ID}}` — a real UUID that owns a row in the table
-   - `{{OTHER_USER_ID}}` — a different real UUID who should NOT see that row
+   - `{{OTHER_USER_ID}}` — a different real UUID who should NOT see that row. Use the dev
+     test account, `6254e573-8cea-402c-b330-b2a8f3cae5d7` (see the `signed-in` skill), unless
+     it is the row's owner.
 2. Run it through the Supabase MCP `execute_sql` tool exactly as-is — it's wrapped in
    `begin ... rollback`, so nothing persists.
 3. It simulates `anon` and a different `authenticated` user in turn, and attempts a read
