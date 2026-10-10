@@ -59,7 +59,7 @@ export function RankCaption({
         : "text-zinc-500 dark:text-zinc-400";
 
   return (
-    <span className={`mt-1 block truncate text-[10px] font-medium ${tone}`} title={rankTooltip(rank, positionLong)}>
+    <span className={`mt-1 block truncate text-[11px] font-medium ${tone}`} title={rankTooltip(rank, positionLong)}>
       {text}
     </span>
   );
@@ -89,8 +89,13 @@ export function StatCell({
   return (
     // `min-w-0` so a long value truncates inside the cell instead of forcing
     // the grid track wider than its `minmax(0,1fr)` allows.
-    <div className="min-w-0 rounded-lg border border-zinc-200 bg-white p-2.5 dark:border-purple-900/60 dark:bg-surface-2">
-      <p className="truncate text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+    //
+    // Sprint 42 — a hairline above each cell, not a bordered tile. The profile
+    // is already a sheet; a grid of boxed tiles inside it was the "card inside
+    // a card" the mobile redesign removes everywhere else. Same content, one
+    // surface, rows divided by lines.
+    <div className="min-w-0 border-t border-zinc-200 pt-2 pb-1.5 dark:border-purple-900/50">
+      <p className="truncate text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         {label}
       </p>
       {/* A div, not a p: `value` is a ReactNode and is a <Skeleton> (a div)
@@ -103,7 +108,7 @@ export function StatCell({
       >
         {value}
       </div>
-      {sub ? <div className="truncate text-[10px] text-zinc-500 dark:text-zinc-400">{sub}</div> : null}
+      {sub ? <div className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">{sub}</div> : null}
       {rank ? <MiniBar fill={rank.fill} /> : null}
       {rank && positionShort && positionLong ? (
         <RankCaption
@@ -130,7 +135,7 @@ export function StatGrid({
   return (
     <section className="min-w-0">
       {label ? (
-        <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
           {label}
         </h3>
       ) : null}
@@ -143,7 +148,7 @@ export function StatGrid({
         widening only where there is room.
       */}
       <div
-        className={`grid min-w-0 gap-2 [grid-template-columns:repeat(2,minmax(0,1fr))] ${
+        className={`grid min-w-0 gap-x-4 [grid-template-columns:repeat(2,minmax(0,1fr))] ${
           columns === 3
             ? "sm:[grid-template-columns:repeat(3,minmax(0,1fr))]"
             : "sm:[grid-template-columns:repeat(2,minmax(0,1fr))]"

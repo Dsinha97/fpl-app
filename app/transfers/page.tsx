@@ -72,6 +72,10 @@ import { signed } from "@/lib/utils";
 import { HorizonControl } from "@/components/horizon-control";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
+import { SlideOver } from "@/components/ui/slide-over";
+import { HeroStat } from "@/components/ui/stat-strip";
+import { useMinWidth } from "@/components/ui/use-viewport";
+import { SlidersHorizontal } from "lucide-react";
 
 interface PlayerRow {
   id: number;
@@ -163,15 +167,14 @@ export default function TransfersPage() {
   /** A ?replace=<id> from another page, waiting for the draft to resolve. */
   const requestedReplace = useRef<number | null>(null);
   const [search, setSearch] = useState("");
-  /** Sprint 23: on mobile the picker renders inline below the table rather
-   * than in the desktop aside (there's no room for a second column), so on
-   * open it's scrolled into view rather than left for the owner to hunt for
-   * below whichever row they tapped. */
-  const mobilePickerRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (pickingFor === null) return;
-    mobilePickerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [pickingFor]);
+  /** Sprint 42: below `lg` the picker is a bottom sheet over the squad
+   * table rather than a bordered box inline below it. Sprint 23 had to
+   * scroll that box into view on open, and on a phone it was a card inside
+   * the squad card; a sheet arrives under the thumb wherever the tapped row
+   * was, and closing it returns to that row. `lg` up keeps the aside copy. */
+  const wide = useMinWidth(1024);
+  /** Sprint 42: the plan settings are a bottom sheet on a phone. */
+  const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const [applied, setApplied] = useState<string | null>(null);
   const [pathResult, setPathResult] = useState<TransferPathResult | null>(null);
   const [pathLoading, setPathLoading] = useState(false);
@@ -787,7 +790,7 @@ export default function TransfersPage() {
           aria-label="Cancel"
           variant="ghost"
           size="icon-xs"
-          className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+          className="text-zinc-400 hover:text-zinc-600 max-lg:size-11 dark:hover:text-zinc-200"
         >
           ×
         </Button>
@@ -797,7 +800,7 @@ export default function TransfersPage() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search for a specific player…"
-        className="mt-2 w-full rounded-md border border-input bg-surface-3 px-2 py-1 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="mt-2 min-h-11 w-full rounded-md border border-input bg-surface-3 px-2 py-1 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-0"
       />
       {candidates.length === 0 ? (
         <p className="mt-2 text-xs text-zinc-500">
@@ -828,7 +831,7 @@ export default function TransfersPage() {
                     addMove(pickingFor, player.id);
                   }
                 }}
-                className="flex w-full cursor-pointer items-center justify-between gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset dark:hover:bg-purple-950/60"
+                className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 rounded px-2 py-1 text-left lg:min-h-0 text-sm transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset dark:hover:bg-purple-950/60"
               >
                 <span className="block min-w-0">
                   <span className="font-medium text-zinc-800 dark:text-zinc-200">
@@ -867,7 +870,7 @@ export default function TransfersPage() {
                       <TapToReveal
                         label="What is an exit route?"
                         wrapperClassName="relative block"
-                        triggerClassName="text-[10px] text-zinc-400"
+                        triggerClassName="text-[11px] text-zinc-400"
                         trigger={`${exitRoutes} exit route${exitRoutes === 1 ? "" : "s"}`}
                       >
                         <p>
@@ -884,7 +887,7 @@ export default function TransfersPage() {
                   </span>
                   {teamFit !== null && (
                     <span
-                      className={`block text-[10px] tabular-nums ${
+                      className={`block text-[11px] tabular-nums ${
                         teamFit > 0
                           ? "text-emerald-700 dark:text-emerald-400"
                           : "text-amber-700 dark:text-amber-400"
@@ -947,7 +950,7 @@ export default function TransfersPage() {
               ? "Irrelevant in Wildcard mode — every move is free."
               : "FPL lets you bank up to five. Accrual is not modelled — set what you actually hold."
           }
-          className="rounded-md border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
+          className="min-h-11 rounded-md border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed sm:min-h-0"
         >
           {Array.from({ length: MAX_FREE_TRANSFERS + 1 }, (_, i) => (
             <option key={i} value={i}>
@@ -974,6 +977,37 @@ export default function TransfersPage() {
         />
         Apply as Wildcard (no hit)
       </label>
+    </>
+  );
+
+  /** Rendered in the collapsible card from `sm` up and in a bottom sheet below it. */
+  const settingsBody = (
+    <>
+      <div className="flex flex-col gap-4 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-3">
+        {tab === "transfers" && <HorizonControl value={horizon} onValueChange={setHorizon} />}
+        {drafts.length > 0 && (
+          <label className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+            Squad
+            <select
+              value={draftId ?? ""}
+              onChange={(e) => setDraftId(e.target.value)}
+              className="min-h-11 min-w-0 flex-1 truncate rounded-md border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-0 sm:max-w-[10rem] sm:flex-none"
+            >
+              {drafts.map((d) => (
+                <option key={d.draftId} value={d.draftId}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {tab === "transfers" && transferSettings}
+      </div>
+      {tab === "transfers" && horizon === "season" && (
+        <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
+          {seasonHorizonNote(seasonWindow)}
+        </p>
+      )}
     </>
   );
 
@@ -1015,33 +1049,37 @@ export default function TransfersPage() {
           values — the shape the Chip plan card below already uses. Four
           controls in a wrapping row was most of a phone screen before the
           page said anything. */}
-      <CollapsibleCard title="Plan settings" summary={settingsSummary} tier="primary" className="mt-3">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 text-sm">
-          {tab === "transfers" && <HorizonControl value={horizon} onValueChange={setHorizon} />}
-          {drafts.length > 0 && (
-            <label className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
-              Squad
-              <select
-                value={draftId ?? ""}
-                onChange={(e) => setDraftId(e.target.value)}
-                className="max-w-[10rem] truncate rounded-md border border-input bg-surface-3 px-2 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {drafts.map((d) => (
-                  <option key={d.draftId} value={d.draftId}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {tab === "transfers" && transferSettings}
+      {/* Sprint 42 — on a phone the settings are a secondary task: one row
+          reading back their values, opening a bottom sheet. */}
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        onClick={() => setSettingsSheetOpen(true)}
+        className="mt-3 flex min-h-11 w-full items-center gap-2 border-y border-zinc-200 text-left text-sm sm:hidden dark:border-purple-900/40"
+      >
+        <SlidersHorizontal aria-hidden="true" className="size-4 shrink-0 text-zinc-500" />
+        <span className="min-w-0 flex-1 truncate text-zinc-600 dark:text-zinc-300">{settingsSummary}</span>
+        <span className="shrink-0 font-medium text-purple-700 dark:text-primary">Edit</span>
+      </button>
+      <SlideOver
+        open={settingsSheetOpen}
+        onClose={() => setSettingsSheetOpen(false)}
+        side="bottom"
+        label="Plan settings"
+        maxHeight="min(85dvh, 40rem)"
+      >
+        <h2 className="px-2 pb-3 text-lg font-semibold">Plan settings</h2>
+        <div className="overflow-y-auto overscroll-contain px-2 pb-2">{settingsBody}</div>
+        <div className="border-t border-zinc-200 px-2 pt-3 dark:border-purple-900/40">
+          <Button type="button" size="md" className="min-h-11 w-full" onClick={() => setSettingsSheetOpen(false)}>
+            Done
+          </Button>
         </div>
-        {tab === "transfers" && horizon === "season" && (
-          <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
-            {seasonHorizonNote(seasonWindow)}
-          </p>
-        )}
+      </SlideOver>
+      <CollapsibleCard title="Plan settings" summary={settingsSummary} tier="primary" className="mt-3 max-sm:hidden">
+        {settingsBody}
       </CollapsibleCard>
+
 
       {/* Mounted only while its tab is showing: the chip engine does its own
           player/prediction/fixture loads, and someone only planning
@@ -1140,15 +1178,15 @@ export default function TransfersPage() {
               wrapper. */}
           {/* Supporting tier (Sprint 19, Stage 4a) — this is the browsing/basket
               mechanism, not the answer; the simulation result in the aside is. */}
-          <section className="min-w-0 rounded-xl border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border">
+          <section className="min-w-0 rounded-xl border border-zinc-200 bg-card-supporting p-3 max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:px-0 max-sm:pb-0 max-sm:pt-4 dark:border-card-supporting-border">
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               {team.name} · {team.players.length} players
             </h2>
             <div className="mt-2 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 text-left text-[10px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
-                  <DataHeadCell className="sticky left-0 z-10 bg-card-supporting px-2 py-1.5">
+                <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+                  <DataHeadCell className="sticky left-0 z-10 bg-card-supporting px-2 py-1.5 max-sm:bg-background">
                     Player
                   </DataHeadCell>
                   <DataHeadCell className="hidden px-2 py-1.5 sm:table-cell">Pos</DataHeadCell>
@@ -1198,7 +1236,7 @@ export default function TransfersPage() {
                             ? "bg-purple-50 dark:bg-purple-950/40"
                             : move
                               ? "bg-warning-surface"
-                              : "bg-card-supporting"
+                              : "bg-card-supporting max-sm:bg-background"
                         }`}
                       >
                         <span className="flex max-w-[7.5rem] items-center gap-1.5 sm:max-w-none">
@@ -1313,13 +1351,16 @@ export default function TransfersPage() {
             {/* candidate picker — mobile only; the desktop copy renders in
                 the aside beside the table (see below), since there's room
                 there and no reason to hunt for it below the whole table. */}
-            {pickerBody && (
-              <div
-                ref={mobilePickerRef}
-                className="mt-4 rounded-lg border border-purple-300 p-3 lg:hidden dark:border-primary/40"
+            {!wide && (
+              <SlideOver
+                open={pickerBody !== null}
+                onClose={() => setPickingFor(null)}
+                side="bottom"
+                label="Choose a replacement"
+                maxHeight="min(80dvh, 40rem)"
               >
-                {pickerBody}
-              </div>
+                <div className="min-h-0 overflow-y-auto overscroll-contain px-1 pb-2">{pickerBody}</div>
+              </SlideOver>
             )}
           </section>
 
@@ -1327,7 +1368,10 @@ export default function TransfersPage() {
               before the squad table and picker on a phone, where the grid
               collapses to one column; lg:order-none restores the right-rail
               position once there's room for both side by side. */}
-          <aside className="order-first space-y-4 lg:order-none">
+          {/* `min-w-0`: the collapsed NoteDisclosures below are one unwrapped line
+              each, and without it this grid item's min-content (~4,800px)
+              widened the whole page as soon as a move was queued (Sprint 42). */}
+          <aside className="order-first min-w-0 space-y-4 lg:order-none">
             {/* candidate picker — desktop only; see the mobile copy in the
                 squad section above. Rendered first so it appears above the
                 simulation result while a swap is in progress. */}
@@ -1338,7 +1382,7 @@ export default function TransfersPage() {
             )}
 
             {simulation && moves.length === 0 && (
-              <div className="rounded-xl border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border">
+              <div className="rounded-xl border border-zinc-200 bg-card-supporting p-3 max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent max-sm:px-0 max-sm:pb-0 max-sm:pt-0 dark:border-card-supporting-border">
                 <p className="text-sm text-zinc-500">
                   Choose a player to transfer out. Nothing is committed until you apply, and applying
                   writes a new draft rather than changing this one.
@@ -1371,12 +1415,17 @@ export default function TransfersPage() {
             )}
 
             {simulation && moves.length > 0 && (
-              <div className="rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40">
+              <div className="rounded-xl border border-purple-300 bg-card p-4 max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent max-sm:p-0 dark:border-primary/40">
+                {/* Sprint 42 — the net gain is this page's one number, so it
+                    is the HeroStat, pinned top-right; the terms it is made of
+                    sit beside it on the left, never folded into it. */}
+                <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                 <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                   {simulation.cost.transfers} transfer
                   {simulation.cost.transfers === 1 ? "" : "s"} · {horizonLabel(horizon)}
                   {wildcardMode && (
-                    <span className="ml-1.5 rounded bg-purple-950 px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-white dark:bg-primary dark:text-slate-950">
+                    <span className="ml-1.5 rounded bg-purple-950 px-1.5 py-0.5 text-[11px] font-medium normal-case tracking-normal text-white dark:bg-primary dark:text-slate-950">
                       Wildcard
                     </span>
                   )}
@@ -1384,15 +1433,6 @@ export default function TransfersPage() {
 
                 {/* headline */}
                 <div className="mt-1.5">
-                  <div
-                    className={`text-3xl font-extrabold tabular-nums ${
-                      simulation.transferGain > 0
-                        ? "text-emerald-700 dark:text-emerald-400"
-                        : "text-amber-700 dark:text-amber-400"
-                    }`}
-                  >
-                    {signed(simulation.transferGain)}
-                  </div>
                   {/* The hit is shown as its own term, never folded silently into
                       the net figure. */}
                   <p className="mt-0.5 text-xs text-zinc-500">
@@ -1410,6 +1450,23 @@ export default function TransfersPage() {
                       {simulation.cost.hits} hit{simulation.cost.hits === 1 ? "" : "s"}
                     </p>
                   )}
+                </div>
+                </div>
+                <HeroStat
+                  label="Net xP"
+                  title="Projected xP gained, after the hit and the risk adjustment"
+                  value={
+                    <span
+                      className={
+                        simulation.transferGain > 0
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-amber-700 dark:text-amber-400"
+                      }
+                    >
+                      {signed(simulation.transferGain)}
+                    </span>
+                  }
+                />
                 </div>
 
                 {!simulation.legal && (

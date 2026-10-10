@@ -833,3 +833,48 @@ were clipped under a pitch that would not get taller. The clipping now lives on 
 so the aspect ratio acts as a floor.
 
 — [sprints/sprint-41.md](../sprints/sprint-41.md)
+
+## The same primitives on Deadline, Transfers, Fixtures and Builder (Sprint 42, 2026-10-08)
+
+Sprint 42 applied Sprint 41's rules to the four routes it had left on the old layout, at phone
+width.
+
+**One hero per page.**
+
+| Route | Hero |
+|---|---|
+| `/deadline` | the deadline countdown |
+| `/transfers` | **Net xP**, with the xP, hit and risk terms beside it, never folded in. This one applies at every width |
+| `/fixtures` | the next gameweek |
+| `/builder` | the squad projection |
+
+`HeroStat` values became `whitespace-nowrap`, because the countdown wrapped onto two lines. The
+builder's two stat grids (the xP panel, the Gameweek lineup's two-column `dl`) became
+`StatStrip`s on a phone.
+
+**Flat below `sm`.** Card frames are dropped below `sm`, so each section sits under a hairline
+instead of in a bordered box. This covers the Deadline Hub's two card tiers, the `/transfers`
+squad and result panels, `/fixtures`' gameweek sections, and the builder's panels. The
+profile's `StatCell`s (`components/player-modal/stat-cell.tsx`) are now hairline-divided rather
+than boxed tiles inside the sheet.
+
+Watch the cascade when flattening. A `max-sm:bg-transparent` does **not** beat a `dark:bg-card`
+on the same element, so flattening needs `max-sm:dark:bg-transparent` as well.
+
+**Secondary tasks became sheets.**
+
+- The deadline squad picker.
+- The `/transfers` plan settings and replacement picker (below `lg`).
+- The FDR settings.
+- The shared `FilterDisclosure`, so `/players` and the builder's filters both get it on a phone.
+
+The builder's replacement finder stays inline. Its own filter is now a sheet, and a sheet
+opening a sheet was rejected.
+
+**The `min-w-0` gotcha, a third time.** `/transfers` grew to about 4,800px wide as soon as a move
+was queued. The result `<aside>` was a grid item without `min-w-0`, and its two collapsed
+`NoteDisclosure`s are single unwrapped lines. A check with no move queued never exercises it.
+The fix and its history are in [frontend-conventions](frontend-conventions.md)'s scroll-container
+gotcha (DSI-138, DSI-141).
+
+— [sprints/sprint-42.md](../sprints/sprint-42.md)

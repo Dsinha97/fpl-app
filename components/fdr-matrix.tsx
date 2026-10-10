@@ -17,6 +17,9 @@ import { FDRBadge, FixtureCell } from "./fdr-badge";
 import { TapToReveal } from "@/components/info-tooltip";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
+import { SlideOver } from "@/components/ui/slide-over";
+import { Button } from "@/components/ui/button";
+import { SlidersHorizontal } from "lucide-react";
 
 export interface MatrixFixture {
   event: number | null;
@@ -61,6 +64,7 @@ export function FdrMatrix({
   const [horizon, setHorizon] = useState<number>(8);
   const [sort, setSort] = useState<SortOrder>("easiest");
   const [search, setSearch] = useState("");
+  const [sheetOpen, setSheetOpen] = useState(false);
   // Defaults to FPL's own rating. The strength view is a second opinion, not a
   // replacement — nothing this app ranks or projects uses it (see strengthFdr).
   const [source, setSource] = useState<FdrSource>("official");
@@ -143,21 +147,9 @@ export function FdrMatrix({
     }
   }, [teams, byTeam, gwCols, sort, search, source]);
 
-  return (
+  const settingsBody = (
     <>
-      {/* DSI-141, second pass: a caption, a window strip, a search box, a sort
-          select, a rating switch and a six-swatch legend all stacked above the
-          matrix. Everything that parameterises the grid is now one collapsed
-          card, readable shut, the same shape /transfers' Plan settings and Chip
-          plan use — and the legend, which explains the grid rather than
-          changing it, is a link beside it instead of a permanent block. */}
-      <CollapsibleCard
-        title="FDR settings"
-        summary={settingsSummary}
-        tier="primary"
-        className="mt-4"
-      >
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 text-sm">
+        <div className="flex flex-col gap-4 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-3">
           <span className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-zinc-500">Window</span>
             {/* A window is a parameter, not a view, so `radio` rather than
@@ -182,7 +174,7 @@ export function FdrMatrix({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search team…"
             aria-label="Search team"
-            className="w-40 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
+            className="min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 sm:min-h-0 sm:w-40 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
           />
 
           <label className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
@@ -193,7 +185,7 @@ export function FdrMatrix({
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortOrder)}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
+              className="min-h-11 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-purple-700 sm:min-h-0 sm:flex-none dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
             >
               {(Object.keys(SORT_LABELS) as SortOrder[]).map((s) => (
                 <option key={s} value={s} disabled={s === "position" && !positionsKnown}>
@@ -231,6 +223,45 @@ export function FdrMatrix({
             FPL hasn&apos;t published table positions yet — showing GW1 order instead.
           </p>
         )}
+    </>
+  );
+
+  return (
+    <>
+      {/* Sprint 42 — below `sm` the settings are a bottom sheet behind one
+          row that reads back their values, the same shape as /transfers'. */}
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        onClick={() => setSheetOpen(true)}
+        className="mt-4 flex min-h-11 w-full items-center gap-2 border-y border-zinc-200 text-left text-sm sm:hidden dark:border-purple-900/40"
+      >
+        <SlidersHorizontal aria-hidden="true" className="size-4 shrink-0 text-zinc-500" />
+        <span className="min-w-0 flex-1 truncate text-zinc-600 dark:text-zinc-300">{settingsSummary}</span>
+        <span className="shrink-0 font-medium text-purple-700 dark:text-primary">Edit</span>
+      </button>
+      <SlideOver open={sheetOpen} onClose={() => setSheetOpen(false)} side="bottom" label="FDR settings">
+        <h2 className="px-2 pb-3 text-lg font-semibold">FDR settings</h2>
+        <div className="overflow-y-auto overscroll-contain px-2 pb-2">{settingsBody}</div>
+        <div className="border-t border-zinc-200 px-2 pt-3 dark:border-purple-900/40">
+          <Button type="button" size="md" className="min-h-11 w-full" onClick={() => setSheetOpen(false)}>
+            Show fixtures
+          </Button>
+        </div>
+      </SlideOver>
+      {/* DSI-141, second pass: a caption, a window strip, a search box, a sort
+          select, a rating switch and a six-swatch legend all stacked above the
+          matrix. Everything that parameterises the grid is now one collapsed
+          card, readable shut, the same shape /transfers' Plan settings and Chip
+          plan use — and the legend, which explains the grid rather than
+          changing it, is a link beside it instead of a permanent block. */}
+      <CollapsibleCard
+        title="FDR settings"
+        summary={settingsSummary}
+        tier="primary"
+        className="mt-4 max-sm:hidden"
+      >
+        {settingsBody}
       </CollapsibleCard>
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">

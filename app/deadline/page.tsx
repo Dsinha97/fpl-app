@@ -68,6 +68,8 @@ import { confidentEntities, dedupeByUrl, sourceBadge, type NewsRow } from "@/lib
 import { loadPastResults, type PastResult } from "@/lib/player-history";
 import { signed } from "@/lib/utils";
 import { Alert } from "@/components/ui/alert";
+import { SlideOver } from "@/components/ui/slide-over";
+import { Check, ChevronDown } from "lucide-react";
 
 interface PlayerRow {
   id: number;
@@ -112,9 +114,16 @@ const STATUS_SEVERITY: Record<string, number> = { s: 0, i: 0, u: 0, n: 0, d: 1, 
  * and a smaller uppercase heading for context that isn't itself a decision
  * (readiness, availability, price & news watch).
  */
-const card = "rounded-lg border border-zinc-200 bg-card p-4 dark:border-purple-900/40";
-const cardSupporting =
-  "rounded-lg border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border";
+/*
+ * Sprint 42 — below `sm` both tiers drop their frame and become sections
+ * divided by a hairline. At 375px a stack of bordered boxes, each with its
+ * own 16px inset, spent a tenth of the width on chrome, and the chip
+ * valuations and live fixtures inside them made it cards within cards.
+ */
+const flatOnPhone =
+  "max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:px-0 max-sm:pb-0 max-sm:pt-4";
+const card = `rounded-lg border border-zinc-200 bg-card p-4 dark:border-purple-900/40 ${flatOnPhone}`;
+const cardSupporting = `rounded-lg border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border ${flatOnPhone}`;
 const supportingHeading = "text-xs font-medium uppercase tracking-wide text-zinc-500";
 
 interface NextFixture {
@@ -179,6 +188,8 @@ export default function DeadlinePage() {
   const [newsLoading, setNewsLoading] = useState(false);
 
   const [now, setNow] = useState(() => Date.now());
+  // Sprint 42 — the squad picker is a bottom sheet on a phone.
+  const [squadSheetOpen, setSquadSheetOpen] = useState(false);
 
   // ------------------------------------------------------------- live hub
   //
@@ -1013,8 +1024,8 @@ export default function DeadlinePage() {
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div className="flex items-start justify-between gap-3 sm:flex-wrap">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
             Deadline Hub
           </h1>
@@ -1022,8 +1033,23 @@ export default function DeadlinePage() {
             Everything to decide before the deadline, in one place.
           </p>
         </div>
+        {/* Sprint 42 — on a phone the countdown is the page's one key
+            number, pinned top-right where Sprint 41 put every screen's hero.
+            From `sm` up it stays where it was, under its own heading. */}
+        {!loading && team && ctx && countdown && (
+          <div className="sm:hidden">
+            <HeroStat
+              label={`GW${ctx.nextEvent} deadline`}
+              value={
+                <span className={countdown.passed ? "text-red-700 dark:text-red-400" : undefined}>
+                  {countdown.text}
+                </span>
+              }
+            />
+          </div>
+        )}
         {drafts.length > 1 && (
-          <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+          <label className="hidden items-center gap-2 text-sm text-zinc-600 sm:flex dark:text-zinc-400">
             Squad
             <select
               value={draftId ?? ""}
@@ -1045,6 +1071,33 @@ export default function DeadlinePage() {
           </label>
         )}
       </div>
+
+      {/* The phone's squad switcher: a row naming the squad, opening a sheet
+          of the saved ones. Only a control when there is a choice to make. */}
+      {drafts.length > 0 && (
+        <div className="mt-3 sm:hidden">
+          {drafts.length > 1 ? (
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              onClick={() => setSquadSheetOpen(true)}
+              className="flex min-h-11 w-full items-center justify-between gap-2 border-y border-zinc-200 text-left text-sm dark:border-purple-900/40"
+            >
+              <span className="min-w-0 truncate">
+                <span className="text-zinc-500">Squad </span>
+                <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                  {drafts.find((d) => d.draftId === draftId)?.name ?? "Choose"}
+                </span>
+              </span>
+              <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-zinc-500" />
+            </button>
+          ) : (
+            <p className="text-sm text-zinc-500">
+              Squad <span className="font-medium text-zinc-900 dark:text-zinc-100">{drafts[0].name}</span>
+            </p>
+          )}
+        </div>
+      )}
 
       {error && (
         <p className="mt-6 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
@@ -1083,12 +1136,10 @@ export default function DeadlinePage() {
               kept visually distinct now (own line each, extra vertical gap)
               rather than run on as siblings in one flex row — the label
               names what's below it, it isn't part of the same reading. */}
-          <h2 className={`mt-6 hidden sm:block ${supportingHeading}`}>{ctx.gameweekName} deadline</h2>
-          <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 sm:mt-2">
-            {/* Below `sm` the sticky ContextBar already carries the countdown, so the
-                page repeats only the date — not a second 3xl clock. */}
+          <h2 className={`mt-6 max-sm:hidden ${supportingHeading}`}>{ctx.gameweekName} deadline</h2>
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <p
-              className={`hidden text-3xl font-bold tabular-nums sm:block ${
+              className={`text-3xl font-bold tabular-nums max-sm:hidden ${
                 countdown?.passed ? "text-red-700 dark:text-red-400" : "text-purple-900 dark:text-primary"
               }`}
             >
@@ -1379,7 +1430,7 @@ export default function DeadlinePage() {
                               </a>
                               <span className="shrink-0 text-xs text-zinc-400">{ago(row.published_at)}</span>
                             </div>
-                            <span className="mt-0.5 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            <span className="mt-0.5 inline-block rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                               {sourceBadge(row)}
                             </span>
                           </li>
@@ -1660,7 +1711,7 @@ export default function DeadlinePage() {
                     )}
                     {!predsLoading && [benchBoost, tripleCaptain].map((v) =>
                       v ? (
-                        <div key={v.chip} className="rounded-md border border-zinc-200 px-3 py-2 dark:border-purple-900/40">
+                        <div key={v.chip} className="rounded-md border border-zinc-200 px-3 py-2 max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:px-0 dark:border-purple-900/40">
                           <div className="flex items-baseline justify-between">
                             <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
                               {CHIP_LABELS[v.chip]}
@@ -1693,7 +1744,7 @@ export default function DeadlinePage() {
                                 // gameweek ranked — is one link below.
                                 <span className="text-sm font-bold tabular-nums text-foreground">
                                   {signed(v.gain)}
-                                  <span className="ml-0.5 text-[10px] font-normal text-muted-foreground">
+                                  <span className="ml-0.5 text-[11px] font-normal text-muted-foreground">
                                     xP
                                   </span>
                                 </span>
@@ -1754,6 +1805,40 @@ export default function DeadlinePage() {
 
         </>
       )}
+
+      <SlideOver
+        open={squadSheetOpen}
+        onClose={() => setSquadSheetOpen(false)}
+        side="bottom"
+        label="Choose a squad"
+      >
+        <h2 className="px-2 pb-2 text-lg font-semibold">Squad</h2>
+        <ul role="radiogroup" aria-label="Squad" className="divide-y divide-zinc-100 overflow-y-auto overscroll-contain dark:divide-purple-900/40">
+          {drafts.map((d) => (
+            <li key={d.draftId}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={d.draftId === draftId}
+                onClick={() => {
+                  chosen.current = true;
+                  setDraftId(d.draftId);
+                  setSquadSheetOpen(false);
+                }}
+                className={`flex min-h-12 w-full items-center justify-between gap-2 px-2 text-left text-base transition-colors active:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring dark:active:bg-purple-950/60 ${
+                  d.draftId === draftId ? "font-semibold text-purple-800 dark:text-primary" : "text-zinc-800 dark:text-zinc-200"
+                }`}
+              >
+                <span className="min-w-0 truncate">
+                  {d.name}
+                  {d.source === "fpl" && <span className="ml-1.5 text-sm font-normal text-zinc-500">imported</span>}
+                </span>
+                {d.draftId === draftId && <Check aria-hidden="true" className="size-5 shrink-0" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </SlideOver>
 
       {profileModal}
     </main>

@@ -47,7 +47,7 @@ export function HeroStat({
         {labelAddon}
       </span>
       <span
-        className={`${align === "center" ? "text-5xl" : "text-3xl"} font-bold leading-none tabular-nums text-purple-800 dark:text-primary`}
+        className={`whitespace-nowrap ${align === "center" ? "text-5xl" : "text-3xl"} font-bold leading-none tabular-nums text-purple-800 dark:text-primary`}
       >
         {value}
       </span>

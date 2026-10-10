@@ -198,8 +198,8 @@ export function OverviewTab({
       </StatGrid>
 
       {priceProgress && priceProgress.verdict !== "unknown" && (
-        <section className="min-w-0 rounded-lg border border-zinc-200 p-3 dark:border-purple-900/60">
-          <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        <section className="min-w-0 border-t border-zinc-200 pt-2 dark:border-purple-900/50">
+          <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             Price watch
           </h3>
           <div className="flex min-w-0 items-baseline justify-between gap-2">
@@ -223,16 +223,13 @@ export function OverviewTab({
 
           {priceProgress.projections && priceProgress.projections.length > 0 && (
             <>
-              <p className="mt-2.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              <p className="mt-2.5 text-[11px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 At the current transfer rate
               </p>
-              <div className="mt-1 grid min-w-0 gap-1.5 [grid-template-columns:repeat(3,minmax(0,1fr))]">
+              <div className="mt-1 grid min-w-0 divide-x divide-zinc-200 [grid-template-columns:repeat(3,minmax(0,1fr))] dark:divide-purple-900/50">
                 {priceProgress.projections.map((p) => (
-                  <div
-                    key={p.nightsAhead}
-                    className="min-w-0 rounded border border-zinc-200 px-1.5 py-1 text-center dark:border-purple-900/60"
-                  >
-                    <p className="truncate text-[10px] text-zinc-500 dark:text-zinc-400">
+                  <div key={p.nightsAhead} className="min-w-0 px-1.5 py-1 text-center">
+                    <p className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
                       {p.at.toLocaleDateString(undefined, { day: "numeric", month: "short" })}
                     </p>
                     <p className="truncate tabular-nums text-[11px] font-semibold">{signedPct(p.progressRaw)}</p>
@@ -308,7 +305,7 @@ export function OverviewTab({
 
       {prices !== null && prices.length > 0 && (
         <section className="min-w-0">
-          <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             Recent price changes
           </h3>
           <ul className="flex min-w-0 flex-col gap-1">
@@ -323,7 +320,7 @@ export function OverviewTab({
                   <span className="min-w-0 truncate tabular-nums font-medium">
                     {money(from)} → {money(p.price)}
                   </span>
-                  <span className="shrink-0 text-[10px] text-zinc-500 dark:text-zinc-400">
+                  <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
                     {new Date(p.observed_at).toLocaleString(undefined, {
                       day: "numeric",
                       month: "short",
@@ -343,7 +340,7 @@ export function OverviewTab({
           from the caller and is present on every page. */}
       {lines !== null && lines.length > 0 && (
         <section className="min-w-0">
-          <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             Recent form
           </h3>
           <div className="flex min-w-0 flex-wrap gap-1.5">
@@ -351,7 +348,7 @@ export function OverviewTab({
               <span
                 key={`${r.event}-${r.fixture}`}
                 title={`GW${r.event} · ${r.total_points} points · ${r.minutes} mins`}
-                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-bold ${
                   r.total_points >= 6
                     ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                     : r.total_points >= 2
@@ -450,7 +447,7 @@ export function OverviewTab({
 
       {extras && extras.headlines.length > 0 && (
         <section className="min-w-0">
-          <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             In the news
           </h3>
           <ul className="flex min-w-0 flex-col gap-1.5">
@@ -464,7 +461,7 @@ export function OverviewTab({
                 >
                   {h.title}
                 </a>
-                <div className="text-[10px] text-zinc-500">
+                <div className="text-[11px] text-zinc-500">
                   {sourceBadge(h)} · {ago(h.published_at)}
                 </div>
               </li>
