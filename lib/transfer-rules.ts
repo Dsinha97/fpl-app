@@ -5,6 +5,7 @@
 // chip engines. `lib/transfers.ts` re-exports all of it, so there is still one
 // implementation, just a lighter module for it to live in.
 
+import { fplActiveChipAt } from "./chip-plan";
 import type { TeamState } from "./team-state";
 
 /** FPL currently lets a manager bank up to five free transfers. */
@@ -41,10 +42,17 @@ export type FreeTransfersDisplay = { kind: "unlimited" } | { kind: "count"; n: n
  * the real cap can only be a stale import artifact, not a real balance, so it
  * falls back to the documented default of 1 rather than the cap of 5, which
  * would itself read as a limit nobody actually set.
+ *
+ * The chip only grants "unlimited" in the gameweek it was played in: pass the
+ * gameweek being planned as `event` and a Wildcard from last gameweek stops
+ * reading as unlimited this one (`fplActiveChipAt` is the one rule for which
+ * gameweek a chip belongs to). Without `event` the chip is not consulted — the
+ * stale-chip reading was the bug, so there is deliberately no legacy fallback.
  */
-export function freeTransfersDisplay(team: TeamState): FreeTransfersDisplay {
-  if (team.activeChip === "wildcard" || team.activeChip === "freehit") {
-    return { kind: "unlimited" };
+export function freeTransfersDisplay(team: TeamState, event?: number | null): FreeTransfersDisplay {
+  if (event != null) {
+    const chip = fplActiveChipAt(team, event);
+    if (chip === "wildcard" || chip === "freehit") return { kind: "unlimited" };
   }
   const n = team.freeTransfers;
   if (!Number.isFinite(n) || n > MAX_FREE_TRANSFERS) {

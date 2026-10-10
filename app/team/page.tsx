@@ -10,7 +10,9 @@ import { ManagerProfileCard, RivalTable } from "@/components/manager-profile-car
 import type { ManagerLeagueRow } from "@/components/manager-leagues";
 import { loadLeagueStandings, type LeagueStandingRow } from "@/lib/leagues";
 import { ChevronRight } from "lucide-react";
-import { groupByEvent, hitCost, loadTransfers, type TransferRow } from "@/lib/manager-transfers";
+import { groupByEvent, loadTransfers, type TransferRow } from "@/lib/manager-transfers";
+import { chipLabel } from "@/lib/chip-plan";
+import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { diffSquads } from "@/lib/squad-diff";
 import { PitchView, type SquadLayout } from "@/components/pitch-view";
 import { useProfileModal } from "@/components/player-modal/use-profile-modal";
@@ -54,6 +56,8 @@ import {
 } from "@/lib/gameweek-state";
 import { DEFAULT_RULES, type SquadRules, type TeamState } from "@/lib/team-state";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { Badge } from "@/components/ui/badge";
+import { StatStrip } from "@/components/ui/stat-strip";
 import { GameweekReviewPanel } from "@/components/gameweek-review-panel";
 import { DecisionAnalyticsPanel } from "@/components/decision-analytics-panel";
 import { TelegramLink } from "@/components/telegram-link";
@@ -264,48 +268,53 @@ function GameweekSummary({
 
   return (
     <div className="mt-3 rounded-lg border border-zinc-200 bg-card p-4 text-sm dark:border-purple-900/40">
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 tabular-nums text-zinc-800 dark:text-zinc-200">
-        <span className="font-medium">GW{event} as picked:</span>
-        <span>{score.startersRaw} XI</span>
-        {score.captain && score.captain.added !== 0 && (
-          <>
-            <span className="text-zinc-400">+</span>
-            <span>
-              {score.captain.added} armband ({captainName} ×{score.captain.multiplier})
-            </span>
-          </>
-        )}
-        <span className="text-zinc-400">=</span>
-        <span className="font-semibold text-purple-900 dark:text-primary">{score.asPicked}</span>
-      </div>
-
-      <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 tabular-nums text-zinc-600 dark:text-zinc-400">
-        <span>FPL recorded {history?.points ?? "—"}</span>
-        {hit > 0 && <span>· includes a −{hit} transfer hit</span>}
-        <span>· {history?.points_on_bench ?? score.benchRaw} left on the bench</span>
+      {/* Title row carries the state (chip, provisional); the three numbers
+          are one strip, so the as-picked and FPL totals sit side by side as
+          the note says rather than inside a sentence. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="font-medium text-zinc-900 dark:text-zinc-100">GW{event}</span>
         {history?.active_chip && (
-          <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-900 dark:bg-purple-900/50 dark:text-primary">
-            {history.active_chip}
-          </span>
+          <Badge tone="neutral" variant="solid">
+            {chipLabel(history.active_chip)}
+          </Badge>
         )}
+        {provisional && (
+          <Badge tone="warning" variant="solid">
+            Provisional
+          </Badge>
+        )}
+        <span className="ml-auto">
+          <InfoTooltip label="Why these two totals can differ">
+            {MANAGER_PICKS_NOTE} The two totals are shown side by side rather than reconciled.
+            {provisional ? " This gameweek isn't finished, so points and bonus are provisional." : ""}
+          </InfoTooltip>
+        </span>
       </div>
 
-      {provisional && (
-        <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
-          This gameweek isn&apos;t finished — points and bonus are provisional.
-        </p>
-      )}
+      <div className="mt-3">
+        <StatStrip
+          items={[
+            { label: "As picked", value: score.asPicked, accent: true },
+            { label: "FPL recorded", value: history?.points ?? "—" },
+            { label: "On bench", value: history?.points_on_bench ?? score.benchRaw },
+          ]}
+        />
+      </div>
+
+      <p className="mt-2 text-xs tabular-nums text-zinc-500">
+        {score.startersRaw} XI
+        {score.captain && score.captain.added !== 0
+          ? ` + ${score.captain.added} armband (${captainName} ×${score.captain.multiplier})`
+          : ""}
+        {hit > 0 ? ` · FPL total includes a −${hit} transfer hit` : ""}
+      </p>
+
       {score.missing.length > 0 && (
         <p className="mt-1.5 text-xs text-zinc-500">
           {score.missing.length} pick{score.missing.length === 1 ? "" : "s"} had no stats recorded
           for this gameweek and count as 0 above.
         </p>
       )}
-
-      <p className="mt-2 text-xs text-zinc-500">
-        <InfoTooltip label="Why these two totals can differ">{MANAGER_PICKS_NOTE}</InfoTooltip>{" "}
-        The two totals are shown side by side rather than reconciled.
-      </p>
     </div>
   );
 }
@@ -1709,7 +1718,11 @@ export default function TeamPage() {
               )}
             </div>
 
-            <div className="min-w-0 space-y-4">
+            {/* Below `lg` the rail dissolves into the grid (`contents`) so its key
+                numbers can lead the page, above the pitch; from `lg` it is the
+                360px column it always was. */}
+            <div className="contents lg:block lg:min-w-0 lg:space-y-4">
+              <div className="order-first min-w-0 space-y-4 lg:order-none">
               {/* Every tile except the deadline describes the gameweek the
                   selector is on, so say which one rather than leaving five
                   unlabelled numbers to be read as "now". */}
@@ -1719,7 +1732,10 @@ export default function TeamPage() {
                   gameweek.
                 </p>
               )}
-              <div className="grid grid-cols-2 gap-3">
+              {/* One framed block with hairline dividers instead of six bordered
+                  cards: six cards of the same weight read as six separate
+                  decisions, and these are one reading of the squad. */}
+              <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-zinc-200 bg-zinc-200 dark:border-purple-900/40 dark:bg-purple-900/40">
                 {[
                   {
                     label: "Team Value",
@@ -1748,12 +1764,14 @@ export default function TeamPage() {
                     value: fmtNum(gwRow ? gwRow.points : m.summary_event_points),
                   },
                   {
-                    label: data?.nextGw ? `${data.nextGw.name} Deadline` : "Next Deadline",
+                    label: data?.nextGw ? `${data.nextGw.name.replace("Gameweek ", "GW")} Deadline` : "Next Deadline",
                     value: data?.nextGw ? fmtCountdown(data.nextGw.deadline_time) : "—",
                   },
                 ].map((tile) => (
-                  <div key={tile.label} className={cardSupporting}>
-                    <div className="text-xs text-zinc-500">{tile.label}</div>
+                  <div key={tile.label} className="min-w-0 bg-card-supporting px-2.5 py-2">
+                    <div className="truncate text-[11px] text-zinc-500" title={tile.label}>
+                      {tile.label}
+                    </div>
                     {/* DSI-120: every tile in this 2x3 grid was primary-green —
                         team value, bank, total points, rank, gameweek points,
                         the deadline countdown. When six numbers share the
@@ -1762,11 +1780,12 @@ export default function TeamPage() {
                         totals, so they read as foreground. --primary is kept
                         for actions and for a net-positive outcome, which is
                         what DSI-129 #1 reserves it for. */}
-                    <div className="mt-1 text-lg font-semibold text-foreground">
+                    <div className="mt-0.5 truncate text-base font-semibold tabular-nums text-foreground">
                       {tile.value}
                     </div>
                   </div>
                 ))}
+              </div>
               </div>
 
               <section className={cardSupporting}>
@@ -1854,21 +1873,38 @@ export default function TeamPage() {
               flowing across columns, fills that space and stops the card
               being the reason the page is tall. */}
           {transfersByEvent.size > 0 && (
-            <section className={`mt-6 ${cardSupporting}`}>
-              <h2 className={supportingHeading}>Transfers this season</h2>
-              <ul className="mt-2 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <CollapsibleCard
+              tier="supporting"
+              className="mt-6"
+              title="Transfers this season"
+              summary={(() => {
+                const events = [...transfersByEvent.keys()].sort((a, b) => b - a);
+                const total = [...transfersByEvent.values()].reduce((n, r) => n + r.length, 0);
+                return `${total} across ${events.length} gameweek${events.length === 1 ? "" : "s"}`;
+              })()}
+            >
+              <ul className="mt-3 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {[...transfersByEvent.entries()]
                   .sort(([a], [b]) => b - a)
-                  .map(([event, rows]) => (
-                    <li key={event} className="min-w-0 text-sm">
-                      <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                        GW{event}
-                      </span>{" "}
-                      <span className="text-zinc-500">
-                        {rows.length} transfer{rows.length === 1 ? "" : "s"}
-                        {rows.length > 1 ? ` · ${hitCost(Math.max(0, rows.length - 1))} pt hit` : ""}
-                      </span>
-                      <ul className="mt-1 space-y-0.5 pl-3 text-xs text-zinc-500">
+                  .map(([event, rows]) => {
+                    // The hit FPL actually charged, not a recount: free transfers
+                    // bank and a Wildcard/Free Hit is never charged, so
+                    // "transfers − 1 × 4" read as −76 for a 20-player Wildcard.
+                    // With no history row for the gameweek the hit is unknown, so
+                    // none is shown rather than guessed.
+                    const gw = data?.gwHistory.find((g) => g.event === event);
+                    const chip = gw?.active_chip ?? null;
+                    const freeChip = chip === "wildcard" || chip === "freehit";
+                    const charged = gw?.event_transfers_cost ?? null;
+                    const note = freeChip
+                      ? `${chipLabel(chip)} · no hit`
+                      : charged !== null && charged > 0
+                        ? `−${charged} pt hit`
+                        : chip
+                          ? chipLabel(chip)
+                          : null;
+                    const list = (
+                      <ul className="space-y-0.5 text-xs text-zinc-500">
                         {rows.map((t, i) => (
                           <li key={i}>
                             {data?.players.get(t.elementOut)?.web_name ?? `#${t.elementOut}`} →{" "}
@@ -1876,8 +1912,31 @@ export default function TeamPage() {
                           </li>
                         ))}
                       </ul>
-                    </li>
-                  ))}
+                    );
+                    return (
+                      <li key={event} className="min-w-0 text-sm">
+                        <p>
+                          <span className="font-medium text-zinc-700 dark:text-zinc-300">GW{event}</span>{" "}
+                          <span className="text-zinc-500">
+                            {rows.length} transfer{rows.length === 1 ? "" : "s"}
+                            {note ? ` · ${note}` : ""}
+                          </span>
+                        </p>
+                        {/* A Wildcard is a whole squad: twenty lines is the
+                            gameweek, not a detail of it, so long lists fold. */}
+                        {rows.length > 3 ? (
+                          <details className="mt-1">
+                            <summary className="cursor-pointer text-xs text-purple-700 dark:text-primary">
+                              Show all {rows.length}
+                            </summary>
+                            <div className="mt-1">{list}</div>
+                          </details>
+                        ) : (
+                          <div className="mt-1">{list}</div>
+                        )}
+                      </li>
+                    );
+                  })}
               </ul>
               <p className="mt-3 text-[11px] text-zinc-400">
                 From FPL&apos;s own transfer record. Only appears once a transfer has been
@@ -1900,7 +1959,7 @@ export default function TeamPage() {
                   don&apos;t obviously match.
                 </Alert>
               )}
-            </section>
+            </CollapsibleCard>
           )}
 
           {/* ------------------------------------- decisions this season */}

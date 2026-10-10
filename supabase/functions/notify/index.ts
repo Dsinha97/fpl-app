@@ -72,15 +72,65 @@ async function loadBatchSettings(db: Db, season: string) {
   return { maxSends, lookbackMinutes };
 }
 
+/** Element ids -> `players.code`. `manager_picks` and `team_drafts` both store
+ *  FPL element ids while `change_feed` keys on the season-stable code. */
+async function codesForElements(db: Db, season: string, elements: number[]): Promise<Set<number>> {
+  if (elements.length === 0) return new Set();
+  const { data: players } = await db
+    .from("players")
+    .select("code")
+    .eq("season", season)
+    .in("id", elements);
+  return new Set((players ?? []).map((p: { code: number }) => p.code as number));
+}
+
 /**
- * The player *codes* in a user's most recent squad.
+ * The player *codes* in the squad the user is holding for the upcoming
+ * deadline, taken from their imported draft.
  *
- * `manager_picks` stores FPL element ids, while `change_feed` keys on
- * `players.code` — the season-stable identifier. The join is the whole reason
- * this is its own function: matching a change_feed row against an element id
- * would silently match nothing.
+ * `manager_picks` only holds gameweeks FPL has already started, so a player
+ * transferred in since then is absent from it until the next gameweek begins —
+ * the imported draft is the only record of the current squad (the same reason
+ * `/team` in telegram-webhook reads it). Scoped to the user's own drafts and
+ * matched on entry id in memory, never "any draft claiming this entry". With no
+ * claimed entry, the most recent FPL-imported draft stands in. Returns null
+ * when there is no usable draft, so the caller falls back to `manager_picks`.
  */
-async function squadCodesFor(db: Db, season: string, entryId: number): Promise<Set<number>> {
+async function draftSquadCodesFor(
+  db: Db,
+  season: string,
+  userId: string,
+  entryId: number | null,
+): Promise<Set<number> | null> {
+  const { data: drafts } = await db
+    .from("team_drafts")
+    .select("payload, updated_at")
+    .is("deleted_at", null)
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+
+  const draft = (drafts ?? []).find((d: { payload: Record<string, unknown> }) =>
+    entryId !== null
+      ? Number(d.payload?.entryId) === entryId
+      : d.payload?.source === "fpl" && d.payload?.entryId != null,
+  );
+  if (!draft) return null;
+
+  const payload = draft.payload as Record<string, unknown>;
+  const elements = [
+    ...((payload.startingXI as number[] | undefined) ?? []),
+    ...((payload.benchOrder as number[] | undefined) ?? []),
+  ];
+  if (elements.length === 0) return null;
+  const codes = await codesForElements(db, season, elements);
+  return codes.size > 0 ? codes : null;
+}
+
+/**
+ * The player *codes* in a user's most recent *scored* squad (`manager_picks`).
+ * The fallback when there is no imported draft — see `draftSquadCodesFor`.
+ */
+async function pickSquadCodesFor(db: Db, season: string, entryId: number): Promise<Set<number>> {
   const { data: latest } = await db
     .from("manager_picks")
     .select("event")
@@ -97,15 +147,24 @@ async function squadCodesFor(db: Db, season: string, entryId: number): Promise<S
     .eq("season", season)
     .eq("entry_id", entryId)
     .eq("event", latest.event);
-  const elements = (picks ?? []).map((p: { element: number }) => p.element);
-  if (elements.length === 0) return new Set();
+  return codesForElements(
+    db,
+    season,
+    (picks ?? []).map((p: { element: number }) => p.element),
+  );
+}
 
-  const { data: players } = await db
-    .from("players")
-    .select("code")
-    .eq("season", season)
-    .in("id", elements);
-  return new Set((players ?? []).map((p: { code: number }) => p.code as number));
+/** The user's current squad as player codes: imported draft first (it carries
+ *  transfers made since the last scored gameweek), else the last scored picks. */
+async function squadCodesFor(
+  db: Db,
+  season: string,
+  userId: string,
+  entryId: number | null,
+): Promise<Set<number>> {
+  const fromDraft = await draftSquadCodesFor(db, season, userId, entryId);
+  if (fromDraft) return fromDraft;
+  return entryId !== null ? pickSquadCodesFor(db, season, entryId) : new Set();
 }
 
 /** The player *codes* on a user's shortlist. Owner-scoped like `squadCodesFor`,
@@ -419,11 +478,15 @@ async function detect(db: Db, season: string, prefs: Prefs[], lookbackMinutes: n
         .eq("user_id", p.user_id)
         .maybeSingle();
 
-      // No claimed entry means no squad to filter against. Sending every
-      // player's news instead would be the wrong kind of helpful.
-      squadCodes = profile?.entry_id
-        ? await squadCodesFor(db, season, profile.entry_id as number)
-        : new Set<number>();
+      // No claimed entry *and* no imported squad means nothing to filter
+      // against. Sending every player's news instead would be the wrong kind
+      // of helpful.
+      squadCodes = await squadCodesFor(
+        db,
+        season,
+        p.user_id as string,
+        (profile?.entry_id as number | null | undefined) ?? null,
+      );
     }
 
     if (needsSquad && (changes?.length ?? 0) > 0) {
