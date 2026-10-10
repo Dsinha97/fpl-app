@@ -1239,8 +1239,10 @@ export default function DeadlinePage() {
                       // column beside a 360px rail, which is what stopped the
                       // BPS race stretching the full page width (Sprint 23).
                       // The rail moved to the top strip in Sprint 28, so the
-                      // constraint has to live here instead.
-                      <div className="mb-3 max-w-2xl space-y-3">
+                      // constraint has to live here instead. `mx-auto`: the
+                      // column is narrower than the card on desktop, and left
+                      // aligned it put the centred live total off-centre.
+                      <div className="mx-auto mb-3 max-w-2xl space-y-3">
                         <div>
                           <div className="flex justify-center">
                             <HeroStat

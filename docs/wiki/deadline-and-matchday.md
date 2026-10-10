@@ -408,7 +408,8 @@ FPL actually recorded (`event_transfers_cost`; a Wildcard/Free Hit week says "no
 "transfers − 1 × 4" read −76 for a 20-player Wildcard) and folds gameweeks with more than three
 transfers; the six key numbers are one framed 3×2 block that leads the page above the pitch on
 phones; the GW card is a title row plus a three-cell strip. Layout review via the `better-layout`
-skill. Desktop layout unchanged.
+skill. Desktop layout unchanged, except that the live total's `max-w-2xl` column is now `mx-auto`: left-aligned,
+the centred number sat off-centre in a card wider than the column.
 
 ## The ContextBar countdown drops seconds above 24h (2026-09-20)
 
