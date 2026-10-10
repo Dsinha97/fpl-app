@@ -196,6 +196,13 @@ changed:
   **user's own** drafts and then filtered on entry id, because two accounts can hold a draft for the
   same entry and "any draft claiming this id" is not a question a bot should ask on someone's
   behalf.
+- **`notify` reads the same imported draft (2026-10-10).** It used to build "your squad" from the
+  latest scored `manager_picks`, so a player transferred in for the upcoming deadline raised no
+  status/news/price/price-watch alert until the next gameweek started, and a player sold since
+  still did. `supabase/functions/notify` now takes the draft's `startingXI ∪ benchOrder` first
+  (matched on entry id, or the latest FPL-imported draft when no entry is linked) and falls back to
+  `manager_picks` only when there is no draft. It is deliberately not a union of the two. Deployed
+  as v8; its first real-data run was still to be observed.
 
 ### The substitution suggestion, and the line it does not cross
 

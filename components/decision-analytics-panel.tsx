@@ -293,21 +293,23 @@ export function DecisionAnalyticsPanel({
                       lookback cannot change them until more gameweeks finish.
                     </p>
                   )}
-                  <ul className="mt-3 space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
-                    {data.transfers.groups.map((g) => (
-                      <li key={g.event}>
-                        <span className="tabular-nums">GW{g.event}</span>
-                        {g.hit > 0 && <span> · {g.hit} pt hit</span>}
-                        <ul className="mt-1 space-y-0.5 pl-4">
+                  <ul className="mt-4 space-y-4 text-xs text-zinc-600 dark:text-zinc-400">
+                    {data.transfers.groups.map((g) => {
+                      const net = g.transfers.reduce((n, o) => n + (o.inPoints - o.outPoints), 0);
+                      // Coverage is a property of the gameweek, not of each
+                      // move — stating it on every row was the clutter.
+                      const progress = g.transfers.find((o) => o.inProgress);
+                      const rowsList = (
+                        <ul className="space-y-1.5">
                           {g.transfers.map((o) => (
                             <li
                               key={`${o.row.elementOut}-${o.row.elementIn}-${o.row.transferTime ?? ""}`}
-                              className="flex flex-wrap items-baseline gap-x-2"
+                              className="flex items-baseline justify-between gap-3"
                             >
-                              <span>
+                              <span className="min-w-0">
                                 {nameOf(players, o.row.elementOut)} → {nameOf(players, o.row.elementIn)}
                               </span>
-                              <span className="tabular-nums">
+                              <span className="shrink-0 tabular-nums">
                                 {o.inPoints} in − {o.outPoints} out ={" "}
                                 <span
                                   className={
@@ -319,16 +321,44 @@ export function DecisionAnalyticsPanel({
                                   {signed(o.inPoints - o.outPoints, 0)}
                                 </span>
                               </span>
-                              {o.inProgress && (
-                                <span className="text-zinc-400 dark:text-zinc-500">
-                                  {o.scoredGws}/{o.horizonGws} GW scored
-                                </span>
-                              )}
                             </li>
                           ))}
                         </ul>
-                      </li>
-                    ))}
+                      );
+                      return (
+                        <li key={g.event}>
+                          <p>
+                            <span className="font-medium tabular-nums text-zinc-800 dark:text-zinc-200">
+                              GW{g.event}
+                            </span>
+                            <span>
+                              {" "}
+                              · {g.transfers.length} transfer{g.transfers.length === 1 ? "" : "s"} · net{" "}
+                              {signed(net, 0)}
+                            </span>
+                            {g.hit > 0 && <span> · {g.hit} pt hit</span>}
+                            {progress && (
+                              <span className="text-zinc-400 dark:text-zinc-500">
+                                {" "}
+                                · {progress.scoredGws}/{progress.horizonGws} GW scored
+                              </span>
+                            )}
+                          </p>
+                          {/* A Wildcard is the whole squad: the gameweek line
+                              is the answer, the twenty rows are the detail. */}
+                          {g.transfers.length > 3 ? (
+                            <details className="mt-1.5">
+                              <summary className="cursor-pointer text-purple-700 dark:text-primary">
+                                Show all {g.transfers.length}
+                              </summary>
+                              <div className="mt-2">{rowsList}</div>
+                            </details>
+                          ) : (
+                            <div className="mt-1.5 pl-4">{rowsList}</div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </>
               )}

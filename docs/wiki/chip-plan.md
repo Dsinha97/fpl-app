@@ -28,6 +28,14 @@ never wired up, so an FPL-reported chip changed nothing anywhere. Three pieces c
   to `gameweek` for drafts saved before it existed. Without it, `activeChip` is pinned to whatever
   gameweek an import was stamped with, so once that deadline passes the same saved draft claims
   last gameweek's chip is live in this one — reproduced in Sprint 31's harness.
+- **A chip is only "active" in its own gameweek — everywhere, not just on the pill (2026-10-10).**
+  `freeTransfersDisplay` (`lib/transfer-rules.ts`) used to read `activeChip === "wildcard"` with no
+  event, so a Wildcard played in GW6 kept the ContextBar on `FT ∞` in GW7 even though the Chip field
+  (which did use `fplActiveChipAt`) was correctly blank. It now takes the gameweek being planned and
+  asks `fplActiveChipAt`; with no event it does not consult the chip at all. The "another chip is
+  already active" guards in `transfer-optimizer.ts` and `/transfers`, and the `activeChip` handed to
+  `validateChipPlan`/`ChipPlanEditor`, go through the same function. Not fixed: `activeChipFromMyTeam`
+  still stamps the next gameweek on a chip whose `played_by_entry` is empty.
 - **`chipEntriesInForce(state, usable, event)`** merges the fact into `validateChipPlan`'s
   `usable` output as a synthetic `source: "fpl"` entry. This is the piece that matters for the
   numbers: a chip already in play is not a *choice* the optimiser can still make, but it is very

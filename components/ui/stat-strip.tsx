@@ -23,6 +23,8 @@ export function HeroStat({
   value,
   caption,
   title,
+  align = "end",
+  labelAddon,
 }: {
   label: string;
   value: ReactNode;
@@ -30,13 +32,23 @@ export function HeroStat({
   caption?: ReactNode;
   /** Hover/long-press explanation of what the number means. */
   title?: string;
+  /** `end` pins it top-right of a header (the default); `center` is for a hero that owns its own row. */
+  align?: "end" | "center";
+  /** Sits beside the label — an `InfoTooltip` carrying what the number means. */
+  labelAddon?: ReactNode;
 }) {
   return (
-    <div className="flex shrink-0 flex-col items-end text-right" title={title}>
-      <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+    <div
+      className={`flex shrink-0 flex-col ${align === "center" ? "items-center text-center" : "items-end text-right"}`}
+      title={title}
+    >
+      <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         {label}
+        {labelAddon}
       </span>
-      <span className="whitespace-nowrap text-3xl font-bold leading-none tabular-nums text-purple-800 dark:text-primary">
+      <span
+        className={`whitespace-nowrap ${align === "center" ? "text-5xl" : "text-3xl"} font-bold leading-none tabular-nums text-purple-800 dark:text-primary`}
+      >
         {value}
       </span>
       {caption ? <span className="mt-1">{caption}</span> : null}

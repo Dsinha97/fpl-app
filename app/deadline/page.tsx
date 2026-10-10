@@ -14,6 +14,7 @@ import type { PlayerData } from "@/components/player-card";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { ChipPlanEditor } from "@/components/chip-plan-editor";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
+import { HeroStat, StatStrip } from "@/components/ui/stat-strip";
 import { FeedRowItem } from "@/components/feed-row";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -67,7 +68,6 @@ import { confidentEntities, dedupeByUrl, sourceBadge, type NewsRow } from "@/lib
 import { loadPastResults, type PastResult } from "@/lib/player-history";
 import { signed } from "@/lib/utils";
 import { Alert } from "@/components/ui/alert";
-import { HeroStat } from "@/components/ui/stat-strip";
 import { SlideOver } from "@/components/ui/slide-over";
 import { Check, ChevronDown } from "lucide-react";
 
@@ -1029,26 +1029,15 @@ export default function DeadlinePage() {
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
             Deadline Hub
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 hidden text-sm text-zinc-500 sm:block">
             Everything to decide before the deadline, in one place.
           </p>
         </div>
-        {/* Sprint 42 — on a phone the countdown is the page's one key
-            number, pinned top-right where Sprint 41 put every screen's hero.
-            From `sm` up it stays where it was, under its own heading. */}
-        {!loading && team && ctx && countdown && (
-          <div className="sm:hidden">
-            <HeroStat
-              label={`GW${ctx.nextEvent} deadline`}
-              value={
-                <span className={countdown.passed ? "text-red-700 dark:text-red-400" : undefined}>
-                  {countdown.text}
-                </span>
-              }
-            />
-          </div>
-        )}
-        {drafts.length > 0 && (
+        {/* Sprint 42 pinned the countdown here as the phone hero; demoted so the
+            live points are the one big number on screen. The sticky ContextBar
+            still carries the countdown on every page, and the date line below
+            keeps the deadline itself. From `sm` up it is the 3xl clock below. */}
+        {drafts.length > 1 && (
           <label className="hidden items-center gap-2 text-sm text-zinc-600 sm:flex dark:text-zinc-400">
             Squad
             <select
@@ -1145,7 +1134,17 @@ export default function DeadlinePage() {
             >
               {countdown?.text}
             </p>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-500 sm:hidden">
+              Deadline{" "}
+              {new Date(ctx.deadlineTime).toLocaleString(undefined, {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+            <p className="hidden text-xs text-zinc-500 sm:block">
               {new Date(ctx.deadlineTime).toLocaleString(undefined, {
                 weekday: "long",
                 day: "numeric",
@@ -1197,17 +1196,14 @@ export default function DeadlinePage() {
                   open={liveOpen}
                   onOpenChange={(o) => setSectionOpen("live", o)}
                 >
-                  <section className={card}>
+                  {/* Below `lg` no frame of its own: the fixture cards inside are
+                      already cards, and a card around them is a card in a card. */}
+                  <section className="lg:rounded-lg lg:border lg:border-zinc-200 lg:bg-card lg:p-4 dark:lg:border-purple-900/40">
                     {/* No title of its own any more — the section header above
                         already names the gameweek and carries the provisional
                         marker in its collapsed summary. What is left here is
                         the pair of controls that used to sit beside it. */}
                     <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
-                      {gwState?.provisional && (
-                        <Badge tone="warning" variant="solid" className="mr-auto">
-                          Provisional
-                        </Badge>
-                      )}
                       <div className="flex items-center gap-3">
                         <Link
                           href="/team/"
@@ -1246,14 +1242,27 @@ export default function DeadlinePage() {
                       // constraint has to live here instead.
                       <div className="mb-3 max-w-2xl space-y-3">
                         <div>
-                          <p className="text-3xl font-bold tabular-nums text-purple-900 dark:text-primary">
-                            {gwState.liveTotal}
-                          </p>
-                          <p className="text-xs text-zinc-500">
-                            Live points, starters + captain{gwState.autoSubs.length > 0 ? " + projected subs" : ""}.
-                            Bench score ({gwState.squadPoints.benchRaw}) only counts under a live Bench
-                            Boost.
-                          </p>
+                          <div className="flex justify-center">
+                            <HeroStat
+                              align="center"
+                              label={`GW${liveEvent.event} live`}
+                              labelAddon={
+                                <InfoTooltip label="About the live points">
+                                  Live points, starters + captain
+                                  {gwState.autoSubs.length > 0 ? " + projected subs" : ""}. Bench score (
+                                  {gwState.squadPoints.benchRaw}) only counts under a live Bench Boost.
+                                </InfoTooltip>
+                              }
+                              value={gwState.liveTotal}
+                              caption={
+                                gwState.provisional ? (
+                                  <Badge tone="warning" variant="solid">
+                                    Provisional
+                                  </Badge>
+                                ) : undefined
+                              }
+                            />
+                          </div>
                           {gwState.captaincy.handedOver && (
                             <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
                               Captain didn&apos;t feature — armband projected onto the vice-captain (
@@ -1263,16 +1272,19 @@ export default function DeadlinePage() {
                           )}
                         </div>
 
-                        <div>
-                          <p className={supportingHeading}>Player status</p>
-                          <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
-                            {(() => {
-                              const counts = { not_started: 0, playing: 0, finished: 0 };
-                              for (const s of gwState.statusByElement.values()) counts[s] += 1;
-                              return `${counts.playing} playing · ${counts.not_started} yet to play · ${counts.finished} finished`;
-                            })()}
-                          </p>
-                        </div>
+                        {(() => {
+                          const counts = { not_started: 0, playing: 0, finished: 0 };
+                          for (const st of gwState.statusByElement.values()) counts[st] += 1;
+                          return (
+                            <StatStrip
+                              items={[
+                                { label: "Playing", value: counts.playing },
+                                { label: "Yet to play", value: counts.not_started },
+                                { label: "Finished", value: counts.finished },
+                              ]}
+                            />
+                          );
+                        })()}
 
                         {gwState.autoSubs.length > 0 && (
                           <div>
@@ -1288,24 +1300,29 @@ export default function DeadlinePage() {
                           </div>
                         )}
 
-                        {gwState.bpsRace.length > 0 && (
-                          <div>
-                            <p className={supportingHeading}>BPS race (provisional bonus)</p>
-                            <ul className="mt-1 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
-                              {gwState.bpsRace
-                                .filter((r) => r.bps > 0)
-                                .slice(0, 5)
-                                .map((r) => (
-                                  <li key={r.element} className="flex justify-between">
-                                    <span>{rowById.get(r.element)?.web_name ?? `#${r.element}`}</span>
-                                    <span className="tabular-nums">
+                        {gwState.bpsRace.some((r) => r.bps > 0) && (() => {
+                          const race = gwState.bpsRace.filter((r) => r.bps > 0).slice(0, 5);
+                          const top = race[0];
+                          const nameOf = (el: number) => rowById.get(el)?.web_name ?? `#${el}`;
+                          return (
+                            <CollapsibleCard
+                              tier="supporting"
+                              title="BPS race"
+                              summary={`${nameOf(top.element)} ${top.bps} bps · provisional bonus`}
+                            >
+                              <ul className="mt-2 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
+                                {race.map((r) => (
+                                  <li key={r.element} className="flex justify-between gap-3">
+                                    <span className="min-w-0 truncate">{nameOf(r.element)}</span>
+                                    <span className="shrink-0 tabular-nums">
                                       {r.bps} bps{r.bonus > 0 ? ` · +${r.bonus} bonus so far` : ""}
                                     </span>
                                   </li>
                                 ))}
-                            </ul>
-                          </div>
-                        )}
+                              </ul>
+                            </CollapsibleCard>
+                          );
+                        })()}
                       </div>
                     )}
 
@@ -1762,7 +1779,7 @@ export default function DeadlinePage() {
                   chipDefinitions={chipDefinitions}
                   nextEvent={ctx.nextEvent}
                   lastEvent={ctx.windowEnd}
-                  activeChip={team.activeChip}
+                  activeChip={fplActiveChipAt(team, ctx.nextEvent)}
                   playedChips={playedChips}
                   onChange={(next: ChipPlan) => {
                     saveDraft({ ...team, chipPlan: next });

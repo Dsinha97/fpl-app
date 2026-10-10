@@ -168,7 +168,7 @@ export function ContextBar() {
 
         {hasSquad &&
           (() => {
-            const ft = freeTransfersDisplay(draft!);
+            const ft = freeTransfersDisplay(draft!, ctx.nextEvent);
             return ft.kind === "unlimited" ? (
               <span className="flex items-center gap-1">
                 FT

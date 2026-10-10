@@ -42,7 +42,7 @@
 import { findReplacements, type ScoredPlayer } from "./scoring";
 import { optimizeSquad, suggestArmband, type OptimizerPlayer } from "./optimizer";
 import { freeHitRebuildAt, type RebuildContext } from "./chips";
-import { CHIP_LABELS, type ChipContext, type PredAt } from "./chip-plan";
+import { CHIP_LABELS, fplActiveChipAt, type ChipContext, type PredAt } from "./chip-plan";
 import {
   HIT_COST,
   MAX_FREE_TRANSFERS,
@@ -746,8 +746,9 @@ function wildcardBranch(input: OptimizeTransfersInput): Branch {
   if (!input.wildcard.available) {
     return { ...base, blocked: input.wildcard.reason ?? "Wildcard unavailable." };
   }
-  if (input.team.activeChip && input.team.activeChip !== "wildcard") {
-    return { ...base, blocked: `This draft already has the ${input.team.activeChip} chip active.` };
+  const activeNow = fplActiveChipAt(input.team, input.event);
+  if (activeNow && activeNow !== "wildcard") {
+    return { ...base, blocked: `This draft already has the ${activeNow} chip active.` };
   }
 
   const optimizerPool = input.pool.map(toOptimizerPlayer);

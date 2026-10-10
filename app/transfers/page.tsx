@@ -43,6 +43,7 @@ import {
   chipContextFor,
   chipLabel,
   validateChipPlan,
+  fplActiveChipAt,
   CHIP_KINDS,
   type ChipDefinitionRow,
   type ChipKind,
@@ -460,11 +461,11 @@ export default function TransfersPage() {
 
   useEffect(() => {
     if (team) {
-      const ft = freeTransfersDisplay(team);
+      const ft = freeTransfersDisplay(team, nextEvent);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setFreeTransfers(ft.kind === "unlimited" ? MAX_FREE_TRANSFERS : ft.n);
     }
-  }, [team]);
+  }, [team, nextEvent]);
 
   const lookup = useCallback(
     (id: number): PlayerMeta | undefined => {
@@ -516,7 +517,7 @@ export default function TransfersPage() {
   /** The chip plan's legal entries — computed once, shared by the deadline optimiser (window-bounded below) and the forward path (which resolves its own window per gameweek). */
   const chipPlanUsable = useMemo(() => {
     if (!team || nextEvent === null || lastEvent === null) return [];
-    return validateChipPlan(team.chipPlan, chipDefinitions, nextEvent, lastEvent, team.activeChip, playedChips)
+    return validateChipPlan(team.chipPlan, chipDefinitions, nextEvent, lastEvent, fplActiveChipAt(team, nextEvent), playedChips)
       .usable;
   }, [team, chipDefinitions, nextEvent, lastEvent, playedChips]);
 
@@ -569,8 +570,8 @@ export default function TransfersPage() {
   const wildcardBlockedReason: string | null =
     !wildcard.available
       ? wildcard.reason
-      : team && team.activeChip && team.activeChip !== "wildcard"
-        ? `This draft already has the ${chipLabel(team.activeChip)} chip active.`
+      : team && nextEvent !== null && fplActiveChipAt(team, nextEvent) && fplActiveChipAt(team, nextEvent) !== "wildcard"
+        ? `This draft already has the ${chipLabel(fplActiveChipAt(team, nextEvent)!)} chip active.`
         : null;
 
   const pool = useMemo(() => [...scoredById.values()], [scoredById]);
@@ -1107,7 +1108,7 @@ export default function TransfersPage() {
           chipDefinitions={chipDefinitions}
           nextEvent={nextEvent}
           lastEvent={lastEvent}
-          activeChip={team.activeChip}
+          activeChip={fplActiveChipAt(team, nextEvent)}
           playedChips={playedChips}
           onChange={handleChipPlanChange}
         />
