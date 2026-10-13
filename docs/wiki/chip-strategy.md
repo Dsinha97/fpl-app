@@ -74,3 +74,7 @@ See also: [chip-plan.md](chip-plan.md) (pinning a chip to a gameweek, and the ch
 and forward transfer path this feeds), [deadline-and-matchday.md](deadline-and-matchday.md)
 (this-gameweek-only chip calls on the Deadline Hub), [squad-score-and-scenarios.md](squad-score-and-scenarios.md)
 (the wildcard toggle on the manual transfer basket).
+
+Spent chips: the engine takes `playedChips` and reports a spent half blocked, not valued, so the
+schedule, sequences and rankings leave it out while the next half stays open — see
+[chip-plan.md](chip-plan.md#a-spent-chip-is-spent-everywhere-2026-10-13).
