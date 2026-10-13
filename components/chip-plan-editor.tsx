@@ -89,10 +89,22 @@ export function ChipPlanEditor({
   // essential detail (docs/wiki/design-system.md's tier rule: a supporting
   // card shows context, but this is the primary decision itself, so it needs
   // to survive the collapse).
+  //
+  // A chip FPL's own history says was already played reads "played GWn" — it
+  // is not "not planned", which would claim it is still there to plan. Only
+  // entries that are actually in force count as planned: a stale pin for a
+  // gameweek that has passed is a problem below, not a plan.
   const summary = CHIP_ORDER.map((chip) => {
-    const chipEntries = entries.filter((e) => e.chip === chip).sort((a, b) => a.event - b.event);
-    const windows = chipEntries.map((e) => `GW${e.event}`).join(", ");
-    return `${CHIP_LABELS[chip]} ${windows || "not planned"}`;
+    const parts = [
+      ...playedChips.filter((p) => p.chip === chip).map((p) => ({ event: p.event, played: true })),
+      ...validation.usable.filter((e) => e.chip === chip).map((e) => ({ event: e.event, played: false })),
+    ].sort((a, b) => a.event - b.event);
+    if (parts.length === 0) return `${CHIP_LABELS[chip]} not planned`;
+    const mixed = parts.some((p) => p.played) && parts.some((p) => !p.played);
+    const text = parts
+      .map((p) => (p.played ? `played GW${p.event}` : `${mixed ? "planned " : ""}GW${p.event}`))
+      .join(", ");
+    return `${CHIP_LABELS[chip]} ${text}`;
   }).join(" · ");
 
   return (
