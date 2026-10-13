@@ -1033,6 +1033,16 @@ export default function DeadlinePage() {
     .filter(Boolean)
     .join(" · ");
 
+  // "At a glance" above the pitch: the XI's xP and counts of what the model
+  // would change. Counts only — the names and reasons live in the Captain &
+  // starting XI card, and repeating them here was the same sentence twice. Predictions still loading → null, never a summed 0.
+  const glanceXp =
+    team && ctx && !predsLoading
+      ? hasConsistentLineup(team)
+        ? team.startingXI.reduce((sum, id) => sum + (predAt(id, ctx.nextEvent)?.xp ?? 0), 0)
+        : (lineup?.startersXp ?? null)
+      : null;
+
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
       <div className="flex items-start justify-between gap-3 sm:flex-wrap">
@@ -1466,18 +1476,52 @@ export default function DeadlinePage() {
                     squad. They're decisions about that same squad, so they now
                     share a rail beside its pitch view instead of consuming the
                     page's full width twice more. */}
+                <div className="mt-5" aria-label={`${ctx.gameweekName} at a glance`} role="group">
+                  <div className="flex items-start justify-between gap-3">
+                    <HeroStat
+                      align="start"
+                      label={`Your XI · GW${ctx.nextEvent} xP`}
+                      title={`Expected points of the starting XI shown below in ${ctx.gameweekName}, before the armband bonus.`}
+                      value={glanceXp !== null ? glanceXp.toFixed(1) : "…"}
+                    />
+                    <Link
+                      href={`/builder/?draft=${team.draftId}`}
+                      className="shrink-0 pt-1 text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
+                    >
+                      Edit in Builder →
+                    </Link>
+                  </div>
+                  <div className="mt-3">
+                    <StatStrip
+                      items={[
+                        {
+                          label: "Flags",
+                          value: alerts.length === 0 ? "None" : String(alerts.length),
+                        },
+                        {
+                          label: "Captain",
+                          value: predsLoading
+                            ? "…"
+                            : captainDiff
+                              ? captainDiff.gain !== null
+                                ? signed(captainDiff.gain)
+                                : "Swap"
+                              : "Optimal",
+                        },
+                        {
+                          label: "XI changes",
+                          value: predsLoading ? "…" : xiDiff ? String(xiDiff.bringIn.length) : "None",
+                        },
+                      ]}
+                    />
+                  </div>
+                </div>
                 <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
                   <section className="min-w-0">
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                       <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                         Squad — {ctx.gameweekName}
                       </h2>
-                      <Link
-                        href={`/builder/?draft=${team.draftId}`}
-                        className="text-xs font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary"
-                      >
-                        Edit in Builder →
-                      </Link>
                     </div>
                     {/* DSI-119: when there is nothing wrong, "Squad readiness"
                         and "Availability" were two cards of passive green text

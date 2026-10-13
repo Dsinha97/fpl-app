@@ -1837,7 +1837,7 @@ export default function BuilderPage() {
                  and pushed Save onto its own line on a phone. The cap matches
                  the rename input's w-36 below, so entering rename mode doesn't
                  reflow the row. */
-              className="min-h-11 w-36 max-w-[9rem] truncate rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 sm:min-h-0 sm:w-auto sm:max-w-[14rem] dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
+              className="min-h-11 w-48 max-w-[12rem] truncate rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 sm:min-h-0 sm:w-auto sm:max-w-[14rem] dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
             >
               {drafts.every((d) => d.draftId !== team.draftId) && (
                 <option value={team.draftId}>{team.name} (unsaved)</option>
@@ -1964,27 +1964,28 @@ export default function BuilderPage() {
                 strip below rather than three blocks wrapping round it. */}
             <div className="sm:hidden">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 pt-1 text-xs text-zinc-500">
+                <HeroStat
+                  align="start"
+                  label={horizon === "season" ? "xP · season*" : `xP · ${horizon} GW${horizon === 1 ? "" : "s"}`}
+                  title={horizon === "season" ? seasonHorizonNote(seasonWindow) : undefined}
+                  value={projection.total.toFixed(1)}
+                />
+                <div className="flex min-w-0 flex-col items-end pt-1 text-right text-xs text-zinc-500">
                   {team.captain !== null ? (
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex max-w-full items-center gap-1.5">
+                      <span className="min-w-0 truncate" title={captainName ?? undefined}>{captainName ?? "Captain set"}</span>
                       <CaptainBadge className="h-5 w-5 shrink-0" />
-                      <span className="min-w-0 truncate">{captainName ?? "Captain set"}</span>
                     </span>
                   ) : (
                     <p>Pick a captain to add the armband bonus</p>
                   )}
                   {viceName && (
-                    <span className="mt-1 flex items-center gap-1.5">
+                    <span className="mt-1 flex max-w-full items-center gap-1.5">
+                      <span className="min-w-0 truncate" title={viceName}>{viceName}</span>
                       <ViceCaptainBadge className="h-5 w-5 shrink-0" />
-                      <span className="min-w-0 truncate">{viceName}</span>
                     </span>
                   )}
                 </div>
-                <HeroStat
-                  label={horizon === "season" ? "xP · season*" : `xP · ${horizon} GW${horizon === 1 ? "" : "s"}`}
-                  title={horizon === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-                  value={projection.total.toFixed(1)}
-                />
               </div>
               <div className="mt-3">
                 <StatStrip
