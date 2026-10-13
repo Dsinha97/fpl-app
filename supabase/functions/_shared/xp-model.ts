@@ -1,4 +1,4 @@
-// Expected points model, v1.5.0.
+// Expected points model, v1.6.0.
 //
 // v1.1.0 added the cold-start prior layer at the bottom of this file: rates are
 // shrunk toward a fitted position/price prior instead of the player being
@@ -66,7 +66,7 @@
 // tactical change. Once player_gameweek_stats fills up, current-season form
 // should be blended in and these rates reweighted.
 
-export const MODEL_VERSION = "v1.5.0";
+export const MODEL_VERSION = "v1.6.0";
 
 export const MODEL_PARAMS = {
   // Recency weights applied to prior seasons, most recent first.
@@ -374,6 +374,121 @@ export function deriveRates(rows: SeasonRow[], dcEligibleSeasons?: Set<string>):
     cs90: per90(cs),
     yellow90: per90(yellow),
     seasonsUsed: sorted.map((r) => r.season_name),
+  };
+}
+
+// ===========================================================================
+// In-season start/minutes estimator (v1.6.0, DSI-185)
+//
+// `deriveRates` and the cold-start layer know only prior seasons, so a player's
+// start probability this season was a prior-season average no matter how he had
+// actually been used since August. Measured against the shipped archive on
+// 2026-27 (n=703) that start probability scored a Brier of 0.1760, worse than
+// the player's own last-five starts rate (0.1475). This replaces `startShare`
+// and `minutesPerGame` for the population the gate validated, and leaves every
+// other player on the existing path.
+//
+//   P(start) = logistic( intercept
+//                        + priorStartShare   * prior-season start share
+//                        + last5StartRate    * starts in the last <=5 games
+//                        + lastStart         * 1 if he started his last game
+//                        + last3StartRate    * starts in the last <=3 games
+//                        + goalkeeper        * 1 for a goalkeeper )
+//   minutesPerGame = P * minutesGivenStart + (1 - P) * minutesGivenNotStart
+//
+// Coefficients are the pooled fit over 2023-24..2026-27 printed by
+// scripts/minutes-model-gate.ts ("SHIPPING FIT"); that script's amended gate is
+// what they were judged by, one fit per held-out season, never the pooled fit.
+// Re-run it and re-paste rather than editing a number by hand.
+//
+// Applies only to players with >= `minPriorWeightedMinutes` of prior evidence
+// and >= `minGames` games already played this season - the population the gate
+// scored. Cold-start and promoted-club players are NOT covered by it.
+//
+// Availability is not part of this: `predict()` multiplies by it afterwards, as
+// it always did, and the squad reconciliation still rescales the club.
+export const MINUTES_MODEL = {
+  window: 5,
+  minGames: 3,
+  minPriorWeightedMinutes: 1200,
+  coef: {
+    intercept: -2.264,
+    priorStartShare: 0.6188,
+    last5StartRate: 1.3118,
+    lastStart: 1.4546,
+    last3StartRate: 1.2601,
+    goalkeeper: 0.0926,
+  },
+  minutesGivenStart: { outfield: 83.8, goalkeeper: 89.54 },
+  minutesGivenNotStart: { outfield: 6.31, goalkeeper: 0.02 },
+} as const;
+
+/** One of a player's games this season. A row with `minutes` 0 is a real no-show. */
+export interface InSeasonRow {
+  event: number;
+  fixture: number;
+  minutes: number | null;
+  starts: number | null;
+}
+
+export interface StartForm {
+  games: number;
+  last5: number;
+  last1: number;
+  last3: number;
+}
+
+/**
+ * Starts form from a player's games this season, any order. Null below
+ * `minGames`. The caller must already have dropped games whose results have not
+ * landed: an unwritten fixture reads `minutes = 0, starts = 0` and would be
+ * counted as a no-show (see docs/sprints/gw5-check-in.md section 0).
+ */
+export function inSeasonStartForm(rows: InSeasonRow[]): StartForm | null {
+  const played = [...rows].sort((a, b) => a.event - b.event || a.fixture - b.fixture);
+  const recent = played.slice(-MINUTES_MODEL.window);
+  if (recent.length < MINUTES_MODEL.minGames) return null;
+  const started = (r: InSeasonRow) => ((r.starts ?? 0) > 0 ? 1 : 0);
+  const mean = (xs: InSeasonRow[]) => xs.reduce((s, r) => s + started(r), 0) / xs.length;
+  return {
+    games: recent.length,
+    last5: mean(recent),
+    last1: started(recent[recent.length - 1]),
+    last3: mean(recent.slice(-3)),
+  };
+}
+
+/**
+ * Swap `startShare` and `minutesPerGame` for the in-season estimate, when this
+ * player is in the population the gate validated. `priorOnly` is
+ * `deriveRates(history)`, not the shrunk rates: the coefficient was fitted on
+ * that feature, and shrinkage would change what it means.
+ */
+export function applyMinutesModel(
+  rates: Rates,
+  priorOnly: Rates | null,
+  form: StartForm | null,
+  isGoalkeeper: boolean,
+): { rates: Rates; applied: boolean } {
+  if (
+    !priorOnly || !form ||
+    priorOnly.weightedMinutes < MINUTES_MODEL.minPriorWeightedMinutes
+  ) {
+    return { rates, applied: false };
+  }
+  const c = MINUTES_MODEL.coef;
+  const z = c.intercept + c.priorStartShare * priorOnly.startShare + c.last5StartRate * form.last5 +
+    c.lastStart * form.last1 + c.last3StartRate * form.last3 + (isGoalkeeper ? c.goalkeeper : 0);
+  const p = clamp(1 / (1 + Math.exp(-z)), 0, 1);
+  const slot = isGoalkeeper ? "goalkeeper" : "outfield";
+  return {
+    rates: {
+      ...rates,
+      startShare: p,
+      minutesPerGame: p * MINUTES_MODEL.minutesGivenStart[slot] +
+        (1 - p) * MINUTES_MODEL.minutesGivenNotStart[slot],
+    },
+    applied: true,
   };
 }
 
