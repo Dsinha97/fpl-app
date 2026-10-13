@@ -161,8 +161,9 @@ export function ContextBar() {
               {CHIP_LABELS[activeChip]}
             </span>
             <ModelNote label="What does this chip mean?">FPL reports this chip as already in play for {ctx.gameweekName} — it&apos;s what
-                the game says is happening, not a chip you&apos;ve planned. Projections for this
-                gameweek include it.</ModelNote>
+                the game says is happening, not a chip you&apos;ve planned. The Transfers
+                projection counts a Bench Boost or Triple Captain already in play; a Wildcard or Free
+                Hit already in play is not planned again.</ModelNote>
           </span>
         )}
 
@@ -184,10 +185,11 @@ export function ContextBar() {
                 <span className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
                   {ft.n}
                 </span>
-                <ModelNote label="Where do I change free transfers?">Defaults to 1. Set the real count on{" "}
+                <ModelNote label="Where do I change free transfers?">An imported squad rebuilds this from your recorded transfers where it
+                    can; otherwise it defaults to 1. Set the real count on{" "}
                     <span className="font-medium">My Team</span> or{" "}
-                    <span className="font-medium">Deadline</span> — FPL doesn&apos;t publish it
-                    without a login this app can&apos;t perform.</ModelNote>
+                    <span className="font-medium">Deadline</span> — FPL only states it behind a
+                    login this app can&apos;t perform.</ModelNote>
               </span>
             );
           })()}

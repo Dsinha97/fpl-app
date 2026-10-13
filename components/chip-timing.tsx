@@ -17,7 +17,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { saveDraft } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
 import { loadPredictionSeries } from "@/lib/player-pool";
-import { playedAt, resolveStopEvent, setChipPlanEntry, type PlayedChip } from "@/lib/chip-plan";
+import { playedAt, resolveStopEvent, setChipPlanEntryInHalf, type PlayedChip } from "@/lib/chip-plan";
 import { loadPlayedChips } from "@/lib/played-chips";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import {
@@ -261,17 +261,27 @@ export function ChipTiming({
 
   useEffect(() => {
     if (!season) return;
+    // A different manager's history must never drive this one's engine run:
+    // clear first, and ignore a response that arrives after the draft changed.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPlayedChips([]);
     if (!team?.entryId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPlayedChips([]);
       setPlayedLoaded(true);
       return;
     }
+    setPlayedLoaded(false);
+    let cancelled = false;
     (async () => {
+      // A failed read leaves the history empty — the same as a draft with no
+      // manager — rather than holding on to the previous manager's chips.
       const loaded = await loadPlayedChips(season, team.entryId as number);
-      if (loaded) setPlayedChips(loaded);
+      if (cancelled) return;
+      setPlayedChips(loaded ?? []);
       setPlayedLoaded(true);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [season, team?.entryId]);
 
   const resultSignatureInputs = useMemo(
@@ -395,7 +405,7 @@ export function ChipTiming({
    */
   const pinChip = (chip: ChipKind, event: number) => {
     if (!team) return;
-    saveDraft({ ...team, chipPlan: setChipPlanEntry(team.chipPlan, chip, event, "shortlist") });
+    saveDraft({ ...team, chipPlan: setChipPlanEntryInHalf(team.chipPlan, chip, event, chipDefinitions, windowEnd, "shortlist") });
     onDraftsChanged();
     setApplied(`Pinned ${CHIP_LABELS[chip]} to GW${event} on "${team.name}".`);
   };
@@ -416,7 +426,7 @@ export function ChipTiming({
    */
   const applyChip = (chip: ChipKind, event: number) => {
     if (!team) return;
-    saveDraft({ ...team, chipPlan: setChipPlanEntry(team.chipPlan, chip, event, "manual") });
+    saveDraft({ ...team, chipPlan: setChipPlanEntryInHalf(team.chipPlan, chip, event, chipDefinitions, windowEnd, "manual") });
     onDraftsChanged();
     setApplied(`${CHIP_LABELS[chip]} is now planned for GW${event} on "${team.name}".`);
   };
@@ -428,7 +438,7 @@ export function ChipTiming({
     if (half.wildcard) entries.push({ chip: "wildcard", event: half.wildcard.event });
     if (entries.length === 0) return;
     let plan = team.chipPlan;
-    for (const e of entries) plan = setChipPlanEntry(plan, e.chip, e.event, "manual");
+    for (const e of entries) plan = setChipPlanEntryInHalf(plan, e.chip, e.event, chipDefinitions, windowEnd, "manual");
     saveDraft({ ...team, chipPlan: plan });
     onDraftsChanged();
     setApplied(`Applied the ${half.label} schedule (${entries.length} chip${entries.length === 1 ? "" : "s"}) to "${team.name}".`);
@@ -547,7 +557,7 @@ export function ChipTiming({
   const pinPreset = (preset: { label: string; entries: { chip: ChipKind; event: number }[] }) => {
     if (!team) return;
     let plan = team.chipPlan;
-    for (const e of preset.entries) plan = setChipPlanEntry(plan, e.chip, e.event, "manual");
+    for (const e of preset.entries) plan = setChipPlanEntryInHalf(plan, e.chip, e.event, chipDefinitions, windowEnd, "manual");
     saveDraft({ ...team, chipPlan: plan });
     onDraftsChanged();
     setApplied(`Applied the ${preset.label} sequence (${preset.entries.length} chip${preset.entries.length === 1 ? "" : "s"}) to "${team.name}". The Transfer Path tab has the sequence-aware total.`);

@@ -24,6 +24,53 @@ export function accrueFreeTransfers(current: number, used: number): number {
   return Math.min(MAX_FREE_TRANSFERS, remaining + 1);
 }
 
+export interface FreeTransferHistoryRow {
+  event: number;
+  /** Transfers made that gameweek (`manager_gameweek_history.event_transfers`). */
+  eventTransfers: number | null;
+  /** Points hit taken that gameweek (`event_transfers_cost`). */
+  eventTransfersCost: number | null;
+  activeChip: string | null;
+}
+
+/** Points surrendered per transfer beyond the free allowance. */
+export const HIT_COST = 4;
+
+/**
+ * The free transfers carried into the gameweek after `throughEvent`, replayed
+ * from what FPL recorded — an estimate, and said to be one.
+ *
+ * The rules it encodes (FPL's published 2025/26 ones; the 2026/27 rules are not
+ * confirmed, and the one-off GW16 top-up to five was specific to 2025/26):
+ * transfers are unlimited until the GW1 deadline, so GW2 opens with one; each
+ * later gameweek adds one up to the cap; a Wildcard or Free Hit gameweek uses
+ * none and keeps the bank.
+ *
+ * It refuses to answer (returns null) rather than guess when the record can't
+ * be trusted: a gameweek from GW2 on is missing or has no transfer count, or a
+ * gameweek's recorded hit disagrees with what the replay says it should have
+ * been. A hit is the one thing in the record that checks the replay, so a
+ * disagreement means the rules above no longer describe this account.
+ */
+export function reconstructFreeTransfers(
+  history: FreeTransferHistoryRow[],
+  throughEvent: number,
+): number | null {
+  if (throughEvent < 1) return null;
+  const byEvent = new Map(history.map((h) => [h.event, h]));
+  let ft = 1; // carried into GW2
+  for (let e = 2; e <= throughEvent; e++) {
+    const row = byEvent.get(e);
+    if (!row || row.eventTransfers === null) return null;
+    const freeChip = row.activeChip === "wildcard" || row.activeChip === "freehit";
+    const used = freeChip ? 0 : row.eventTransfers;
+    const expectedHit = freeChip ? 0 : Math.max(0, used - ft) * HIT_COST;
+    if (row.eventTransfersCost !== null && row.eventTransfersCost !== expectedHit) return null;
+    ft = accrueFreeTransfers(ft, used);
+  }
+  return ft;
+}
+
 /** The one honest reading of `TeamState.freeTransfers`, shared by `/deadline`,
  * `/transfers`, `/team`, and `components/context-bar.tsx` instead of each
  * clamping it separately (CLAUDE.md: "one quantity, one implementation"). */

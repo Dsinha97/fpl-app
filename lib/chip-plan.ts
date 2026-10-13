@@ -458,6 +458,35 @@ export function setChipPlanEntry(
   };
 }
 
+/**
+ * Pins `chip` to `event` and drops any other pin of the same chip in the same
+ * half — a half being the `chip_definitions` row `event` falls in, never an
+ * assumed boundary. `setChipPlanEntry` alone only replaces the pin at the same
+ * *event*, so pinning Bench Boost at GW12 beside one at GW9 left both, and
+ * `validateChipPlan` then kept GW9 and discarded the one just chosen.
+ */
+export function setChipPlanEntryInHalf(
+  plan: ChipPlan | undefined,
+  chip: ChipKind,
+  event: number,
+  chipDefinitions: ChipDefinitionRow[],
+  lastEvent: number,
+  source: ChipPlanEntry["source"] = "manual",
+): ChipPlan {
+  const def = chipDefinitions.find(
+    (d) => d.name === chip && d.startEvent <= event && event <= resolveStopEvent(d, lastEvent),
+  );
+  if (!def) return setChipPlanEntry(plan, chip, event, source);
+  const stop = resolveStopEvent(def, lastEvent);
+  const rest: ChipPlan = {
+    version: 1,
+    entries: chipPlanOf({ chipPlan: plan } as TeamState).entries.filter(
+      (e) => !(e.chip === chip && e.event >= def.startEvent && e.event <= stop),
+    ),
+  };
+  return setChipPlanEntry(rest, chip, event, source);
+}
+
 /** Removes whatever chip is pinned to `event`, if any. */
 export function clearChipPlanEntry(plan: ChipPlan | undefined, event: number): ChipPlan {
   const entries = chipPlanOf({ chipPlan: plan } as TeamState).entries.filter((e) => e.event !== event);
@@ -572,10 +601,11 @@ export function validateChipPlan(
   // before the plan's own duplicate-in-half rule, since "already played" is a
   // fact and "duplicate in the plan" is only ever an intention conflicting
   // with itself.
-  const playedHalves = new Set<string>(); // `${chip}:${defIndex}`
+  const playedHalves = new Map<string, PlayedChip>(); // `${chip}:${defIndex}`
   for (const [chip, defs] of defsByChip) {
     defs.forEach((d, i) => {
-      if (playedInWindow(chip, d, playedChips, lastEvent)) playedHalves.add(`${chip}:${i}`);
+      const spent = playedInWindow(chip, d, playedChips, lastEvent);
+      if (spent) playedHalves.set(`${chip}:${i}`, spent);
     });
   }
 
@@ -631,7 +661,12 @@ export function validateChipPlan(
         ok = false;
       } else {
         const halfKey = `${entry.chip}:${defIndex}`;
-        if (playedHalves.has(halfKey)) {
+        const spent = playedHalves.get(halfKey);
+        // A chip reported at the upcoming gameweek (activated, deadline not yet
+        // passed) is the very thing this entry plans — it is not "already
+        // played" in the sense of having nothing left to plan, so it stays usable.
+        const isTheActiveOne = spent !== undefined && spent.event === entry.event && spent.event >= nextEvent;
+        if (spent && !isTheActiveOne) {
           problems.push({
             kind: "already-played",
             chip: entry.chip,

@@ -195,12 +195,10 @@ export function teamStateFromPicks(
     // see TeamState.bank. Left unset when FPL didn't report both halves, so
     // squadBank falls back to the legacy derivation rather than inventing one.
     bank: meta.bank ?? undefined,
-    // manager_gameweek_history.event_transfers is transfers *used* that
-    // gameweek, not the free-transfer allowance carried forward — that
-    // needs accrueFreeTransfers' rollover history, which an import can't
-    // reconstruct from one gameweek's snapshot. Defaulted the same way
-    // emptyTeamState defaults a fresh draft, and left for the user to
-    // correct on /transfers, same as any manually-created draft.
+    // One gameweek's snapshot can't give the allowance carried forward, so
+    // this is the default; /team replays the recorded history over it where
+    // it can (`reconstructFreeTransfers`, lib/transfer-rules.ts), and the
+    // owner corrects it on /transfers otherwise.
     freeTransfers: base.freeTransfers,
   };
 }

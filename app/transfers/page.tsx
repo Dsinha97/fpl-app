@@ -42,6 +42,7 @@ import { TransferPath } from "@/components/transfer-path";
 import { planTransferPath, type TransferPathResult } from "@/lib/transfer-path";
 import {
   chipContextFor,
+  chipEntriesInForce,
   chipLabel,
   validateChipPlan,
   fplActiveChipAt,
@@ -418,15 +419,19 @@ export default function TransfersPage() {
   );
 
   useEffect(() => {
-    if (!season || !team?.entryId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPlayedChips([]);
-      return;
-    }
+    // Clear first so another manager's history never drives this draft, and
+    // ignore a response that lands after the draft changed.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPlayedChips([]);
+    if (!season || !team?.entryId) return;
+    let cancelled = false;
     (async () => {
       const loaded = await loadPlayedChips(season, team.entryId as number);
-      if (loaded) setPlayedChips(loaded);
+      if (!cancelled) setPlayedChips(loaded ?? []);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [season, team?.entryId]);
 
   useEffect(() => {
@@ -508,8 +513,15 @@ export default function TransfersPage() {
   /** The chip plan's legal entries — computed once, shared by the deadline optimiser (window-bounded below) and the forward path (which resolves its own window per gameweek). */
   const chipPlanUsable = useMemo(() => {
     if (!team || nextEvent === null || lastEvent === null) return [];
-    return validateChipPlan(team.chipPlan, chipDefinitions, nextEvent, lastEvent, fplActiveChipAt(team, nextEvent), playedChips)
+    const usable = validateChipPlan(team.chipPlan, chipDefinitions, nextEvent, lastEvent, fplActiveChipAt(team, nextEvent), playedChips)
       .usable;
+    // A Bench Boost or Triple Captain FPL already reports active for the
+    // upcoming gameweek is a term in that gameweek's points, so the projection
+    // must count it. A Wildcard or Free Hit already in play is deliberately
+    // left out: the imported squad *is* the rebuilt one, and adding it would
+    // have the path plan a second rebuild.
+    const active = fplActiveChipAt(team, nextEvent);
+    return active === "bboost" || active === "3xc" ? chipEntriesInForce(team, usable, nextEvent) : usable;
   }, [team, chipDefinitions, nextEvent, lastEvent, playedChips]);
 
   /** The chip plan's usable entries, resolved into the two things the simulator can act on within this horizon window. */
@@ -561,7 +573,9 @@ export default function TransfersPage() {
   const wildcard = useMemo(() => {
     if (!wildcardWindow.available || nextEvent === null || lastEvent === null) return wildcardWindow;
     const spent = playedAt("wildcard", nextEvent, chipDefinitions, playedChips, lastEvent);
-    return spent
+    // A Wildcard reported at the upcoming gameweek is the one being played
+    // now, not one already behind us.
+    return spent && spent.event < nextEvent
       ? { available: false, reason: `Wildcard was already played in GW${spent.event} — it returns when its next window opens.` }
       : wildcardWindow;
   }, [wildcardWindow, chipDefinitions, playedChips, nextEvent, lastEvent]);
@@ -1120,6 +1134,7 @@ export default function TransfersPage() {
           lastEvent={lastEvent}
           activeChip={fplActiveChipAt(team, nextEvent)}
           playedChips={playedChips}
+          historyKnown={!!team.entryId}
           onChange={handleChipPlanChange}
         />
       )}

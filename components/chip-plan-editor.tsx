@@ -28,6 +28,9 @@ export interface ChipPlanEditorProps {
   /** Chips FPL's own history (`manager_chips`) already reports played this
    *  season — a half that shows up here has nothing left to plan. */
   playedChips?: PlayedChip[];
+  /** False when this draft has no manager entry, so there is no history to
+   *  read and a chip already played would still look plannable. Default true. */
+  historyKnown?: boolean;
   /** Called with the next plan; the page decides how to persist it (saveDraft). */
   onChange: (next: ChipPlan) => void;
   className?: string;
@@ -59,13 +62,17 @@ export function ChipPlanEditor({
   lastEvent,
   activeChip,
   playedChips = [],
+  historyKnown = true,
   onChange,
   className = "mt-4",
 }: ChipPlanEditorProps) {
   const validation = validateChipPlan(plan, chipDefinitions, nextEvent, lastEvent, activeChip, playedChips);
   const isPlayed = (chip: ChipKind, def: ChipDefinitionRow) =>
     playedInWindow(chip, def, playedChips, lastEvent) !== null;
-  const entries = (plan ?? EMPTY_CHIP_PLAN).entries;
+  // A pin for a gameweek that has gone is history, not a plan: it is neither
+  // counted nor shown as a problem (the chip's real outcome is in `playedChips`).
+  // It is dropped from the plan the next time its half is edited.
+  const entries = (plan ?? EMPTY_CHIP_PLAN).entries.filter((e) => e.event >= nextEvent);
   const problemsFor = (chip: ChipKind, event: number) =>
     validation.problems.filter((p) => p.chip === chip && p.event === event);
 
@@ -117,6 +124,13 @@ export function ChipPlanEditor({
             }.`}
       </p>
 
+      {!historyKnown && (
+        <p className="mt-2 text-xs text-zinc-500">
+          This draft isn&apos;t linked to a manager, so chips you&apos;ve already played can&apos;t be
+          excluded — check them against your FPL history.
+        </p>
+      )}
+
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {CHIP_ORDER.map((chip) => {
           const defs = defsByChip.get(chip) ?? [];
@@ -152,7 +166,9 @@ export function ChipPlanEditor({
                           title={played ? `${CHIP_LABELS[chip]} was already played this half.` : undefined}
                           className="min-h-9 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800/50 dark:bg-surface-3 dark:text-zinc-100"
                         >
-                          <option value="">{played ? "Already played" : "Not planned"}</option>
+                          <option value="">
+                            {played ? "Already played" : options.length === 0 ? "Window closed" : "Not planned"}
+                          </option>
                           {!played &&
                             options.map((e) => (
                               <option key={e} value={e}>

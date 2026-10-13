@@ -94,17 +94,16 @@ export interface TransferSimulation {
   armbandNote: string | null;
 }
 
-/** Points surrendered per transfer beyond the free allowance. */
-export const HIT_COST = 4;
-
 export {
+  HIT_COST,
   MAX_FREE_TRANSFERS,
   accrueFreeTransfers,
+  reconstructFreeTransfers,
   freeTransfersDisplay,
   sellPrice,
   type FreeTransfersDisplay,
 } from "./transfer-rules";
-import { sellPrice } from "./transfer-rules";
+import { HIT_COST, sellPrice } from "./transfer-rules";
 
 export interface SimulateInput {
   team: TeamState;
