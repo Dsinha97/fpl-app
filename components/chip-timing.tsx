@@ -17,7 +17,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { saveDraft } from "@/lib/drafts";
 import { loadSeasonContext } from "@/lib/season-context";
 import { loadPredictionSeries } from "@/lib/player-pool";
-import { resolveStopEvent, setChipPlanEntry } from "@/lib/chip-plan";
+import { playedAt, resolveStopEvent, setChipPlanEntry, type PlayedChip } from "@/lib/chip-plan";
+import { loadPlayedChips } from "@/lib/played-chips";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import {
   CHIP_LABELS,
@@ -94,6 +95,12 @@ export function ChipTiming({
   const [rules, setRules] = useState<SquadRules>(DEFAULT_RULES);
   const [windowStart, setWindowStart] = useState<number | null>(null);
   const [windowEnd, setWindowEnd] = useState(FALLBACK_SEASON_WINDOW);
+  const [season, setSeason] = useState<string | null>(null);
+  /** Chips FPL's own history says the selected draft's manager already played —
+   *  a half whose chip is spent is never valued, scheduled or suggested. */
+  const [playedChips, setPlayedChips] = useState<PlayedChip[]>([]);
+  /** The first engine run waits for this, so it never values a chip that is already spent. */
+  const [playedLoaded, setPlayedLoaded] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +112,7 @@ export function ChipTiming({
         const ctx = await loadSeasonContext();
         const gw = { season: ctx.season, id: ctx.nextEvent };
         setWindowStart(ctx.nextEvent);
+        setSeason(ctx.season);
         setWindowEnd(ctx.windowEnd);
         setRules(ctx.rules);
 
@@ -251,6 +259,21 @@ export function ChipTiming({
   const [resultLoading, setResultLoading] = useState(false);
   const [resultSignature, setResultSignature] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!season) return;
+    if (!team?.entryId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPlayedChips([]);
+      setPlayedLoaded(true);
+      return;
+    }
+    (async () => {
+      const loaded = await loadPlayedChips(season, team.entryId as number);
+      if (loaded) setPlayedChips(loaded);
+      setPlayedLoaded(true);
+    })();
+  }, [season, team?.entryId]);
+
   const resultSignatureInputs = useMemo(
     () =>
       JSON.stringify({
@@ -258,12 +281,14 @@ export function ChipTiming({
         playerIds: team ? team.players.map((p) => p.playerId).join(",") : null,
         windowStart,
         windowEnd,
+        played: playedChips.map((p) => `${p.chip}@${p.event}`).join(","),
       }),
-    [team, windowStart, windowEnd],
+    [team, windowStart, windowEnd, playedChips],
   );
   const resultStale =
     result !== null && resultSignature !== null && resultSignature !== resultSignatureInputs;
   const resultReady =
+    playedLoaded &&
     !!team && pool.length > 0 && windowStart !== null && team.players.length === rules.squadSize;
 
   const runResult = useCallback(() => {
@@ -283,6 +308,7 @@ export function ChipTiming({
         fixturesPerEvent,
         windowStart,
         windowEnd,
+        playedChips,
       });
       setResult(next);
       setResultSignature(resultSignatureInputs);
@@ -300,6 +326,7 @@ export function ChipTiming({
     fixturesPerEvent,
     windowStart,
     windowEnd,
+    playedChips,
     resultSignatureInputs,
   ]);
 
@@ -431,7 +458,7 @@ export function ChipTiming({
     const fits = (chip: ChipKind, event: number) =>
       chipDefinitions.some(
         (d) => d.name === chip && event >= d.startEvent && event <= resolveStopEvent(d, windowEnd),
-      );
+      ) && playedAt(chip, event, chipDefinitions, playedChips, windowEnd) === null;
     const halfDefOf = (chip: ChipKind, atEvent: number) =>
       chipDefinitions.find(
         (d) => d.name === chip && atEvent >= d.startEvent && atEvent <= resolveStopEvent(d, windowEnd),
@@ -515,7 +542,7 @@ export function ChipTiming({
     }
 
     return out;
-  }, [windowStart, windowEnd, chipDefinitions, deadlineByEvent]);
+  }, [windowStart, windowEnd, chipDefinitions, deadlineByEvent, playedChips]);
 
   const pinPreset = (preset: { label: string; entries: { chip: ChipKind; event: number }[] }) => {
     if (!team) return;
@@ -807,8 +834,20 @@ export function ChipTiming({
                     </div>
                   )}
 
+                  {half.spent.length > 0 && (
+                    <p className="mt-2 text-xs text-zinc-500">
+                      Already played this half:{" "}
+                      {half.spent.map((s) => `${CHIP_LABELS[s.chip]} (GW${s.event})`).join(", ")} — left out of the
+                      schedule.
+                    </p>
+                  )}
+
                   {!half.oneOff && !half.wildcard && (
-                    <p className="mt-2 text-xs text-zinc-500">Nothing evaluable in this half yet.</p>
+                    <p className="mt-2 text-xs text-zinc-500">
+                      {half.spent.length > 0
+                        ? "Nothing left to schedule in this half."
+                        : "Nothing evaluable in this half yet."}
+                    </p>
                   )}
                 </section>
               ))}

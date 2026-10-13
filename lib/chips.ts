@@ -51,11 +51,13 @@ import {
   benchBoostAt,
   blockedValuation,
   candidatesAt,
+  playedInWindow,
   resolveStopEvent,
   tripleCaptainAt,
   type ChipDefinitionRow,
   type ChipValuation,
   type EventPrediction,
+  type PlayedChip,
   type PredAt,
 } from "./chip-plan";
 import {
@@ -108,6 +110,12 @@ export interface ChipsEngineInput {
   windowStart: number;
   /** Last event with a projection, from `player_xp_horizons.last_event`. */
   windowEnd: number;
+  /**
+   * Chips FPL's own history reports already played. A played chip's window is
+   * spent for that half — it is reported blocked and never valued, scheduled
+   * or suggested — while its next window (GW20 onward) is untouched.
+   */
+  playedChips?: PlayedChip[];
 }
 
 export interface ChipScheduleEntry {
@@ -141,6 +149,8 @@ export interface ChipHalfSchedule {
   oneOff: ChipSchedule | null;
   /** Best gameweek for Wildcard in this half, or null if none is playable. */
   wildcard: ChipValuation | null;
+  /** Chips already spent in this half, and when — they are left out of `oneOff` and `wildcard`. */
+  spent: PlayedChip[];
 }
 
 export interface ChipEngineResult {
@@ -530,6 +540,7 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
     fixturesPerEvent,
     windowStart,
     windowEnd,
+    playedChips = [],
   } = input;
 
   const windows: ChipWindow[] = [];
@@ -567,12 +578,13 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
       continue;
     }
 
+    const spent = playedInWindow(chip, def, playedChips, windowEnd);
     windows.push({
       chip,
       label,
       startEvent: def.startEvent,
       stopEvent: resolveStopEvent(def, windowEnd),
-      blocked: null,
+      blocked: spent ? `Already played in GW${spent.event}.` : null,
     });
 
     // Gameweeks inside the requested window, after whatever this chip's
@@ -589,7 +601,13 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
     const from = Math.max(def.startEvent, windowStart);
     const to = Math.min(resolveStopEvent(def, windowEnd), windowEnd);
 
-    if (chip === "wildcard") {
+    if (spent) {
+      // The chip no longer exists to play this half — report each remaining
+      // gameweek blocked rather than valuing it, same discipline as above.
+      for (let e = from; e <= to; e++) {
+        valuationsByChip[chip].push(blockedValuation(chip, e, `${label} was already played in GW${spent.event}.`));
+      }
+    } else if (chip === "wildcard") {
       for (let e = from; e <= to; e++) {
         valuationsByChip.wildcard.push(wildcardAt(rebuildCtx, e, to));
       }
@@ -639,11 +657,14 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
     let minStart = Infinity;
     let maxStop = -Infinity;
     let anyDef = false;
+    const spentHalf: PlayedChip[] = [];
 
     for (const chip of CHIP_KINDS) {
       const def = defsByChip.get(chip)?.[h];
       if (!def) continue;
       anyDef = true;
+      const spent = playedInWindow(chip, def, playedChips, windowEnd);
+      if (spent) spentHalf.push(spent);
       const stop = resolveStopEvent(def, windowEnd);
       minStart = Math.min(minStart, def.startEvent);
       maxStop = Math.max(maxStop, stop);
@@ -663,7 +684,12 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
         : null;
     const preUsed = wildcardPick ? new Set([wildcardPick.event]) : new Set<number>();
 
-    const oneOff = bestSchedule(perChipHalf, ["bboost", "3xc", "freehit"], preUsed);
+    // Only the one-offs still in hand are scheduled; `bestSchedule` returns
+    // null unless every chip it is asked for gets a gameweek.
+    const oneOffChips = (["bboost", "3xc", "freehit"] as ChipKind[]).filter(
+      (c) => !spentHalf.some((s) => s.chip === c),
+    );
+    const oneOff = oneOffChips.length > 0 ? bestSchedule(perChipHalf, oneOffChips, preUsed) : null;
 
     schedules.push({
       label: `GW${minStart}-${maxStop}`,
@@ -671,6 +697,7 @@ export function runChipEngine(input: ChipsEngineInput): ChipEngineResult {
       stopEvent: maxStop,
       oneOff,
       wildcard: wildcardPick,
+      spent: spentHalf,
     });
   }
 

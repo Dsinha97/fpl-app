@@ -46,6 +46,8 @@ import {
 import { optimiseLineup, type LineupCandidate } from "@/lib/lineup";
 import { totalSpend } from "@/lib/squad-budget";
 import { benchBoostAt, tripleCaptainAt, type ChipValuation } from "@/lib/chips";
+import { playedAt } from "@/lib/chip-plan";
+import { useChipAvailability } from "@/lib/use-chip-availability";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { SlideOver } from "@/components/ui/slide-over";
@@ -486,6 +488,23 @@ export default function ScenariosPage() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [computeReady]);
+
+  const entryIds = useMemo(() => drafts.map((d) => d.entryId), [drafts]);
+  const { chipDefinitions, playedByEntry } = useChipAvailability(season, entryIds);
+  /** Per draft, why Bench Boost / Triple Captain is no longer on offer at `nextEvent` — null when it still is (or when the draft has no manager to read a history from). */
+  const chipSpentByDraft = useMemo(() => {
+    const out = new Map<string, { bboost: string | null; threeXC: string | null }>();
+    if (nextEvent === null) return out;
+    for (const d of drafts) {
+      const played = d.entryId ? (playedByEntry.get(d.entryId) ?? []) : [];
+      const why = (chip: "bboost" | "3xc") => {
+        const spent = playedAt(chip, nextEvent, chipDefinitions, played, 38);
+        return spent && spent.event < nextEvent ? `played GW${spent.event}` : null;
+      };
+      out.set(d.draftId, { bboost: why("bboost"), threeXC: why("3xc") });
+    }
+    return out;
+  }, [drafts, playedByEntry, chipDefinitions, nextEvent]);
 
   const chipsByDraft = useMemo(
     () => computed?.chips ?? new Map<string, { bboost: ChipValuation; threeXC: ChipValuation }>(),
@@ -1194,6 +1213,7 @@ export default function ScenariosPage() {
                   rules={rules}
                   lookup={lookup}
                   chipsByDraft={chipsByDraft}
+                  chipSpentByDraft={chipSpentByDraft}
                   actuals={actualsByDraft}
                   latestEvent={actualsSource?.latestEvent ?? null}
                 />
@@ -1256,6 +1276,7 @@ function ComparisonRows({
   rules,
   lookup,
   chipsByDraft,
+  chipSpentByDraft,
   actuals,
   latestEvent,
 }: {
@@ -1267,6 +1288,8 @@ function ComparisonRows({
   rules: SquadRules;
   lookup: (id: number) => PlayerMeta | undefined;
   chipsByDraft: Map<string, { bboost: ChipValuation; threeXC: ChipValuation }>;
+  /** Draft id -> reason a chip is already spent in the window `nextEvent` falls in. */
+  chipSpentByDraft: Map<string, { bboost: string | null; threeXC: string | null }>;
   actuals: Map<string, ScenarioActuals>;
   /** The most recently finished gameweek, or null when none has. */
   latestEvent: number | null;
@@ -1286,6 +1309,8 @@ function ComparisonRows({
     dir: "high" | "low" | "none";
     format: (v: number) => string;
     values: number[];
+    /** Per draft: a reason this figure doesn't apply (shown instead of the value, never compared). */
+    unavailable?: (string | null)[];
     note?: string;
   }[] = [
     {
@@ -1336,6 +1361,7 @@ function ComparisonRows({
       dir: "high",
       format: (v) => (v >= 0 ? `+${v.toFixed(1)}` : v.toFixed(1)),
       values: drafts.map((d) => chipsByDraft.get(d.draftId)?.bboost.gain ?? 0),
+      unavailable: drafts.map((d) => chipSpentByDraft.get(d.draftId)?.bboost ?? null),
       note: "What playing Bench Boost next gameweek would add over auto-subs",
     },
     {
@@ -1343,6 +1369,7 @@ function ComparisonRows({
       dir: "high",
       format: (v) => (v >= 0 ? `+${v.toFixed(1)}` : v.toFixed(1)),
       values: drafts.map((d) => chipsByDraft.get(d.draftId)?.threeXC.gain ?? 0),
+      unavailable: drafts.map((d) => chipSpentByDraft.get(d.draftId)?.threeXC ?? null),
       note: "One extra copy of the captain's next-gameweek score",
     },
     {
@@ -1399,18 +1426,22 @@ function ComparisonRows({
   return (
     <>
       {rows.map((row) => {
+        const unavailable = row.unavailable ?? [];
+        // A spent chip has no figure to compare — leave it out of the tie check
+        // and the winner, not scored as zero.
         const nums = row.values;
+        const comparable = nums.filter((_, i) => !unavailable[i]);
         // Compare what the reader can see: a ▲ beside two cells both showing
         // "0.5" claims a winner nobody can verify, so ties are judged on the
         // formatted value rather than the raw float.
-        const shown = nums.map(row.format);
+        const shown = comparable.map(row.format);
         const allEqual = shown.every((v) => v === shown[0]);
         const best =
-          nums.length === 0 || row.dir === "none" || allEqual
+          comparable.length === 0 || row.dir === "none" || allEqual
             ? null
             : row.dir === "high"
-              ? Math.max(...nums)
-              : Math.min(...nums);
+              ? Math.max(...comparable)
+              : Math.min(...comparable);
         return (
           <DataRow key={row.label} className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
             <DataHeadCell className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
@@ -1429,7 +1460,8 @@ function ComparisonRows({
               )}
             </DataHeadCell>
             {nums.map((v, i) => {
-              const wins = best !== null && v === best && nums.length > 1;
+              const spent = unavailable[i] ?? null;
+              const wins = !spent && best !== null && v === best && comparable.length > 1;
               return (
                 // DSI-123, two defects in one cell.
                 //
@@ -1451,7 +1483,7 @@ function ComparisonRows({
                   className={`px-3 py-2 ${wins ? "bg-primary/[0.06]" : ""}`}
                 >
                   <span className={wins ? "font-semibold text-foreground" : ""}>
-                    {row.format(v)}
+                    {spent ? <span className="text-zinc-500">{spent}</span> : row.format(v)}
                     {wins && (
                       <span
                         aria-label={row.dir === "low" ? "lowest, best" : "highest, best"}

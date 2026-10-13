@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { loadPlayedChips } from "@/lib/played-chips";
 import { supabase } from "@/lib/supabase/client";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { AvailabilityBadge } from "@/components/player-status-icons";
@@ -19,8 +20,9 @@ import { FeedRowItem } from "@/components/feed-row";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
+  blockedValuation,
   fplActiveChipAt,
-  CHIP_KINDS,
+  playedAt,
   type ChipDefinitionRow,
   type PlayedChip,
 } from "@/lib/chip-plan";
@@ -40,7 +42,6 @@ import {
   setCaptain,
   setViceCaptain,
   validateSquad,
-  type ChipKind,
   type ChipPlan,
   type PlayerMeta,
   type TeamState,
@@ -541,18 +542,8 @@ export default function DeadlinePage() {
       return;
     }
     (async () => {
-      const { data, error: chipsError } = await supabase
-        .from("manager_chips")
-        .select("event, name")
-        .eq("season", ctx.season)
-        .eq("entry_id", resolvedEntryId)
-        .order("event");
-      if (chipsError) return;
-      setPlayedChips(
-        (data ?? [])
-          .filter((r) => CHIP_KINDS.includes(r.name as ChipKind))
-          .map((r) => ({ chip: r.name as ChipKind, event: r.event as number })),
-      );
+      const loaded = await loadPlayedChips(ctx.season, resolvedEntryId);
+      if (loaded) setPlayedChips(loaded);
     })();
   }, [ctx?.season, resolvedEntryId]);
 
@@ -889,15 +880,31 @@ export default function DeadlinePage() {
     return { bringIn, benchInstead };
   }, [team, lineup]);
 
+  /** A chip spent in an *earlier* gameweek of this window has nothing left to offer — say so rather than show a gain. */
+  const spentReason = useCallback(
+    (chip: "bboost" | "3xc"): string | null => {
+      if (!ctx) return null;
+      const spent = playedAt(chip, ctx.nextEvent, chipDefinitions, playedChips, ctx.windowEnd);
+      return spent && spent.event < ctx.nextEvent
+        ? `Already played in GW${spent.event} — it returns when its next window opens.`
+        : null;
+    },
+    [ctx, chipDefinitions, playedChips],
+  );
+
   const benchBoost: ChipValuation | null = useMemo(() => {
     if (!team || !ctx || predsByPlayer.size === 0) return null;
+    const spent = spentReason("bboost");
+    if (spent) return blockedValuation("bboost", ctx.nextEvent, spent);
     return benchBoostAt(team.players, ctx.nextEvent, predAt, lookup, isPenaltyTaker);
-  }, [team, ctx, predsByPlayer, predAt, lookup, isPenaltyTaker]);
+  }, [team, ctx, predsByPlayer, predAt, lookup, isPenaltyTaker, spentReason]);
 
   const tripleCaptain: ChipValuation | null = useMemo(() => {
     if (!team || !ctx || predsByPlayer.size === 0) return null;
+    const spent = spentReason("3xc");
+    if (spent) return blockedValuation("3xc", ctx.nextEvent, spent);
     return tripleCaptainAt(team, ctx.nextEvent, predAt, availabilityOf, lookup, isPenaltyTaker);
-  }, [team, ctx, predsByPlayer, predAt, availabilityOf, lookup, isPenaltyTaker]);
+  }, [team, ctx, predsByPlayer, predAt, availabilityOf, lookup, isPenaltyTaker, spentReason]);
 
   /** The chip FPL reports as live for the deadline gameweek, if any — fact, never a plan. */
   const activeChip = useMemo(

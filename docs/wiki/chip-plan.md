@@ -197,3 +197,27 @@ That made the distinction explicit — `source: "manual"` now means *a decision*
 icon means *a shortlist*. The plan editor also greys out chips FPL's own history says have already
 been played, so a plan cannot offer a chip that no longer exists to play.
 — [sprints/m9.md](../sprints/m9.md)
+
+## A spent chip is spent everywhere (2026-10-13)
+
+Only the plan editor and `validateChipPlan` knew a chip was played. The transfer path therefore still
+recommended `GW7 — Wildcard` after the Wildcard went in GW6, and the Chip timing tab valued,
+scheduled and suggested chips that no longer exist to play.
+
+"Spent" is now one check, `playedInWindow` / `playedAt` in `lib/chip-plan.ts`: a chip is spent for the
+`chip_definitions` row its played gameweek falls in, never an assumed GW19 boundary. A Wildcard played
+in GW6 spends GW2-19 and leaves GW20-38 open, so Wildcard GW20 is still a legitimate recommendation.
+Consumers:
+
+- **`/transfers`**: `wildcard.available` folds in played chips, and Wildcard mode switches off if it
+  becomes unavailable. The optimiser and path planner already honoured `available`.
+- **`runChipEngine`** (`lib/chips.ts`): a spent half is reported blocked ("Already played in GW6")
+  rather than valued, and `ChipHalfSchedule.spent` lists what was left out. Presets, per-chip
+  rankings and "Best single play" filter on `blocked === null`, so they follow.
+- **`/deadline`, `/scenarios`, `/builder`**: a spent Bench Boost / Triple Captain reads "played"
+  instead of a gain, and is left out of the scenario winner highlight.
+
+Played chips load through one shared `loadPlayedChips` (`lib/played-chips.ts`); `/scenarios` and
+`/builder` use `useChipAvailability`. Known gaps: a draft with no manager entry has no chip history,
+so everything reads as available; `chipContextFor`'s wildcard mask across the GW19/20 boundary was
+not reviewed.

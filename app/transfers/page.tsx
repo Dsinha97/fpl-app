@@ -12,6 +12,7 @@ import { AvailabilityBadge } from "@/components/player-status-icons";
 import { CaptainBadge, ViceCaptainBadge } from "@/components/armband";
 import { listDrafts, resolveRequestedDraft, saveDraft } from "@/lib/drafts";
 import { ChipTiming } from "@/components/chip-timing";
+import { loadPlayedChips } from "@/lib/played-chips";
 import { fullName, matchesPlayerQuery } from "@/lib/player-search";
 import { loadPredictionSeries } from "@/lib/player-pool";
 import {
@@ -44,9 +45,8 @@ import {
   chipLabel,
   validateChipPlan,
   fplActiveChipAt,
-  CHIP_KINDS,
+  playedAt,
   type ChipDefinitionRow,
-  type ChipKind,
   type EventPrediction,
   type PlayedChip,
   type PredAt,
@@ -146,7 +146,8 @@ export default function TransfersPage() {
    *  currently selected draft's entry — the chip plan editor can't offer to
    *  plan a chip that no longer exists to play. */
   const [playedChips, setPlayedChips] = useState<PlayedChip[]>([]);
-  const [wildcard, setWildcard] = useState<{ available: boolean; reason: string | null }>({
+  /** Whether a wildcard window covers the next gameweek — says nothing about whether it was already spent; `wildcard` below folds that in. */
+  const [wildcardWindow, setWildcardWindow] = useState<{ available: boolean; reason: string | null }>({
     available: false,
     reason: null,
   });
@@ -295,7 +296,7 @@ export default function TransfersPage() {
           .map((w) => w.startEvent)
           .filter((start) => start > gw.id)
           .sort((a, b) => a - b)[0];
-        setWildcard({
+        setWildcardWindow({
           available: open,
           reason: open
             ? null
@@ -423,18 +424,8 @@ export default function TransfersPage() {
       return;
     }
     (async () => {
-      const { data, error: chipsError } = await supabase
-        .from("manager_chips")
-        .select("event, name")
-        .eq("season", season)
-        .eq("entry_id", team.entryId as number)
-        .order("event");
-      if (chipsError) return;
-      setPlayedChips(
-        (data ?? [])
-          .filter((r) => CHIP_KINDS.includes(r.name as ChipKind))
-          .map((r) => ({ chip: r.name as ChipKind, event: r.event as number })),
-      );
+      const loaded = await loadPlayedChips(season, team.entryId as number);
+      if (loaded) setPlayedChips(loaded);
     })();
   }, [season, team?.entryId]);
 
@@ -561,6 +552,25 @@ export default function TransfersPage() {
     predAt,
     seriesOf,
   ]);
+
+  /**
+   * The window covering the next gameweek, minus a Wildcard FPL's own history
+   * says is already spent in it — a Wildcard played in GW6 leaves GW7 with
+   * nothing to offer, while GW20+ (a fresh window) stays open.
+   */
+  const wildcard = useMemo(() => {
+    if (!wildcardWindow.available || nextEvent === null || lastEvent === null) return wildcardWindow;
+    const spent = playedAt("wildcard", nextEvent, chipDefinitions, playedChips, lastEvent);
+    return spent
+      ? { available: false, reason: `Wildcard was already played in GW${spent.event} — it returns when its next window opens.` }
+      : wildcardWindow;
+  }, [wildcardWindow, chipDefinitions, playedChips, nextEvent, lastEvent]);
+
+  useEffect(() => {
+    // A basket applied "as a Wildcard" must not outlive the Wildcard.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!wildcard.available) setWildcardMode(false);
+  }, [wildcard.available]);
 
   /**
    * The window check alone isn't enough — a draft that already has a
