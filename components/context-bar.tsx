@@ -107,7 +107,7 @@ export function ContextBar() {
   if (!ctx) return null;
 
   return (
-    <div className="border-b border-zinc-200 bg-card-supporting px-4 py-1.5 text-xs dark:border-purple-900/40">
+    <div className="border-b border-zinc-200 bg-card-supporting px-4 py-1.5 group-data-[scrolled]:py-1 text-xs dark:border-purple-900/40">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-1 text-zinc-600 dark:text-zinc-400">
         <span className="flex items-center gap-1.5">
           <span className="uppercase tracking-wide">{ctx.gameweekName}</span>

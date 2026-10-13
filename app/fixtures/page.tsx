@@ -8,7 +8,6 @@ import { FdrLegendContent, InfoTooltip } from "@/components/info-tooltip";
 import { FdrMatrix } from "@/components/fdr-matrix";
 import { LeagueTable, type StandingsTeam } from "@/components/league-table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { HeroStat } from "@/components/ui/stat-strip";
 import {
   FixtureSchedule,
   localZone,
@@ -159,11 +158,13 @@ export default function FixturesPage() {
         </h1>
         {/* Sprint 42 — every view here is read relative to the next
             gameweek (its schedule opens there, the FDR window starts there),
-            so that is the number pinned to the corner on a phone. */}
+            so that is the number pinned to the corner on a phone. One quiet
+            line, not a hero: it is context for the page, not its answer. */}
         {nextGw !== null && (
-          <div className="sm:hidden">
-            <HeroStat label="Next" value={`GW${nextGw}`} />
-          </div>
+          <p className="flex shrink-0 items-baseline gap-1.5 whitespace-nowrap pt-2 sm:hidden">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Next</span>
+            <span className="text-base font-bold tabular-nums text-purple-800 dark:text-primary">GW{nextGw}</span>
+          </p>
         )}
       </div>
 

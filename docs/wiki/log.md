@@ -2,6 +2,7 @@
 
 One line per entry, most recent first.
 
+- 2026-10-13 — Ingested the mobile visual pass (PR `feat/mobile-visual-polish`, no sprint file). **`design-system.md`**: new section — translucent bottom tabs that hide on scroll (focus reveals, not `inert`), the contracting header (48/16 hysteresis, logo transform as the only animated cue), `HeroStat` `align="start"`. **`deadline-and-matchday.md`**: the counts-only "at a glance" block and why it carries no names. **`timeline.md`**: 2026-10-13 row. `.pending-ingest` held only `docs/roadmap.md`, already covered by the earlier 10-13 ingests; cleared.
 - 2026-10-13 — DSI-59 closed. **`edge-function-security.md`**: the 429's render is no longer unproven (live proof with `max_calls` set to 2: two 200s then a 429; restored to 30). **`roadmap.md`**: the DSI-75 line no longer says DSI-59's flip is pending. **`linear.md`**: DSI-59 moved from Open to Shipped.
 - 2026-10-13 — Chip-state follow-ups from the played-chips audit. **`chip-plan.md`**: a follow-ups section (active-chip guard, `chipEntriesInForce` wired for Bench Boost/Triple Captain, in-half pins, stale played-chip loads, quiet past pins, free transfers replayed on `/team` import). No `timeline.md` row beyond the existing 10-13 chip entry.
 - 2026-10-13 — Chip plan's collapsed summary now reads `played GWn` for a chip FPL's history reports spent (it said "not planned") and lists only entries in force. **`chip-plan.md`**: one sentence in the spent-chip section. No `timeline.md` row: a wording fix on the 10-13 change.

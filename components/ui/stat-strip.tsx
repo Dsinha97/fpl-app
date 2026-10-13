@@ -32,14 +32,16 @@ export function HeroStat({
   caption?: ReactNode;
   /** Hover/long-press explanation of what the number means. */
   title?: string;
-  /** `end` pins it top-right of a header (the default); `center` is for a hero that owns its own row. */
-  align?: "end" | "center";
+  /** `end` pins it top-right of a header (the default); `start` top-left; `center` is for a hero that owns its own row. */
+  align?: "start" | "end" | "center";
   /** Sits beside the label — an `InfoTooltip` carrying what the number means. */
   labelAddon?: ReactNode;
 }) {
   return (
     <div
-      className={`flex shrink-0 flex-col ${align === "center" ? "items-center text-center" : "items-end text-right"}`}
+      className={`flex shrink-0 flex-col ${
+        align === "center" ? "items-center text-center" : align === "start" ? "items-start text-left" : "items-end text-right"
+      }`}
       title={title}
     >
       <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">

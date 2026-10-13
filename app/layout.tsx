@@ -7,6 +7,7 @@ import { Monogram, Wordmark } from "@/components/brand";
 import { DesktopNav } from "@/components/nav-links";
 import { AccountMenu } from "@/components/account-menu";
 import { ContextBar } from "@/components/context-bar";
+import { HeaderScrollState } from "@/components/header-scroll-state";
 import { BottomTabs } from "@/components/bottom-tabs";
 import { THEME_BOOT_SCRIPT, THEME_COLOR_DARK } from "@/components/theme";
 import { OG_IMAGE, SITE_NAME, SITE_ROUTES, SITE_URL } from "@/lib/seo";
@@ -74,10 +75,15 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           <DraftSyncProvider />
-          <header className="sticky top-0 z-40 border-b pt-[env(safe-area-inset-top)] border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
-            <nav className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4 sm:gap-6">
+          <header id="site-header" className="group sticky top-0 z-40 border-b pt-[env(safe-area-inset-top)] border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
+            <nav className="mx-auto flex h-14 group-data-[scrolled]:h-11 w-full max-w-6xl items-center gap-3 px-4 sm:gap-6">
               <Link href="/" className="flex shrink-0 items-center gap-2.5">
-                <Monogram size={30} />
+                {/* The animated cue is this transform; the bar's own height
+                    swap is instant (animating layout properties is off the
+                    composite-only path). */}
+                <span className="origin-left transition-transform duration-200 ease-out group-data-[scrolled]:scale-90 motion-reduce:transition-none">
+                  <Monogram size={30} />
+                </span>
                 <Wordmark />
               </Link>
               <DesktopNav />
@@ -87,6 +93,7 @@ export default function RootLayout({
             </nav>
             <ContextBar />
           </header>
+          <HeaderScrollState />
           {/* Below `lg` the bottom tab bar is fixed over the page's last
               4rem; the padding keeps the final row of content above it. */}
           <div className="flex flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">

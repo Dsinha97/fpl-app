@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { CalendarClock, LayoutGrid, Shirt, Users, type LucideIcon } from "lucide-react";
 import { NAV_GROUPS } from "@/components/nav-links";
 
@@ -33,7 +33,8 @@ const TABS: readonly Tab[] = [
  * toast): above the tab bar where it shows, flush to the edge where it
  * doesn't. A literal class string so Tailwind sees it.
  */
-export const ABOVE_BOTTOM_TABS = "bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0";
+export const ABOVE_BOTTOM_TABS =
+  "bottom-[calc(4rem+env(safe-area-inset-bottom))] transition-[bottom] duration-200 ease-out motion-reduce:transition-none [html[data-tabs=away]_&]:bottom-0 lg:bottom-0";
 
 /** Routes the tab bar owns directly; every other nav route is reached via More. */
 export const TAB_HREFS = new Set(TABS.map((t) => t.href));
@@ -81,6 +82,30 @@ export function useHideBottomTabs(active: boolean) {
   }, [active]);
 }
 
+/**
+ * Translucent bar that slides away on scroll down (Gmail) and returns on any
+ * scroll up or at the page edges. */
+function useScrolledAway() {
+  const [away, setAway] = useState(false);
+  useEffect(() => {
+    let lastY = window.scrollY;
+    // No rAF throttle: it never fires on a hidden document, and this handler
+    // is a few comparisons plus a bail-out setState.
+    const onScroll = () => {
+      const y = window.scrollY;
+      const dy = y - lastY;
+      const nearTop = y <= 64;
+      const nearBottom = window.innerHeight + y >= document.documentElement.scrollHeight - 48;
+      if (nearTop || nearBottom || dy < -4) setAway(false);
+      else if (dy > 8) setAway(true);
+      if (Math.abs(dy) > 4) lastY = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  return [away, () => setAway(false)] as const;
+}
+
 export function BottomTabs() {
   const pathname = normalize(usePathname() ?? "/");
   const hidden = useSyncExternalStore(
@@ -88,13 +113,25 @@ export function BottomTabs() {
     () => focusFlows > 0,
     () => false,
   );
+  const [away, reveal] = useScrolledAway();
+
+  // Other fixed bottom bars (see ABOVE_BOTTOM_TABS) follow the tab bar down.
+  useEffect(() => {
+    document.documentElement.dataset.tabs = away ? "away" : "shown";
+    return () => {
+      delete document.documentElement.dataset.tabs;
+    };
+  }, [away]);
 
   if (hidden) return null;
 
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden dark:border-purple-900/40 dark:bg-card/95"
+      onFocusCapture={reveal}
+      className={`fixed inset-x-0 bottom-0 z-30 border-t pb-[env(safe-area-inset-bottom)] lg:hidden border-zinc-200/60 bg-white/60 backdrop-blur-xl backdrop-saturate-150 dark:border-purple-300/10 dark:bg-card/55 [@media(prefers-reduced-transparency:reduce)]:bg-white [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none dark:[@media(prefers-reduced-transparency:reduce)]:bg-card transition-transform duration-200 ease-out motion-reduce:transition-none ${
+        away ? "translate-y-full" : "translate-y-0"
+      }`}
     >
       <ul className="mx-auto flex h-16 max-w-xl items-stretch">
         {TABS.map(({ href, label, icon: Icon }) => {
@@ -107,7 +144,7 @@ export function BottomTabs() {
                 className={`group flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
                   active
                     ? "text-purple-800 dark:text-primary"
-                    : "text-zinc-500 dark:text-zinc-400"
+                    : "text-zinc-700 dark:text-zinc-300"
                 }`}
               >
                 {/* The pill behind the icon is the active marker, and the
