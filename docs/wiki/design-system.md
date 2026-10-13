@@ -878,3 +878,28 @@ The fix and its history are in [frontend-conventions](frontend-conventions.md)'s
 gotcha (DSI-138, DSI-141).
 
 — [sprints/sprint-42.md](../sprints/sprint-42.md)
+
+## Mobile chrome: glass tabs that hide, a header that contracts (2026-10-13)
+
+A visual pass on the phone layout, taken from owner screenshots. No sprint file; the change is in
+PR `feat/mobile-visual-polish`.
+
+- **Bottom tab bar is translucent and slides away on scroll down.** `components/bottom-tabs.tsx`: a
+  blurred, tinted backdrop (`backdrop-blur-xl backdrop-saturate-150`, a bright top edge), darker
+  inactive labels, and a solid fallback under `prefers-reduced-transparency`. It returns on any
+  scroll up, near the top or bottom of the page, and when anything in the bar takes focus (the bar
+  is not `inert` while hidden, so a keyboard user can still reach it). Scroll handling has no
+  `requestAnimationFrame` gate: rAF never fires on a hidden document. `html[data-tabs=away]` moves
+  `ABOVE_BOTTOM_TABS` consumers (the sticky bars on `/players` and `/scenarios`) down with it.
+- **The top header contracts on scroll.** `components/header-scroll-state.tsx` sets `data-scrolled`
+  on `#site-header`; `app/layout.tsx` keys `group-data-[scrolled]:` variants off it (nav row 56px to
+  44px, ContextBar padding tightens). Two thresholds, 48px to shrink and 16px to restore, because
+  the shorter in-flow header pulls `scrollY` back and a single cut-off flickers. The height swap is
+  instant; the logo's `transform: scale` is the only animated cue, the same rule the portfolio site
+  settled on (DSI-159).
+- **`HeroStat` gains `align="start"`.** The Builder's phone header now puts the xP total top-left and
+  captain/vice top-right, the reverse of the usual hero corner.
+- **Fixtures' "Next GW7" is one quiet line** beside the title, not a stacked hero.
+
+— [deadline-and-matchday.md](deadline-and-matchday.md#at-a-glance-above-the-pitch-2026-10-13)
+

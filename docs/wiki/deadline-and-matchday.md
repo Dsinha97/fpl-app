@@ -411,6 +411,17 @@ phones; the GW card is a title row plus a three-cell strip. Layout review via th
 skill. Desktop layout unchanged, except that the live total's `max-w-2xl` column is now `mx-auto`: left-aligned,
 the centred number sat off-centre in a card wider than the column.
 
+## At a glance, above the pitch (2026-10-13)
+
+The Upcoming section opens with a summary before the pitch: the starting XI's xP for the deadline
+gameweek (`HeroStat`), an "Edit in Builder" link, and a `StatStrip` of **Flags**, **Captain**
+(optimal, or the gain from swapping) and **XI changes** (how many players the model would start
+instead). It carries **counts only**. The names and reasons stay in the Captain & starting XI card,
+because a first version that also spelled out "Start X, Y · bench Z" repeated the card's amber box
+word for word. The figure is the XI you entered, so it differs from the card's model-XI xP on
+purpose. There is no transfers link in it: the chip-call card already has one. See
+[design-system.md](design-system.md#mobile-chrome-glass-tabs-that-hide-a-header-that-contracts-2026-10-13).
+
 ## The ContextBar countdown drops seconds above 24h (2026-09-20)
 
 The sticky countdown described above ran a seconds term at every distance, so nineteen days out it
