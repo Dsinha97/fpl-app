@@ -19,6 +19,13 @@ probabilities** (`P(X ≥ threshold)`, `E[floor(X/d)]`) rather than a `rate / di
 player averaging exactly the DC threshold does not clear it every match, they clear it about half
 the time, and only a Poisson model captures that. — [phase-4-model.md](../phase-4-model.md#1-what-the-model-does)
 
+**Since v1.6.0 (2026-10-13) start share and minutes are not purely prior-season.** For players with
+≥1,200 weighted prior minutes and ≥3 games already played this season, `startShare` and
+`minutesPerGame` come from an in-season logistic estimate (prior start share, last-5 and last-3 start
+rates, last start, goalkeeper flag); everyone else stays on the prior-season path described above. See
+[the DSI-185 section](#the-minutes-model-dsi-185-gate-port-deploy) and
+[sprints/dsi-185-minutes-model.md](../sprints/dsi-185-minutes-model.md).
+
 Fixture adjustment uses **separate attack and defence multipliers** (a hard fixture depresses
 attacking returns and clean sheets by different amounts), and availability is folded into expected
 minutes rather than applied as a trailing scalar.
@@ -279,7 +286,8 @@ above were first run; the re-read at locked data (10/10 fixtures `finished`, bon
 2026-09-21) came back **identical** — pooled −0.080/n=2,587, the same four per-gameweek figures,
 the same −0.714/+0.627 cohort split. [DSI-50](https://linear.app/dsinha-org/issue/DSI-50) stays
 open, now for a fifth read once GW6 is played (2026-10-10, after a three-week international
-break) — see [sprints/sprint-38.md](../sprints/sprint-38.md) §1.
+break) — see [sprints/sprint-38.md](../sprints/sprint-38.md) §1. *(Update 2026-10-13: that read was
+taken and DSI-50 closed — see [the GW6 read](#gw6-the-fifth-read-2026-10-13).)*
 
 **DSI-178 shipped the measurement, not a fix (2026-09-21).** `scripts/backtest-walkforward.ts` now
 scores `byAppearance` (appeared vs no-show), `gkpByAppearance`, and a `startBrier` on the model's
@@ -305,6 +313,51 @@ its two different gates:
 ≈0 *because* the cohorts cancel, so a clean reading there certifies nothing. Its GW6 date matters
 only as the first day the last-5 baseline exists for this season.
 — [linear.md](../linear.md), [roadmap.md](../roadmap.md) "Next up"
+
+### GW6: the fifth read (2026-10-13)
+
+[sprints/gw6-check-in.md](../sprints/gw6-check-in.md). GW5 and GW6 were both fully landed (checked per
+fixture, not by the `finished` flag). Per gameweek, GW2–6: bias −0.150, −0.089, −0.079, −0.006, **−0.091**
+(GW6 n=667, MAE 1.300, r 0.463); pooled −0.082 over n=3,254. GW5 locked at −0.006, so confirmed bonus moved
+nothing. The aggregate neither converged to zero nor flipped.
+
+The no-show/played split held every week: no-shows −0.846, −0.693, −0.670, −0.662, −0.637; played +0.554,
++0.590, +0.593, +0.774, +0.520. Neither ever crosses zero. DSI-50 is closed, its two gate branches answered.
+
+First last-5 baseline on 2026-27 (the baseline needs six played gameweeks): on 234 matched rows it beat
+the harness model on MAE (2.18 vs 2.56) and r (0.28 vs 0.14). One gameweek, harness model (neutral FDR, no
+prior-shrinkage layer): indicative, consistent with Sprint 17a, not a new verdict.
+
+### The minutes model (DSI-185): gate, port, deploy
+
+[sprints/dsi-185-minutes-model.md](../sprints/dsi-185-minutes-model.md). Two corrections to the framing
+above. **The appeared/no-show bias split is mechanical:** minutes are bimodal, so even a perfect expectation
+over-predicts those who didn't play and under-predicts those who did; it shows the model has a spread, not
+that it has a defect, and cannot be the gate on its own. **`startBrier` scored the wrong thing:** it compared
+`startProbability` (P(start)) with `minutes > 0` (appeared, cameos included) against a 0.25 reference.
+
+The failure is nonetheless real and shows in the right metrics. On 2026-27 rows matched to the archive
+(n=703) the shipped start probability scored a Brier of **0.1760**, worse than the player's own last-5 starts
+rate (**0.1475**); a 6-feature logistic scores **0.1227**, goalkeepers 0.1004 → 0.0433, minutes RMSE 32.5 →
+27.5. It beats last-5 on start Brier in all four seasons (pooled 0.1345 vs 0.1575). The shipped model keeps
+one edge: appearance Brier (0.1149 vs 0.1389), because it carries availability flags that are not stored
+historically — which is why availability is kept on top of the new estimate.
+
+**The gate was amended** from per-cohort bias/MAE to proper scoring rules, each required in every season
+(`scripts/minutes-model-gate.ts`): G1 start Brier, G2 GKP start Brier and G3 minutes RMSE beat last-5, G4
+calibration-in-the-large within 2 SE, G5 beats the shipped model on 2026-27. **Four pass; G4 fails in 2023-24
+by 0.0010** (−0.0163 vs 0.0153). It was written before the result and not loosened; its SE assumes
+independent rows (anti-conservative) and a clustered SE was not computed. The owner reviewed that and
+instructed the deploy, so it shipped with the miss on the record. An earlier draft that called the
+logistic "well calibrated" overstated it: several mid-deciles are 2–3 points off.
+
+**What shipped (v1.6.0, `generate-predictions` v22, 2026-10-13):** the estimator applies to 235 of 667
+players; it reads this season's games from gameweeks *before* the one being predicted, restricted to fixtures
+whose results have landed (an unwritten fixture reads as 22 no-shows). Availability and the squad
+reconciliation still apply afterwards. The first post-deploy run succeeded: every club's outfield start
+probabilities sum to 10.00 and goalkeepers to 1.00, reconciliation `ok` 60/60, consistency violations 13 → 9.
+**Open:** re-read the live scoreboard after GW7 and at the GW10 batch; DSI-186 (accuracy claims) stays blocked
+on that. The population is the validated one only — cold-start and promoted-club players are not covered.
 
 ### The coverage gate the check-in had to build first
 

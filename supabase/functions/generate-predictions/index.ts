@@ -18,6 +18,10 @@ import {
   deriveRatesWithPrior,
   fitRatePriors,
   GOALKEEPER_POSITION_ID,
+  applyMinutesModel,
+  deriveRates,
+  inSeasonStartForm,
+  type InSeasonRow,
   MODEL_PARAMS,
   MODEL_VERSION,
   predict,
@@ -113,7 +117,13 @@ Deno.serve(async (req) => {
         "2025/26 Championship stats translated by a fitted per-metric lambda — replacing " +
         "the position/price prior mean for xg90/xa90/yellow90 only, never touching " +
         "n_eff or the shrinkage weight itself. The prediction window runs from " +
-        "the next gameweek through the season's last gameweek (floored at 8).",
+        "the next gameweek through the season's last gameweek (floored at 8). v1.6.0 " +
+        "replaces the prior-season-only start share and minutes per game with an " +
+        "in-season estimate (a logistic on prior start share and the last five games' " +
+        "starts) for players with >=1200 weighted prior minutes and >=3 games played " +
+        "this season; gated per season on start Brier, minutes RMSE and calibration " +
+        "against the player's own last-5 baseline and the shipped model " +
+        "(docs/sprints/dsi-185-minutes-model.md).",
       params: MODEL_PARAMS,
     }, { onConflict: "version" });
     if (modelError) throw new Error(`prediction_models: ${modelError.message}`);
@@ -265,6 +275,45 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ---- v1.6.0: this season's games so far, for the in-season start estimate ----
+    //
+    // Only games from gameweeks before `firstEvent`: a game in the gameweek being
+    // predicted is the thing predicted, so its result must not feed back in. And
+    // only games whose results have *landed*. `sync-player-history` writes a
+    // played fixture's rows in a later pass, so an unwritten fixture reads
+    // `minutes = 0, starts = 0` for all 22+ players and would be counted as 22
+    // no-shows - the same trap the accuracy scoreboard had (gw5-check-in.md section 0).
+    // A fixture has landed once anyone in it has real minutes; every played
+    // fixture puts 22+ players on the pitch.
+    //
+    // Paged with `.range()` past the API's 1000-row cap, on a unique order.
+    const formSinceEvent = Math.max(1, firstEvent - 10);
+    const seasonGames: { player_code: number; event: number; fixture: number; minutes: number | null; starts: number | null }[] = [];
+    if (firstEvent > 1) {
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await db
+          .from("player_gameweek_stats")
+          .select("player_code, event, fixture, minutes, starts")
+          .eq("season", season)
+          .gte("event", formSinceEvent)
+          .lt("event", firstEvent)
+          .order("player_code", { ascending: true })
+          .order("fixture", { ascending: true })
+          .range(from, from + 999);
+        if (error) throw new Error(`player_gameweek_stats: ${error.message}`);
+        seasonGames.push(...(data ?? []) as typeof seasonGames);
+        if ((data ?? []).length < 1000) break;
+      }
+    }
+    const landedFixtures = new Set<number>();
+    for (const g of seasonGames) if ((g.minutes ?? 0) > 0) landedFixtures.add(g.fixture);
+    const gamesByCode = new Map<number, InSeasonRow[]>();
+    for (const g of seasonGames) {
+      if (!landedFixtures.has(g.fixture)) continue;
+      const list = gamesByCode.get(g.player_code);
+      if (list) list.push(g); else gamesByCode.set(g.player_code, [g]);
+    }
+
     // Which seasons actually carry defensive-contribution data — FPL only
     // introduced the stat for 2024/25, so earlier `player_season_history`
     // rows read a real 0 rather than a tracked one. Derived once, globally,
@@ -342,6 +391,7 @@ Deno.serve(async (req) => {
 
     const derived: Derived[] = [];
     let skippedNoRates = 0;
+    const minutesApplied = new Set<number>();
     const bySource = new Map<string, number>();
 
     // ---- pass 1: derive --------------------------------------------------
@@ -366,8 +416,20 @@ Deno.serve(async (req) => {
         skippedNoRates++;
         continue;
       }
-      const { rates, evidence } = shrunk;
+      const { evidence } = shrunk;
       bySource.set(evidence.priorSource, (bySource.get(evidence.priorSource) ?? 0) + 1);
+
+      // v1.6.0 - in-season start/minutes estimate, for the validated population
+      // only. `deriveRates` (not the shrunk rates) is the feature the
+      // coefficients were fitted on. See MINUTES_MODEL in xp-model.ts.
+      const minutesFit = applyMinutesModel(
+        shrunk.rates,
+        deriveRates(historyByCode.get(p.code) ?? [], dcEligibleSeasons),
+        inSeasonStartForm(gamesByCode.get(p.code) ?? []),
+        p.element_type === GOALKEEPER_POSITION_ID,
+      );
+      const rates = minutesFit.rates;
+      if (minutesFit.applied) minutesApplied.add(p.id);
 
       const code = positionCode.get(p.element_type) ?? "MID";
       const playerInput = {
@@ -489,6 +551,9 @@ Deno.serve(async (req) => {
             seasons: rates.seasonsUsed,
             mpg: round(rates.minutesPerGame, 1),
             start_share: round(rates.startShare, 3),
+            // v1.6.0: whether start_share / mpg came from the in-season estimate
+            // (true) or from the prior-season path (false).
+            minutes_model: minutesApplied.has(p.id),
             xg90: round(rates.xg90, 3),
             xa90: round(rates.xa90, 3),
             dc90: round(rates.dc90, 2),
@@ -573,6 +638,7 @@ Deno.serve(async (req) => {
         horizon_gameweeks: lastEvent - firstEvent + 1,
         players_predicted: players.length - skippedNoRates,
         skipped_no_prior: skippedNoRates,
+        minutes_model_players: minutesApplied.size,
         prior_cells: priors.cells.length,
         by_prior_source: Object.fromEntries(bySource),
         clubs_reconciled: reconciliationByClub.size,
