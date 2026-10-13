@@ -120,6 +120,7 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | Search indexing: sitemap, robots.txt, per-route metadata, preview card (PR [#39](https://github.com/Dsinha97/fpl-app/pull/39), merged 2026-09-26) | DSI-203 | M8 | [sprints/seo.md](sprints/seo.md) |
 | 41 Mobile redesign — foundation + 3 key screens (PR [#43](https://github.com/Dsinha97/fpl-app/pull/43), merged 2026-10-08) | DSI-214 | M8 | [sprints/sprint-41.md](sprints/sprint-41.md) |
 | 42 Mobile redesign — Deadline, Transfers, Fixtures, Builder (PR [#44](https://github.com/Dsinha97/fpl-app/pull/44), merged 2026-10-08) | DSI-215 | M8 | [sprints/sprint-42.md](sprints/sprint-42.md) |
+| Already-played chips respected in the transfer path, Chip timing, `/deadline`, `/scenarios` and `/builder` (PR [#50](https://github.com/Dsinha97/fpl-app/pull/50), merged 2026-10-13) | DSI-217 | M8 | [wiki/chip-plan.md](wiki/chip-plan.md#a-spent-chip-is-spent-everywhere-2026-10-13) |
 
 ## Canceled
 
