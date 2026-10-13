@@ -147,3 +147,23 @@ archived snapshot from v1.6.0 is GW7's.
 **Still to do:** re-read the live scoreboard once GW7 is scored, and again at the GW10 batch (~2026-11-09) with n
 in the thousands. DSI-186 (accuracy claims) stays blocked by that read. Rollback, if needed, is redeploying the
 v1.5.0 files from the commit before this change.
+
+## 7. Follow-ups found after the deploy (DSI-216)
+
+A suspected post-deploy degradation was checked on 2026-10-13 and turned out to be a stale cache on the
+owner's side, so nothing here is a confirmed regression. The check did surface two loose ends, tracked as
+[DSI-216](https://linear.app/dsinha-org/issue/DSI-216):
+
+- **What the deploy did to the predictions.** Rebuilding the old and new model over identical live inputs, the
+  235 covered players' xP has a rank correlation of only 0.75 with the old model. The large drops are players the
+  old model overrated (Pope 0 minutes in 6 gameweeks, Van den Berg 0, Alderete 0 since GW1); the large rises are
+  regular starters it had at ~0.45. For players who started every game in GW2-6, the new start probability beat
+  the old one for most: defenders 25 vs 5, midfielders 34 vs 1, forwards 7 vs 2, goalkeepers 8 vs 0.
+- **Goalkeepers are still diluted.** The club goalkeeper budget is fixed at 1.0 and backups with no starts this
+  season are outside the estimator's population, so they keep stale prior-season shares and take mass from the
+  starter. Kelleher (6 of 6 starts) ends at 0.80 against an estimator output of ~0.92; keepers who started every
+  game in GW2-6 average 0.72 (0.653 under v1.5.0). It predates v1.6.0.
+- **An unexplained gap between a local re-run and the live table.** Re-running `generate-predictions`' three
+  passes on live data reproduces covered players closely (<=0.016 start probability) but differs for 265
+  players, mostly cold-start, by up to +/-0.41 xP. Truncation of the history reads was ruled out; the cause is
+  not known and it is not shown to come from this change.
