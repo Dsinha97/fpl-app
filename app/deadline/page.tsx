@@ -536,15 +536,19 @@ export default function DeadlinePage() {
   const resolvedEntryId = entryId ?? team?.entryId ?? null;
 
   useEffect(() => {
-    if (!ctx?.season || !resolvedEntryId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPlayedChips([]);
-      return;
-    }
+    // Clear first so another manager's history never lingers, and ignore a
+    // response that lands after the manager changed.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPlayedChips([]);
+    if (!ctx?.season || !resolvedEntryId) return;
+    let cancelled = false;
     (async () => {
       const loaded = await loadPlayedChips(ctx.season, resolvedEntryId);
-      if (loaded) setPlayedChips(loaded);
+      if (!cancelled) setPlayedChips(loaded ?? []);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [ctx?.season, resolvedEntryId]);
 
   useEffect(() => {
@@ -1790,6 +1794,7 @@ export default function DeadlinePage() {
                   lastEvent={ctx.windowEnd}
                   activeChip={fplActiveChipAt(team, ctx.nextEvent)}
                   playedChips={playedChips}
+                  historyKnown={!!resolvedEntryId}
                   onChange={(next: ChipPlan) => {
                     saveDraft({ ...team, chipPlan: next });
                     setDrafts(listDrafts());

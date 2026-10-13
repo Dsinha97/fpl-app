@@ -223,3 +223,26 @@ so everything reads as available; `chipContextFor`'s wildcard mask across the GW
 not reviewed.
 
 The plan card's collapsed summary follows the same rule: a spent chip reads `played GW6`, never "not planned", and only pins actually in force count as planned (a stale pin for a past gameweek stays a problem row inside the card).
+
+### Follow-ups to the same audit (2026-10-13)
+
+- A chip FPL reports at the *upcoming* gameweek is the one being played, not one already behind us:
+  `validateChipPlan` keeps a pin for it usable and the `/transfers` wildcard check no longer reads "already
+  played in GW8" for a live Wildcard.
+- An active Bench Boost or Triple Captain is now in `/transfers`' chip context (`chipEntriesInForce`, which
+  had no callers). An active Wildcard or Free Hit is deliberately not: the imported squad is already the
+  rebuilt one, and counting it would have the path plan a second rebuild. The context-bar note says so.
+- `setChipPlanEntryInHalf` replaces a chip's earlier pin in the same half, so applying Bench Boost at GW12
+  beside GW9 no longer leaves a pin the validator discards. The Chip timing tab uses it everywhere it writes.
+- Played chips load with the previous manager's list cleared and stale responses ignored (`/transfers`,
+  `/deadline`, Chip timing); a failed read reads as "no history", never the last manager's.
+- The plan card ignores pins for gameweeks that have passed instead of counting them as problems, says
+  "Window closed" for an over, unplayed window, and says so when a draft has no manager to read history from.
+- **Free transfers on `/team` import** are replayed from `manager_gameweek_history`
+  (`reconstructFreeTransfers`, `lib/transfer-rules.ts`): GW2 opens with one, +1 a gameweek to the cap of five,
+  a Wildcard or Free Hit gameweek keeps the bank (the published 2025/26 rules; 2026/27's are unconfirmed, and
+  the GW16 top-up was 2025/26-only). It returns null — leaving the default 1 — if a gameweek is missing or a
+  recorded hit disagrees with the replay, which is the one thing in the record that checks the rule. Shown on
+  `/team` as an estimate. Only the owner's own account (one hit-free chip week, no recorded hits beyond one in
+  the 11 managers stored) exercises it, so it is thinly validated.
+

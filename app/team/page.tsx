@@ -35,7 +35,7 @@ import {
   saveDraft,
   uniqueDraftName,
 } from "@/lib/drafts";
-import { freeTransfersDisplay, MAX_FREE_TRANSFERS } from "@/lib/transfers";
+import { freeTransfersDisplay, MAX_FREE_TRANSFERS, reconstructFreeTransfers } from "@/lib/transfers";
 import {
   layoutFromPicks,
   loadEventPoints,
@@ -135,7 +135,21 @@ interface GwRow {
   points_on_bench: number | null;
   /** Shown as its own term in the gameweek summary, never netted off silently. */
   event_transfers_cost: number | null;
+  event_transfers: number | null;
   active_chip: string | null;
+}
+
+/** `reconstructFreeTransfers` over this page's history rows. */
+function estimateFreeTransfers(history: GwRow[], throughEvent: number): number | null {
+  return reconstructFreeTransfers(
+    history.map((g) => ({
+      event: g.event,
+      eventTransfers: g.event_transfers,
+      eventTransfersCost: g.event_transfers_cost,
+      activeChip: g.active_chip,
+    })),
+    throughEvent,
+  );
 }
 
 interface PickRow {
@@ -431,7 +445,7 @@ export default function TeamPage() {
           .order("season_name", { ascending: false }),
         supabase
           .from("manager_gameweek_history")
-          .select("event, points, total_points, overall_rank, bank, value, points_on_bench, event_transfers_cost, active_chip")
+          .select("event, points, total_points, overall_rank, bank, value, points_on_bench, event_transfers_cost, event_transfers, active_chip")
           .eq("entry_id", entryId)
           .order("event"),
         supabase
@@ -844,6 +858,11 @@ export default function TeamPage() {
         draftName,
         (id) => purchasePriceByPlayer.get(id),
       );
+      // Rebuilt from the recorded history when it can be trusted; otherwise the
+      // default stays and the owner sets the real count, as before.
+      const rebuiltFt = estimateFreeTransfers(data.gwHistory, latestEvent);
+      if (rebuiltFt !== null) state.freeTransfers = rebuiltFt;
+
       if (targetDraftId) {
         state.draftId = targetDraftId;
         // Sprint 29 follow-up: a fresh FPL pull can't know the owner's
@@ -1824,6 +1843,17 @@ export default function TeamPage() {
                       ))}
                     </select>
                   </label>
+                  {data && data.gwHistory.length > 0 && (
+                    <p className="text-xs text-zinc-500">
+                      {(() => {
+                        const through = Math.max(...data.gwHistory.map((g) => g.event));
+                        const est = estimateFreeTransfers(data.gwHistory, through);
+                        return est === null
+                          ? "Can't be rebuilt from your history, so set the real count from FPL."
+                          : `Rebuilt from your recorded transfers: ${est} after GW${through}. One per gameweek up to ${MAX_FREE_TRANSFERS}; a Wildcard or Free Hit keeps the bank. An estimate — set it if FPL shows otherwise.`;
+                      })()}
+                    </p>
+                  )}
                 </div>
               </section>
 
@@ -2003,7 +2033,7 @@ export default function TeamPage() {
                         <DataCell className="px-3 py-2 tabular-nums">{fmtNum(g.overall_rank)}</DataCell>
                         <DataCell className="px-3 py-2 tabular-nums">{fmtNum(g.points_on_bench)}</DataCell>
                         <DataCell className="px-3 py-2 tabular-nums">{fmtMoney(g.value)}</DataCell>
-                        <DataCell className="px-3 py-2">{g.active_chip ?? ""}</DataCell>
+                        <DataCell className="px-3 py-2">{chipLabel(g.active_chip) ?? ""}</DataCell>
                       </DataRow>
                     ))}
                   </tbody>

@@ -378,6 +378,14 @@ async function handleTeam(
 
 // -------------------------------------------------------------- /points
 
+// `lib/` is not importable from Deno, so this mirrors `CHIP_LABELS` (lib/chip-plan.ts).
+const CHIP_NAMES: Record<string, string> = {
+  wildcard: "Wildcard",
+  freehit: "Free Hit",
+  bboost: "Bench Boost",
+  "3xc": "Triple Captain",
+};
+
 async function handlePoints(
   db: Db,
   season: string,
@@ -407,7 +415,7 @@ async function handlePoints(
   ];
   if (now.event_transfers_cost) lines.push(`💸 Hit: −${now.event_transfers_cost} pts`);
   lines.push(`🪑 Bench: ${now.points_on_bench ?? 0} pts`);
-  if (now.active_chip) lines.push(`🎴 Chip: ${now.active_chip}`);
+  if (now.active_chip) lines.push(`🎴 Chip: ${CHIP_NAMES[now.active_chip] ?? now.active_chip}`);
   lines.push("");
   lines.push(`🏅 Season: ${now.total_points} pts`);
   lines.push(
