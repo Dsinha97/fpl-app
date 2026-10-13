@@ -97,6 +97,8 @@ import { ValueSlider } from "@/components/ui/range-slider";
 import { FilterDisclosure } from "@/components/ui/filter-disclosure";
 import { tacticalSummary, toTacticalProfile, type PlManagerRow } from "@/lib/tactical-profile";
 import { benchBoostAt, tripleCaptainAt } from "@/lib/chips";
+import { blockedValuation, playedAt } from "@/lib/chip-plan";
+import { useChipAvailability } from "@/lib/use-chip-availability";
 import {
   defaultPlayerFilters,
   matchesFilters,
@@ -672,13 +674,27 @@ export default function BuilderPage() {
    * the search `/chips` already runs, and re-running that on every builder
    * edit would make the page unusable.
    */
+  const { chipDefinitions, playedByEntry } = useChipAvailability(season, [team.entryId]);
   const cheapChips = useMemo(() => {
     if (effectiveEvent === null || team.players.length !== rules.squadSize) return null;
-    return {
-      bboost: benchBoostAt(team.players, effectiveEvent, squadPredAt, lookup, isPenaltyTaker),
-      threeXC: tripleCaptainAt(team, effectiveEvent, squadPredAt, availabilityOf, lookup, isPenaltyTaker),
+    const played = team.entryId ? (playedByEntry.get(team.entryId) ?? []) : [];
+    // A chip FPL's own history says is spent in the window this gameweek falls
+    // in has nothing to offer — a Wildcard-style "value" for it would mislead.
+    const spentNote = (chip: "bboost" | "3xc") => {
+      const spent = playedAt(chip, effectiveEvent, chipDefinitions, played, 38);
+      return spent && spent.event < effectiveEvent ? `Already played in GW${spent.event}.` : null;
     };
-  }, [effectiveEvent, team, rules.squadSize, squadPredAt, lookup, isPenaltyTaker, availabilityOf]);
+    const bbSpent = spentNote("bboost");
+    const tcSpent = spentNote("3xc");
+    return {
+      bboost: bbSpent
+        ? blockedValuation("bboost", effectiveEvent, bbSpent)
+        : benchBoostAt(team.players, effectiveEvent, squadPredAt, lookup, isPenaltyTaker),
+      threeXC: tcSpent
+        ? blockedValuation("3xc", effectiveEvent, tcSpent)
+        : tripleCaptainAt(team, effectiveEvent, squadPredAt, availabilityOf, lookup, isPenaltyTaker),
+    };
+  }, [effectiveEvent, team, rules.squadSize, squadPredAt, lookup, isPenaltyTaker, availabilityOf, chipDefinitions, playedByEntry]);
 
   const validation = useMemo(() => validateSquad(team, rules, lookup), [team, rules, lookup]);
 
@@ -2056,13 +2072,14 @@ export default function BuilderPage() {
                     <>
                       Bench Boost{" "}
                       <span className="font-semibold tabular-nums text-purple-800 dark:text-primary">
-                        {cheapChips.bboost.gain >= 0 ? "+" : ""}
-                        {cheapChips.bboost.gain.toFixed(1)}
+                        {cheapChips.bboost.blocked
+                          ? "played"
+                          : `${cheapChips.bboost.gain >= 0 ? "+" : ""}${cheapChips.bboost.gain.toFixed(1)}`}
                       </span>
                     </>
                   }
                 >
-                  <p>{cheapChips.bboost.explanation.join(" ")}</p>
+                  <p>{cheapChips.bboost.blocked ?? cheapChips.bboost.explanation.join(" ")}</p>
                 </TapToReveal>
                 <TapToReveal
                   label="How is Triple Captain's gain calculated?"
@@ -2071,13 +2088,14 @@ export default function BuilderPage() {
                     <>
                       Triple Captain{" "}
                       <span className="font-semibold tabular-nums text-purple-800 dark:text-primary">
-                        {cheapChips.threeXC.gain >= 0 ? "+" : ""}
-                        {cheapChips.threeXC.gain.toFixed(1)}
+                        {cheapChips.threeXC.blocked
+                          ? "played"
+                          : `${cheapChips.threeXC.gain >= 0 ? "+" : ""}${cheapChips.threeXC.gain.toFixed(1)}`}
                       </span>
                     </>
                   }
                 >
-                  <p>{cheapChips.threeXC.explanation.join(" ")}</p>
+                  <p>{cheapChips.threeXC.blocked ?? cheapChips.threeXC.explanation.join(" ")}</p>
                 </TapToReveal>
                 <Link
                   href={`/transfers?tab=chips&draft=${team.draftId}`}

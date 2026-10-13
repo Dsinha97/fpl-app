@@ -7,6 +7,7 @@
 
 import {
   CHIP_LABELS,
+  playedInWindow,
   resolveStopEvent,
   setChipPlanEntry,
   validateChipPlan,
@@ -62,10 +63,8 @@ export function ChipPlanEditor({
   className = "mt-4",
 }: ChipPlanEditorProps) {
   const validation = validateChipPlan(plan, chipDefinitions, nextEvent, lastEvent, activeChip, playedChips);
-  const isPlayed = (chip: ChipKind, def: ChipDefinitionRow) => {
-    const stop = resolveStopEvent(def, lastEvent);
-    return playedChips.some((p) => p.chip === chip && p.event >= def.startEvent && p.event <= stop);
-  };
+  const isPlayed = (chip: ChipKind, def: ChipDefinitionRow) =>
+    playedInWindow(chip, def, playedChips, lastEvent) !== null;
   const entries = (plan ?? EMPTY_CHIP_PLAN).entries;
   const problemsFor = (chip: ChipKind, event: number) =>
     validation.problems.filter((p) => p.chip === chip && p.event === event);

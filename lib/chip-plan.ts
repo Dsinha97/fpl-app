@@ -485,6 +485,37 @@ export interface PlayedChip {
   event: number;
 }
 
+/**
+ * The played chip that has already spent `def`'s window, if any. A "half" is
+ * which `chip_definitions` row a gameweek falls into, never an assumed GW19
+ * boundary — so a Wildcard played in GW6 spends the GW2-19 window and leaves
+ * GW20-38 open.
+ */
+export function playedInWindow(
+  chip: ChipKind,
+  def: ChipDefinitionRow,
+  playedChips: PlayedChip[],
+  lastEvent: number,
+): PlayedChip | null {
+  if (def.name !== chip) return null;
+  const stop = resolveStopEvent(def, lastEvent);
+  return playedChips.find((p) => p.chip === chip && p.event >= def.startEvent && p.event <= stop) ?? null;
+}
+
+/** The played chip that has spent the window `event` falls in, or null. */
+export function playedAt(
+  chip: ChipKind,
+  event: number,
+  chipDefinitions: ChipDefinitionRow[],
+  playedChips: PlayedChip[],
+  lastEvent: number,
+): PlayedChip | null {
+  const def = chipDefinitions.find(
+    (d) => d.name === chip && d.startEvent <= event && event <= resolveStopEvent(d, lastEvent),
+  );
+  return def ? playedInWindow(chip, def, playedChips, lastEvent) : null;
+}
+
 export interface ChipPlanProblem {
   kind: ChipPlanProblemKind;
   chip: ChipKind;
@@ -542,12 +573,10 @@ export function validateChipPlan(
   // fact and "duplicate in the plan" is only ever an intention conflicting
   // with itself.
   const playedHalves = new Set<string>(); // `${chip}:${defIndex}`
-  for (const played of playedChips) {
-    const defs = defsByChip.get(played.chip) ?? [];
-    const defIndex = defs.findIndex(
-      (d) => d.startEvent <= played.event && played.event <= resolveStopEvent(d, lastEvent),
-    );
-    if (defIndex !== -1) playedHalves.add(`${played.chip}:${defIndex}`);
+  for (const [chip, defs] of defsByChip) {
+    defs.forEach((d, i) => {
+      if (playedInWindow(chip, d, playedChips, lastEvent)) playedHalves.add(`${chip}:${i}`);
+    });
   }
 
   const eventsSeen = new Map<number, ChipPlanEntry>();
