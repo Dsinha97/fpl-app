@@ -116,7 +116,7 @@ three things for the next pick:
   price-proximity alert had the same bug in its own unpaged copy of the read; that one is fixed
   and deployed, see sprint-40 §3a.)
 - **DSI-75 is unblocked**: DSI-55 closed 2026-09-24, with the fork-PR approval setting confirmed
-  via `gh api`. The one CLI deploy also lands DSI-59's `verify_jwt` flip.
+  via `gh api`. (DSI-59's `verify_jwt` flip was deployed 2026-09-14 and DSI-59 closed 2026-10-13.)
 - **DSI-73 split 2026-09-24.** Its gate pointed at the canceled DSI-53. The gradient-boosted
   minutes model is now **DSI-185**, buildable now against the standing walk-forward gate (per
   cohort plus start Brier). It is the missing fix for the appeared/no-show failure DSI-178

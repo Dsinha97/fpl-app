@@ -121,6 +121,7 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | 41 Mobile redesign — foundation + 3 key screens (PR [#43](https://github.com/Dsinha97/fpl-app/pull/43), merged 2026-10-08) | DSI-214 | M8 | [sprints/sprint-41.md](sprints/sprint-41.md) |
 | 42 Mobile redesign — Deadline, Transfers, Fixtures, Builder (PR [#44](https://github.com/Dsinha97/fpl-app/pull/44), merged 2026-10-08) | DSI-215 | M8 | [sprints/sprint-42.md](sprints/sprint-42.md) |
 | Already-played chips respected in the transfer path, Chip timing, `/deadline`, `/scenarios` and `/builder` (PR [#50](https://github.com/Dsinha97/fpl-app/pull/50), merged 2026-10-13) | DSI-217 | M8 | [wiki/chip-plan.md](wiki/chip-plan.md#a-spent-chip-is-spent-everywhere-2026-10-13) |
+| Sprint 32 leftovers closed (2026-10-13): `verify_jwt` flipped and live on `sync-news`/`generate-predictions` (2026-09-14), `scratch-path-test` deleted, and the 429's HTTP render proved live with `max_calls` temporarily 2 (two 200s, then 429; restored to 30) | DSI-59 | M8 | [sprints/sprint-32.md](sprints/sprint-32.md) §5c, [sprints/sprint-36.md](sprints/sprint-36.md) §4 |
 
 ## Canceled
 
@@ -140,7 +141,6 @@ Closed without being built. The reason stays with the row, since the issue itsel
 | DSI-52 | Derived FDR vs **official** FDR | M7 | GW10 scored. Sprint 35 measured vs *neutral* only; n=471 at GW3 was far too thin |
 | DSI-54 | Price-change prediction step 3 — **falls half run 2026-09-21; gate FAILS. Ship the heuristic** | M7 | Walk-forward over 36 nights: no budget shows a significant win (best p=0.18 at K=40). An earlier run of the same gate appeared to pass at K=10/K=20 — that was a broken feature (gameweek-reset differencing) handicapping the baseline, which shares the same input. Corrected, the baseline gains far more than the model. Nothing wired in; `priceProgress` remains the reading. Re-run once more history accumulates **and** the ownership-scaled threshold (sprint-38 §2b) is settled. See [sprints/sprint-38.md](sprints/sprint-38.md) §3 |
 | DSI-187 | Latency — the price-watch scan downloads the whole ownership-history table on every `/players` or `/transfers` visit | M8 | None to *start*; the design is open (three candidate shapes in the issue). Gate: identical per-player readings before and after, plus signed-in settle time and request count. The price-watch arithmetic must keep one implementation. Found by Sprint 40; see [sprints/sprint-40.md](sprints/sprint-40.md) §3 |
-| DSI-59 | Sprint 32 leftovers — **two of three settled, now In Review** (2026-09-14) | M8 | Residue only: the `verify_jwt` flip is prepped in `config.toml` but **not deployed** (it was bundled with DSI-55, which closed 2026-09-24, so it's now waiting only on DSI-75's deploy), and the 429's HTTP render is unproven. `scratch-path-test` deleted; the 429's counting half proved |
 | DSI-62 | Sprint 6 gap — EO column on `/players` | M8 | None — Sprint 10's engine exists. Opportunistic |
 | DSI-63 | Cloudflare Access gating | M8 | Weigh against `/settings` → Pipeline being deliberately public |
 | DSI-64 | Sprint 15 — Action Layer | M8 | Shaped by the FPL-login finding; read it before scoping |

@@ -130,10 +130,13 @@ original checklist** — a per-user count correct on identity could still have l
 window or across functions.
 
 Re-proved in Sprint 36 against synthetic rows: allowed at 29, refused at 30, 50 rows outside the
-window ignored, cross-function count 0. **What remains unproven is only that the refusal renders as
-a 429 with `rateLimitMessage` in the browser.** The cheap way to close it is the one the sprint
-identified: the limit is a `game_settings` row, so temporarily setting `max_calls` to 2 makes it
-three clicks instead of thirty-one. Restore the row afterwards.
+window ignored, cross-function count 0.
+
+**The render was proved live on 2026-10-13 (DSI-59).** With `max_calls` temporarily 2 (the limit is a
+`game_settings` row), the test account called `sync-manager` three times: two `200`s, then a real
+`429` carrying `rateLimitMessage` ("Too many refreshes — the limit is 2 every 10 minutes…"). `sync_runs`
+shows two `success` rows and one `rejected`. The row was restored to 30 and re-read. Still true, and by
+design: `checkRateLimit` allows the call if its own count query errors — it bounds cost, not data.
 
 ## Class C — the Telegram webhook (Sprint 36)
 
