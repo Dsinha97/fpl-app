@@ -221,3 +221,5 @@ Played chips load through one shared `loadPlayedChips` (`lib/played-chips.ts`); 
 `/builder` use `useChipAvailability`. Known gaps: a draft with no manager entry has no chip history,
 so everything reads as available; `chipContextFor`'s wildcard mask across the GW19/20 boundary was
 not reviewed.
+
+The plan card's collapsed summary follows the same rule: a spent chip reads `played GW6`, never "not planned", and only pins actually in force count as planned (a stale pin for a past gameweek stays a problem row inside the card).
