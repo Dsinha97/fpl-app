@@ -11,8 +11,10 @@ export const InteractivePitch = ({ children }: { children?: React.ReactNode }) =
     // itself. An `overflow-hidden` box ignores its own content for the
     // aspect-ratio minimum, so once the cards grew a fixture row the
     // forwards were cut off below a pitch that refused to get taller. With
-    // overflow visible the aspect ratio is a floor, not a cap.
-    <div className="relative mx-auto flex w-full aspect-[7/10] flex-col rounded-2xl border-2 border-purple-800/80 shadow-2xl transition-colors sm:aspect-[4/3] sm:max-h-[70vh] dark:border-purple-600/60">
+    // overflow visible the aspect ratio is a floor, not a cap — which means
+    // no `max-h` here either: a viewport-height cap (it was `sm:max-h-[70vh]`)
+    // shrinks the box below its cards, and the rows then hang off the turf.
+    <div className="relative mx-auto flex w-full aspect-[7/10] flex-col rounded-2xl border-2 border-purple-800/80 shadow-2xl transition-colors sm:aspect-[4/3] dark:border-purple-600/60">
       <div aria-hidden="true" className="absolute inset-0 overflow-hidden rounded-[14px]">
       {/* Green pitch background */}
       <div className="absolute inset-0 bg-pitch-turf transition-colors " />
