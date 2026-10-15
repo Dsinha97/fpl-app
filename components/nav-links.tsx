@@ -74,8 +74,7 @@ const normalize = (path: string) => (path !== "/" ? path.replace(/\/$/, "") : pa
  * fourth hand-rolled popover.
  */
 /**
- * One group's menu — its own component so each group tracks whether *it*
- * was opened by hover or by a click, independent of its siblings.
+ * The "More" menu below tracks whether it was opened by hover or by a click.
  *
  * Sprint 25: hover-opens the group (translucent popup, a quick preview),
  * and a click "solidifies" it (opaque, as if pinned open) — a controlled
@@ -90,16 +89,35 @@ const normalize = (path: string) => (path !== "/" ? path.replace(/\/$/, "") : pa
  * that menu opts out of hover entirely to dodge it; this one wants hover,
  * so the solidify-on-click path is worth a manual check, not just a read.
  */
-function DesktopNavGroup({
-  group,
-  pathname,
-}: {
-  group: (typeof NAV_GROUPS)[number];
-  pathname: string;
-}) {
+/**
+ * The desktop bar mirrors the phone's: the four pages used most sit in the bar
+ * itself and everything else is under "More", keeping its Live / Strategy /
+ * Statistics headings. Derived from `NAV_GROUPS` so a new route is in the
+ * dropdown by default. (Fixtures is a bar link here but lives in More on a
+ * phone, where the bottom tabs have room for only four slots.)
+ */
+const DESKTOP_PRIMARY = ["/deadline", "/team", "/players", "/fixtures"];
+
+const PRIMARY_ITEMS = DESKTOP_PRIMARY.flatMap((href) =>
+  NAV_GROUPS.flatMap((g) => g.items.filter((item) => item.href === href)),
+);
+
+const DESKTOP_MORE_GROUPS = NAV_GROUPS.map((group) => ({
+  label: group.label,
+  items: group.items.filter((item) => !DESKTOP_PRIMARY.includes(item.href)),
+})).filter((group) => group.items.length > 0);
+
+const triggerClass = (active: boolean) =>
+  `flex items-center gap-1 whitespace-nowrap rounded-md border-b-2 px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+    active
+      ? "border-current font-medium text-purple-800 dark:text-primary"
+      : "border-transparent text-zinc-600 hover:text-purple-800 dark:text-zinc-400 dark:hover:text-primary"
+  }`;
+
+function DesktopMoreMenu({ pathname }: { pathname: string }) {
   const [open, setOpen] = useState(false);
   const [solid, setSolid] = useState(false);
-  const active = group.items.some((item) => pathname === item.href);
+  const active = DESKTOP_MORE_GROUPS.some((g) => g.items.some((item) => pathname === item.href));
 
   return (
     <Menu.Root
@@ -115,13 +133,9 @@ function DesktopNavGroup({
         openOnHover
         delay={120}
         closeDelay={150}
-        className={`flex items-center gap-1 whitespace-nowrap rounded-md border-b-2 px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-          active
-            ? "border-current font-medium text-purple-800 dark:text-primary"
-            : "border-transparent text-zinc-600 hover:text-purple-800 dark:text-zinc-400 dark:hover:text-primary"
-        }`}
+        className={triggerClass(active)}
       >
-        {group.label}
+        More
         <ChevronDown
           aria-hidden="true"
           className={`h-3.5 w-3.5 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
@@ -134,23 +148,31 @@ function DesktopNavGroup({
               solid ? "bg-popover" : "bg-popover/80 backdrop-blur-md"
             }`}
           >
-            {group.items.map((item) => {
-              const itemActive = pathname === item.href;
-              return (
-                <Menu.Item key={item.href} render={<Link href={item.href} />}>
-                  <span
-                    aria-current={itemActive ? "page" : undefined}
-                    className={`block px-3 py-1.5 text-sm ${
-                      itemActive
-                        ? "font-medium text-purple-800 dark:text-primary"
-                        : "text-popover-foreground"
-                    }`}
-                  >
-                    {item.label}
-                  </span>
-                </Menu.Item>
-              );
-            })}
+            {DESKTOP_MORE_GROUPS.map((group, i) => (
+              <Menu.Group key={group.label}>
+                {i > 0 && <Menu.Separator className="my-1 h-px bg-border" />}
+                <Menu.GroupLabel className="px-3 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  {group.label}
+                </Menu.GroupLabel>
+                {group.items.map((item) => {
+                  const itemActive = pathname === item.href;
+                  return (
+                    <Menu.Item key={item.href} render={<Link href={item.href} />}>
+                      <span
+                        aria-current={itemActive ? "page" : undefined}
+                        className={`block px-3 py-1.5 text-sm ${
+                          itemActive
+                            ? "font-medium text-purple-800 dark:text-primary"
+                            : "text-popover-foreground"
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                    </Menu.Item>
+                  );
+                })}
+              </Menu.Group>
+            ))}
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
@@ -163,9 +185,17 @@ export function DesktopNav() {
 
   return (
     <div className="hidden gap-1 text-sm lg:flex">
-      {NAV_GROUPS.map((group) => (
-        <DesktopNavGroup key={group.label} group={group} pathname={pathname} />
+      {PRIMARY_ITEMS.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          aria-current={pathname === item.href ? "page" : undefined}
+          className={triggerClass(pathname === item.href)}
+        >
+          {item.label}
+        </Link>
       ))}
+      <DesktopMoreMenu pathname={pathname} />
     </div>
   );
 }
