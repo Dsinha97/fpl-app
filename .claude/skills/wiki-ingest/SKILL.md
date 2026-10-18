@@ -41,34 +41,39 @@ mechanics for firing it.
 
 ## Graph check
 
-Opened in Obsidian (vault at the repo root, `.obsidian/` is gitignored), a healthy graph has
-`docs/wiki/index.md` as the biggest node, the four maps in `docs/wiki/moc/` as the second ring, and
-no loose dots. Run this after every ingest, as part of TIDY, or whenever the graph looks messy:
+The Obsidian vault is **`docs/`** (settings in `docs/.obsidian/`, gitignored), not the repo root:
+a root vault also draws `node_modules/`, `graft/` and other local folders, about 1,700 notes that
+show up as a ring of loose dots and stray clusters. A healthy graph is one cluster with
+`wiki/index.md` as the biggest node, the four maps in `wiki/moc/` as the second ring, and no loose
+dots. Run this after every ingest, as part of TIDY, or whenever the graph looks messy:
 
 ```bash
 node .claude/skills/wiki-ingest/graph-check.mjs --top 15
 ```
 
-It is read-only and prints four lists:
-- **Orphans:** `.md` files under `docs/` that nothing in `docs/` or the root `.md` files links to.
-- **Wiki pages missing an "Up:" line.**
-- **Wiki pages listed in no map.**
-- **Most-linked pages:** distinct pages linking in. `index.md` should top it. A dated record (a
+It is read-only, counts links the way Obsidian draws them for that vault, and prints:
+- **Loose dots:** notes with no link in or out. These are what the graph shows as orphans.
+- **No inbound link:** notes held on only by their own outbound links. Not a loose dot, but nothing
+  leads to them. `site-explainer.md` is the owner's own one-off and stays like this unless they say
+  otherwise.
+- **Links out of the vault or to missing files:** hidden on the graph (`hideUnresolved`), listed
+  so a typo isn't mistaken for a code link. Links to root `CLAUDE.md` and to code are expected.
+- **Wiki pages missing an "Up:" line**, and **wiki pages listed in no map.**
+- **Most-linked notes:** distinct notes linking in. `wiki/index.md` should top it. A dated record (a
   sprint or a GW check-in) ranking near the top is acting as a hub; make sure the topic pages carry
   the current answer rather than pointing at it.
 
 Fixing what it finds (never move, rename or delete a file to fix the graph):
-- **Orphan:** link it from the wiki or docs page that already discusses it. `docs/site-explainer.md`
-  is the owner's own one-off and stays unlinked unless they say otherwise.
+- **Loose dot or no inbound:** link it from the wiki or docs page that already discusses it.
 - **Missing "Up:" line:** first text after the `# Title`: `Up: [Wiki home](index.md) · [<Map
   title>](moc/<map>.md)`. Maps link home only. Maps: engines-and-model, features-and-surfaces,
   platform, cross-cutting.
 - **In no map:** add a row to the map its `Up:` line names. Note the change in `log.md`.
 
-Obsidian display (`.obsidian/graph.json`, local only, backup `graph.json.bak-2026-10-18`): filter
-`path:docs -path:"docs/linear-archive"`; colour groups in order gold (index and maps), purple
-(`docs/sources`), grey (`docs/sprints`), blue (`docs/wiki`). Close the graph view before editing
-the file, since Obsidian rewrites it while open.
+Obsidian display (`docs/.obsidian/graph.json`, local only): no filter, `hideUnresolved: true`,
+attachments off; colour groups in order gold (index and maps), purple (`sources`), grey
+(`sprints`), blue (`wiki`). Close the graph view before editing the file, since Obsidian rewrites
+it while open.
 
 ## Ground rules (inherited from docs/wiki/AGENTS.md and the project's CLAUDE.md)
 

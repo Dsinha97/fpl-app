@@ -41,6 +41,7 @@ yarn-error.log*
 
 # local Obsidian vault config — editor-local state, not repo content
 /.obsidian/
+/docs/.obsidian/
 
 # claude code local settings. .claude/* rather than .claude/ so the skills below
 # can be re-included — git cannot re-include a path whose parent directory is
