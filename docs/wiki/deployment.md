@@ -1,5 +1,7 @@
 # Deployment
 
+Up: [Wiki home](index.md) · [Platform](moc/platform.md)
+
 Static Next.js export, served by Cloudflare Workers static assets — no server at runtime.
 
 ## Shape

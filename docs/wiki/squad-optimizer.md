@@ -1,5 +1,7 @@
 # Squad optimizer
 
+Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
+
 Builds a full 15-player squad under FPL's rules (£100m budget, 2 GKP / 5 DEF / 5 MID / 3 FWD,
 max 3 per club) for a chosen strategy.
 

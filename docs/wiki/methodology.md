@@ -1,5 +1,7 @@
 # Methodology
 
+Up: [Wiki home](index.md) · [Cross-cutting](moc/cross-cutting.md)
+
 The recurring rules this codebase has been built and corrected under. Most were learned the hard
 way — a bug shipped, was caught, and the fix became a standing rule rather than a one-off patch. This
 page is the single answer to "why does this app do things this way."
@@ -201,7 +203,8 @@ description disagree, the comment wins — now a standing step in
 [notifications-and-bot.md](notifications-and-bot.md#why-a-two-way-bot-and-how-that-requirement-was-nearly-missed).
 
 Closed issues are **archived, not deleted**, to stay under Linear's free-plan cap of 250
-non-archived issues — 182 went on 2026-09-28, leaving 47 open. Because the comment thread is where
+non-archived issues — 182 went on 2026-09-28, leaving 47 open
+([archive log](../linear-archive/archive-log-2026-09-28.md)). Because the comment thread is where
 requirements like DSI-65's live, `scripts/linear-archive.ts` exports every issue's description
 **and comments** before it archives anything; the FPL-App record is
 [linear-archive/fpl-app.md](../linear-archive/fpl-app.md). Archived issues keep their URLs, and

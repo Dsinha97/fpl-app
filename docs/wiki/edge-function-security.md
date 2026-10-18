@@ -1,5 +1,7 @@
 # Edge Function security
 
+Up: [Wiki home](index.md) · [Platform](moc/platform.md)
+
 Who is allowed to call `/functions/v1/*`, and what enforces it. Three caller classes, three
 different mechanisms, each stated rather than defaulted. Built in Sprint 32 (2026-09-05), deployed
 across Sprints 32–34, extended with a third class in Sprint 36.

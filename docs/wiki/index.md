@@ -8,6 +8,15 @@ Every page opens with a one-line summary, links related pages, and attributes no
 back to the sprint file or source spec they came from. See [AGENTS.md](AGENTS.md) for how this wiki
 is maintained, and [log.md](log.md) for the edit history.
 
+## Maps of Content
+
+Every page opens with an `Up:` line naming this index and its one map.
+
+- [Engines and model](moc/engines-and-model.md): xP, priors, risk, and the optimisers that spend them.
+- [Features and surfaces](moc/features-and-surfaces.md): the routes and cards the owner uses.
+- [Platform](moc/platform.md): ingestion, database and RLS, Edge Functions, the FPL API, hosting, speed.
+- [Cross-cutting](moc/cross-cutting.md): conventions, design system, methodology, gaps, history, terms.
+
 ## Engines & model
 
 | Page | What it covers |

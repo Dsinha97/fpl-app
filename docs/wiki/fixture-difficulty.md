@@ -1,5 +1,7 @@
 # Fixture difficulty (FDR)
 
+Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
+
 Three generations of fixture difficulty, only one of which the xP model consumes: FPL's **official**
 FDR (shipped, feeding `ScoredPlayer.fdrRun`), a **strength-derived** rating (shipped, display-only,
 permanently unbacktestable), and a **results-derived** rating (built and measured, deliberately not

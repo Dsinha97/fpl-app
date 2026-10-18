@@ -1,5 +1,7 @@
 # RSS news ingestion
 
+Up: [Wiki home](index.md) · [Platform](moc/platform.md)
+
 A second, independent ingestion pipeline (Sprint 20) that pulls third-party editorial
 reporting — press conferences, expected minutes, predicted lineups, confirmed transfers —
 and links it back to the players and clubs already in the database. See

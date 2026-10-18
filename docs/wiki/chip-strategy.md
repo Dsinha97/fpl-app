@@ -1,5 +1,7 @@
 # Chip strategy engine
 
+Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
+
 Per-gameweek value for Bench Boost, Triple Captain, Free Hit and Wildcard, plus a joint schedule
 that places all four without reusing a gameweek — `/chips`, `lib/chips.ts`, Sprint 12.
 

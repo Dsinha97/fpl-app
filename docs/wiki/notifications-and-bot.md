@@ -1,5 +1,7 @@
 # Notifications and the Telegram bot
 
+Up: [Wiki home](index.md) · [Platform](moc/platform.md)
+
 One Telegram bot, `@fpl_decision_bot`, doing two independent things: **pushing** alerts the owner
 did not ask for (deadlines, injuries, price moves, fixture changes) and **answering** commands the
 owner sends it (current team, GW points, next fixtures, league standings). Built, deployed and

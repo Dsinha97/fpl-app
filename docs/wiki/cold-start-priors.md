@@ -1,5 +1,7 @@
 # Cold-start priors
 
+Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
+
 How the model produces a projection for a player with little or no Premier League history, instead
 of returning nothing.
 

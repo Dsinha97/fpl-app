@@ -1,5 +1,7 @@
 # Manager percentile profile
 
+Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
+
 The owner's own career FPL performance, shown on `/team` — Sprint 12A, `lib/manager-profile.ts`.
 Not to be confused with [club-tactical-profiles.md](club-tactical-profiles.md)'s PL club managers —
 see the naming note there.

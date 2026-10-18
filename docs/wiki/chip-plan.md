@@ -1,5 +1,7 @@
 # Chip strategy planning
 
+Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
+
 The owner pins a chip to a gameweek, and the deadline optimiser and a bounded forward transfer
 path both work *against* that plan — closing the gap [chip-strategy.md](chip-strategy.md) itself
 names: "a Triple Captain shown after a scheduled Wildcard does not yet reflect the rebuilt squad."

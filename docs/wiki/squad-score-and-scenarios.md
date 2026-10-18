@@ -1,5 +1,7 @@
 # SquadScore & Scenario Lab
 
+Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
+
 `/scenarios` — every saved draft as a card ranked by one composite score, with 2–4 draft comparison
 and a save timeline. Sprint 5.
 

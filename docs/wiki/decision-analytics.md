@@ -1,5 +1,7 @@
 # Historical decision analytics
 
+Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
+
 Four descriptive analytics over decisions the owner has **already made**, scored against results
 already in the database: captain success, transfer success, chip ROI, rank progression. No new
 model, no new gate, **no migration** — `manager_gameweek_history`, `manager_transfers` and

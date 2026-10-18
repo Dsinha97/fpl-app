@@ -1,5 +1,7 @@
 # Mini-league ownership
 
+Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
+
 Exact effective ownership for the classic leagues the owner is actually in, now with a real page
 (`/leagues`, built 2026-08-30) — the slice of Sprint 10 (Ownership Intelligence) that unblocked at
 the GW1 deadline, distinct from the field-wide top-1k sample the risk formula needs (see

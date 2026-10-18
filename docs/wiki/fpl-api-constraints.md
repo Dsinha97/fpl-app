@@ -1,5 +1,7 @@
 # FPL API constraints
 
+Up: [Wiki home](index.md) · [Platform](moc/platform.md)
+
 Behaviors of the official FPL API and Supabase REST layer that have caused real bugs, verified
 against the live endpoints rather than assumed from documentation.
 
