@@ -1,5 +1,7 @@
 # Risk scoring
 
+Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
+
 One risk number, shared by every engine that needs to weigh "could go wrong" against "expected
 points" — rotation risk, injury, minutes uncertainty, fixture variance.
 

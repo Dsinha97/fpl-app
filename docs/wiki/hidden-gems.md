@@ -1,5 +1,7 @@
 # Hidden Gems (value-discovery filter)
 
+Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
+
 An archetype filter on `/players` and the builder's Replacement Finder that flags undervalued
 players by real per-90 defensive/attacking rates — Sprint 15.5, built 2026-08-11.
 

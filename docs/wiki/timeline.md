@@ -1,5 +1,7 @@
 # Timeline
 
+Up: [Wiki home](index.md) · [Cross-cutting](moc/cross-cutting.md)
+
 A chronological pointer into `sprints/`, for "what shipped when" — not a copy of the sprint files
 themselves. See [roadmap.md](../roadmap.md) for the authoritative status table.
 

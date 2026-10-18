@@ -1,5 +1,7 @@
 # Club tactical profiles
 
+Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
+
 20 Premier League clubs' head-coach tactical data (formation, buildup style, pressing intensity,
 role preferences), shown as disclosed context on the Clubs tab of `/fixtures` and in player detail —
 Sprint 12.5, built 2026-08-07 as a **scoped-down** slice of a larger patch plan.

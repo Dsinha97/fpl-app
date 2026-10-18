@@ -1,5 +1,7 @@
 # Design system
 
+Up: [Wiki home](index.md) · [Cross-cutting](moc/cross-cutting.md)
+
 The token contract, the button/state vocabulary, the busy-state pattern, and the disclosure rule —
 built in Sprint 19, replacing what used to be three sentences under
 [frontend-conventions.md](frontend-conventions.md)'s "Theme" heading.

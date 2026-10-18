@@ -1,5 +1,7 @@
 # The xP (Expected Points) model
 
+Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
+
 Predicts each player's fantasy points per fixture from prior-season per-90 rates, adjusted for
 fixture difficulty, venue, and expected minutes — the number every other engine in this app builds
 on.

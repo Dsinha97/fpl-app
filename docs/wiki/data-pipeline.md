@@ -1,5 +1,7 @@
 # Data pipeline
 
+Up: [Wiki home](index.md) · [Platform](moc/platform.md)
+
 FPL public API → Supabase Edge Functions (Deno) → Postgres, on a cron schedule via `pg_cron` +
 `pg_net`.
 

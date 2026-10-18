@@ -1,5 +1,7 @@
 # Database & Row Level Security
 
+Up: [Wiki home](index.md) · [Platform](moc/platform.md)
+
 Two RLS shapes coexist in this schema, by design — knowing which applies to a table matters before
 trusting a query result.
 

@@ -1,5 +1,7 @@
 # Blocked, with reasons
 
+Up: [Wiki home](index.md) · [Cross-cutting](moc/cross-cutting.md)
+
 The single answer to "why isn't X built yet." Everything here is blocked on a real, checked
 constraint — not merely unscheduled. See [roadmap.md](../roadmap.md#blocked-with-reasons) for the
 live index this page expands on.

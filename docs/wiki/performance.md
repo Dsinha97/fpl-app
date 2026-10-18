@@ -1,5 +1,7 @@
 # Performance
 
+Up: [Wiki home](index.md) · [Platform](moc/platform.md)
+
 The site felt slow. Rather than start from generic web-performance advice, a 2026-08-27 pass
 measured `fpldecision.com` as it actually runs, checked the owner's NotebookLM research
 ([`docs/sources/website-optimization.md`](../sources/website-optimization.md)) against those

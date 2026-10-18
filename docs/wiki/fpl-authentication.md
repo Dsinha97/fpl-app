@@ -1,5 +1,7 @@
 # FPL authentication — why credential login is blocked
 
+Up: [Wiki home](index.md) · [Platform](moc/platform.md)
+
 Automated FPL login was probed and closed as genuinely impossible, not merely unbuilt — every
 standards-based door is shut by FPL's own identity provider configuration, and the one reachable
 flow opens with bot detection.

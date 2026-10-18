@@ -1,5 +1,7 @@
 # Transfer engine (simulator + optimizer)
 
+Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
+
 Two layers on `/transfers`: a manual basket simulator, and an automated weekly recommendation that
 scores every option through the same simulator.
 

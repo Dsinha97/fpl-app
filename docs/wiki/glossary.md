@@ -1,5 +1,7 @@
 # Glossary
 
+Up: [Wiki home](index.md) · [Cross-cutting](moc/cross-cutting.md)
+
 Short definitions for terms that recur across the wiki without being redefined each time.
 
 **xP** — expected points. The model's central output; see [xp-model.md](xp-model.md).

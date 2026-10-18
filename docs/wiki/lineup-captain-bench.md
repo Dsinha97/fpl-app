@@ -1,5 +1,7 @@
 # Lineup, captain & bench
 
+Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
+
 Picks the starting XI, captain/vice, and bench order from a squad — `lib/lineup.ts`,
 `optimiseLineup`.
 

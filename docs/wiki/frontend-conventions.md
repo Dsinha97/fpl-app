@@ -1,5 +1,7 @@
 # Frontend conventions
 
+Up: [Wiki home](index.md) · [Cross-cutting](moc/cross-cutting.md)
+
 Patterns every page in `app/` is expected to follow — deviating from these has caused real bugs more
 than once.
 

@@ -1,5 +1,7 @@
 # Player profile & shortlist
 
+Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
+
 The full three-tab player card (`components/player-modal.tsx`) and the owner-scoped shortlist
 (`user_shortlist`) — Sprint 38, built 2026-09-21.
 
