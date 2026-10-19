@@ -36,6 +36,12 @@ starters, with the reserve keeper pinned to slot 0. `benchExpectedContribution` 
 expected value *without* a chip) feeds both [squad-score-and-scenarios.md](squad-score-and-scenarios.md)
 and the Bench Boost chip valuation — see below.
 
+`playProbability` is `expectedMinutes / 72`, the xP model's own P(appear) rule up to v1.6.0. **Since
+v1.7.0 the model computes P(appear) from start and cameo states instead** (a cameo is ~19 minutes, not
+72), so this copy now under-reads rotation players' chance of featuring. The model's figure is the
+truth; the fix is to store it on `player_predictions` and read it here. —
+[sprints/sprint-43.md](../sprints/sprint-43.md) §6, [xp-model.md](xp-model.md#v170-the-components-positioncalibration-was-hiding-sprint-43)
+
 ## Bench cost (Sprint 18)
 
 Only the starting 11 score points, so a squad's money splits between an XI that earns and a bench

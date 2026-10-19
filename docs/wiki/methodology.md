@@ -270,6 +270,13 @@ express the error I measured?"** A term that cannot is not a partial fix; applie
 near-cancelling aggregate it is a coin flip dressed as a correction, and it ships as a permanent
 constant.
 
+**Follow-on, 2026-10-19 (Sprint 43).** Asked the other way round, *what was the scalar expressing?*,
+the answer came from scoring each component separately. It was covering three wrong components
+(defensive contribution taken at mean minutes, assists, keeper minutes) by inflating the right ones.
+Fixing those at source let it go to 1.0, and that beat every refit on the walk-forward harness. A
+single level parameter that "works" in aggregate is worth decomposing before refitting. —
+[xp-model.md](xp-model.md#v170-the-components-positioncalibration-was-hiding-sprint-43)
+
 The practical form: **decompose the residual before fitting to it.** The split that mattered here
 (`minutes > 0` vs `minutes = 0`) is one line of SQL and was not in any of the three prior passes
 over these numbers, all of which reported the aggregate and the per-position breakdown only.

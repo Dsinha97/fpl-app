@@ -3,8 +3,10 @@
 // Descriptive analytics over decisions already made, scored against results
 // already in the database. No new model and no new gate: nothing here predicts
 // anything, so nothing here inherits the xP model's calibration debt. That is
-// the whole reason this half of Sprint 17 is buildable while the other half
-// waits on the GW10 `positionCalibration` refit.
+// the whole reason this half of Sprint 17 was buildable while the other half
+// waited on the xP model (the `positionCalibration` refit it waited on was
+// superseded: v1.7.0 sets the factors to 1.0 after fixing the components they
+// covered — docs/sprints/sprint-43.md).
 //
 // Four questions, each reported in named terms rather than netted:
 //
