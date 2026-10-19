@@ -156,6 +156,194 @@ user-set inputs (`decisionMargin`).
   predicts more than is scored. The §2 table in phase-4-model.md predates that and uses the
   opposite sign.
 
+## System architecture
+
+The "ML system" is a data pipeline plus a deterministic model, not a training platform. There is
+no GPU, no model registry and no training cluster: the model is code, its parameters are constants
+checked into the repo, and the only fitting that happens in production is closed-form aggregation
+inside the prediction job. Fuller detail: [architecture.md](architecture.md),
+[wiki/data-pipeline.md](wiki/data-pipeline.md).
+
+```
+FPL public API ─► Edge Functions (Deno, service role) ─► Postgres (RLS)
+                        ▲  pg_cron + pg_net → invoke_sync            │ publishable key, read-only
+                        │  (Vault-backed cron secret)                ▼
+   RSS · Vaastav archive · Telegram          Next.js static export ─► Cloudflare Workers assets
+                                             (optimiser / lineup / chips run in the browser)
+```
+
+### Data collection
+
+| Source | Function (cron) | Lands in |
+|---|---|---|
+| `bootstrap-static` | `sync-bootstrap` (`*/30`) | `teams`, `players`, `gameweeks`, `element_types`, `game_settings`, `scoring_rules`, `chip_definitions`, snapshot tables |
+| `fixtures` | `sync-fixtures` (`*/2`, self-gated; hourly floor) | `fixtures`, `fixture_changes` |
+| `element-summary/{id}` | `sync-player-history` (`*/10`) | `player_gameweek_stats`, `player_season_history` |
+| `event/{gw}/live` | `sync-live-gameweek` (`*/2`, gated on a live match) | `player_live_stats` |
+| `entry/{id}` (+ history, picks, transfers) | `sync-claimed-managers` (`*/2`, claimed ∪ rivals) and on-demand `sync-manager` | `managers`, `manager_*` |
+| League standings and picks | `sync-league-picks` (on demand) | `league_entries`, `league_entry_picks` |
+| RSS headlines | `sync-news` | `news_items`, `news_item_entities` |
+| Vaastav community archive | `ingest-fpl-archive` (manual backfill) | past-season `player_gameweek_stats` (2022-23 to 2025-26) |
+| Championship PDFs | `scripts/extract-footystats.ts` (one-shot) | `external_player_seasons` |
+
+Two properties matter for the model:
+- **History is change-detected, not snapshotted.** `record_player_snapshots()` writes price,
+  ownership, status and news rows only when something moved (~25k rows a season rather than ~7.8M).
+  A bounded 2-hourly watchlist samples ownership for players near a price threshold, because a
+  daily snapshot cannot reconstruct transfer velocity.
+- **The model's training table is `player_season_history`**, filled from FPL's `history_past`
+  (completed seasons only). In-season form reaches the model only through
+  `player_gameweek_stats`, and only for the minutes model (see above).
+
+### Data verification
+
+There is no separate validation service. Correctness is enforced in layers:
+- **At ingest.** `_shared/coerce.ts` normalises the FPL API's loose types (numbers as strings,
+  `""`/`"None"` as null) before anything reaches Postgres. Writes are idempotent upserts on
+  natural keys. Duplicate rows are de-duplicated before write (the archive repeats rearranged
+  fixtures). Schema constraints reject bad shapes.
+- **Landed-result guard.** A played fixture is not necessarily a *written* one, and an unwritten
+  fixture reads `minutes = 0, starts = 0` for every player. The predictor and accuracy scoreboard
+  count a fixture only once anyone in it has real minutes
+  ([wiki/data-pipeline.md](wiki/data-pipeline.md#a-played-gameweek-is-not-a-written-one-found-2026-09-20)).
+- **Row-cap discipline.** PostgREST returns at most 1,000 rows per response. Every large read pages
+  with `.range()` on a unique `ORDER BY` (an unordered offset page repeated ~26% of rows in the
+  backtest harness) and fires pages concurrently after a count. A reading that is uniformly null
+  or zero is checked for row count before it is believed.
+- **Model checks.** Backtests are gated on MAE, Pearson r and the *magnitude* of bias across all
+  seasons; `scripts/backtest-walkforward.ts` prints an input fingerprint (row counts per reference
+  table, per-season truth counts) so a divergent run is attributable; squad reconciliation is
+  verified to hit its targets to ~1e-13; derived scoring breakdowns are reconciled against stored
+  totals and any gap is shown as "Unattributed".
+- **Access checks.** RLS policies are verified by simulating a second user and each role inside a
+  rolled-back `execute_sql` transaction. `npx tsc --noEmit`, `npm run lint` and `npm run build`
+  gate every commit (`.github/workflows/ci.yml` runs the same three).
+- **Honest gaps.** There is no automated schema-drift detector on the FPL payloads and no
+  data-quality alert beyond the health panel below. Engine changes are verified by hand in a
+  throwaway `npx tsx` harness against live data (the `engine-verify` skill).
+
+### Machine resource management
+
+Compute is Supabase Edge Functions (Deno) and Postgres, plus the visitor's browser. There is no
+training fleet to manage, so the resource work is about staying inside request limits and being a
+polite client:
+- **Time-budgeted, cursor-resumable jobs.** `sync-player-history` and `ingest-fpl-archive` stop at
+  a 55 s budget and store their position in `sync_runs.cursor`, so ~700 `element-summary` calls
+  spread over runs instead of timing out.
+- **Bounded concurrency.** `mapLimit` caps parallel FPL calls (5 for player history, league picks
+  and manager picks; 3 managers at once in `sync-claimed-managers`).
+- **Polite, resilient fetching.** `fetchWithRetry`: 20 s timeout, 3 retries, 500 ms × 2ⁿ backoff on
+  429/5xx, fail-fast on other 4xx; a courtesy `User-Agent` pointing at the live site.
+- **Self-gating crons.** Short intervals are cheap because most invocations exit after one query:
+  `sync-live-gameweek` and `sync-claimed-managers` act only while a fixture is live (shared
+  `hasLiveFixture`); `sync-fixtures` gates on kickoff proximity with an hourly floor.
+- **Cost bounding.** Cron-only functions require a secret that has no public copy
+  (`verifyCron`); browser-invoked functions verify the JWT and are rate-limited per user from
+  `sync_runs` (`game_settings.sync_rate_limit`, default 30 calls / 600 s; a counting failure allows
+  the call).
+- **Storage discipline.** Change-detected history, a bounded ownership watchlist, and
+  `player_predictions` being deleted and rewritten per run (only the pre-deadline snapshot is kept,
+  in `player_prediction_archive`).
+- **Client-side compute.** The optimiser, lineup, chip and scenario engines run in the browser on
+  data loaded through `lib/player-pool.ts` (concurrent paged reads), which keeps the backend load
+  independent of how many people use the optimiser. The cost is page weight and settle time
+  ([wiki/performance.md](wiki/performance.md)).
+
+### Feature extraction
+
+Feature extraction is the model itself, not a separate feature store: `generate-predictions` reads
+the reference tables, history and this season's landed games, builds all ten rates, the priors, the
+start-form features and the club squad context in one pass, and writes the result. The features
+are not persisted as a reusable table; instead each `player_predictions` row carries the provenance
+of its own number (`prior_weight`, `n_eff`, `reliability`, `prior_source`, `minutes_model`, the
+input rates and the `xp_lower`/`xp_upper` band), and `rate_priors` holds the fitted priors, so a
+projection can be explained after the fact as well as recomputed.
+
+### Analysis tools
+
+Offline analysis lives in `scripts/` and is run by hand with `npx tsx`, never in production:
+
+| Script | Purpose |
+|---|---|
+| `backtest-walkforward.ts` | Walk-forward out-of-sample backtest; sweeps current-season blend weight/scope and the bias correction; prints an input fingerprint |
+| `minutes-model-gate.ts` | Fits and gates the logistic start model, one fit per held-out season; prints the "SHIPPING FIT" |
+| `fit-lambda.ts`, `match-and-gate.ts`, `extract-footystats.ts` | Championship → Premier League translation and its gate |
+| `price-window-probe.ts`, `price-threshold-gate.ts`, `price-falls-walkforward.ts` | Measure and gate the price-change threshold |
+
+Supporting tooling: Supabase MCP (migrations, `execute_sql`, advisors, logs), Linear as the
+planning interface (`/linear-sync`, `/start-sprint`), the `graft` code graph for navigation, a
+`post-commit` hook marking docs for wiki ingest, and project skills (`engine-verify`,
+`verify-rls`, `ship-check`, `signed-in`, `responsive-check`). The rule: verify an engine change
+against live data in a harness before trusting the UI, and keep the harness out of the commit.
+
+### Process management
+
+- **Scheduling.** `pg_cron` calls `public.invoke_sync(fn)`, which POSTs through `pg_net` with the
+  service role and the Vault-held cron secret. Predictions run at `5,35 * * * *`, after
+  `sync-bootstrap` (`*/30`), so an availability flip is in the next run; `notify` runs `*/15`.
+- **Idempotence and re-entrancy.** Every sync is safe to repeat; cursors make long jobs resumable;
+  a failed sync must not mark itself fresh (`managers.last_success_at` only moves on a complete
+  run).
+- **Audit trail.** Every execution writes a `sync_runs` row (`running`, then
+  `success | partial | error | skipped | rejected`) with rows written, error, details and cursor.
+  A refused cron call still leaves a row.
+- **Model lifecycle.** Releases are code changes: bump `MODEL_VERSION`, write `prediction_models`
+  (full parameter JSON), ship the Edge Function through the Supabase MCP integration. There is no
+  automated retraining; refits are manual, scripted and backtest-gated.
+- **Delivery.** Pushes to `main` trigger Cloudflare's Git build (`npm run build`, then
+  `wrangler deploy`); GitHub Actions is a quality gate only.
+
+### Configuration
+
+- **Database-held settings.** `game_settings` (synced from bootstrap, plus keys such as
+  `sync_rate_limit` and `price_watch_*_threshold`), `scoring_rules` (per-stat, per-position points),
+  `chip_definitions`, and `SquadRules` loaded from `game_settings`. Nothing about squad size,
+  budget, club limits or points values is hardcoded.
+- **Model parameters.** `MODEL_PARAMS` and `MINUTES_MODEL` in `xp-model.ts`; each version's full
+  set is also stored in `prediction_models`. `lib/price-watch.ts` thresholds are fitted defaults and
+  overridable arguments.
+- **Secrets.** Referenced by name only. The cron secret is generated inside Postgres and lives in
+  Vault; `FPL_SESSION_ENC_KEY` is an Edge Function secret; Supabase keys are env vars; the two
+  `NEXT_PUBLIC_*` values are Cloudflare **build** variables (baked in at build) and GitHub Secrets.
+- **Deployment config.** `wrangler.jsonc` (static assets from `out/`), `next.config.ts`
+  (`output: "export"`, `trailingSlash: true`, no `basePath`), `public/_headers` (CSP, immutable
+  caching for hashed assets, revalidation for HTML), and `.nvmrc`.
+
+### Monitoring
+
+- **Pipeline tab** (`/settings` → Pipeline, formerly `/status`) renders `sync_runs`.
+- **Sync health** (`lib/sync-health.ts`): lists tracked managers that have never completed a sync
+  or are overdue (24 h), and recent failed runs. It is built never to be silently empty, because a
+  blank panel looks identical to a broken one.
+- **Prediction accuracy** (`lib/prediction-accuracy.ts`): archived pre-deadline predictions scored
+  against landed results with bias, MAE and r, partial gameweeks labelled as such.
+- **Alerts.** `notify` sends Telegram alerts (deadlines, injuries, price moves, fixture changes)
+  from a deduplicated outbox; Cloudflare Web Analytics for visitors; Supabase logs and advisors for
+  the backend.
+- **Known weak spot.** The recurring failure class is *work that silently does not happen and
+  renders as absence* (unpaged reads, rivals never re-synced, a failed sync marking itself fresh,
+  cron calls dropped on a transient lookup error). Each fix added a way to see the failure; the
+  open gap is that nothing alerts on a stale prediction run or an accuracy drift by itself.
+
+### Serving infrastructure
+
+- **Read path.** Browser → Postgres over the publishable key, read-only, under RLS
+  (public-read for league data, `auth.uid() = user_id` for owner tables). There is no application
+  server and no model endpoint: predictions are precomputed rows (`player_predictions`,
+  `player_xp_horizons`) served as ordinary table reads, refreshed every 30 minutes.
+- **Write path.** Only Edge Functions with the service role write league data. Three caller
+  classes: cron-only (secret header), browser users (JWT plus per-user rate limit), and the
+  Telegram webhook ([wiki/edge-function-security.md](wiki/edge-function-security.md)). CORS is
+  limited to `fpldecision.com`, `www`, and `localhost:3000` as defence in depth only.
+- **Front end.** A static Next.js export (`out/`) on Cloudflare Workers assets at
+  `fpldecision.com` (apex custom domain; `www` 301-redirects to it), with a `workers.dev` fallback.
+  Hashed assets are cached immutably for a year; HTML revalidates on every request.
+- **What this means for latency and freshness.** Prediction freshness is bounded by the 30-minute
+  job plus the 10-minute results sync; page speed is bounded by client-side loading and compute,
+  not by a model service. There is no autoscaling concern because there is no model-serving tier,
+  but Supabase quotas and the FPL API's tolerance are the real ceilings.
+- **Access boundary.** Row Level Security is the only real access control; the site URL is public.
+
 ## Limits worth knowing
 
 - Everything downstream (captain, chips, transfers, gems) inherits xP's error.
