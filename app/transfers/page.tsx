@@ -317,6 +317,7 @@ export default function TransfersPage() {
           predByEvent.set(r.event, {
             expectedMinutes: r.expectedMinutes,
             startProbability: r.startProbability,
+            appearanceProbability: r.appearanceProbability,
             availability: r.availability,
             fdr: r.fdr,
             xp: r.xp,
@@ -393,6 +394,7 @@ export default function TransfersPage() {
             },
             expectedMinutes: pred?.expectedMinutes ?? null,
             startProbability: pred?.startProbability ?? null,
+            appearanceProbability: pred?.appearanceProbability ?? null,
             availability,
             fdrRun: fdrRuns.get(p.team_id) ?? [],
           });

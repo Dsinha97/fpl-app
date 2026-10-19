@@ -37,6 +37,8 @@ export interface ScoredPlayer {
   form?: number | null;
   expectedMinutes: number | null;
   startProbability: number | null;
+  /** The xP model's P(any minutes), v1.7.0+; null for older rows. Feeds lineup bench odds. */
+  appearanceProbability: number | null;
   /** 0–1 from status / chance_of_playing. */
   availability: number;
   /** Official FDR for each of the next fixtures, in gameweek order. */

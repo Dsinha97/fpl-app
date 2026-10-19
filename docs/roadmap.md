@@ -88,7 +88,7 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
-**Sprint 43 built 2026-10-19** (DSI-219), see [sprints/sprint-43.md](sprints/sprint-43.md): xP model **v1.7.0** fixes defensive contribution, assists and keeper minutes at source and drops `positionCalibration` to 1.0, gated on the walk-forward harness (4/4 seasons) and an archive replay. After it deploys: read the first v1.7.0 archive (GW8) with `scripts/component-residuals.ts`, then run the GW10 batch (DSI-51, DSI-52) on v1.7.0. Follow-up: store the model's own P(appear) so `lib/lineup.ts` stops using the pre-v1.7.0 `/72` rule.
+**Sprint 43 built 2026-10-19** (DSI-219), see [sprints/sprint-43.md](sprints/sprint-43.md): xP model **v1.7.0** fixes defensive contribution, assists and keeper minutes at source and drops `positionCalibration` to 1.0, gated on the walk-forward harness (4/4 seasons) and an archive replay. After it deploys: read the first v1.7.0 archive (GW8) with `scripts/component-residuals.ts`, then run the GW10 batch (DSI-51, DSI-52) on v1.7.0. Bench odds now read the model's stored P(appear), `appearance_probability`, the same PR.
 
 **GW6 read and DSI-185 shipped 2026-10-13.** See [sprints/gw6-check-in.md](sprints/gw6-check-in.md) and
 [sprints/dsi-185-minutes-model.md](sprints/dsi-185-minutes-model.md). The fifth scoreboard read closed

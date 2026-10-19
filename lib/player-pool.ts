@@ -29,6 +29,8 @@ export interface PredictionSeriesRow {
   event: number;
   expectedMinutes: number | null;
   startProbability: number | null;
+  /** The xP model's P(any minutes), v1.7.0+; null for older rows. */
+  appearanceProbability: number | null;
   /** 0-1, per event. */
   availability: number;
   fdr: number | null;
@@ -62,7 +64,7 @@ async function fetchAll(season: string, fromEvent: number): Promise<PredictionSe
     pageStarts.map(async (from) => {
       const { data, error } = await supabase
         .from("player_predictions")
-        .select("player_id, event, expected_minutes, start_probability, availability, fdr, xp")
+        .select("player_id, event, expected_minutes, start_probability, appearance_probability, availability, fdr, xp")
         .eq("season", season)
         .gte("event", fromEvent)
         // Without an explicit order, Postgres gives no guarantee that two
@@ -86,6 +88,7 @@ async function fetchAll(season: string, fromEvent: number): Promise<PredictionSe
     event: r.event as number,
     expectedMinutes: r.expected_minutes as number | null,
     startProbability: r.start_probability as number | null,
+    appearanceProbability: r.appearance_probability as number | null,
     availability: (r.availability as number | null) ?? 0,
     fdr: r.fdr as number | null,
     xp: r.xp as number | null,

@@ -119,8 +119,9 @@ provenance of its own number — `prior_weight`, `n_eff`, `reliability`, `prior_
 `xp_lower` / `xp_upper` rate band — and `rate_priors` holds the fitted priors those were derived
 from, so a projection can be explained after the fact rather than only recomputed. The `player_xp_horizons` view
 pivots predictions into `xp_1` / `xp_3` / `xp_5` / `xp_8` / `xp_total`, which is the shape almost
-every screen consumes (`expected_minutes` and `start_probability` come from `player_predictions`
-directly, for the next gameweek).
+every screen consumes (`expected_minutes`, `start_probability` and, since v1.7.0,
+`appearance_probability` — the model's own P(any minutes), which lineup bench odds read — come from
+`player_predictions` directly, for the next gameweek).
 
 Three consumers need the **unpivoted** rows instead. `/transfers` reads `player_id, event, xp` across
 the whole window, because pricing a rolled transfer means knowing what a single gameweek is worth,

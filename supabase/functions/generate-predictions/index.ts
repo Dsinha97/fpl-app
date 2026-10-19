@@ -529,6 +529,9 @@ Deno.serve(async (req) => {
 
           expected_minutes: round(pred.expectedMinutes, 1),
           start_probability: round(pred.startProbability, 3),
+          // v1.7.0: the model's own P(appear), so lib/lineup.ts's bench odds
+          // read it rather than re-deriving expected_minutes / 72.
+          appearance_probability: round(pred.appearanceProbability, 3),
           p60: round(pred.p60, 3),
           availability: round(pred.availability, 2),
           attack_multiplier: round(pred.attackMultiplier, 3),

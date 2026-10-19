@@ -157,15 +157,30 @@ calibration scalar was compensating. The ship decision stays with DSI-51 at the 
 sentence and are re-synced; they had drifted in two phrases before this sprint. `XDC_MODEL_NOTE`
 describes the new DC method. The `prediction_models` description gains v1.7.0.
 
-**Known gap, a follow-up:** `lib/lineup.ts`'s `playProbability` still uses `expectedMinutes / 72`
-for bench sub odds, the model's pre-v1.7.0 rule. The fix is to store the model's own P(appear) on
-`player_predictions` and read it in the five loaders that select `expected_minutes`. That touches the
-schema, so it isn't folded in here; the comment there says so.
+**Bench odds read the model's own P(appear)**, added later the same day on this PR at the owner's
+request. Until then `lib/lineup.ts`'s `playProbability` used `expectedMinutes / 72`, the model's
+pre-v1.7.0 rule, so one quantity had two implementations.
+- Migration `20261019230642_prediction_appearance_probability` (applied) adds a nullable
+  `appearance_probability` to `player_predictions` and `player_prediction_archive`. RLS is unchanged,
+  and anon can read it (checked).
+- `generate-predictions` writes `Prediction.appearanceProbability`.
+- `LineupCandidate`, `ScoredPlayer`, `EventPrediction` and `PredictionSeriesRow` carry it as a
+  required field, so the compiler found every constructor. It is threaded through
+  `lib/player-pool.ts`, `lib/chip-plan.ts`, `lib/transfers.ts`, `/builder`, `/deadline`, `/players`,
+  `/scenarios`, `/transfers` and `chip-timing`.
+- The builder's double-gameweek aggregate takes the max, the same convention as start probability.
+- `playProbability` uses it when present and falls back to `/72` only for a row written before
+  v1.7.0, which is every row until the function deploys.
+- Checked in the preview against an imported draft: `/builder`, `/deadline` and `/transfers` render
+  their lineup and bench figures with no errors, and all three new select shapes return 200 from
+  PostgREST. Not checkable before the deploy: non-null values, and the bench odds actually moving.
 
 ## 7. Checks after ship
 
 - First v1.7.0 archive (GW8): re-run `scripts/component-residuals.ts` and confirm the DC, assists and
   keeper-appearance gaps stay closed on real v1.7.0 output, not a replay.
 - Check per club that keeper expected minutes sum to 90.
+- Check that `player_predictions.appearance_probability` is non-null on the first v1.7.0 run, and that a
+  rotation-heavy bench's auto-sub odds move up from the `/72` reading.
 - GW10: re-check the FWD assists ratio and MID DC (slightly over in the replay).
 - When 2026-27 completes: refit `dcDispersion` with a second season.

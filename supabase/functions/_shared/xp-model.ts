@@ -1848,7 +1848,7 @@ export interface FixtureInput {
 export interface Prediction {
   expectedMinutes: number;
   startProbability: number;
-  /** P(any minutes at all). Not stored; read by the backtest's calibration table. */
+  /** P(any minutes at all): the start + cameo states. Stored as `appearance_probability`; lib/lineup.ts reads it for bench odds. */
   appearanceProbability: number;
   p60: number;
   availability: number;

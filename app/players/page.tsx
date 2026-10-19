@@ -91,6 +91,7 @@ interface PredictionRow {
   player_id: number;
   expected_minutes: number | null;
   start_probability: number | null;
+  appearance_probability: number | null;
 }
 
 interface HistoryRow {
@@ -349,7 +350,7 @@ export default function PlayersPage() {
             // only availabilityFromStatus fallback this page used before.
             supabase
               .from("player_predictions")
-              .select("player_id, expected_minutes, start_probability")
+              .select("player_id, expected_minutes, start_probability, appearance_probability")
               .eq("season", gw.season)
               .eq("event", gw.id)
               .limit(1000),
@@ -502,6 +503,7 @@ export default function PlayersPage() {
     priorWeight: x?.prior_weight ?? null,
     expectedMinutes: predictions.get(p.id)?.expected_minutes ?? null,
     startProbability: predictions.get(p.id)?.start_probability ?? null,
+    appearanceProbability: predictions.get(p.id)?.appearance_probability ?? null,
     availability: availabilityOf(p),
     fdrRun: (runs.get(p.team_id) ?? []).map((c) => c.fdr),
   });

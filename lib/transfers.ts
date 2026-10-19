@@ -148,6 +148,7 @@ function metricsFor(
     xp: s.xp[1],
     expectedMinutes: s.expectedMinutes,
     startProbability: s.startProbability,
+    appearanceProbability: s.appearanceProbability,
     availability: s.availability,
     fdr: s.fdrRun[0] ?? null,
     opponent: null,
@@ -352,6 +353,7 @@ function emptyScored(id: number): ScoredPlayer {
     xp: { 1: null, 3: null, 5: null, 8: null, 19: null, season: null },
     expectedMinutes: null,
     startProbability: null,
+    appearanceProbability: null,
     availability: 0,
     fdrRun: [],
   };

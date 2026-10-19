@@ -185,6 +185,7 @@ export function ChipTiming({
           byEvent.set(r.event, {
             expectedMinutes: r.expectedMinutes,
             startProbability: r.startProbability,
+            appearanceProbability: r.appearanceProbability,
             availability: r.availability,
             fdr: r.fdr,
             xp: r.xp,
@@ -209,6 +210,7 @@ export function ChipTiming({
             xp: { 1: null, 3: null, 5: null, 8: null, 19: null, season: null },
             expectedMinutes: null,
             startProbability: null,
+            appearanceProbability: null,
             availability,
             fdrRun: [],
           };

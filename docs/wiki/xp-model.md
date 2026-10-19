@@ -411,8 +411,9 @@ small misses recorded. The model is still behind the last-5 baseline. Side findi
 minutes-scope current-season blend now clears 4/4 seasons. —
 [sprints/sprint-43.md](../sprints/sprint-43.md)
 
-**Known gap:** `lib/lineup.ts`'s bench odds still use the pre-v1.7.0 `expectedMinutes / 72` rule
-([lineup-captain-bench.md](lineup-captain-bench.md)) until the model's own P(appear) is stored.
+P(appear) is stored as `appearance_probability`, so lineup bench odds read the model's figure
+rather than re-deriving `expectedMinutes / 72`
+([lineup-captain-bench.md](lineup-captain-bench.md)).
 
 See also: [cold-start-priors.md](cold-start-priors.md) (what happens for players with thin or no PL
 evidence), [methodology.md](methodology.md) (the "drop, renormalise, disclose" and "verify with a
