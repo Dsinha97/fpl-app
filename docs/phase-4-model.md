@@ -13,6 +13,14 @@ non-appearance cohort against a +0.627 appearance one. Wherever this doc treats
 `positionCalibration` as the thing awaiting a refit, read
 [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §2 first — the measured error is one a
 points-scale parameter cannot express.
+**v1.7.0 (Sprint 43) supersedes the calibration story below.** Scored per component, the
+`positionCalibration` factors in §2 were inflating components that were already right (goals,
+bonus, saves) to cover three that were not: defensive contribution (Poisson tail at mean minutes),
+assists (FPL credits more than xA) and keeper appearance (keepers shared the outfield minutes
+budget). Those are fixed at source and the factors are 1.0. The components table below now reads:
+DC, saves and goals conceded are averaged over a start state and a cameo state (`minuteStates`);
+DC is a negative-binomial tail; assists are `xa90 × assistsPerXa`; appearance uses P(start) +
+P(cameo), not `expectedMinutes / 72`. Read [sprints/sprint-43.md](sprints/sprint-43.md) before §2.
 **Code:** [`supabase/functions/_shared/xp-model.ts`](../supabase/functions/_shared/xp-model.ts)
 **Runner:** [`supabase/functions/generate-predictions/`](../supabase/functions/generate-predictions/)
 

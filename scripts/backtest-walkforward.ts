@@ -34,16 +34,29 @@ import {
   deriveDcEligibleSeasons,
   deriveRates,
   deriveRatesWithPrior,
+  fitAssistsPerXa,
   fitRatePriors,
+  MODEL_PARAMS,
   MODEL_VERSION,
   predict,
   priceBandOf,
   type FitRow,
+  type ModelParams,
   type PlayerInput,
   type SeasonRow,
   type ScoringRules,
 } from "../supabase/functions/_shared/xp-model.ts";
-import { accuracyStats, mean } from "../lib/stats.ts";
+import { accuracyStats, mean, spearman } from "../lib/stats.ts";
+import {
+  calibrationByBucket,
+  formatCalibration,
+  formatComponentSummary,
+  realisedComponents,
+  summariseComponents,
+  type CalibrationRow,
+  type ComponentRow,
+} from "../lib/component-reconciliation.ts";
+import type { PositionShort, ScoringRules as RealisedScoringRules } from "../lib/fpl-scoring-rules.ts";
 import {
   fdrForEvent,
   resultsFromGameweekStats,
@@ -128,6 +141,15 @@ interface GwTruthRow {
   season: string; player_code: number; event: number | null; fixture: number;
   opponent_team: number | null; was_home: boolean | null; minutes: number | null;
   total_points: number | null;
+  // The rest of the scoring stats, for the per-component reconciliation
+  // (lib/component-reconciliation.ts) — realised points per component.
+  goals_scored: number | null;
+  assists: number | null;
+  goals_conceded: number | null;
+  own_goals: number | null;
+  penalties_saved: number | null;
+  penalties_missed: number | null;
+  red_cards: number | null;
   // Everything needed to build a synthetic "current season so far" SeasonRow
   // for the blend sweep below — absent from the original truth-only fetch.
   starts: number | null;
@@ -262,9 +284,9 @@ async function main() {
     fetchAll<PlayerRow>("players", "id,code,element_type", "", "id"),
     fetchAll<ElementType>("element_types", "id,singular_name_short", "", "id"),
     fetchAll<ScoringRow>("scoring_rules", "stat,position,value", "&season=eq.2026-27", "stat,position"),
-    fetchAll<SeasonRow & { player_code: number; start_cost: number | null }>(
+    fetchAll<SeasonRow & { player_code: number; start_cost: number | null; assists: number | null }>(
       "player_season_history",
-      "player_code,season_name,minutes,starts,expected_goals,expected_assists,expected_goals_conceded,clean_sheets,bonus,saves,defensive_contribution,yellow_cards,start_cost",
+      "player_code,season_name,minutes,starts,expected_goals,expected_assists,expected_goals_conceded,clean_sheets,bonus,saves,defensive_contribution,yellow_cards,start_cost,assists",
       "",
       "player_code,season_name",
     ),
@@ -275,6 +297,13 @@ async function main() {
   const positionByCodeToday = new Map(players.map((p) => [p.code, p.element_type]));
   const positionCode = new Map(elementTypes.map((t) => [t.id, t.singular_name_short]));
   const scoring = buildScoring(scoringRows);
+  // The same rules in the shape `breakdownFor` reads, for realised component
+  // points. One table backs both, so predicted and realised are scored alike.
+  const realisedRules: RealisedScoringRules = {
+    season: "2026-27",
+    positionById: new Map(elementTypes.map((t) => [t.id, t.singular_name_short as PositionShort])),
+    valueFor: (stat, position) => scoring.get(stat, position),
+  };
   const dcEligibleSeasons = deriveDcEligibleSeasons(seasonHistory);
 
   // Input fingerprint. The published tables in docs/phase-4-model.md could not
@@ -315,6 +344,9 @@ async function main() {
   ];
 
   const results: Record<string, unknown>[] = [];
+  // Sprint 43: every target season's raw (pre-positionCalibration) prediction,
+  // for the calibration arms reported after the loop.
+  const calibrationArmRows: { season: string; positionCode: string; raw: number; actual: number }[] = [];
 
   // Per-position bias-correction sweep (docs/roadmap.md's "attempt 2" step 2)
   // — accumulated across the whole walk-forward loop below so the correction
@@ -346,6 +378,7 @@ async function main() {
     const truth = await fetchAll<GwTruthRow>(
       "player_gameweek_stats",
       "season,player_code,event,fixture,opponent_team,was_home,minutes,total_points," +
+        "goals_scored,assists,goals_conceded,own_goals,penalties_saved,penalties_missed,red_cards," +
         "starts,expected_goals,expected_assists,expected_goals_conceded,clean_sheets,bonus,saves," +
         "defensive_contribution,yellow_cards,team_h_score,team_a_score",
       `&season=eq.${archiveSeason}`,
@@ -424,9 +457,35 @@ async function main() {
     );
     console.error(`  cohort (>=${MIN_WEIGHTED_MINUTES_COHORT} weighted minutes of prior evidence): ${cohortCodes.size} players`);
 
+    // Sprint 43: parameters a target season may use are fitted on earlier
+    // seasons only. assistsPerXa from prior seasons' history; the DC
+    // dispersion was fitted on 2025-26 (the only season with per-game DC), so
+    // targets up to 2025-26 keep the Poisson tail rather than borrow it.
+    // cameoMinutes (18.4-19.4 in every season measured) is used as is — see
+    // docs/sprints/sprint-43.md for that disclosure.
+    const priorAssistRows = seasonHistory.flatMap((h) => {
+      const positionId = positionByCodeToday.get(h.player_code);
+      return h.season_name < slashSeason && positionId !== undefined ? [{ ...h, positionId }] : [];
+    });
+    const seasonParams: ModelParams = {
+      ...MODEL_PARAMS,
+      assistsPerXa: fitAssistsPerXa(priorAssistRows),
+      dcDispersion: archiveSeason >= "2026-27"
+        ? MODEL_PARAMS.dcDispersion
+        : { 1: null, 2: null, 3: null, 4: null },
+    };
+    console.error(
+      `  params: assistsPerXa ${JSON.stringify(seasonParams.assistsPerXa)} · dcDispersion ${JSON.stringify(seasonParams.dcDispersion)}`,
+    );
+
     type Residual = { pred: number; actual: number; positionCode: string; minutes: number; startProbability: number };
     const residuals: Residual[] = [];
     const matchedResiduals: Residual[] = []; // model, restricted to rows where the last-5 baseline is also defined
+    const componentRows: ComponentRow[] = [];
+    const calibrationRows: CalibrationRow[] = [];
+    // FPL scored defensive contribution from 2025/26. Earlier seasons record
+    // the stat (2024/25) but it earned nothing, and total_points agrees.
+    const dcScores = archiveSeason >= "2025-26";
     const last5ResidualsByCode = new Map<number, { pred: number; actual: number; positionCode: string; minutes: number }[]>();
 
     // Group truth rows per player, sorted by event, to compute the last-5-
@@ -455,6 +514,7 @@ async function main() {
           rates,
           { fdr: 3, isHome: row.was_home ?? true },
           scoring,
+          seasonParams,
         );
         const actual = row.total_points ?? 0;
         const entry = {
@@ -465,6 +525,34 @@ async function main() {
           startProbability: prediction.startProbability,
         };
         residuals.push(entry);
+        const n = (v: number | null) => v ?? 0;
+        const realised = realisedComponents(
+          {
+            minutes: n(row.minutes), total_points: actual, goals_scored: n(row.goals_scored),
+            assists: n(row.assists), clean_sheets: n(row.clean_sheets), goals_conceded: n(row.goals_conceded),
+            own_goals: n(row.own_goals), penalties_saved: n(row.penalties_saved),
+            penalties_missed: n(row.penalties_missed), yellow_cards: n(row.yellow_cards),
+            red_cards: n(row.red_cards), saves: n(row.saves), bonus: n(row.bonus),
+            defensive_contribution: row.defensive_contribution,
+          },
+          posCode as PositionShort,
+          realisedRules,
+          dcScores,
+        );
+        calibrationArmRows.push({
+          season: archiveSeason,
+          positionCode: posCode,
+          raw: prediction.xp / (seasonParams.positionCalibration[posCode] ?? 1),
+          actual,
+        });
+        componentRows.push({
+          position: posCode, predicted: prediction.components, predictedXp: prediction.xp,
+          realised, actualTotal: actual,
+        });
+        calibrationRows.push({
+          pAppear: prediction.appearanceProbability, p60: prediction.p60,
+          pred: prediction.xp, actual, minutes: row.minutes ?? 0,
+        });
 
         // Results-derived FDR arm. Identical in every respect to the line
         // above except the `fdr` passed to predict(), so the comparison
@@ -487,6 +575,7 @@ async function main() {
               rates,
               { fdr: derived, isHome: row.was_home ?? true },
               scoring,
+              seasonParams,
             );
             fdrResiduals.get(pg)!.push({ pred: p.xp, actual, positionCode: posCode, minutes: row.minutes ?? 0 });
             fdrNeutralMatched.get(pg)!.push(entry);
@@ -498,6 +587,7 @@ async function main() {
                 rates,
                 { fdr: shuffled, isHome: row.was_home ?? true },
                 scoring,
+                seasonParams,
               );
               fdrShuffled.get(pg)!.push({ pred: ps.xp, actual, positionCode: posCode, minutes: row.minutes ?? 0 });
             }
@@ -564,6 +654,18 @@ async function main() {
     for (const a of byAppearance) console.error(`    ${a.cohort}: n=${a.n} bias=${isNaN(a.bias) ? "n/a" : a.bias.toFixed(3)} mae=${isNaN(a.mae) ? "n/a" : a.mae.toFixed(3)}`);
     for (const a of gkpByAppearance) console.error(`    GKP ${a.cohort}: n=${a.n} bias=${isNaN(a.bias) ? "n/a" : a.bias.toFixed(3)} mae=${isNaN(a.mae) ? "n/a" : a.mae.toFixed(3)}`);
     console.error(`    start-probability Brier score: ${isNaN(startBrier) ? "n/a" : startBrier.toFixed(4)} (0=perfect, 0.25=coin flip, 1=confidently wrong)`);
+    // Sprint 43 — rank correlation, per-component reconciliation and
+    // calibration by predicted P(appear). See lib/component-reconciliation.ts.
+    const rankCorrelation = spearman(residuals);
+    const last5Spearman = last5Flat.length > 0 ? spearman(last5Flat) : NaN;
+    const matchedSpearman = matchedResiduals.length > 0 ? spearman(matchedResiduals) : NaN;
+    const componentSummary = summariseComponents(componentRows);
+    const calibration = calibrationByBucket(calibrationRows);
+    console.error(
+      `  spearman: model ${rankCorrelation.toFixed(3)} · model (matched) ${matchedSpearman.toFixed(3)} · last5 ${last5Spearman.toFixed(3)}`,
+    );
+    console.error(formatComponentSummary(componentSummary));
+    console.error(formatCalibration(calibration));
 
     // ---- results-derived FDR arm ----------------------------------------
     // Scored against the neutral (fdr=3) arm restricted to exactly the same
@@ -604,6 +706,9 @@ async function main() {
       byAppearance,
       gkpByAppearance,
       startBrier,
+      spearman: { model: rankCorrelation, modelMatched: matchedSpearman, last5: last5Spearman },
+      componentSummary,
+      calibration,
       derivedFdr: fdrResults,
     });
 
@@ -699,7 +804,7 @@ async function main() {
             rows: priorRows, positionId, priceBand, priors, dcEligibleSeasons,
           });
           if (priorOnly) {
-            const pred = predict(playerInput, priorOnly.rates, { fdr: 3, isHome: row.was_home ?? true }, scoring);
+            const pred = predict(playerInput, priorOnly.rates, { fdr: 3, isHome: row.was_home ?? true }, scoring, seasonParams);
             priorOnlyResiduals.push({ pred: pred.xp, actual: row.total_points ?? 0, positionCode: posCode });
           }
 
@@ -718,7 +823,7 @@ async function main() {
                   currentSeasonRow, currentSeasonWeight: w, currentSeasonScope: scope,
                 });
                 if (!blended) continue;
-                const pred = predict(playerInput, blended.rates, { fdr: 3, isHome: row.was_home ?? true }, scoring);
+                const pred = predict(playerInput, blended.rates, { fdr: 3, isHome: row.was_home ?? true }, scoring, seasonParams);
                 blendedResidualsByWeight.get(blendKey(scope, w))!.push({ pred: pred.xp, actual: row.total_points ?? 0, positionCode: posCode });
 
                 if (scope === "all" && w === 0.6 && games === 3 && topByPriorMinutes.includes(code)) {
@@ -907,7 +1012,45 @@ async function main() {
     return { priorGames: pg, seasonsClear: clear, seasons: rows.length, clearsEverySeason: every };
   });
 
-  results.push({ biasCorrectionSweep: correctionResults, allClear, blendVerdict, fdrVerdict });
+  // ---- Sprint 43: positionCalibration arms -------------------------------
+  // The same raw (pre-calibration) predictions, scaled three ways:
+  //   production  MODEL_PARAMS.positionCalibration as it stands
+  //   unit        1.0 everywhere — no level correction
+  //   loso        per position, Σ actual / Σ raw over the OTHER target seasons
+  //               (the original mean-matching method, leave-one-season-out)
+  // Pre-registered rule (docs/sprints/sprint-43.md): `loso` is fitted on this
+  // harness's cohort, which has no availability flags and so over-predicts
+  // appearances; a factor fitted here absorbs that, and production has the
+  // flags. So if both `unit` and `loso` pass the gate, `unit` ships.
+  console.error(`
+=== positionCalibration arms (raw component sum x factor), ${seasonCount} target seasons ===`);
+  const armSeasons = [...new Set(calibrationArmRows.map((r) => r.season))];
+  const losoFactor = (heldOut: string, position: string) => {
+    const rows = calibrationArmRows.filter((r) => r.season !== heldOut && r.positionCode === position);
+    const raw = rows.reduce((sum, r) => sum + r.raw, 0);
+    return raw > 0 ? rows.reduce((sum, r) => sum + r.actual, 0) / raw : 1;
+  };
+  const calibrationArms: Record<string, unknown>[] = [];
+  for (const season of armSeasons) {
+    const rows = calibrationArmRows.filter((r) => r.season === season);
+    const factors: Record<string, Record<string, number>> = {
+      production: { ...MODEL_PARAMS.positionCalibration },
+      unit: { GKP: 1, DEF: 1, MID: 1, FWD: 1 },
+      loso: Object.fromEntries(["GKP", "DEF", "MID", "FWD"].map((pos) => [pos, losoFactor(season, pos)])),
+    };
+    for (const [arm, factor] of Object.entries(factors)) {
+      const scored = rows.map((r) => ({ pred: r.raw * (factor[r.positionCode] ?? 1), actual: r.actual }));
+      const st = stats(scored);
+      const rho = spearman(scored);
+      console.error(
+        `  ${season} ${arm.padEnd(10)} n=${st.n} bias=${st.bias.toFixed(3)} mae=${st.mae.toFixed(3)} r=${st.r.toFixed(3)} ` +
+          `spearman=${rho.toFixed(3)}  factors ${JSON.stringify(Object.fromEntries(Object.entries(factor).map(([k, v]) => [k, Number(v.toFixed(4))])))}`,
+      );
+      calibrationArms.push({ season, arm, factors: factor, ...st, spearman: rho });
+    }
+  }
+
+  results.push({ biasCorrectionSweep: correctionResults, allClear, blendVerdict, fdrVerdict, calibrationArms });
 
   console.log(JSON.stringify(results, null, 2));
 }

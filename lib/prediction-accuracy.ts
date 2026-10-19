@@ -87,7 +87,7 @@ const PAGE_ROWS = 1000;
  * this module is queried a handful of times, not on every page render, so a
  * sequential page-until-short-page loop is plenty.
  */
-async function fetchAllPages<T>(
+export async function fetchAllPages<T>(
   build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<T[]> {
   const rows: T[] = [];
@@ -252,7 +252,7 @@ async function loadActuals(season: string, event: number): Promise<ActualRow[]> 
  * this exists to catch. `fixtures.finished` / `finished_provisional` are NOT
  * used: both were true for GW5 fixtures that had no stats row at all.
  */
-function landedFixtures(actuals: ActualRow[]): Set<number> {
+export function landedFixtures(actuals: { fixture: number; minutes: number }[]): Set<number> {
   const landed = new Set<number>();
   for (const a of actuals) if (a.minutes > 0) landed.add(a.fixture);
   return landed;

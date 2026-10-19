@@ -60,9 +60,15 @@ const FORMATION_LIMITS = {
 };
 
 /**
- * Minutes at which an appearance is effectively certain. Matches the xP
- * model's own `appearanceMinutes`, so "probability of featuring" means the
- * same thing on both sides of the system.
+ * Minutes at which an appearance is effectively certain — the xP model's
+ * `appearanceMinutes` rule up to v1.6.0. **Since v1.7.0 the model no longer
+ * uses it**: P(appear) there is a start state plus a cameo state
+ * (`minuteStates` in supabase/functions/_shared/xp-model.ts), and
+ * `expectedMinutes / 72` under-reads it for rotation players (a cameo is ~19
+ * minutes, not 72). This copy is the known gap until the model's own figure is
+ * stored on `player_predictions` and read here instead — tracked as a
+ * follow-up in docs/sprints/sprint-43.md. Until then, the model's copy is the
+ * truth and this one is the approximation.
  */
 const APPEARANCE_MINUTES = 72;
 

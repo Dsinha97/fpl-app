@@ -70,7 +70,9 @@ export const COLD_START_NOTE =
   "position, so understudies can end up sharing a start rather than one being picked out as first " +
   "choice. Since v1.3.0 the correction is weighted by how much of each player's number is prior " +
   "rather than their own Premier League record, so an established starter moves far less than a " +
-  "fringe reserve on the same price band, rather than both moving by the same proportion.";
+  "fringe reserve on the same price band, rather than both moving by the same proportion. Since " +
+  "v1.7.0 goalkeepers' minutes are reconciled separately (90 per fixture), so a backup keeper no " +
+  "longer absorbs outfield minutes.";
 
 /**
  * Cap on players held at once by any compare-style UI — /compare's `?ids=`
@@ -128,8 +130,10 @@ export const XDC_MODEL_NOTE =
   "Expected points from clearing the defensive-contribution threshold (10 for defenders, 12 for " +
   "midfielders and forwards; goalkeepers cannot score it). Forwards clear it rarely, so the number " +
   "is usually near zero for them — that is a low expectation, not an exclusion. Modelled as a " +
-  "Poisson tail on a shrunk " +
-  "per-90 rate, gated on an eligible-minutes fix (v1.4.0) since FPL only tracks the stat from " +
+  "negative-binomial tail on a shrunk per-90 rate, averaged over the minutes a player gets when he " +
+  "starts and when he comes off the bench rather than taken once at his average minutes (v1.7.0 — " +
+  "the average-minutes version under-counted it roughly threefold), and " +
+  "gated on an eligible-minutes fix (v1.4.0) since FPL only tracks the stat from " +
   "2024/25 — see docs/phase-4-model.md. One real gap remains: FPL scores defenders on clearances + " +
   "blocks + interceptions + tackles and midfielders/forwards on the same four plus recoveries, but " +
   "this figure applies one aggregate count to both, because that is the only qualifying-action total " +
