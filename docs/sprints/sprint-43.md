@@ -3,8 +3,8 @@
 **Built 2026-10-19**, on `sprint-43-xp-components` from `main`. Linear
 [DSI-219](https://linear.app/dsinha-org/issue/DSI-219) (M7 · GW10 model batch). Prompted by an
 external audit of the model, [sources/ml-model-audit.md](../sources/ml-model-audit.md). The owner
-asked for it to be checked and for whatever held up to be implemented. Status of the deploy is in
-§6.
+asked for it to be checked and for whatever held up to be implemented. **Deployed 2026-10-19** as
+`generate-predictions` v23, at the owner's instruction (§6).
 
 ## 1. What the audit got right and wrong
 
@@ -174,6 +174,40 @@ pre-v1.7.0 rule, so one quantity had two implementations.
 - Checked in the preview against an imported draft: `/builder`, `/deadline` and `/transfers` render
   their lineup and bench figures with no errors, and all three new select shapes return 200 from
   PostgREST. Not checkable before the deploy: non-null values, and the bench odds actually moving.
+
+### Deployed (2026-10-19)
+
+`generate-predictions` **v23** went out through the Supabase MCP with `verify_jwt: true`, the same as
+v22 and `config.toml`. The upload was the five files, comment-stripped with the TypeScript printer
+as the earlier deploys were. Nothing else had changed in them since v22 (`git log` since 3fc97b4).
+The stripped model was proved equivalent before upload: same 29 exports and constants, 0
+differences over 20,000 random `predict()` cases, identical reconciliation.
+
+First scheduled run (23:35 UTC, run 161131): **success**, 21,376 rows, 668 players, 235 on the
+minutes model.
+
+| Check | Result |
+|---|---|
+| `model_version` | v1.7.0 on every row |
+| `appearance_probability` | non-null on every row, 0–1, never below start probability |
+| Keeper expected minutes per club fixture | **89.9–90.1** (was 116.7 on the archive); outfield 899.7–900.3 |
+| Start sums | keepers 0.999–1.001, outfield 9.99–10.00 |
+| `squad_consistency_violations` | **0** (v22: 9) |
+| `prediction_models.params` | matches local `MODEL_PARAMS` key for key |
+
+Known players, v1.6.0 → v1.7.0, next gameweek:
+- **Nailed defenders**: DC rises (Gabriel 0.385 → 0.504, Guéhi 0.280 → 0.425, Calafiori 0.068 →
+  0.146), but total xP falls (Gabriel 5.99 → 5.08). That's the ×1.22 scalar coming off, not the DC
+  change.
+- **Backup keepers**: expected minutes collapse (Benda 64.1 → 15.4, King 55.6 → 12.2) and xP with
+  them (Benda 1.83 → 0.60).
+- **Rotation players**: P(appear) is now well above start probability (Cherki 0.49 start → 0.78
+  appear).
+- Next-gameweek position means (GKP 0.93, DEF 1.41, MID 1.33, FWD 1.23) sit just under GW2–6's
+  realised rates (0.98 / 1.52 / 1.44 / 1.35), consistent with the replay's small under-prediction.
+
+The GW7 archive is frozen (deadline passed), so the first archived v1.7.0 snapshot is GW8's.
+Rollback is redeploying v22's files from commit 3fc97b4.
 
 ## 7. Checks after ship
 

@@ -397,6 +397,9 @@ that were wrong. On live 2026-27 GW2–6:
 - **keeper appearance high** (0.705 vs 0.559): keepers shared the 990-minute water-fill with the
   outfield, so their expected minutes summed to 116.7 per club fixture against 88.2 played.
 
+Deployed 2026-10-19 as `generate-predictions` v23. On the first run, keeper minutes are 90 per
+club fixture (were 116.7) and squad consistency violations are 0 (were 9).
+
 Fixed at source:
 - start/cameo minute states (`minuteStates`; cameo 18.7 minutes);
 - a negative-binomial DC tail (r 20 DEF, 31 MID+FWD);
