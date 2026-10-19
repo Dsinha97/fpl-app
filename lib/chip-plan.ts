@@ -32,6 +32,8 @@ export type { ChipKind };
 export interface EventPrediction {
   expectedMinutes: number | null;
   startProbability: number | null;
+  /** The xP model's P(any minutes), v1.7.0+; null for older rows. */
+  appearanceProbability: number | null;
   /** 0-1, per event — player_predictions carries this per gameweek, not just "now". */
   availability: number;
   fdr: number | null;
@@ -101,6 +103,7 @@ export function candidatesAt(
       xp: pred?.xp ?? null,
       expectedMinutes: pred?.expectedMinutes ?? null,
       startProbability: pred?.startProbability ?? null,
+      appearanceProbability: pred?.appearanceProbability ?? null,
       availability: pred?.availability ?? 0,
       fdr: pred?.fdr ?? null,
       opponent: null,

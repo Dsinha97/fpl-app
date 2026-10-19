@@ -16,6 +16,12 @@ sheet, bonus, defensive contribution, saves, goals conceded) is stored as its ow
 debugged, not just trusted. Predictions are keyed **per fixture**, not per gameweek, so a double
 gameweek sums naturally. — [phase-4-model.md](../phase-4-model.md)
 
+**Since v1.7.0 (2026-10-19), see [the Sprint 43 section](#v170-the-components-positioncalibration-was-hiding-sprint-43)
+below:** the count components are averaged over a start state and a cameo state rather than taken at mean
+minutes, defensive contribution uses a negative-binomial tail, assists are scaled by FPL assists per xA,
+keepers have their own 90-minute reconciliation budget, and `positionCalibration` is 1.0. The paragraph
+below describes the pre-v1.7.0 form.
+
 Discrete counts (defensive-contribution thresholds, saves, goals conceded) use **Poisson tail
 probabilities** (`P(X ≥ threshold)`, `E[floor(X/d)]`) rather than a `rate / divisor` ratio — a
 player averaging exactly the DC threshold does not clear it every match, they clear it about half
@@ -53,8 +59,11 @@ improved):
 | v1.1.0 | Cold-start shrinkage lowered the level ~0.084 pts/GW | 1.1077 / 1.2224 / 1.2116 / 1.1972 |
 | v1.4.0 | `dc90` eligible-minutes fix raised DEF/MID | 1.265 / 1.2241 / 1.2238 / 1.2576 |
 
-`positionCalibration` is fitted **in-sample** and must be refit once real 2026/27 results exist —
-recorded as a live blocker in [roadmap.md](../roadmap.md).
+| v1.7.0 | The factors were covering component errors, now fixed at source (Sprint 43) | 1 / 1 / 1 / 1 |
+
+~~`positionCalibration` is fitted **in-sample** and must be refit once real 2026/27 results exist.~~
+**Superseded 2026-10-19:** the factors were not a level to refit but a cover for three component
+errors; v1.7.0 fixes those and sets the factors to 1.0, gated walk-forward. See below.
 
 ## Out-of-sample validation (Sprint 17a)
 
@@ -374,6 +383,40 @@ scored on a subset says so ("GW5 (6 of 10 fixtures)") rather than being presente
 dropped, which would be the same bug with a smaller `n`. The trap it rests on, that no fixture
 status flag distinguishes "played" from "results are in", is in
 [data-pipeline.md](data-pipeline.md#a-played-gameweek-is-not-a-written-one).
+
+## v1.7.0: the components `positionCalibration` was hiding (Sprint 43)
+
+An external audit ([sources/ml-model-audit.md](../sources/ml-model-audit.md)) blamed bench "minutes
+leakage" for the −0.714/+0.627 appeared/no-show split. That split is mechanical, as the DSI-185 section
+above already said, so its proposed cohort gates were not adopted. Scoring **each component** against
+realised points (`lib/component-reconciliation.ts`, `scripts/component-residuals.ts`) showed what the
+×1.22–1.27 scalar was doing: inflating goals, bonus and saves, which were already right, to cover three
+that were wrong. On live 2026-27 GW2–6:
+- **defensive contribution ~3.5× low** (DEF 0.058 vs 0.210): a Poisson tail taken at *mean* minutes;
+- **assists low**: FPL credits more than xA, at DEF 1.27 / MID 1.34 / FWD 2.40, stable across seasons;
+- **keeper appearance high** (0.705 vs 0.559): keepers shared the 990-minute water-fill with the
+  outfield, so their expected minutes summed to 116.7 per club fixture against 88.2 played.
+
+Deployed 2026-10-19 as `generate-predictions` v23. On the first run, keeper minutes are 90 per
+club fixture (were 116.7) and squad consistency violations are 0 (were 9).
+
+Fixed at source:
+- start/cameo minute states (`minuteStates`; cameo 18.7 minutes);
+- a negative-binomial DC tail (r 20 DEF, 31 MID+FWD);
+- `assistsPerXa`;
+- a 90-minute keeper budget;
+- `positionCalibration` → 1.0.
+
+On the walk-forward harness, v1.7.0 beats v1.6.0 on MAE, r and |bias| in all four target seasons
+(2025-26: 2.547/0.153/−0.657 → 2.352/0.155/−0.229). A leave-one-season-out refit of the factors lost r
+in two seasons. A replay of archived production inputs agrees (GW2–6 MAE 1.348 → 1.281), with two
+small misses recorded. The model is still behind the last-5 baseline. Side finding for DSI-51: the
+minutes-scope current-season blend now clears 4/4 seasons. —
+[sprints/sprint-43.md](../sprints/sprint-43.md)
+
+P(appear) is stored as `appearance_probability`, so lineup bench odds read the model's figure
+rather than re-deriving `expectedMinutes / 72`
+([lineup-captain-bench.md](lineup-captain-bench.md)).
 
 See also: [cold-start-priors.md](cold-start-priors.md) (what happens for players with thin or no PL
 evidence), [methodology.md](methodology.md) (the "drop, renormalise, disclose" and "verify with a

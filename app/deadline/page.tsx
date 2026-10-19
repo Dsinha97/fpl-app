@@ -380,6 +380,7 @@ export default function DeadlinePage() {
           event: unknown;
           expected_minutes: unknown;
           start_probability: unknown;
+          appearance_probability: unknown;
           availability: unknown;
           fdr: unknown;
           xp: unknown;
@@ -389,6 +390,7 @@ export default function DeadlinePage() {
           pred: {
             expectedMinutes: r.expected_minutes as number | null,
             startProbability: r.start_probability as number | null,
+            appearanceProbability: r.appearance_probability as number | null,
             availability: (r.availability as number | null) ?? 0,
             fdr: r.fdr as number | null,
             xp: r.xp as number | null,
@@ -397,7 +399,7 @@ export default function DeadlinePage() {
 
         const { data: firstEventRows, error: firstEventError } = await supabase
           .from("player_predictions")
-          .select("player_id, event, expected_minutes, start_probability, availability, fdr, xp")
+          .select("player_id, event, expected_minutes, start_probability, appearance_probability, availability, fdr, xp")
           .eq("season", seasonCtx.season)
           .eq("event", seasonCtx.nextEvent);
         if (firstEventError) throw new Error(firstEventError.message);
@@ -429,6 +431,7 @@ export default function DeadlinePage() {
           byEvent.set(row.event, {
             expectedMinutes: row.expectedMinutes,
             startProbability: row.startProbability,
+            appearanceProbability: row.appearanceProbability,
             availability: row.availability,
             fdr: row.fdr,
             xp: row.xp,
@@ -708,6 +711,7 @@ export default function DeadlinePage() {
         },
         expectedMinutes: pred?.expectedMinutes ?? null,
         startProbability: pred?.startProbability ?? null,
+        appearanceProbability: pred?.appearanceProbability ?? null,
         availability: availabilityFromStatus(p.status, p.chance_of_playing_next_round),
         fdrRun: fdrRunsByTeam.get(p.team_id) ?? [],
       });

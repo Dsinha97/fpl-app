@@ -20,6 +20,12 @@ export interface LineupCandidate {
   expectedMinutes: number | null;
   /** Probability of starting, from player_predictions. */
   startProbability: number | null;
+  /**
+   * Probability of any minutes at all, the xP model's own figure
+   * (`player_predictions.appearance_probability`, v1.7.0+). Null for rows
+   * written before v1.7.0; `playProbability` then falls back to the old rule.
+   */
+  appearanceProbability: number | null;
   /** 0–1, from status / chance_of_playing. */
   availability: number;
   /** Official difficulty of the next fixture, 1 (easy) – 5 (hard). */
@@ -60,18 +66,24 @@ const FORMATION_LIMITS = {
 };
 
 /**
- * Minutes at which an appearance is effectively certain. Matches the xP
- * model's own `appearanceMinutes`, so "probability of featuring" means the
- * same thing on both sides of the system.
+ * Minutes at which an appearance is effectively certain — the xP model's
+ * `appearanceMinutes` rule up to v1.6.0, kept **only as the fallback** for a
+ * prediction row written before v1.7.0. Since v1.7.0 the model computes
+ * P(appear) from a start state plus a cameo state (`minuteStates` in
+ * supabase/functions/_shared/xp-model.ts) and stores it as
+ * `appearance_probability`; `playProbability` reads that. `expectedMinutes / 72`
+ * under-reads rotation players (a cameo is ~19 minutes, not 72), so it is not
+ * a second implementation to keep in step — it is what an old row gets.
  */
 const APPEARANCE_MINUTES = 72;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-/** Probability the player features at all. */
+/** Probability the player features at all — the model's own figure when the row carries one. */
 export function playProbability(c: LineupCandidate): number {
+  if (c.appearanceProbability !== null) return clamp(c.appearanceProbability, 0, 1);
   if (c.expectedMinutes === null) return c.availability;
-  return clamp(c.expectedMinutes / APPEARANCE_MINUTES, 0, 1) * 1;
+  return clamp(c.expectedMinutes / APPEARANCE_MINUTES, 0, 1);
 }
 
 /** P(X >= k) for X ~ Poisson(lambda). */

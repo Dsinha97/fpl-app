@@ -132,3 +132,30 @@ export function accuracyStats(residuals: Residual[]): {
   const r = sp > 0 && sa > 0 ? cov / (sp * sa) : NaN;
   return { n, bias, mae, rmse, r };
 }
+
+/** 1-based ranks of `xs`, ties sharing the average of the ranks they span. */
+export function averageRanks(xs: number[]): number[] {
+  const order = xs.map((v, i) => [v, i] as const).sort((a, b) => a[0] - b[0]);
+  const ranks = new Array<number>(xs.length);
+  for (let i = 0; i < order.length; ) {
+    let j = i;
+    while (j + 1 < order.length && order[j + 1][0] === order[i][0]) j++;
+    const rank = (i + j) / 2 + 1;
+    for (let k = i; k <= j; k++) ranks[order[k][1]] = rank;
+    i = j + 1;
+  }
+  return ranks;
+}
+
+/**
+ * Spearman rank correlation of predicted against actual — Pearson r on
+ * average ranks, so the heavy tie at zero points is handled rather than
+ * broken arbitrarily. Ranking is what most decisions in this app consume
+ * (who to captain, who to bring in), and Pearson r alone can be carried by a
+ * handful of hauls. `NaN` when either side has no spread.
+ */
+export function spearman(residuals: Residual[]): number {
+  const rp = averageRanks(residuals.map((x) => x.pred));
+  const ra = averageRanks(residuals.map((x) => x.actual));
+  return accuracyStats(rp.map((pred, i) => ({ pred, actual: ra[i] }))).r;
+}

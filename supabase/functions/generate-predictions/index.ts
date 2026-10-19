@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
       version: MODEL_VERSION,
       description:
         "Prior-season per-90 rates, recency weighted, with official-FDR fixture " +
-        "multipliers and Poisson threshold models for defensive contribution, saves, " +
+        "multipliers and count-threshold models for defensive contribution, saves, " +
         "and goals conceded. v1.1.0 adds an empirical-Bayes cold-start layer: rates " +
         "are shrunk toward a prior fitted from position and price by measured " +
         "variance components, so a thin record is used rather than discarded. v1.2.0 " +
@@ -123,7 +123,13 @@ Deno.serve(async (req) => {
         "starts) for players with >=1200 weighted prior minutes and >=3 games played " +
         "this season; gated per season on start Brier, minutes RMSE and calibration " +
         "against the player's own last-5 baseline and the shipped model " +
-        "(docs/sprints/dsi-185-minutes-model.md).",
+        "(docs/sprints/dsi-185-minutes-model.md). v1.7.0 averages the nonlinear " +
+        "components (defensive-contribution tail, saves and goals-conceded floors) over a " +
+        "start state and a cameo state instead of evaluating them at mean minutes, uses a " +
+        "negative-binomial defensive-contribution tail, scales assists by FPL assists per " +
+        "xA, gives goalkeepers their own 90-minute reconciliation budget, and drops " +
+        "positionCalibration to 1.0; gated on the walk-forward harness in four seasons and " +
+        "an archive replay (docs/sprints/sprint-43.md).",
       params: MODEL_PARAMS,
     }, { onConflict: "version" });
     if (modelError) throw new Error(`prediction_models: ${modelError.message}`);
@@ -473,7 +479,7 @@ Deno.serve(async (req) => {
       reconciliationByClub.set(teamId, reconciliation);
       squadConsistencyViolations += reconciliation.consistencyViolations;
 
-      const status = `${reconciliation.goalkeeperFit.status}/${reconciliation.outfieldFit.status}/${reconciliation.minutesFit.status}`;
+      const status = `${reconciliation.goalkeeperFit.status}/${reconciliation.outfieldFit.status}/${reconciliation.minutesFit.status}/${reconciliation.goalkeeperMinutesFit.status}`;
       for (const d of clubDerived) {
         scaleByPlayerId.set(d.player.id, reconciliation.scales.get(d.player.id)!);
         squadStatusByPlayerId.set(d.player.id, status);
@@ -523,6 +529,9 @@ Deno.serve(async (req) => {
 
           expected_minutes: round(pred.expectedMinutes, 1),
           start_probability: round(pred.startProbability, 3),
+          // v1.7.0: the model's own P(appear), so lib/lineup.ts's bench odds
+          // read it rather than re-deriving expected_minutes / 72.
+          appearance_probability: round(pred.appearanceProbability, 3),
           p60: round(pred.p60, 3),
           availability: round(pred.availability, 2),
           attack_multiplier: round(pred.attackMultiplier, 3),
@@ -575,7 +584,7 @@ Deno.serve(async (req) => {
 
     const squadStatusCounts = new Map<string, number>();
     for (const reconciliation of reconciliationByClub.values()) {
-      for (const s of [reconciliation.goalkeeperFit.status, reconciliation.outfieldFit.status, reconciliation.minutesFit.status]) {
+      for (const s of [reconciliation.goalkeeperFit.status, reconciliation.outfieldFit.status, reconciliation.minutesFit.status, reconciliation.goalkeeperMinutesFit.status]) {
         squadStatusCounts.set(s, (squadStatusCounts.get(s) ?? 0) + 1);
       }
     }

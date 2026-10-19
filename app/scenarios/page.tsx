@@ -182,7 +182,7 @@ export default function ScenariosPage() {
               .limit(1000),
             supabase
               .from("player_predictions")
-              .select("player_id, expected_minutes, start_probability")
+              .select("player_id, expected_minutes, start_probability, appearance_probability")
               .eq("season", gw.season)
               .eq("event", gw.id)
               .limit(1000),
@@ -244,7 +244,7 @@ export default function ScenariosPage() {
         const predById = new Map(
           (predsRes.data ?? []).map((r) => [
             r.player_id as number,
-            r as { expected_minutes: number | null; start_probability: number | null },
+            r as { expected_minutes: number | null; start_probability: number | null; appearance_probability: number | null },
           ]),
         );
 
@@ -273,6 +273,7 @@ export default function ScenariosPage() {
             },
             expectedMinutes: pred?.expected_minutes ?? null,
             startProbability: pred?.start_probability ?? null,
+            appearanceProbability: pred?.appearance_probability ?? null,
             availability,
             fdrRun: fdrRuns.get(p.team_id) ?? [],
           });
@@ -337,6 +338,7 @@ export default function ScenariosPage() {
       return {
         expectedMinutes: s.expectedMinutes,
         startProbability: s.startProbability,
+        appearanceProbability: s.appearanceProbability,
         availability: s.availability,
         fdr: s.fdrRun[0] ?? null,
         xp: s.xp[1],
@@ -398,6 +400,7 @@ export default function ScenariosPage() {
               xp: s.xp[1],
               expectedMinutes: s.expectedMinutes,
               startProbability: s.startProbability,
+              appearanceProbability: s.appearanceProbability,
               availability: s.availability,
               fdr: s.fdrRun[0] ?? null,
               opponent: null,

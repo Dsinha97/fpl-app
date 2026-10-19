@@ -1,4 +1,4 @@
-// Expected points model, v1.6.0.
+// Expected points model, v1.7.0.
 //
 // v1.1.0 added the cold-start prior layer at the bottom of this file: rates are
 // shrunk toward a fitted position/price prior instead of the player being
@@ -61,12 +61,27 @@
 // See docs/sprints/championship-priors.md for the three-check gate re-run,
 // the lambda fit, and its disclosed survivor-bias direction.
 
+// v1.7.0 (Sprint 43) fixes three components at source and drops the
+// positionCalibration scalar that had been covering for them, after scoring
+// each component separately against realised points
+// (lib/component-reconciliation.ts, scripts/component-residuals.ts):
+//   * `predict()` averages its nonlinear components (the defensive-
+//     contribution tail, saves and goals-conceded floors) over a start state
+//     and a cameo state (`minuteStates`) instead of evaluating them once at
+//     mean minutes; P(appear) comes from the same states.
+//   * Defensive contribution uses a negative-binomial tail (`dcDispersion`).
+//   * Assists are scaled by FPL assists per xA (`assistsPerXa`).
+//   * Squad reconciliation gives goalkeepers their own 90-minute budget.
+//   * positionCalibration is 1.0 — see its comment.
+// Gated on scripts/backtest-walkforward.ts in all four target seasons and on
+// an archive replay; see docs/sprints/sprint-43.md.
+
 // Everything is derived from prior-season per-90 rates. That is the honest
 // limit of a pre-season model: it cannot know about a new signing's role or a
 // tactical change. Once player_gameweek_stats fills up, current-season form
 // should be blended in and these rates reweighted.
 
-export const MODEL_VERSION = "v1.6.0";
+export const MODEL_VERSION = "v1.7.0";
 
 export const MODEL_PARAMS = {
   // Recency weights applied to prior seasons, most recent first.
@@ -112,11 +127,24 @@ export const MODEL_PARAMS = {
   // for digit) to 0.8319 after the dc90 fix alone, with per-position r
   // essentially unchanged by the refit itself, since a level correction by
   // construction does not touch ranking.
+  //
+  // v1.7.0: 1.0 everywhere, i.e. no level correction. Scored per component
+  // (lib/component-reconciliation.ts), the v1.4.0 factors were inflating
+  // components that were already right — goals, bonus, saves — by ~25% to
+  // cover three that were not: defensive contribution (evaluated at mean
+  // minutes, ~3.5x low), assists (FPL credits more than xA) and appearance.
+  // Those are now fixed at source (`minuteStates`, `dcDispersion`,
+  // `assistsPerXa`), and on the walk-forward harness 1.0 beats the old
+  // factors on MAE, r and |bias| in all four target seasons. A
+  // leave-one-season-out refit was the other candidate and lost r in
+  // 2024-25 and 2025-26; it was also fitted on a cohort with no availability
+  // flags, so it would have absorbed an error production does not have.
+  // See docs/sprints/sprint-43.md.
   positionCalibration: {
-    GKP: 1.265,
-    DEF: 1.2241,
-    MID: 1.2238,
-    FWD: 1.2576,
+    GKP: 1,
+    DEF: 1,
+    MID: 1,
+    FWD: 1,
   } as Record<string, number>,
 
   // Fixture sensitivity per FDR step away from average (FDR 3).
@@ -135,6 +163,38 @@ export const MODEL_PARAMS = {
   concededPerPenalty: 2,
   // Defensive-contribution thresholds by position id.
   dcThreshold: { 1: 0, 2: 10, 3: 12, 4: 12 } as Record<number, number>,
+
+  // ---- minutes-conditioned components (v1.7.0) ----------------------------
+  //
+  // Mean minutes of a substitute appearance (starts = 0, minutes > 0). Used to
+  // split expected minutes into a start state and a cameo state, so the
+  // nonlinear components are averaged over the minutes a player actually gets
+  // rather than evaluated once at the mean (see `minuteStates`). Pooled over
+  // 2023-24..2025-26 by scripts/component-params-fit.ts; 2022-23 is excluded
+  // because its archived `starts` column is unreliable (cameos there read 55
+  // minutes). Re-run and re-paste rather than editing by hand.
+  cameoMinutes: 18.7,
+
+  // Negative-binomial size r for the defensive-contribution count, per
+  // position id (variance = mean + mean²/r). Fitted by
+  // scripts/component-params-fit.ts from within-player moments over 85+
+  // minute appearances, so variation between players does not inflate it.
+  // Midfielders and forwards are pooled because they share FPL's 12-action
+  // CBIRT rule and the forward sample alone is thin. null = Poisson (not
+  // Infinity, which `params` would store in prediction_models as a bare null).
+  // One season only (2025-26: 92 defenders / 105 MID+FWD, ~1,900 games each)
+  // — per-game DC is null in `player_gameweek_stats` before it; refit when
+  // 2026-27 completes. Variance/mean is 1.3-1.4, so this is a small effect
+  // beside the minute-state change.
+  dcDispersion: { 1: null, 2: 20, 3: 31, 4: 31 } as Record<number, number | null>,
+
+  // FPL assists per unit of xA, by position. FPL credits assists xA does not
+  // see (rebounds, deflected shots, a penalty won, an own goal forced), and
+  // the ratio is stable season to season, so it is fitted rather than left
+  // for `positionCalibration` to absorb into every component at once. Pooled
+  // over the seasons FPL has published xA for, by `fitAssistsPerXa`.
+  // Goalkeepers stay at 1: a handful of keeper assists makes any ratio noise.
+  assistsPerXa: { GKP: 1, DEF: 1.27, MID: 1.34, FWD: 2.4 } as Record<string, number>,
 
   maxCleanSheetProbability: 0.85,
 
@@ -193,6 +253,9 @@ export const MODEL_PARAMS = {
     yellow90: 0.844,
   } as Partial<Record<PriorMetric, number>>,
 } as const;
+
+/** `MODEL_PARAMS`'s shape. `predict` takes one so the walk-forward harness can pass parameters fitted on earlier seasons only, without touching the production constants. */
+export type ModelParams = typeof MODEL_PARAMS;
 
 /**
  * Price buckets for the prior lookup, in FPL tenths.
@@ -1121,17 +1184,19 @@ export const COLD_START_MODEL_NOTE =
   "position, price and role alone, since no other external-league data is in use. This does not raise " +
   "a covered player's confidence label: the shrinkage weight is unchanged, only which number sits at " +
   "the fully-prior end of it. Team attacking strength is omitted entirely because the API reports it " +
-  "as zero for all twenty clubs " +
-  "pre-season. Since v1.2.0, every club's squad is also reconciled so exactly eleven players and one " +
+  "as zero for all twenty clubs, in-season as much as pre-season. " +
+  "Since v1.2.0, every club's squad is also reconciled so exactly eleven players and one " +
   "goalkeeper start each fixture, so a player's number now depends on their team-mates too — where a " +
   "squad's raw numbers fall short of eleven (promoted clubs, mainly) or run past it (deep, expensive " +
   "squads), the shortfall or surplus is spread across the squad capped at each player's own chance of " +
-  "playing. This fixes how much a club plays, not how well — team strength is still zero for all " +
+  "playing. This fixes how much a club plays, not how well — team attack and defence strength is still zero for all " +
   "twenty clubs, so it is a role estimate, not a quality one — and it does not order players within a " +
   "position, so understudies can end up sharing a start rather than one being picked out as first " +
   "choice. Since v1.3.0 the correction is weighted by how much of each player's number is prior " +
   "rather than their own Premier League record, so an established starter moves far less than a " +
-  "fringe reserve on the same price band, rather than both moving by the same proportion.";
+  "fringe reserve on the same price band, rather than both moving by the same proportion. Since " +
+  "v1.7.0 goalkeepers' minutes are reconciled separately (90 per fixture), so a backup keeper no " +
+  "longer absorbs outfield minutes.";
 
 // ===========================================================================
 // Squad reconciliation (v1.2.0)
@@ -1301,7 +1366,16 @@ export interface SquadReconciliation {
   scales: Map<number, SquadScale>;
   goalkeeperFit: WaterFillResult;
   outfieldFit: WaterFillResult;
+  /** Outfield minutes: (xi − goalkeepers) × 90. */
   minutesFit: WaterFillResult;
+  /**
+   * Goalkeeper minutes: goalkeepers × 90. Its own budget since v1.7.0 — one
+   * shared 990 let a club's keepers absorb outfield minutes (measured on the
+   * 2026-27 archive, GW2-6: keepers' expected minutes summed to 116.7 per club
+   * fixture against 88.2 played, while their start probabilities summed to
+   * 0.99), which over-stated keeper appearance points. Mirrors the starts split.
+   */
+  goalkeeperMinutesFit: WaterFillResult;
   /**
    * Players whose scaled rates put `p60` above `pAny` (see `predict`) — the
    * two water-fills are solved independently and club-wide totals guarantee
@@ -1316,7 +1390,9 @@ export interface SquadReconciliation {
  * Reconcile one club's roster, for one fixture, onto the facts every club
  * satisfies: eleven players start, one of them the goalkeeper, and (a third
  * budget, necessary because minutes-per-start varies more than tenfold
- * across today's squads — see docs/roadmap.md) 990 total minutes.
+ * across today's squads — see docs/roadmap.md) 990 total minutes — since
+ * v1.7.0 split the same way as starts, 90 for the goalkeepers and 900 for
+ * the outfield (see `SquadReconciliation.goalkeeperMinutesFit`).
  *
  * Pure and per-club: takes a roster snapshot, returns a scale per player to
  * multiply into their `Rates` via `applySquadScale`. Never touches a
@@ -1373,16 +1449,22 @@ export function reconcileClubSquad(
   // points relative to the other — a smaller, disclosed cost than the
   // alternative's occasional large, unexplained swing.
   const bound = MODEL_PARAMS.appearanceMinutes * MODEL_PARAMS.startCompletion;
-  const minutesFit = solveWaterFill(
-    members.map((m) => m.minutesPerGame * m.availability),
-    members.map((m) => 90 * m.availability),
-    budgets.xi * 90,
-  );
-
-  members.forEach((m, i) => {
-    const p = m.minutesPerGame * m.availability;
-    scales.get(m.key)!.minutesScale = p > SQUAD_EPS ? minutesFit.q[i] / p : 1;
-  });
+  const solveMinutes = (group: SquadMember[], target: number) =>
+    solveWaterFill(
+      group.map((m) => m.minutesPerGame * m.availability),
+      group.map((m) => 90 * m.availability),
+      target,
+    );
+  const goalkeeperMinutesFit = solveMinutes(gks, budgets.goalkeepers * 90);
+  const minutesFit = solveMinutes(outfield, (budgets.xi - budgets.goalkeepers) * 90);
+  const applyMinutes = (group: SquadMember[], fit: WaterFillResult) => {
+    group.forEach((m, i) => {
+      const p = m.minutesPerGame * m.availability;
+      scales.get(m.key)!.minutesScale = p > SQUAD_EPS ? fit.q[i] / p : 1;
+    });
+  };
+  applyMinutes(gks, goalkeeperMinutesFit);
+  applyMinutes(outfield, minutesFit);
 
   let consistencyViolations = 0;
   for (const m of members) {
@@ -1392,7 +1474,7 @@ export function reconcileClubSquad(
     if (scaledMpg < bound * scaledStart - 1e-6) consistencyViolations++;
   }
 
-  return { scales, goalkeeperFit, outfieldFit, minutesFit, consistencyViolations };
+  return { scales, goalkeeperFit, outfieldFit, minutesFit, goalkeeperMinutesFit, consistencyViolations };
 }
 
 // ===========================================================================
@@ -1556,17 +1638,23 @@ export function reconcileClubSquadWeighted(
   applyStart(outfield, outfieldFit);
 
   const bound = MODEL_PARAMS.appearanceMinutes * MODEL_PARAMS.startCompletion;
-  const minutesFit = solveWeightedWaterFill(
-    members.map((m) => m.minutesPerGame * m.availability),
-    members.map((m) => 90 * m.availability),
-    members.map(weightOf),
-    budgets.xi * 90,
-  );
-
-  members.forEach((m, i) => {
-    const p = m.minutesPerGame * m.availability;
-    scales.get(m.key)!.minutesScale = p > SQUAD_EPS ? minutesFit.q[i] / p : 1;
-  });
+  const solveMinutes = (group: SquadMember[], target: number) =>
+    solveWeightedWaterFill(
+      group.map((m) => m.minutesPerGame * m.availability),
+      group.map((m) => 90 * m.availability),
+      group.map(weightOf),
+      target,
+    );
+  const goalkeeperMinutesFit = solveMinutes(gks, budgets.goalkeepers * 90);
+  const minutesFit = solveMinutes(outfield, (budgets.xi - budgets.goalkeepers) * 90);
+  const applyMinutes = (group: SquadMember[], fit: WaterFillResult) => {
+    group.forEach((m, i) => {
+      const p = m.minutesPerGame * m.availability;
+      scales.get(m.key)!.minutesScale = p > SQUAD_EPS ? fit.q[i] / p : 1;
+    });
+  };
+  applyMinutes(gks, goalkeeperMinutesFit);
+  applyMinutes(outfield, minutesFit);
 
   let consistencyViolations = 0;
   for (const m of members) {
@@ -1576,7 +1664,7 @@ export function reconcileClubSquadWeighted(
     if (scaledMpg < bound * scaledStart - 1e-6) consistencyViolations++;
   }
 
-  return { scales, goalkeeperFit, outfieldFit, minutesFit, consistencyViolations };
+  return { scales, goalkeeperFit, outfieldFit, minutesFit, goalkeeperMinutesFit, consistencyViolations };
 }
 
 /**
@@ -1604,6 +1692,128 @@ export function poissonAtLeast(lambda: number, k: number): number {
     cdf += term;
   }
   return clamp(1 - cdf, 0, 1);
+}
+
+/**
+ * P(X >= k) for X ~ NegativeBinomial with the given mean and size r, so
+ * Var(X) = mean + mean²/r. `r = Infinity` is the Poisson limit and returns
+ * `poissonAtLeast` exactly; a test checks the two agree as r grows.
+ */
+export function negBinAtLeast(mean: number, r: number, k: number): number {
+  if (k <= 0) return 1;
+  if (mean <= 0) return 0;
+  if (!Number.isFinite(r)) return poissonAtLeast(mean, k);
+
+  const q = mean / (r + mean);
+  let term = Math.pow(1 - q, r);
+  let cdf = term;
+  for (let x = 1; x < k; x++) {
+    term *= ((x - 1 + r) / x) * q;
+    cdf += term;
+  }
+  return clamp(1 - cdf, 0, 1);
+}
+
+/** One way a fixture can go for a player: with this probability, this many minutes. */
+export interface MinuteState {
+  probability: number;
+  minutes: number;
+}
+
+/**
+ * Splits a player's expected minutes into a start state and a substitute
+ * state (v1.7.0). Before this, every component was evaluated once at the
+ * mean — `dc90 × expectedMinutes / 90` — and for anything nonlinear that is
+ * wrong: a 50%-likely starter has half the *tail* of a full match, not the
+ * tail of half a match. Measured on the 2026-27 archive, GW2-6, that
+ * mean-field defensive contribution came in at 0.058 points per defender
+ * fixture against 0.210 scored.
+ *
+ * The states preserve expected minutes exactly, so the linear components
+ * (goals, assists, bonus, cards) keep the same expectation and only the
+ * nonlinear ones move:
+ *   - start: P = startProbability, minutes = the minutes model's fitted
+ *     minutes-if-start (`MINUTES_MODEL.minutesGivenStart`);
+ *   - cameo: whatever expected minutes remain, at `cameoMinutes` each, with
+ *     the probability capped at availability − P(start).
+ * If the start state alone claims more than the reconciled expected minutes
+ * (the squad water-fill scales starts and minutes separately), it is
+ * shortened rather than the total exceeded; if the cameo cap binds, the
+ * cameo is lengthened. Minutes are clamped at 90.
+ */
+export function minuteStates(
+  startProbability: number,
+  expectedMinutes: number,
+  availability: number,
+  isGoalkeeper: boolean,
+  params: ModelParams = MODEL_PARAMS,
+): MinuteState[] {
+  if (expectedMinutes <= 0) return [];
+  const pStart = clamp(startProbability, 0, 1);
+  const startMinutes = MINUTES_MODEL.minutesGivenStart[isGoalkeeper ? "goalkeeper" : "outfield"];
+
+  if (pStart * startMinutes >= expectedMinutes) {
+    return pStart > 0 ? [{ probability: pStart, minutes: Math.min(90, expectedMinutes / pStart) }] : [];
+  }
+  const residual = expectedMinutes - pStart * startMinutes;
+  const pSub = Math.min(residual / params.cameoMinutes, Math.max(0, availability - pStart));
+
+  const states: MinuteState[] = [];
+  if (pSub > 0) {
+    if (pStart > 0) states.push({ probability: pStart, minutes: startMinutes });
+    states.push({ probability: pSub, minutes: Math.min(90, residual / pSub) });
+  } else if (pStart > 0) {
+    states.push({ probability: pStart, minutes: Math.min(90, expectedMinutes / pStart) });
+  }
+  return states;
+}
+
+/** Expectation of `f(minuteShare)` over the minute states. */
+function overStates(states: MinuteState[], f: (minuteShare: number) => number): number {
+  return states.reduce((sum, st) => sum + st.probability * f(st.minutes / 90), 0);
+}
+
+/** Position id -> the short code `positionCalibration`/`assistsPerXa` are keyed by. */
+const POSITION_CODE_BY_ID: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
+
+/**
+ * First season FPL published `expected_assists`. Every earlier
+ * `player_season_history` row reads 0 for it with real assists alongside,
+ * which would inflate an assists/xA ratio without bound. Measured
+ * 2026-10-19: xA is 0.0 for every position in every season before 2022/23.
+ */
+export const XA_TRACKED_FROM = "2022/23";
+
+export interface AssistFitRow {
+  season_name: string;
+  positionId: number;
+  assists: number | null;
+  expected_assists: number | null;
+}
+
+/**
+ * FPL assists per unit of xA, per position, pooled (Σ assists / Σ xA) over
+ * seasons with xA tracked. The production `MODEL_PARAMS.assistsPerXa` is this
+ * over every completed season; the walk-forward harness calls it on seasons
+ * before each target only.
+ */
+export function fitAssistsPerXa(rows: AssistFitRow[]): Record<string, number> {
+  const sums = new Map<string, { a: number; xa: number }>();
+  for (const r of rows) {
+    if (r.season_name < XA_TRACKED_FROM) continue;
+    const code = POSITION_CODE_BY_ID[r.positionId];
+    if (!code) continue;
+    const sum = sums.get(code) ?? { a: 0, xa: 0 };
+    sum.a += r.assists ?? 0;
+    sum.xa += r.expected_assists ?? 0;
+    sums.set(code, sum);
+  }
+  const out: Record<string, number> = { GKP: 1 };
+  for (const code of ["DEF", "MID", "FWD"]) {
+    const sum = sums.get(code);
+    out[code] = sum && sum.xa > 0 ? sum.a / sum.xa : 1;
+  }
+  return out;
 }
 
 /**
@@ -1638,6 +1848,8 @@ export interface FixtureInput {
 export interface Prediction {
   expectedMinutes: number;
   startProbability: number;
+  /** P(any minutes at all): the start + cameo states. Stored as `appearance_probability`; lib/lineup.ts reads it for bench odds. */
+  appearanceProbability: number;
   p60: number;
   availability: number;
   attackMultiplier: number;
@@ -1668,8 +1880,9 @@ export function predict(
   rates: Rates,
   fixture: FixtureInput,
   scoring: ScoringRules,
+  params: ModelParams = MODEL_PARAMS,
 ): Prediction {
-  const P = MODEL_PARAMS;
+  const P = params;
   const pos = player.positionCode;
 
   // --- step 9 (folded in first): availability drives minutes -------------
@@ -1678,9 +1891,20 @@ export function predict(
   const minuteShare = expectedMinutes / 90;
 
   // --- step 1 & 2: minutes and appearance points -------------------------
+  // v1.7.0: P(appear) is the start state plus the cameo state from
+  // `minuteStates`, not `expectedMinutes / appearanceMinutes` — that rule read
+  // a 30% chance of appearing where 41% of such players appeared (2026-27
+  // archive, GW2-6), because a cameo is ~19 minutes, not 72.
   const startProbability = rates.startShare * availability;
-  const p60 = clamp(startProbability * P.startCompletion, 0, 1);
-  const pAny = clamp(expectedMinutes / P.appearanceMinutes, 0, 1);
+  const states = minuteStates(
+    startProbability,
+    expectedMinutes,
+    availability,
+    player.positionId === GOALKEEPER_POSITION_ID,
+    P,
+  );
+  const pAny = clamp(states.reduce((sum, st) => sum + st.probability, 0), 0, 1);
+  const p60 = clamp(startProbability * P.startCompletion, 0, pAny);
   const p1to59 = clamp(pAny - p60, 0, 1);
 
   const appearance = scoring.get("long_play", pos) * p60 +
@@ -1696,8 +1920,8 @@ export function predict(
   // --- step 3: attacking returns -----------------------------------------
   const goals = rates.xg90 * minuteShare * attackMultiplier *
     scoring.get("goals_scored", pos);
-  const assists = rates.xa90 * minuteShare * attackMultiplier *
-    scoring.get("assists", pos);
+  const assists = rates.xa90 * (P.assistsPerXa[pos] ?? 1) * minuteShare *
+    attackMultiplier * scoring.get("assists", pos);
 
   // --- step 4: clean sheet ------------------------------------------------
   // The player's own clean-sheet rate is a serviceable proxy for their team's,
@@ -1711,17 +1935,16 @@ export function predict(
 
   // --- step 6: goals conceded and saves -----------------------------------
   // A better fixture (higher defence multiplier) means fewer goals against.
-  const lambdaConceded = defenceMultiplier > 0
-    ? (rates.xgc90 * minuteShare) / defenceMultiplier
+  // Both are floor-divided counts, so they are averaged over the minute
+  // states rather than evaluated at the mean (see `minuteStates`).
+  const goalsConceded = defenceMultiplier > 0
+    ? scoring.get("goals_conceded", pos) * overStates(states, (share) =>
+      expectedFloorDiv((rates.xgc90 * share) / defenceMultiplier, P.concededPerPenalty))
     : 0;
-  const goalsConceded = scoring.get("goals_conceded", pos) *
-    expectedFloorDiv(lambdaConceded, P.concededPerPenalty);
-
-  const lambdaSaves = defenceMultiplier > 0
-    ? (rates.saves90 * minuteShare) / defenceMultiplier
+  const saves = defenceMultiplier > 0
+    ? scoring.get("saves", pos) * overStates(states, (share) =>
+      expectedFloorDiv((rates.saves90 * share) / defenceMultiplier, P.savesPerPoint))
     : 0;
-  const saves = scoring.get("saves", pos) *
-    expectedFloorDiv(lambdaSaves, P.savesPerPoint);
 
   // --- step 5: bonus and defensive contribution ---------------------------
   // Bonus tracks both attacking output and clean sheets, so it is scaled by
@@ -1730,11 +1953,15 @@ export function predict(
     ((attackMultiplier + defenceMultiplier) / 2);
 
   // Defensive actions per match are a count, so the probability of clearing
-  // the threshold is a Poisson tail rather than a ratio.
+  // the threshold is a tail probability rather than a ratio — negative
+  // binomial since v1.7.0 (the count is mildly over-dispersed), and averaged
+  // over the minute states, which is where nearly all of the old
+  // under-prediction was (see `minuteStates`).
   const threshold = P.dcThreshold[player.positionId] ?? 0;
   const dcPoints = scoring.get("defensive_contribution", pos);
+  const dcSize = P.dcDispersion[player.positionId] ?? Infinity; // null = Poisson
   const defensiveContribution = threshold > 0
-    ? poissonAtLeast(rates.dc90 * minuteShare, threshold) * dcPoints
+    ? overStates(states, (share) => negBinAtLeast(rates.dc90 * share, dcSize, threshold)) * dcPoints
     : 0;
 
   const cards = rates.yellow90 * minuteShare * scoring.get("yellow_cards", pos);
@@ -1757,6 +1984,7 @@ export function predict(
   return {
     expectedMinutes,
     startProbability,
+    appearanceProbability: pAny,
     p60,
     availability,
     attackMultiplier,

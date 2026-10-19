@@ -159,6 +159,7 @@ interface PredictionRow {
   player_id: number;
   expected_minutes: number | null;
   start_probability: number | null;
+  appearance_probability: number | null;
 }
 
 /** One row of `player_rate_profile` — see that migration for how it's derived. */
@@ -330,7 +331,7 @@ export default function BuilderPage() {
               .order("event"),
             supabase
               .from("player_predictions")
-              .select("player_id, expected_minutes, start_probability")
+              .select("player_id, expected_minutes, start_probability, appearance_probability")
               .eq("season", gw.season)
               .eq("event", gw.id)
               .limit(1000),
@@ -492,6 +493,7 @@ export default function BuilderPage() {
     xp: number;
     expectedMinutes: number | null;
     startProbability: number | null;
+    appearanceProbability: number | null;
     fdr: number | null;
     opponentTeam: number | null;
     wasHome: boolean | null;
@@ -530,7 +532,7 @@ export default function BuilderPage() {
       // this needs no .range() paging.
       const { data, error } = await supabase
         .from("player_predictions")
-        .select("player_id, event, xp, expected_minutes, start_probability, opponent_team, was_home, fdr")
+        .select("player_id, event, xp, expected_minutes, start_probability, appearance_probability, opponent_team, was_home, fdr")
         .eq("season", season)
         .in("player_id", squadIds)
         .gte("event", nextEvent);
@@ -546,6 +548,7 @@ export default function BuilderPage() {
           xp: Number(r.xp ?? 0),
           expectedMinutes: r.expected_minutes as number | null,
           startProbability: r.start_probability as number | null,
+          appearanceProbability: r.appearance_probability as number | null,
           fdr: r.fdr as number | null,
           opponentTeam: r.opponent_team as number | null,
           wasHome: r.was_home as boolean | null,
@@ -567,7 +570,8 @@ export default function BuilderPage() {
    * read from, so they cannot disagree about what a future gameweek looks
    * like. A double gameweek's xP and expected minutes sum (both are
    * genuinely earned twice); start probability takes the max (only one start
-   * is needed to justify picking the player); fdr is the mean of the two
+   * is needed to justify picking the player), and so does appearance
+   * probability, on the same convention; fdr is the mean of the two
    * fixtures; opponents join. A gameweek absent from this map is a blank —
    * deliberately not represented as a zero-valued entry, so the UI can tell
    * "no fixture" from "a fixture worth nothing" apart.
@@ -581,6 +585,7 @@ export default function BuilderPage() {
           xp: number;
           expectedMinutes: number | null;
           startProbability: number | null;
+          appearanceProbability: number | null;
           fdr: number | null;
           opponent: string | null;
           isHome: boolean | null;
@@ -594,6 +599,7 @@ export default function BuilderPage() {
           xp: number;
           expectedMinutes: number | null;
           startProbability: number | null;
+          appearanceProbability: number | null;
           fdr: number | null;
           opponent: string | null;
           isHome: boolean | null;
@@ -604,6 +610,7 @@ export default function BuilderPage() {
         let minutes = 0;
         let hasMinutes = false;
         let startProbability: number | null = null;
+        let appearanceProbability: number | null = null;
         let fdrSum = 0;
         let fdrCount = 0;
         const opponents: string[] = [];
@@ -617,6 +624,11 @@ export default function BuilderPage() {
             startProbability =
               startProbability === null ? r.startProbability : Math.max(startProbability, r.startProbability);
           }
+          if (r.appearanceProbability !== null) {
+            appearanceProbability = appearanceProbability === null
+              ? r.appearanceProbability
+              : Math.max(appearanceProbability, r.appearanceProbability);
+          }
           if (r.fdr !== null) {
             fdrSum += r.fdr;
             fdrCount++;
@@ -627,6 +639,7 @@ export default function BuilderPage() {
           xp,
           expectedMinutes: hasMinutes ? minutes : null,
           startProbability,
+          appearanceProbability,
           fdr: fdrCount > 0 ? fdrSum / fdrCount : null,
           opponent: opponents.length > 0 ? opponents.join(", ") : null,
           isHome: rows[0]?.wasHome ?? null,
@@ -660,6 +673,7 @@ export default function BuilderPage() {
       return {
         expectedMinutes: agg?.expectedMinutes ?? null,
         startProbability: agg?.startProbability ?? null,
+        appearanceProbability: agg?.appearanceProbability ?? null,
         availability: availabilityOf(id),
         fdr: agg?.fdr ?? null,
         xp: agg?.xp ?? null,
@@ -917,6 +931,7 @@ export default function BuilderPage() {
         priorWeight: r?.prior_weight ?? null,
         expectedMinutes: predictions.get(p.id)?.expected_minutes ?? null,
         startProbability: predictions.get(p.id)?.start_probability ?? null,
+        appearanceProbability: predictions.get(p.id)?.appearance_probability ?? null,
         availability: availabilityOf(p.id),
         fdrRun: (upcoming.get(p.team_id) ?? []).map((f) => f.fdr),
       });
@@ -1160,6 +1175,7 @@ export default function BuilderPage() {
           xp: agg?.xp ?? null,
           expectedMinutes: agg?.expectedMinutes ?? null,
           startProbability: agg?.startProbability ?? null,
+          appearanceProbability: agg?.appearanceProbability ?? null,
           availability: availabilityOf(row.id),
           fdr: agg?.fdr ?? null,
           opponent: agg?.opponent ?? null,
