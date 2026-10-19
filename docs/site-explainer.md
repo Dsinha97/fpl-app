@@ -6,11 +6,27 @@ living version of this is [docs/architecture.md](architecture.md)'s Routes table
 
 ## What the site is
 
-A personal Fantasy Premier League decision-support tool for one manager (FPL manager ID
-274486). It's not a general FPL app for many users — it's built around one real squad,
-imported from the owner's own FPL account, with a Postgres backend that runs an in-house
+A personal Fantasy Premier League decision-support tool, built around one manager (FPL
+manager ID 274486) and one real squad, with a Postgres backend that runs an in-house
 expected-points (xP) model over every player and every fixture. The pitch on the landing
 page: *"Transfers, captaincy, chips, and fixtures — decided with data, not vibes."*
+
+**Personal by design, not locked to one account.** The model data (xP, priors, fixtures) is
+public and the same for everyone, and any signed-in user can claim an FPL manager ID — a
+background cron (`sync-claimed-managers`) then keeps that manager's picks, history and
+transfers fresh, and drafts, shortlist and notifications are private per user (RLS
+`auth.uid() = user_id`). What is *not* general is the part that needs the user's FPL login:
+real purchase prices, selling prices, bank, free transfers and chip availability come from
+`/api/my-team/`, which FPL authenticates with a browser-only bearer token. Cookie handoff
+does not work, PingOne offers no password grant, and its one reachable flow starts with bot
+detection, so each user must fetch and paste their own `my-team` JSON — see
+[wiki/fpl-authentication.md](wiki/fpl-authentication.md). The rest of "personal" is scope,
+not capability: one Supabase project sized for one owner's usage, a single Telegram bot, a
+static export doing the heavy optimiser work in each visitor's browser, and a navigation
+model built around the owner's own three questions. The model is also only validated
+in-sample (out-of-sample it trails a naive last-5 baseline — see
+[ml-explainer.md](ml-explainer.md)), which is a reason to keep this a decision-support tool
+for an informed owner rather than advice for a wide audience.
 
 Signed-out visitors see a marketing splash (`/`) with two calls to action — import your
 squad, or browse players. Signed-in visitors skip the splash entirely and land on
