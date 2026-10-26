@@ -171,7 +171,13 @@ players with ≥1,200 weighted prior minutes; GW2–8, n = 1,646 rows.
 
 ## 5. Not done
 
-- The Sprint 43 v1.7.0 first-run checks in [sprint-43.md](sprint-43.md) were not re-run here.
+- **The Sprint 43 deploy-time checks ([sprint-43.md](sprint-43.md) "Deployed") were only partly re-run.** The
+  outcome side was covered above (§1–3). The integrity table was re-run on the 2026-10-26 `player_predictions`
+  run (20,070 rows, 669 players, events 9–38, all `v1.7.0`): keeper minutes 89.9–90.1 per club fixture (600
+  club-fixtures), outfield 899.9–900.5, start sums 0.999–1.001 and 9.997–10.003, and on the GW8 archive
+  `appearance_probability` is non-null, within 0–1 and never below start probability (668 rows). Outfield minutes
+  and starts sit 0.2 and 0.003 outside the band recorded on 2026-10-19; read as rounding, not re-examined.
+  `squad_consistency_violations` and the `prediction_models.params` match were not re-checked.
 - `component-residuals.ts` reports components pooled by position, not split by played / no-show cohort, so §3
   cannot attribute the cohort bias to components directly.
 - **DSI-219 was not closed.** Its verification is one live row that is not yet clearly good or bad.

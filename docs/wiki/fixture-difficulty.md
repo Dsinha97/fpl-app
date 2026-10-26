@@ -115,6 +115,18 @@ terms is the natural next step, deliberately not bundled into the change that fi
 the signal exists.
 — [sprint-35.md](../sprints/sprint-35.md)
 
+### A preview of the gate at GW8 (2026-10-26): official is ahead, and derived no longer beats neutral
+
+Not the DSI-52 gate, which stays at the GW10 batch and is not narrowed. A throwaway copy of the harness,
+restricted to 2026-27 with a third arm feeding `predict()` the official FDR from `fixtures`, scored GW2–8 on the
+235-player cohort (n=1,646, `priorGames=4`): neutral MAE 2.324 / r 0.231, **official 2.310 / 0.245**, derived
+2.321 / 0.226. Official beats derived on both at all three `priorGames` settings, including GW5–8 only, and
+derived no longer clears the derived-vs-neutral check on this season (Sprint 35's clearing used four earlier
+seasons and early 2026-27). Caveats: the official values in `fixtures` are today's, not deadline-time, so they may
+carry a small look-ahead edge; the effect is about 0.6% of MAE with no standard errors; one season, seven
+gameweeks. The same note checked whether FDR explained the GW8 bias and found it did not: v1.7.0 did not touch
+FDR, and the bias moved at every FDR level. — [sprints/gw8-check-in.md](../sprints/gw8-check-in.md) §4
+
 ## The distinction worth keeping
 
 Generation 2 is **display-only forever** (no history to backtest against, ever). Generation 3 is

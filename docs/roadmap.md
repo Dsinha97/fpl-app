@@ -74,7 +74,10 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 42 | Mobile redesign — Deadline, Transfers, Fixtures, Builder | **Built and shipped** 2026-10-08 (DSI-215, PR #44) — Sprint 41's primitives on the four routes it left: a HeroStat per page (deadline countdown, transfer Net xP, next GW, squad projection), the builder's stat grids as `StatStrip`s, card frames dropped below `sm`, squad/settings/FDR pickers and the transfer replacement picker as bottom sheets; `FilterDisclosure` is a bottom sheet on phones (so `/players` and the builder get it); profile `StatCell`s are hairline-divided rather than nested tiles, 11px floor. Fixed a ~4,800px-wide `/transfers` once a move was queued (result aside missing `min-w-0`) | [sprints/sprint-42.md](sprints/sprint-42.md) |
 | 43 | xP component fixes (v1.7.0) — what `positionCalibration` was hiding | **Built and deployed** 2026-10-19 (DSI-219, PR #59, `generate-predictions` v23), from an external model audit whose headline (bench minutes leakage) did not hold but whose instinct (the scalar hides errors) did. Scored per component: defensive contribution was ~3.5× low (a Poisson tail taken at *mean* minutes), assists low (FPL credits more than xA), keeper appearance high (keepers shared outfield minutes in the 990 water-fill), while goals/bonus/saves were already right and the ×1.22–1.27 scalar inflated them. Fixed at source — start/cameo minute states, NB DC tail, assists/xA, a 90-minute keeper budget — and `positionCalibration` dropped to 1.0. Walk-forward: MAE, r and |bias| all better than v1.6.0 in 4/4 seasons; an archive replay agrees on the production population, with two small misses recorded. Still well behind last-5; DSI-186 stays blocked. Side finding for DSI-51: the minutes-scope blend now clears 4/4 | [sprints/sprint-43.md](sprints/sprint-43.md) |
 
-Non-sprint work items, also in `sprints/`: [gw6-check-in.md](sprints/gw6-check-in.md)
+Non-sprint work items, also in `sprints/`: [gw8-check-in.md](sprints/gw8-check-in.md)
+(the first live v1.7.0 read, 2026-10-26, with the last-5 comparison on archived xP and a derived-vs-official
+FDR preview), [gw7-check-in.md](sprints/gw7-check-in.md) (the GW7 read, 2026-10-20, the first on v1.6.0),
+[gw6-check-in.md](sprints/gw6-check-in.md)
 (the GW6 read, 2026-10-13: DSI-50 closed, first last-5 baseline on 2026-27) and
 [dsi-185-minutes-model.md](sprints/dsi-185-minutes-model.md) (the expected-minutes model, shipped as
 v1.6.0 the same day, with its amended gate and one recorded miss), [gw5-check-in.md](sprints/gw5-check-in.md)
@@ -88,7 +91,15 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
-**Sprint 43 built and deployed 2026-10-19** (DSI-219, `generate-predictions` v23), see [sprints/sprint-43.md](sprints/sprint-43.md): xP model **v1.7.0** fixes defensive contribution, assists and keeper minutes at source and drops `positionCalibration` to 1.0, gated on the walk-forward harness (4/4 seasons) and an archive replay. Next: read the first v1.7.0 archive (GW8) with `scripts/component-residuals.ts`, then run the GW10 batch (DSI-51, DSI-52) on v1.7.0. Bench odds now read the model's stored P(appear), `appearance_probability`, the same PR.
+**GW8 read 2026-10-26** (the first archived v1.7.0 snapshot), see [sprints/gw8-check-in.md](sprints/gw8-check-in.md).
+Bias flipped to +0.084 (GW7 on v1.6.0: −0.132; MAE 1.280, r 0.485), and the cause is not a fault: about 71% of
+the swing is the mean level falling now that `positionCalibration` is gone, the rest a clean-sheet-heavy,
+low-scoring week; a replay of GW8's own inputs gives +0.041. On identical rows the archived xP is level with a
+last-5 mean when zeros count and ahead when only played games do. A preview (not the DSI-52 gate, which is
+unchanged) found official FDR ahead of the results-derived rating on 2026-27 and derived no longer beating
+neutral. DSI-219 stays In Progress; the GW10 batch is next, ~2026-11-09.
+
+**Sprint 43 built and deployed 2026-10-19** (DSI-219, `generate-predictions` v23), see [sprints/sprint-43.md](sprints/sprint-43.md): xP model **v1.7.0** fixes defensive contribution, assists and keeper minutes at source and drops `positionCalibration` to 1.0, gated on the walk-forward harness (4/4 seasons) and an archive replay. Next: run the GW10 batch (DSI-51, DSI-52) on v1.7.0. Bench odds now read the model's stored P(appear), `appearance_probability`, the same PR.
 
 **GW6 read and DSI-185 shipped 2026-10-13.** See [sprints/gw6-check-in.md](sprints/gw6-check-in.md) and
 [sprints/dsi-185-minutes-model.md](sprints/dsi-185-minutes-model.md). The fifth scoreboard read closed

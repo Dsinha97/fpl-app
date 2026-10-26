@@ -101,6 +101,7 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | GW5 check-in — **run 2026-09-20, issue left In Progress** for a re-read once GW5's bonus confirms | DSI-50 | M6 | [sprints/gw5-check-in.md](sprints/gw5-check-in.md) |
 | Accuracy scoreboard counted a half-synced gameweek's zeros as real blanks | — (found in flight, PR [#30](https://github.com/Dsinha97/fpl-app/pull/30)) | M6 | [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §1 |
 | GW6 check-in — fifth scoreboard read, first last-5 baseline on 2026-27 (n=234, baseline ahead); **DSI-50 closed 2026-10-13**, DSI-185 promoted to Todo/High | DSI-50, DSI-185 | M6 | [sprints/gw6-check-in.md](sprints/gw6-check-in.md) |
+| GW8 check-in — first live v1.7.0 read, last-5 comparison on archived xP, derived-vs-official FDR preview (DSI-52 gate unchanged, DSI-219 left In Progress) | DSI-219, DSI-52, DSI-186 | M7 | [sprints/gw8-check-in.md](sprints/gw8-check-in.md) |
 | `/deadline` transfer cards → one CTA; `/team` ledger full-width; countdowns drop seconds above 24h | — (owner request, same PR) | M6 | [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §4 |
 | 17 part 1 Historical decision analytics | DSI-66 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §1 |
 | Rivals from a league's standings | DSI-61 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §2 |
