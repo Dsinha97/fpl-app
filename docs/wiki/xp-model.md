@@ -367,8 +367,10 @@ players; it reads this season's games from gameweeks *before* the one being pred
 whose results have landed (an unwritten fixture reads as 22 no-shows). Availability and the squad
 reconciliation still apply afterwards. The first post-deploy run succeeded: every club's outfield start
 probabilities sum to 10.00 and goalkeepers to 1.00, reconciliation `ok` 60/60, consistency violations 13 → 9.
-**Open:** re-read the live scoreboard after GW7 and at the GW10 batch; DSI-186 (accuracy claims) stays blocked
-on that. The population is the validated one only — cold-start and promoted-club players are not covered.
+**Open:** the GW7 and GW8 re-reads are done ([sprints/gw7-check-in.md](../sprints/gw7-check-in.md),
+[sprints/gw8-check-in.md](../sprints/gw8-check-in.md); GW8 is the first v1.7.0 row, see
+[below](#the-first-live-v170-read-gw8-2026-10-26)); the GW10 batch remains, and DSI-186 (accuracy claims) stays
+blocked on it. The population is the validated one only — cold-start and promoted-club players are not covered.
 
 ### The coverage gate the check-in had to build first
 
@@ -417,6 +419,20 @@ minutes-scope current-season blend now clears 4/4 seasons. —
 P(appear) is stored as `appearance_probability`, so lineup bench odds read the model's figure
 rather than re-deriving `expectedMinutes / 72`
 ([lineup-captain-bench.md](lineup-captain-bench.md)).
+
+### The first live v1.7.0 read (GW8, 2026-10-26)
+
+GW8 is the first archived v1.7.0 snapshot (n=668: bias +0.084, MAE 1.280, r 0.485, against GW7 on v1.6.0 at
+−0.132, 1.259, 0.518 on locked data). The sign flipped from over- to under-prediction, and the cause is not a
+fault. About 71% of the +0.216 swing is the model's mean level falling (1.458 → 1.305) now that
+`positionCalibration` no longer inflates it; the rest is a clean-sheet-heavy, low-scoring week (8 of 20 sides
+kept one, 1.90 goals a fixture, both the extremes of GW2–8), which put clean sheets +0.116 above prediction and
+goals and assists −0.098 below. Replaying v1.7.0's rules on GW8's own archived inputs gives +0.041, so the
+shipped output matches `predict()`. The replay level is +0.04 to +0.10 on every scored gameweek, a small
+standing offset that one week cannot tell from noise. On identical rows the archived xP against a last-5 mean is
+a dead heat when zeros count and ahead on MAE and r when only played games count; neither is an accuracy claim.
+The deploy-time integrity checks (keeper minutes 90 per club fixture, start sums 1 and 10, `v1.7.0` on every
+row) also hold on the 2026-10-26 run. — [sprints/gw8-check-in.md](../sprints/gw8-check-in.md)
 
 See also: [cold-start-priors.md](cold-start-priors.md) (what happens for players with thin or no PL
 evidence), [methodology.md](methodology.md) (the "drop, renormalise, disclose" and "verify with a
