@@ -125,10 +125,54 @@ and because GW8 was a clean-sheet-heavy, low-scoring week. What this note cannot
 +0.10 is a real residual offset or noise around zero; that needs the GW10 batch's sample, and a refit on the
 strength of one week would be the mistake the GW5 check-in warned about.
 
-## 4. Not done
+## 4. Was it FDR? A preview of derived vs official (not the DSI-52 gate)
+
+**The bias is not an FDR change.** v1.7.0 did not touch FDR; production still reads FPL's official
+`team_h_difficulty` / `team_a_difficulty`. FDR is relative (it moves points between easy and hard fixtures),
+so it cannot produce or correct a league-wide low-scoring week. Bias (realised − predicted) by the archived
+`fdr`, GW2–7 against GW8:
+
+| FDR | GW2–7 | GW8 (n) |
+|---|---|---|
+| 2 | −0.023 | −0.127 (158) |
+| 3 | −0.045 | +0.111 (343) |
+| 4 | −0.239 | +0.355 (142) |
+| 5 | −0.210 | −0.482 (25) |
+
+FDR 4 moved most (+0.59), which fits "tough fixtures went better than rated", but it is 142 rows in one
+week and FDR 5 moved the other way. Read as noise. Whether FPL revised its official FDR between GW7 and GW8
+was not checked.
+
+**Preview run, 2026-10-26.** A throwaway copy of `scripts/backtest-walkforward.ts` (not committed) restricted
+to 2026-27 with a third arm: `predict()` fed the official FDR for the player's side of the fixture, joined
+from `fixtures` by fixture id, on the same rows as the neutral (`fdr=3`) and derived arms. Cohort: 235
+players with ≥1,200 weighted prior minutes; GW2–8, n = 1,646 rows.
+
+| `priorGames=4` | n | bias | MAE | r |
+|---|---|---|---|---|
+| neutral (fdr=3) | 1,646 | −0.274 | 2.324 | 0.231 |
+| **official** | 1,646 | −0.260 | **2.310** | **0.245** |
+| derived | 1,646 | −0.266 | 2.321 | 0.226 |
+
+- **Official beats derived on MAE and r.** `priorGames` 2 and 8 order them the same way; restricting to GW5–8
+  (derived has four prior games) does not change it (official 2.295 / 0.203, derived 2.306 / 0.182).
+- **Derived no longer beats neutral on 2026-27.** r 0.226 against 0.231, and the harness's own derived-vs-neutral
+  check reads "does not clear" at all three settings. Sprint 35's clearing was on four earlier seasons and
+  early 2026-27, so this is a new data point rather than a contradiction.
+- **By gameweek (`priorGames=4`) official is ahead in most weeks and derived is close in GW4–6.** GW8:
+  official MAE 2.301, r 0.182; derived 2.342, 0.121.
+- **Caveats.** The official values in `fixtures` are today's, not the deadline-time values, so official may carry
+  a small look-ahead edge if FPL revised them. Official's gain over neutral is about 0.6% of MAE with no
+  standard errors. The harness cohort uses neutral-FDR rates without prior-shrinkage or squad reconciliation.
+  One season, seven gameweeks.
+- **Status.** This is not the DSI-52 gate; that stays at the GW10 batch (~2026-11-09) and its gate is not
+  narrowed by this. A more reactive setting (`priorGames=2`) did not do better. Nothing is wired into
+  `fdrRun`.
+
+## 5. Not done
 
 - The Sprint 43 v1.7.0 first-run checks in [sprint-43.md](sprint-43.md) were not re-run here.
-- `component-residuals.ts` reports components pooled by position, not split by played / no-show cohort, so §4
+- `component-residuals.ts` reports components pooled by position, not split by played / no-show cohort, so §3
   cannot attribute the cohort bias to components directly.
 - **DSI-219 was not closed.** Its verification is one live row that is not yet clearly good or bad.
 - DSI-51/52/54, `positionCalibration` and the GW10 batch are untouched; the GW10 batch stays at ~2026-11-09.
