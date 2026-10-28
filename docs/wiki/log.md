@@ -2,6 +2,8 @@
 
 One line per entry, most recent first.
 
+- 2026-10-28 — Audited against the updated second-brain skill. **`AGENTS.md`**: added the v2 stamp, a pointer to load the skill, the Answer footer rule, a "Deliberate differences" section (inline attribution instead of `## Sources`, no frontmatter/manifest yet, evidence levels, short log lines) and the lint step in TIDY. Cleared `.pending-ingest` (its entries were covered by the 10-26 ingest).
+
 - 2026-10-26 — GW7 and GW8 check-ins ingested ([gw7-check-in.md](../sprints/gw7-check-in.md), [gw8-check-in.md](../sprints/gw8-check-in.md)). **`xp-model.md`**: new "first live v1.7.0 read" subsection (bias flip = removed calibration plus a clean-sheet-heavy week, replay agrees, last-5 comparison), and the stale "re-read after GW7" open line updated. **`fixture-difficulty.md`**: GW8 preview subsection — official FDR ahead of results-derived, derived no longer beats neutral on 2026-27, DSI-52 gate unchanged. **`roadmap.md`**, **`README.md`**, **`linear.md`** (not wiki): the two check-ins linked and "Next up" updated.
 
 - 2026-10-19 — v1.7.0 deployed (`generate-predictions` v23). **`xp-model.md`**: deploy line with the first run's keeper-minutes and consistency figures. **`timeline.md`**: unchanged, the 10-19 row already covers the change.

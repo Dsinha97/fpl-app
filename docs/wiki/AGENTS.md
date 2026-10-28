@@ -1,5 +1,11 @@
 # Operating instructions for docs/wiki/
 
+Second-brain conventions: v2
+
+For any wiki job (ingest, answer, tidy, audit), load the `anthropic-skills:second-brain` skill. This
+file's rules win wherever they differ from it: the layout below (`docs/wiki/` for pages, `docs/sources/`
+and `docs/sprints/` for the source layer, `moc/` for maps) is deliberate.
+
 This file governs how any agent (Claude or otherwise) should maintain `docs/wiki/` — the topic-
 organised knowledge base sitting alongside `docs/`'s chronological sprint history. It does not
 override root `AGENTS.md`/`CLAUDE.md`; it's scoped to this folder only.
@@ -24,6 +30,18 @@ CLAUDE.md/AGENTS.md. Empty until the first RETRO pass has something to add. -->
   reconciliation note to the source banner (never its body). Report a punch list only when TIDY was
   what was asked for.
 
+## Deliberate differences from the second-brain defaults
+
+- **No `## Sources` section per page.** Claims are attributed inline with a relative link to the sprint
+  file or spec they came from; that is the attribution rule here, so a missing `## Sources` heading
+  is not a bug in this wiki.
+- **No frontmatter or `.manifest.json` yet.** Pages open with a one-line summary and an `Up:` line;
+  change detection runs from `.pending-ingest` and `log.md`. Add `aliases` (e.g. `xP`, `RLS`, `DC`)
+  to a page when it is next touched, if the alias search would otherwise miss it.
+- **Evidence level.** When a source is generated (e.g. `ml-model-audit.md`) or second-hand, say so on
+  the page that rests on it.
+- **Log entries stay short**: date, what changed, which pages. Narrative goes in the commit message.
+
 ## The jobs
 
 ### INGEST
@@ -32,7 +50,7 @@ When new material lands in `docs/sources/` (a new source spec) or an existing `d
 (a sprint file updated, `roadmap.md`'s status table changed, a new sprint file added):
 
 1. Read what changed.
-2. Find the existing wiki page(s) it belongs to. **Never create a near-duplicate page** — if a topic
+2. Find the existing wiki page(s) it belongs to. **Never create a near-duplicate page** — search titles and acronyms first; if a topic
    already has a page, update that page. Only create a new page for a genuinely new topic with no
    existing home.
 3. Update the page: synthesis in your own words, one-line summary intact at the top, claims
@@ -52,14 +70,23 @@ note-only: add a dated reconciliation note to its banner, leave the body untouch
 ### ANSWER
 
 When asked a question, **answer from the wiki first** and name which page(s) the answer came from
-(e.g. "— see `cold-start-priors.md`"). If the wiki doesn't cover it, say so plainly rather than
+(e.g. "— see `cold-start-priors.md`"), and end every answer that used wiki pages with these two lines:
+
+```
+Pages used: <wiki pages opened, as links>
+Linked but not opened: <pages those pages link to that were not opened, or none>
+```
+
+Do not judge which skipped pages matter; the owner decides. If the wiki doesn't cover it, say so plainly rather than
 improvising from general knowledge or guessing at the codebase. It's fine to then go read the
 underlying sprint files or code directly — just say that's what you're doing, since it means the
 wiki has a gap worth filling on the next ingest.
 
 ### TIDY (lint)
 
-When asked to "tidy the wiki," produce a **punch list only** — never auto-fix:
+When asked to "tidy the wiki," produce a **punch list only** — never auto-fix. Start with the
+skill's mechanical check (`check_vault.py <docs> lint`: dead links, orphans, duplicate titles; ignore
+its frontmatter and `## Sources` findings, see above), then read for the rest:
 
 - Pages that contradict each other, or contradict `roadmap.md`'s current status table.
 - Claims that look out of date (a "blocked" item `roadmap.md` now shows as built, a version number
