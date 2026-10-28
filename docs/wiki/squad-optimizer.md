@@ -1,3 +1,19 @@
+---
+title: "Squad optimizer"
+type: concept
+tags: [engines-and-model]
+aliases: [squad builder, builder]
+sources:
+  - sprints/sprint-09.md
+related:
+  - moc/engines-and-model.md
+  - cold-start-priors.md
+  - risk-scoring.md
+  - lineup-captain-bench.md
+  - transfer-engine.md
+  - chip-strategy.md
+updated: 2026-10-18
+---
 # Squad optimizer
 
 Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
@@ -45,3 +61,7 @@ there's little left for a separate risk floor to catch.
   the same bug before the fix (Sprint 9).
 - [chip-strategy.md](chip-strategy.md) — Free Hit/Wildcard reuse this optimiser unchanged rather than
   a second implementation.
+
+## Sources
+
+- [sprints/sprint-09.md](../sprints/sprint-09.md)

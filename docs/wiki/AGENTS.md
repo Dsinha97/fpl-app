@@ -1,3 +1,9 @@
+---
+title: "Operating instructions for docs/wiki/"
+type: guide
+tags: []
+updated: 2026-10-28
+---
 # Operating instructions for docs/wiki/
 
 Second-brain conventions: v2
@@ -32,12 +38,16 @@ CLAUDE.md/AGENTS.md. Empty until the first RETRO pass has something to add. -->
 
 ## Deliberate differences from the second-brain defaults
 
-- **No `## Sources` section per page.** Claims are attributed inline with a relative link to the sprint
-  file or spec they came from; that is the attribution rule here, so a missing `## Sources` heading
-  is not a bug in this wiki.
-- **No frontmatter or `.manifest.json` yet.** Pages open with a one-line summary and an `Up:` line;
-  change detection runs from `.pending-ingest` and `log.md`. Add `aliases` (e.g. `xP`, `RLS`, `DC`)
-  to a page when it is next touched, if the alias search would otherwise miss it.
+- **Inline attribution comes first.** Claims are attributed inline with a relative link to the sprint
+  file or spec they came from. The `## Sources` section at the foot of each page is generated from
+  those links, so it lists them rather than replacing them; keep adding the inline link first.
+- **Frontmatter** follows the skill's schema with this vault's own `type` set: `concept` (engines),
+  `feature`, `platform`, `reference`, `moc`, `guide`. `related` mirrors the page's outbound wiki
+  links and `sources` lists in-`docs/` files, both relative to `docs/wiki/` and `docs/` respectively.
+  `.manifest.json` hashes `docs/sources/` only; `docs/sprints/` is tracked by git and `log.md`.
+- **Dated claims.** Dates mark when something happened (`Sprint 33, 2026-09-05`, `fixed 2026-08-27`)
+  and are already consistent. Add `as of <date>` only to a *snapshot* figure that drifts (a live count,
+  a bias reading), as `data-pipeline.md` does; do not stamp every dated line.
 - **Evidence level.** When a source is generated (e.g. `ml-model-audit.md`) or second-hand, say so on
   the page that rests on it.
 - **Log entries stay short**: date, what changed, which pages. Narrative goes in the commit message.

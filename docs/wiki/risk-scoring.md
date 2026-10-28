@@ -1,3 +1,22 @@
+---
+title: "Risk scoring"
+type: concept
+tags: [engines-and-model]
+aliases: [riskPoints, risk rate]
+sources:
+  - roadmap.md
+  - sprints/sprint-30.md
+related:
+  - moc/engines-and-model.md
+  - ownership-and-leagues.md
+  - methodology.md
+  - squad-score-and-scenarios.md
+  - transfer-engine.md
+  - xp-model.md
+  - cold-start-priors.md
+  - fpl-api-constraints.md
+updated: 2026-10-18
+---
 # Risk scoring
 
 Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
@@ -75,3 +94,8 @@ see [fpl-api-constraints.md](fpl-api-constraints.md)),
 (`lib/team-state.ts`), `TRANSFER_MODEL_NOTE` (`lib/transfers.ts`), `TRANSFER_OPTIMIZER_NOTE`
 (`lib/transfer-optimizer.ts`) — every one of these is a term the model can't compute honestly today,
 dropped rather than faked, and stated next to the number it affects.
+
+## Sources
+
+- [roadmap.md](../roadmap.md)
+- [sprints/sprint-30.md](../sprints/sprint-30.md)

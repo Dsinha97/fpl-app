@@ -1,3 +1,19 @@
+---
+title: "Manager percentile profile"
+type: feature
+tags: [features-and-surfaces]
+aliases: [manager percentile, rank percentage]
+sources:
+  - sprints/rivals-and-card-density.md
+  - sources/manager_intelligence_sprint12_change_plan.md
+  - sprints/sprint-12.md
+related:
+  - moc/features-and-surfaces.md
+  - club-tactical-profiles.md
+  - blocked-and-data-gaps.md
+  - deadline-and-matchday.md
+updated: 2026-10-18
+---
 # Manager percentile profile
 
 Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
@@ -67,3 +83,9 @@ See also: [manager_intelligence_sprint12_change_plan.md](../sources/manager_inte
 above), [deadline-and-matchday.md](deadline-and-matchday.md#my-teams-squad-view-team-added-2026-08-15)
 (`/team`'s other section, added 2026-08-15 — the Current squad / Gameweek result pitch view, a
 different topic on the same page).
+
+## Sources
+
+- [sprints/rivals-and-card-density.md](../sprints/rivals-and-card-density.md)
+- [sources/manager_intelligence_sprint12_change_plan.md](../sources/manager_intelligence_sprint12_change_plan.md)
+- [sprints/sprint-12.md](../sprints/sprint-12.md)

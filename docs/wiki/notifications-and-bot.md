@@ -1,3 +1,22 @@
+---
+title: "Notifications and the Telegram bot"
+type: platform
+tags: [platform]
+sources:
+  - sprints/sprint-36.md
+  - sprints/sprint-39.md
+  - sprints/sprint-40.md
+related:
+  - moc/platform.md
+  - edge-function-security.md
+  - methodology.md
+  - player-profile.md
+  - data-pipeline.md
+  - deployment.md
+  - manager-profile.md
+  - database-and-rls.md
+updated: 2026-10-18
+---
 # Notifications and the Telegram bot
 
 Up: [Wiki home](index.md) · [Platform](moc/platform.md)
@@ -245,3 +264,9 @@ proceed, so this failed loudly rather than silently sending nothing.
 
 Still unverified: `/link` with a **reused** and an **expired** code. The happy path is proven (one
 chat linked, one code minted and burned, first attempt); the two refusal paths are not.
+
+## Sources
+
+- [sprints/sprint-36.md](../sprints/sprint-36.md)
+- [sprints/sprint-39.md](../sprints/sprint-39.md)
+- [sprints/sprint-40.md](../sprints/sprint-40.md)

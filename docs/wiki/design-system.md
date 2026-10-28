@@ -1,3 +1,38 @@
+---
+title: "Design system"
+type: reference
+tags: [cross-cutting]
+sources:
+  - sprints/design-audit-response.md
+  - sprints/rivals-and-card-density.md
+  - sprints/sprint-22.md
+  - sprints/sprint-23.md
+  - sprints/mobile-reachability.md
+  - sprints/sprint-24.md
+  - sprints/sprint-25.md
+  - sprints/sprint-19.md
+  - sprints/sprint-28.md
+  - sprints/sprint-29.md
+  - sprints/swipe-to-dismiss.md
+  - sprints/sprint-40.md
+  - sprints/m9.md
+  - sprints/sprint-37.md
+  - sprints/gw5-check-in.md
+  - sprints/sprint-41.md
+  - sprints/sprint-42.md
+related:
+  - moc/cross-cutting.md
+  - frontend-conventions.md
+  - deadline-and-matchday.md
+  - methodology.md
+  - transfer-engine.md
+  - deployment.md
+  - chip-strategy.md
+  - blocked-and-data-gaps.md
+  - performance.md
+  - fixture-difficulty.md
+updated: 2026-10-18
+---
 # Design system
 
 Up: [Wiki home](index.md) · [Cross-cutting](moc/cross-cutting.md)
@@ -905,3 +940,22 @@ PR `feat/mobile-visual-polish`.
 
 — [deadline-and-matchday.md](deadline-and-matchday.md#at-a-glance-above-the-pitch-2026-10-13)
 
+## Sources
+
+- [sprints/design-audit-response.md](../sprints/design-audit-response.md)
+- [sprints/rivals-and-card-density.md](../sprints/rivals-and-card-density.md)
+- [sprints/sprint-22.md](../sprints/sprint-22.md)
+- [sprints/sprint-23.md](../sprints/sprint-23.md)
+- [sprints/mobile-reachability.md](../sprints/mobile-reachability.md)
+- [sprints/sprint-24.md](../sprints/sprint-24.md)
+- [sprints/sprint-25.md](../sprints/sprint-25.md)
+- [sprints/sprint-19.md](../sprints/sprint-19.md)
+- [sprints/sprint-28.md](../sprints/sprint-28.md)
+- [sprints/sprint-29.md](../sprints/sprint-29.md)
+- [sprints/swipe-to-dismiss.md](../sprints/swipe-to-dismiss.md)
+- [sprints/sprint-40.md](../sprints/sprint-40.md)
+- [sprints/m9.md](../sprints/m9.md)
+- [sprints/sprint-37.md](../sprints/sprint-37.md)
+- [sprints/gw5-check-in.md](../sprints/gw5-check-in.md)
+- [sprints/sprint-41.md](../sprints/sprint-41.md)
+- [sprints/sprint-42.md](../sprints/sprint-42.md)

@@ -1,3 +1,19 @@
+---
+title: "Engines and model (Map of Content)"
+type: moc
+tags: [engines-and-model]
+related:
+  - xp-model.md
+  - cold-start-priors.md
+  - risk-scoring.md
+  - squad-optimizer.md
+  - lineup-captain-bench.md
+  - transfer-engine.md
+  - chip-strategy.md
+  - chip-plan.md
+  - fixture-difficulty.md
+updated: 2026-10-18
+---
 # Engines and model (Map of Content)
 
 Up: [Wiki home](../index.md)
@@ -15,3 +31,7 @@ The scoring and decision engines: the xP projection everything builds on, the ri
 | [chip-strategy.md](../chip-strategy.md) | Bench Boost / Triple Captain / Free Hit / Wildcard valuation and joint scheduling |
 | [chip-plan.md](../chip-plan.md) | Pinning a chip to a gameweek, the chip-aware deadline optimiser, and the bounded forward transfer path |
 | [fixture-difficulty.md](../fixture-difficulty.md) | Three generations of FDR — official, strength-derived (display-only forever), results-derived (measured, unshipped, and why) |
+
+## Sources
+
+No external source: this page maps or synthesises other wiki pages.

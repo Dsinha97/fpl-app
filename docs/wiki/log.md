@@ -2,6 +2,7 @@
 
 One line per entry, most recent first.
 
+- 2026-10-28 — Frontmatter (title, type, tags, aliases, sources, related, updated) and a generated `## Sources` section added to every topic page; `.manifest.json` created for `docs/sources/` (ml-model-audit and website-optimization marked `generated`, the rest `primary`). Dated-claim markers evaluated: no blanket marker. Retro run: no recurring corrections found, no rule changes. `check_vault.py` lint and hash: no findings.
 - 2026-10-28 — Audited against the updated second-brain skill. **`AGENTS.md`**: added the v2 stamp, a pointer to load the skill, the Answer footer rule, a "Deliberate differences" section (inline attribution instead of `## Sources`, no frontmatter/manifest yet, evidence levels, short log lines) and the lint step in TIDY. Cleared `.pending-ingest` (its entries were covered by the 10-26 ingest).
 
 - 2026-10-26 — GW7 and GW8 check-ins ingested ([gw7-check-in.md](../sprints/gw7-check-in.md), [gw8-check-in.md](../sprints/gw8-check-in.md)). **`xp-model.md`**: new "first live v1.7.0 read" subsection (bias flip = removed calibration plus a clean-sheet-heavy week, replay agrees, last-5 comparison), and the stale "re-read after GW7" open line updated. **`fixture-difficulty.md`**: GW8 preview subsection — official FDR ahead of results-derived, derived no longer beats neutral on 2026-27, DSI-52 gate unchanged. **`roadmap.md`**, **`README.md`**, **`linear.md`** (not wiki): the two check-ins linked and "Next up" updated.

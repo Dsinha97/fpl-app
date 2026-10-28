@@ -1,3 +1,22 @@
+---
+title: "Database & Row Level Security"
+type: platform
+tags: [platform]
+aliases: [RLS, Row Level Security, Supabase schema]
+sources:
+  - sprints/sprint-14.md
+  - sprints/m9.md
+related:
+  - moc/platform.md
+  - design-system.md
+  - notifications-and-bot.md
+  - fpl-authentication.md
+  - edge-function-security.md
+  - data-pipeline.md
+  - manager-profile.md
+  - blocked-and-data-gaps.md
+updated: 2026-10-18
+---
 # Database & Row Level Security
 
 Up: [Wiki home](index.md) · [Platform](moc/platform.md)
@@ -165,3 +184,8 @@ See also: [data-pipeline.md](data-pipeline.md) (what writes these tables and whe
 [fpl-authentication.md](fpl-authentication.md) (`fpl_sessions`' zero-policy design in full),
 [edge-function-security.md](edge-function-security.md) (the other half of the access boundary — who
 may invoke the functions that hold the service role).
+
+## Sources
+
+- [sprints/sprint-14.md](../sprints/sprint-14.md)
+- [sprints/m9.md](../sprints/m9.md)

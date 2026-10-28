@@ -1,3 +1,20 @@
+---
+title: "SquadScore & Scenario Lab"
+type: feature
+tags: [features-and-surfaces]
+aliases: [squad score, scenarios]
+sources:
+  - architecture.md
+  - sprints/sprint-28.md
+related:
+  - moc/features-and-surfaces.md
+  - lineup-captain-bench.md
+  - transfer-engine.md
+  - risk-scoring.md
+  - fpl-authentication.md
+  - chip-strategy.md
+updated: 2026-10-18
+---
 # SquadScore & Scenario Lab
 
 Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
@@ -75,3 +92,8 @@ Mechanics worth knowing:
   re-run", which is a lie. The user changed nothing.
 
 See [sprint-28.md](../sprints/sprint-28.md).
+
+## Sources
+
+- [architecture.md](../architecture.md)
+- [sprints/sprint-28.md](../sprints/sprint-28.md)

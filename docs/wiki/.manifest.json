@@ -1,0 +1,52 @@
+{
+  "sources/PL_Team_Manager_Intelligence_Patch_Plan.md": {
+    "hash": "sha256:04d3d9efae791c9c1aa40d3e0ab89e87c0353622444958e1c95ef0b05668c90d",
+    "last_ingested": "2026-08-15",
+    "evidence": "primary"
+  },
+  "sources/cold-start-patch-plan.md": {
+    "hash": "sha256:5d68af3f0f8a1dfc4ea790519814be27d25309e8df246d9514c60f884e7311ed",
+    "last_ingested": "2026-09-02",
+    "evidence": "primary"
+  },
+  "sources/data/API-Football - Documentation.pdf": {
+    "hash": "sha256:b5bfb5699192af475599165ddfbbf24f0767a15c253215ac672bbbe73858221d",
+    "last_ingested": "",
+    "evidence": "primary"
+  },
+  "sources/fpl_app_phase_wise_build_plan.md": {
+    "hash": "sha256:8d18c64841d91dd1c61694da2560a6ce62faae07dacca97244ebbd24a0fd034a",
+    "last_ingested": "2026-08-15",
+    "evidence": "primary"
+  },
+  "sources/manager_intelligence_sprint12_change_plan.md": {
+    "hash": "sha256:a6eccc96eb57edb8dca43f2c9b29bec381fbfec1c504ed466ad0a3aba9631c31",
+    "last_ingested": "2026-08-15",
+    "evidence": "primary"
+  },
+  "sources/ml-model-audit.md": {
+    "hash": "sha256:55361308f19c7d4d89b28fae1d3b5bc850b9af04cb6891ab72d46b585e27d1ba",
+    "last_ingested": "2026-10-19",
+    "evidence": "generated"
+  },
+  "sources/phase-1-plan.md": {
+    "hash": "sha256:9cee005c45a533f5cf282b6895a0fc3d7272a251a8eecc848394fe3efcbaf25b",
+    "last_ingested": "2026-08-15",
+    "evidence": "primary"
+  },
+  "sources/update-aug3.md": {
+    "hash": "sha256:15adbca8c1b9367aa52155797b2feff7bfe8919d67b6cab7f56984dcf060c7a0",
+    "last_ingested": "2026-08-15",
+    "evidence": "primary"
+  },
+  "sources/updated-plan.md": {
+    "hash": "sha256:1860fecdd2f2840d15a495edaf945708996f0982f3fccedc41e7cbea420a4c3f",
+    "last_ingested": "2026-08-15",
+    "evidence": "primary"
+  },
+  "sources/website-optimization.md": {
+    "hash": "sha256:b5eee7684b7fc7a3e5e64ca48c5fb86b8e0c76a01ad0b88f92a63eda2e1b55fa",
+    "last_ingested": "2026-08-27",
+    "evidence": "generated"
+  }
+}

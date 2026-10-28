@@ -1,3 +1,34 @@
+---
+title: "Methodology"
+type: reference
+tags: [cross-cutting]
+sources:
+  - sprints/design-audit-response.md
+  - linear-archive/archive-log-2026-09-28.md
+  - linear-archive/fpl-app.md
+  - linear.md
+  - sprints/gw5-check-in.md
+  - sprints/sprint-40.md
+related:
+  - moc/cross-cutting.md
+  - risk-scoring.md
+  - lineup-captain-bench.md
+  - fpl-api-constraints.md
+  - transfer-engine.md
+  - chip-strategy.md
+  - xp-model.md
+  - hidden-gems.md
+  - club-tactical-profiles.md
+  - cold-start-priors.md
+  - squad-optimizer.md
+  - ownership-and-leagues.md
+  - blocked-and-data-gaps.md
+  - fixture-difficulty.md
+  - data-pipeline.md
+  - notifications-and-bot.md
+  - performance.md
+updated: 2026-10-19
+---
 # Methodology
 
 Up: [Wiki home](index.md) · [Cross-cutting](moc/cross-cutting.md)
@@ -365,3 +396,13 @@ only). The rationale lives in the `graft-patch` skill. Whether the per-prompt hi
 keep is open in [DSI-143](https://linear.app/dsinha-org/issue/DSI-143).
 
 — [../../CLAUDE.md](../../CLAUDE.md)
+
+## Sources
+
+- [sprints/design-audit-response.md](../sprints/design-audit-response.md)
+- [linear-archive/archive-log-2026-09-28.md](../linear-archive/archive-log-2026-09-28.md)
+- [linear-archive/fpl-app.md](../linear-archive/fpl-app.md)
+- [linear.md](../linear.md)
+- [sprints/gw5-check-in.md](../sprints/gw5-check-in.md)
+- [sprints/sprint-40.md](../sprints/sprint-40.md)
+- [../CLAUDE.md](../../CLAUDE.md)

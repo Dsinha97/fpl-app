@@ -1,3 +1,36 @@
+---
+title: "The xP (Expected Points) model"
+type: concept
+tags: [engines-and-model]
+aliases: [xP, expected points, xP model]
+sources:
+  - phase-4-model.md
+  - sprints/dsi-185-minutes-model.md
+  - sprints/sprint-17a.md
+  - sprints/squad-reconciliation.md
+  - sprints/sprint-38.md
+  - sprints/sprint-30.md
+  - sprints/sprint-34.md
+  - sprints/gw5-check-in.md
+  - sprints/sprint-39.md
+  - linear.md
+  - roadmap.md
+  - sprints/gw6-check-in.md
+  - sprints/gw7-check-in.md
+  - sprints/gw8-check-in.md
+  - sources/ml-model-audit.md
+  - sprints/sprint-43.md
+related:
+  - moc/engines-and-model.md
+  - data-pipeline.md
+  - methodology.md
+  - risk-scoring.md
+  - fixture-difficulty.md
+  - fpl-api-constraints.md
+  - lineup-captain-bench.md
+  - cold-start-priors.md
+updated: 2026-10-26
+---
 # The xP (Expected Points) model
 
 Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
@@ -437,3 +470,22 @@ row) also hold on the 2026-10-26 run. — [sprints/gw8-check-in.md](../sprints/g
 See also: [cold-start-priors.md](cold-start-priors.md) (what happens for players with thin or no PL
 evidence), [methodology.md](methodology.md) (the "drop, renormalise, disclose" and "verify with a
 harness" rules this model was built under).
+
+## Sources
+
+- [phase-4-model.md](../phase-4-model.md)
+- [sprints/dsi-185-minutes-model.md](../sprints/dsi-185-minutes-model.md)
+- [sprints/sprint-17a.md](../sprints/sprint-17a.md)
+- [sprints/squad-reconciliation.md](../sprints/squad-reconciliation.md)
+- [sprints/sprint-38.md](../sprints/sprint-38.md)
+- [sprints/sprint-30.md](../sprints/sprint-30.md)
+- [sprints/sprint-34.md](../sprints/sprint-34.md)
+- [sprints/gw5-check-in.md](../sprints/gw5-check-in.md)
+- [sprints/sprint-39.md](../sprints/sprint-39.md)
+- [linear.md](../linear.md)
+- [roadmap.md](../roadmap.md)
+- [sprints/gw6-check-in.md](../sprints/gw6-check-in.md)
+- [sprints/gw7-check-in.md](../sprints/gw7-check-in.md)
+- [sprints/gw8-check-in.md](../sprints/gw8-check-in.md)
+- [sources/ml-model-audit.md](../sources/ml-model-audit.md)
+- [sprints/sprint-43.md](../sprints/sprint-43.md)

@@ -1,3 +1,19 @@
+---
+title: "Platform (Map of Content)"
+type: moc
+tags: [platform]
+related:
+  - data-pipeline.md
+  - news-feed.md
+  - database-and-rls.md
+  - edge-function-security.md
+  - notifications-and-bot.md
+  - fpl-api-constraints.md
+  - fpl-authentication.md
+  - deployment.md
+  - performance.md
+updated: 2026-10-18
+---
 # Platform (Map of Content)
 
 Up: [Wiki home](../index.md)
@@ -15,3 +31,7 @@ What runs underneath: ingestion, the database and its access rules, Edge Functio
 | [fpl-authentication.md](../fpl-authentication.md) | Why credential login is blocked, and the three generations of workaround |
 | [deployment.md](../deployment.md) | Static export on Cloudflare Workers — build-vs-runtime variables, routing gotchas |
 | [performance.md](../performance.md) | Measured latency baseline, the serial-pagination and `/team` sync-on-load fixes, Sprint 40's bundle attribution and waterfall collapse, the price-watch scan still open, and what a generic web-perf playbook does/doesn't apply here |
+
+## Sources
+
+No external source: this page maps or synthesises other wiki pages.

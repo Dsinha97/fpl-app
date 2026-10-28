@@ -1,3 +1,21 @@
+---
+title: "Player profile & shortlist"
+type: feature
+tags: [features-and-surfaces]
+sources:
+  - sprints/sprint-42.md
+  - sprints/sprint-39.md
+  - sprints/sprint-38.md
+related:
+  - moc/features-and-surfaces.md
+  - design-system.md
+  - data-pipeline.md
+  - methodology.md
+  - xp-model.md
+  - database-and-rls.md
+  - notifications-and-bot.md
+updated: 2026-10-18
+---
 # Player profile & shortlist
 
 Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
@@ -123,3 +141,9 @@ notification preferences to include the shortlist alongside the squad for a pric
 — see [notifications-and-bot.md](notifications-and-bot.md).
 
 — [sprints/sprint-38.md](../sprints/sprint-38.md) §4-5, [sprints/sprint-39.md](../sprints/sprint-39.md)
+
+## Sources
+
+- [sprints/sprint-42.md](../sprints/sprint-42.md)
+- [sprints/sprint-39.md](../sprints/sprint-39.md)
+- [sprints/sprint-38.md](../sprints/sprint-38.md)

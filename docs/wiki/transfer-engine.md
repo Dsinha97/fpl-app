@@ -1,3 +1,24 @@
+---
+title: "Transfer engine (simulator + optimizer)"
+type: concept
+tags: [engines-and-model]
+aliases: [transfer optimiser, transfer optimizer]
+sources:
+  - sprints/sprint-30.md
+  - sprints/sprint-18.md
+  - sprints/sprint-28.md
+  - sprints/gw5-check-in.md
+  - sprints/sprint-37.md
+related:
+  - moc/engines-and-model.md
+  - squad-score-and-scenarios.md
+  - frontend-conventions.md
+  - methodology.md
+  - chip-plan.md
+  - deadline-and-matchday.md
+  - squad-optimizer.md
+updated: 2026-10-18
+---
 # Transfer engine (simulator + optimizer)
 
 Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
@@ -195,3 +216,11 @@ component is correct, typechecked and unreachable. Recorded in
 See also: [squad-optimizer.md](squad-optimizer.md) (the wildcard branch's underlying engine),
 [deadline-and-matchday.md](deadline-and-matchday.md) (where the optimizer surfaces pre-deadline),
 [chip-plan.md](chip-plan.md) (chip-aware scoring and the forward transfer path).
+
+## Sources
+
+- [sprints/sprint-30.md](../sprints/sprint-30.md)
+- [sprints/sprint-18.md](../sprints/sprint-18.md)
+- [sprints/sprint-28.md](../sprints/sprint-28.md)
+- [sprints/gw5-check-in.md](../sprints/gw5-check-in.md)
+- [sprints/sprint-37.md](../sprints/sprint-37.md)

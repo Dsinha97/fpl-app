@@ -1,3 +1,21 @@
+---
+title: "Lineup, captain & bench"
+type: concept
+tags: [engines-and-model]
+aliases: [lineup, captaincy, bench order]
+sources:
+  - sprints/sprint-43.md
+  - sprints/sprint-18.md
+related:
+  - moc/engines-and-model.md
+  - blocked-and-data-gaps.md
+  - fpl-api-constraints.md
+  - squad-score-and-scenarios.md
+  - xp-model.md
+  - methodology.md
+  - chip-strategy.md
+updated: 2026-10-19
+---
 # Lineup, captain & bench
 
 Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
@@ -78,3 +96,8 @@ in 9 files, is now `squad-budget.ts`'s exported `totalSpend` — one implementat
   are exported and called directly on both pages, cheap enough (one `optimiseLineup` call) to run on
   every edit, unlike Free Hit/Wildcard which stay `/chips`-only because a full-squad rebuild search
   is too slow for live editing.
+
+## Sources
+
+- [sprints/sprint-43.md](../sprints/sprint-43.md)
+- [sprints/sprint-18.md](../sprints/sprint-18.md)

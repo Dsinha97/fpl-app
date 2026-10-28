@@ -1,3 +1,20 @@
+---
+title: "Historical decision analytics"
+type: feature
+tags: [features-and-surfaces]
+sources:
+  - sprints/sprint-36.md
+  - sprints/m9.md
+related:
+  - moc/features-and-surfaces.md
+  - deadline-and-matchday.md
+  - methodology.md
+  - frontend-conventions.md
+  - chip-plan.md
+  - manager-profile.md
+  - design-system.md
+updated: 2026-10-18
+---
 # Historical decision analytics
 
 Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
@@ -120,3 +137,8 @@ module against entry 274486. Three independent anchors agreed:
 Then browser-verified on `/team` at 1280 and 375 wide, light and dark: no horizontal overflow, cards
 `self-start` so an expanded one does not inflate its row-mate
 ([design-system.md](design-system.md#expandable-card-stretch-2026-08-22)).
+
+## Sources
+
+- [sprints/sprint-36.md](../sprints/sprint-36.md)
+- [sprints/m9.md](../sprints/m9.md)

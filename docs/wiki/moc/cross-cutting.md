@@ -1,3 +1,16 @@
+---
+title: "Cross-cutting (Map of Content)"
+type: moc
+tags: [cross-cutting]
+related:
+  - frontend-conventions.md
+  - design-system.md
+  - methodology.md
+  - blocked-and-data-gaps.md
+  - timeline.md
+  - glossary.md
+updated: 2026-10-18
+---
 # Cross-cutting (Map of Content)
 
 Up: [Wiki home](../index.md)
@@ -12,3 +25,7 @@ Rules and references that apply everywhere: conventions, the design system, meth
 | [blocked-and-data-gaps.md](../blocked-and-data-gaps.md) | The single answer to "why isn't X built" |
 | [timeline.md](../timeline.md) | Chronological pointer into `sprints/` |
 | [glossary.md](../glossary.md) | Terms used without redefinition across the wiki |
+
+## Sources
+
+No external source: this page maps or synthesises other wiki pages.

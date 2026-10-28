@@ -1,3 +1,30 @@
+---
+title: "Blocked, with reasons"
+type: reference
+tags: [cross-cutting]
+sources:
+  - roadmap.md
+  - sprints/sprint-43.md
+  - sprints/sprint-38.md
+  - sprints/gw5-check-in.md
+  - sprints/sprint-18.md
+related:
+  - moc/cross-cutting.md
+  - fixture-difficulty.md
+  - fpl-api-constraints.md
+  - risk-scoring.md
+  - lineup-captain-bench.md
+  - ownership-and-leagues.md
+  - xp-model.md
+  - fpl-authentication.md
+  - cold-start-priors.md
+  - club-tactical-profiles.md
+  - manager-profile.md
+  - database-and-rls.md
+  - deadline-and-matchday.md
+  - methodology.md
+updated: 2026-10-19
+---
 # Blocked, with reasons
 
 Up: [Wiki home](index.md) · [Cross-cutting](moc/cross-cutting.md)
@@ -40,3 +67,11 @@ started**, not blocked *(shipped 2026-10-13 as v1.6.0)*. Its accuracy claims (DS
 A blocked feature is shown as blocked with its reason, never silently omitted — "a blocked option
 that vanishes reads as a bug; its reason is information." See
 [methodology.md](methodology.md#a-blocked-option-that-vanishes-reads-as-a-bug-its-reason-is-information).
+
+## Sources
+
+- [roadmap.md](../roadmap.md)
+- [sprints/sprint-43.md](../sprints/sprint-43.md)
+- [sprints/sprint-38.md](../sprints/sprint-38.md)
+- [sprints/gw5-check-in.md](../sprints/gw5-check-in.md)
+- [sprints/sprint-18.md](../sprints/sprint-18.md)

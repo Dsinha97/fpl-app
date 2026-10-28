@@ -1,3 +1,23 @@
+---
+title: "Glossary"
+type: reference
+tags: [cross-cutting]
+related:
+  - moc/cross-cutting.md
+  - xp-model.md
+  - frontend-conventions.md
+  - cold-start-priors.md
+  - risk-scoring.md
+  - transfer-engine.md
+  - ownership-and-leagues.md
+  - blocked-and-data-gaps.md
+  - fixture-difficulty.md
+  - club-tactical-profiles.md
+  - manager-profile.md
+  - database-and-rls.md
+  - methodology.md
+updated: 2026-10-18
+---
 # Glossary
 
 Up: [Wiki home](index.md) · [Cross-cutting](moc/cross-cutting.md)
@@ -63,3 +83,7 @@ different table/file names for the second sense.
 **`*_MODEL_NOTE` / `*_NOTE`** — the disclosure-string convention: whenever a term is dropped,
 approximated, or blocked, a note constant states so next to the number it affects. See
 [methodology.md](methodology.md#drop-renormalise-disclose).
+
+## Sources
+
+No external source: this page maps or synthesises other wiki pages.
