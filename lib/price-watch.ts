@@ -217,10 +217,30 @@ export function priceProgress(
   thresholds?: PriceThresholds,
 ): PriceProgress {
   const latest = samples.length > 0 ? samples[samples.length - 1] : null;
-  const { rise: riseThreshold, fall: fallThreshold } =
-    thresholds ?? thresholdsFor(latest?.selectedByPercent ?? null);
-  const asOf = latest?.observedAt ?? null;
-  const netTransfers = netTransfersSinceLastPriceChange(samples);
+  return readingFromNet(
+    playerCode,
+    netTransfersSinceLastPriceChange(samples),
+    latest?.selectedByPercent ?? null,
+    latest?.observedAt ?? null,
+    thresholds,
+  );
+}
+
+/**
+ * The reading for a net-transfers figure that was accumulated elsewhere.
+ *
+ * `priceProgress` (from raw samples) and `loadPriceProgress` (from the
+ * precomputed `price_watch` row) both end here, so the threshold, the
+ * clamp and the verdict ladder have exactly one implementation.
+ */
+export function readingFromNet(
+  playerCode: number,
+  netTransfers: number | null,
+  latestPercent: number | null,
+  asOf: string | null,
+  thresholds?: PriceThresholds,
+): PriceProgress {
+  const { rise: riseThreshold, fall: fallThreshold } = thresholds ?? thresholdsFor(latestPercent);
 
   if (netTransfers === null) {
     return {
@@ -290,17 +310,10 @@ export const isNearThreshold = (verdict: PriceVerdict): boolean =>
 const PAGE_ROWS = 1000;
 
 /**
- * Counts the rows, then fetches every page concurrently.
- *
- * The same shape as `fetchAll` in lib/player-pool.ts, and for the same
- * reason. Serially, the ownership scan below is ~42 round trips at ~400ms —
- * over twenty seconds before the price column says anything. Concurrently it
- * is one count plus one wall-clock page.
- *
- * `run` must impose a **total** order. Two concurrent OFFSET queries are
- * independent statements, and Postgres gives no guarantee they see the same
- * row order unless the ORDER BY is unique — a partial order can overlap or
- * skip rows across a page boundary.
+ * Counts the rows, then fetches every page concurrently — the same shape as
+ * `fetchAll` in lib/player-pool.ts. `run` must impose a **total** order: two
+ * concurrent OFFSET queries are independent statements, and Postgres gives no
+ * guarantee they see the same row order unless the ORDER BY is unique.
  */
 async function fetchAllPages<T>(
   count: () => PromiseLike<{ count: number | null; error: { message: string } | null }>,
@@ -323,23 +336,23 @@ async function fetchAllPages<T>(
 }
 
 /**
- * Loads ownership samples for `playerCodes` since each player's last
- * recorded price change, and returns a progress reading per player. Players
- * with no player_price_history row yet (never repriced this season) are
- * skipped — there is no "last change" to anchor on.
+ * Loads a progress reading per player from the precomputed `price_watch`
+ * table (DSI-187), one row per player.
  *
- * Both queries are paged. This is not defensive boilerplate: the API caps
- * every response at 1000 rows whatever `.limit()` asks for, and there are
- * ~42,000 ownership samples after the anchors across the pool. Unpaged and
- * ordered ascending, this returned the *oldest* 1000 rows — all of them from
- * before nearly every anchor, so almost every player was filtered down to
- * zero or one sample and read as "unknown" or a flat net of 0. The readings
- * looked quiet rather than broken, which is why it survived. (CLAUDE.md,
- * "the API caps every response at 1000 rows".)
+ * This used to download every `player_ownership_history` row of the season on
+ * each visit to sum the net transfers itself: 154,524 rows and ~19 s of
+ * saturated connection at the last count, growing by ~15k rows a day.
+ * `refresh_price_watch` (supabase/migrations/20261103130000_price_watch_precompute.sql)
+ * now keeps the reset-aware accumulation and the trailing rate current on
+ * every sample; the fitted thresholds, the verdict ladder and the projection
+ * stay here, applied to those stored figures. `scripts/price-watch-parity.ts`
+ * asserts the stored net equals `netTransfersSinceLastPriceChange` over the
+ * raw samples, player by player.
  *
- * `earliestAnchor` narrows the ownership scan server-side: no sample before
- * the oldest anchor among the requested players can survive the per-player
- * filter below, so there is no reason to ship it to the browser.
+ * Players with no player_price_history row (never repriced this season) have
+ * no row and are skipped — there is no "last change" to anchor on.
+ *
+ * Paged: the API caps every response at 1000 rows, and the pool is ~670.
  */
 export async function loadPriceProgress(
   season: string,
@@ -349,92 +362,34 @@ export async function loadPriceProgress(
 ): Promise<Map<number, PriceProgress>> {
   const result = new Map<number, PriceProgress>();
   if (playerCodes.length === 0) return result;
+  const wanted = new Set(playerCodes);
 
-  const lastChanges = await fetchAllPages<{ player_code: number; observed_at: string }>(
-    () =>
-      supabase
-        .from("player_price_history")
-        .select("player_code", { count: "exact", head: true })
-        .eq("season", season)
-        .in("player_code", playerCodes),
-    (from) =>
-      supabase
-        .from("player_price_history")
-        .select("player_code, observed_at")
-        .eq("season", season)
-        .in("player_code", playerCodes)
-        .order("observed_at", { ascending: false })
-        .order("player_code")
-        .range(from, from + PAGE_ROWS - 1),
-  );
-
-  const lastChangeAt = new Map<number, string>();
-  for (const row of lastChanges) {
-    const code = row.player_code;
-    if (!lastChangeAt.has(code)) lastChangeAt.set(code, row.observed_at);
-  }
-  if (lastChangeAt.size === 0) return result;
-
-  let earliestAnchor = "";
-  for (const at of lastChangeAt.values()) {
-    if (earliestAnchor === "" || at < earliestAnchor) earliestAnchor = at;
-  }
-
-  const ownership = await fetchAllPages<{
+  const rows = await fetchAllPages<{
     player_code: number;
-    observed_at: string;
-    selected_by_percent: number | null;
-    transfers_in_event: number | null;
-    transfers_out_event: number | null;
+    net_transfers: number | null;
+    latest_percent: number | string | null;
+    as_of: string | null;
+    rate_per_hour: number | null;
   }>(
     () =>
-      supabase
-        .from("player_ownership_history")
-        .select("player_code", { count: "exact", head: true })
-        .eq("season", season)
-        .in("player_code", playerCodes)
-        .gte("observed_at", earliestAnchor),
+      supabase.from("price_watch").select("player_code", { count: "exact", head: true }).eq("season", season),
     (from) =>
       supabase
-        .from("player_ownership_history")
-        .select("player_code, observed_at, selected_by_percent, transfers_in_event, transfers_out_event")
+        .from("price_watch")
+        .select("player_code, net_transfers, latest_percent, as_of, rate_per_hour")
         .eq("season", season)
-        .in("player_code", playerCodes)
-        .gte("observed_at", earliestAnchor)
-        // (observed_at, player_code) is this table's own key, so this is a
-        // total order — required, because the pages are fetched concurrently.
-        .order("observed_at", { ascending: true })
         .order("player_code")
         .range(from, from + PAGE_ROWS - 1),
   );
 
-  const byPlayer = new Map<number, OwnershipSample[]>();
-  for (const row of ownership) {
-    const code = row.player_code;
-    const changeAt = lastChangeAt.get(code);
-    if (changeAt && row.observed_at < changeAt) continue; // before the last repricing
-    const list = byPlayer.get(code) ?? [];
-    list.push({
-      observedAt: row.observed_at,
-      transfersInEvent: row.transfers_in_event,
-      transfersOutEvent: row.transfers_out_event,
-      // FPL returns this as a string; a non-numeric one is absent, not zero.
-      selectedByPercent: Number.isFinite(Number(row.selected_by_percent))
-        ? Number(row.selected_by_percent)
-        : null,
-    });
-    byPlayer.set(code, list);
-  }
-
   const now = new Date();
-  for (const code of playerCodes) {
-    if (!lastChangeAt.has(code)) continue; // never repriced this season — no anchor
-    const samples = byPlayer.get(code) ?? [];
-    const reading = priceProgress(code, samples, thresholds);
-    // Projected here rather than in the caller so the samples are used once
-    // and not refetched — and so there is one implementation of the forward
-    // reading, not one per surface.
-    reading.projections = projectToCutoffs(reading, samples, thresholds, now);
+  for (const row of rows) {
+    const code = row.player_code;
+    if (!wanted.has(code)) continue;
+    const percent = row.latest_percent === null ? null : Number(row.latest_percent);
+    const net = row.net_transfers === null ? null : Number(row.net_transfers);
+    const reading = readingFromNet(code, net, percent, row.as_of, thresholds);
+    reading.projections = projectFromRate(reading, row.rate_per_hour, percent, thresholds, now);
     result.set(code, reading);
   }
   return result;
@@ -537,10 +492,26 @@ export function projectToCutoffs(
   if (current.netTransfers === null || current.direction === "flat") return [];
 
   const rate = netTransferRatePerHour(samples, now);
+  const latest = samples.length > 0 ? samples[samples.length - 1] : null;
+  return projectFromRate(current, rate, latest?.selectedByPercent ?? null, thresholds, now, nights);
+}
+
+/**
+ * The projection once the trailing rate is known, however it was measured —
+ * from raw samples (`projectToCutoffs`) or read from `price_watch`.
+ */
+export function projectFromRate(
+  current: PriceProgress,
+  rate: number | null,
+  latestPercent: number | null,
+  thresholds?: PriceThresholds,
+  now: Date = new Date(),
+  nights = 3,
+): PriceProjection[] {
+  if (current.netTransfers === null || current.direction === "flat") return [];
   if (rate === null) return [];
 
-  const latest = samples.length > 0 ? samples[samples.length - 1] : null;
-  const resolved = thresholds ?? thresholdsFor(latest?.selectedByPercent ?? null);
+  const resolved = thresholds ?? thresholdsFor(latestPercent);
   const threshold = current.direction === "rise" ? resolved.rise : resolved.fall;
   if (!threshold) return [];
 
