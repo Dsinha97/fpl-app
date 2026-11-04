@@ -1,3 +1,37 @@
+---
+title: "Deadline Hub, Live Matchday Hub & Review"
+type: feature
+tags: [features-and-surfaces]
+aliases: [deadline]
+sources:
+  - sprints/sprint-33.md
+  - roadmap.md
+  - sprints/sprint-21.md
+  - sprints/additional-info.md
+  - sprints/sprint-23.md
+  - sprints/sprint-13.md
+  - sprints/sprint-28.md
+  - sprints/mobile-reachability.md
+  - sprints/design-audit-response.md
+  - sprints/m9.md
+  - sprints/gw5-check-in.md
+related:
+  - moc/features-and-surfaces.md
+  - decision-analytics.md
+  - lineup-captain-bench.md
+  - transfer-engine.md
+  - chip-strategy.md
+  - data-pipeline.md
+  - performance.md
+  - frontend-conventions.md
+  - fpl-authentication.md
+  - design-system.md
+  - blocked-and-data-gaps.md
+  - manager-profile.md
+  - ownership-and-leagues.md
+  - methodology.md
+updated: 2026-10-18
+---
 # Deadline Hub, Live Matchday Hub & Review
 
 Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
@@ -441,3 +475,17 @@ the team now". The threshold is a named constant rather than a magic number, per
 [methodology.md](methodology.md).
 
 — [sprints/gw5-check-in.md](../sprints/gw5-check-in.md) §4
+
+## Sources
+
+- [sprints/sprint-33.md](../sprints/sprint-33.md)
+- [roadmap.md](../roadmap.md)
+- [sprints/sprint-21.md](../sprints/sprint-21.md)
+- [sprints/additional-info.md](../sprints/additional-info.md)
+- [sprints/sprint-23.md](../sprints/sprint-23.md)
+- [sprints/sprint-13.md](../sprints/sprint-13.md)
+- [sprints/sprint-28.md](../sprints/sprint-28.md)
+- [sprints/mobile-reachability.md](../sprints/mobile-reachability.md)
+- [sprints/design-audit-response.md](../sprints/design-audit-response.md)
+- [sprints/m9.md](../sprints/m9.md)
+- [sprints/gw5-check-in.md](../sprints/gw5-check-in.md)

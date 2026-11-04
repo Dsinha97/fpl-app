@@ -1,3 +1,28 @@
+---
+title: "Frontend conventions"
+type: reference
+tags: [cross-cutting]
+sources:
+  - sprints/sprint-29.md
+  - sprints/mobile-reachability.md
+  - sprints/sprint-40.md
+  - sprints/design-audit-response.md
+  - sprints/sprint-33.md
+  - sprints/m9.md
+  - sprints/swipe-to-dismiss.md
+  - sprints/seo.md
+related:
+  - moc/cross-cutting.md
+  - fpl-authentication.md
+  - deadline-and-matchday.md
+  - methodology.md
+  - transfer-engine.md
+  - xp-model.md
+  - design-system.md
+  - hidden-gems.md
+  - deployment.md
+updated: 2026-10-18
+---
 # Frontend conventions
 
 Up: [Wiki home](index.md) · [Cross-cutting](moc/cross-cutting.md)
@@ -368,3 +393,14 @@ Since 2026-09-26 each route has a small `layout.tsx` that exports it through `ro
 an entry in `SITE_ROUTES` plus that layout, or it ships with the root layout's default title and
 no canonical. See [deployment.md](deployment.md#search-indexing) and
 [seo.md](../sprints/seo.md).
+
+## Sources
+
+- [sprints/sprint-29.md](../sprints/sprint-29.md)
+- [sprints/mobile-reachability.md](../sprints/mobile-reachability.md)
+- [sprints/sprint-40.md](../sprints/sprint-40.md)
+- [sprints/design-audit-response.md](../sprints/design-audit-response.md)
+- [sprints/sprint-33.md](../sprints/sprint-33.md)
+- [sprints/m9.md](../sprints/m9.md)
+- [sprints/swipe-to-dismiss.md](../sprints/swipe-to-dismiss.md)
+- [sprints/seo.md](../sprints/seo.md)

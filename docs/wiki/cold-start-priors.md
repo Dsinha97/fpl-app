@@ -1,3 +1,19 @@
+---
+title: "Cold-start priors"
+type: concept
+tags: [engines-and-model]
+aliases: [cold start, empirical-Bayes priors]
+sources:
+  - sprints/cold-start-patch.md
+  - sprints/championship-priors.md
+related:
+  - moc/engines-and-model.md
+  - blocked-and-data-gaps.md
+  - squad-optimizer.md
+  - xp-model.md
+  - methodology.md
+updated: 2026-10-18
+---
 # Cold-start priors
 
 Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
@@ -99,3 +115,8 @@ lower bound against ~14% for established players — so Low deprioritises specul
 without inventing a separate reliability discount. See [squad-optimizer.md](squad-optimizer.md).
 
 See also: [xp-model.md](xp-model.md), [methodology.md](methodology.md#an-invented-threshold-is-not-evidence).
+
+## Sources
+
+- [sprints/cold-start-patch.md](../sprints/cold-start-patch.md)
+- [sprints/championship-priors.md](../sprints/championship-priors.md)

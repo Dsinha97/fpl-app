@@ -1,3 +1,15 @@
+---
+title: "RSS news ingestion"
+type: platform
+tags: [platform]
+sources:
+  - sprints/sprint-20.md
+  - sprints/m9.md
+related:
+  - moc/platform.md
+  - data-pipeline.md
+updated: 2026-10-18
+---
 # RSS news ingestion
 
 Up: [Wiki home](index.md) · [Platform](moc/platform.md)
@@ -139,3 +151,8 @@ is not a filter, it is a trap*, and a visitor with no draft is exactly the perso
 DSI-141 moved it out of the change-type filter row (where it wrapped onto its own line on a phone
 and read as a fourth filter pill in a different shape) and up beside the page title, because it
 scopes the page rather than the row. — [sprints/m9.md](../sprints/m9.md)
+
+## Sources
+
+- [sprints/sprint-20.md](../sprints/sprint-20.md)
+- [sprints/m9.md](../sprints/m9.md)

@@ -1,3 +1,70 @@
+---
+title: "Timeline"
+type: reference
+tags: [cross-cutting]
+sources:
+  - roadmap.md
+  - sprints/additional-info.md
+  - sprints/design-audit-response.md
+  - sprints/mobile-reachability.md
+  - sprints/sprint-22.md
+  - sprints/sprint-23.md
+  - sprints/sprint-24.md
+  - sprints/sprint-25.md
+  - sprints/sprint-26.md
+  - sprints/sprint-27.md
+  - sprints/sprint-28.md
+  - sprints/latency.md
+  - sprints/sprint-29.md
+  - sprints/sprint-30.md
+  - sprints/sprint-31.md
+  - sprints/sprint-32.md
+  - sprints/sprint-33.md
+  - sprints/sprint-34.md
+  - sprints/sprint-35.md
+  - sprints/sprint-36.md
+  - sprints/m9.md
+  - sprints/sprint-37.md
+  - sprints/gw5-check-in.md
+  - sprints/sprint-38.md
+  - sprints/sprint-39.md
+  - sprints/swipe-to-dismiss.md
+  - sprints/sprint-40.md
+  - sprints/seo.md
+  - sprints/sprint-41.md
+  - sprints/sprint-42.md
+related:
+  - moc/cross-cutting.md
+  - xp-model.md
+  - cold-start-priors.md
+  - chip-strategy.md
+  - manager-profile.md
+  - club-tactical-profiles.md
+  - fpl-authentication.md
+  - deadline-and-matchday.md
+  - database-and-rls.md
+  - hidden-gems.md
+  - chip-plan.md
+  - lineup-captain-bench.md
+  - design-system.md
+  - ownership-and-leagues.md
+  - data-pipeline.md
+  - frontend-conventions.md
+  - news-feed.md
+  - methodology.md
+  - deployment.md
+  - transfer-engine.md
+  - squad-score-and-scenarios.md
+  - performance.md
+  - fpl-api-constraints.md
+  - fixture-difficulty.md
+  - edge-function-security.md
+  - decision-analytics.md
+  - notifications-and-bot.md
+  - blocked-and-data-gaps.md
+  - player-profile.md
+updated: 2026-10-19
+---
 # Timeline
 
 Up: [Wiki home](index.md) · [Cross-cutting](moc/cross-cutting.md)
@@ -75,3 +142,36 @@ See also: [blocked-and-data-gaps.md](blocked-and-data-gaps.md) for what's still 
 | 2026-10-13 | A chip already played is now left out everywhere: the transfer path stopped recommending a Wildcard after GW6, and the Chip timing tab, `/deadline`, `/scenarios` and `/builder` no longer value spent chips (next half stays open) | [chip-plan.md](chip-plan.md#a-spent-chip-is-spent-everywhere-2026-10-13) |
 | 2026-10-13 | Phone visual pass: translucent bottom tabs that hide on scroll down, a header that contracts on scroll, Builder xP moved left, Fixtures "Next GW" on one line, and a counts-only "at a glance" block on `/deadline` | [design-system.md](design-system.md#mobile-chrome-glass-tabs-that-hide-a-header-that-contracts-2026-10-13) |
 | 2026-10-19 | xP model v1.7.0 (Sprint 43): an external audit prompted a per-component check, which found defensive contribution, assists and keeper appearance wrong and a calibration scalar covering for them. Fixed at source and the scalar dropped; better than v1.6.0 on every walk-forward season | [xp-model.md](xp-model.md#v170-the-components-positioncalibration-was-hiding-sprint-43) |
+
+## Sources
+
+- [roadmap.md](../roadmap.md)
+- [sprints/additional-info.md](../sprints/additional-info.md)
+- [sprints/design-audit-response.md](../sprints/design-audit-response.md)
+- [sprints/mobile-reachability.md](../sprints/mobile-reachability.md)
+- [sprints/sprint-22.md](../sprints/sprint-22.md)
+- [sprints/sprint-23.md](../sprints/sprint-23.md)
+- [sprints/sprint-24.md](../sprints/sprint-24.md)
+- [sprints/sprint-25.md](../sprints/sprint-25.md)
+- [sprints/sprint-26.md](../sprints/sprint-26.md)
+- [sprints/sprint-27.md](../sprints/sprint-27.md)
+- [sprints/sprint-28.md](../sprints/sprint-28.md)
+- [sprints/latency.md](../sprints/latency.md)
+- [sprints/sprint-29.md](../sprints/sprint-29.md)
+- [sprints/sprint-30.md](../sprints/sprint-30.md)
+- [sprints/sprint-31.md](../sprints/sprint-31.md)
+- [sprints/sprint-32.md](../sprints/sprint-32.md)
+- [sprints/sprint-33.md](../sprints/sprint-33.md)
+- [sprints/sprint-34.md](../sprints/sprint-34.md)
+- [sprints/sprint-35.md](../sprints/sprint-35.md)
+- [sprints/sprint-36.md](../sprints/sprint-36.md)
+- [sprints/m9.md](../sprints/m9.md)
+- [sprints/sprint-37.md](../sprints/sprint-37.md)
+- [sprints/gw5-check-in.md](../sprints/gw5-check-in.md)
+- [sprints/sprint-38.md](../sprints/sprint-38.md)
+- [sprints/sprint-39.md](../sprints/sprint-39.md)
+- [sprints/swipe-to-dismiss.md](../sprints/swipe-to-dismiss.md)
+- [sprints/sprint-40.md](../sprints/sprint-40.md)
+- [sprints/seo.md](../sprints/seo.md)
+- [sprints/sprint-41.md](../sprints/sprint-41.md)
+- [sprints/sprint-42.md](../sprints/sprint-42.md)

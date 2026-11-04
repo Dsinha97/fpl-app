@@ -1,3 +1,14 @@
+---
+title: "Hidden Gems (value-discovery filter)"
+type: feature
+tags: [features-and-surfaces]
+aliases: [differentials]
+related:
+  - moc/features-and-surfaces.md
+  - cold-start-priors.md
+  - methodology.md
+updated: 2026-10-18
+---
 # Hidden Gems (value-discovery filter)
 
 Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
@@ -55,3 +66,7 @@ support.
 change `findReplacements`' behaviour when untouched).
 
 See also: [cold-start-priors.md](cold-start-priors.md), [methodology.md](methodology.md#an-invented-threshold-is-not-evidence).
+
+## Sources
+
+No external source: this page maps or synthesises other wiki pages.

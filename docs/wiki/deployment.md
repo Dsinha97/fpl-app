@@ -1,3 +1,20 @@
+---
+title: "Deployment"
+type: platform
+tags: [platform]
+sources:
+  - sprints/seo.md
+  - sprints/design-audit-response.md
+  - linear.md
+related:
+  - moc/platform.md
+  - frontend-conventions.md
+  - data-pipeline.md
+  - performance.md
+  - database-and-rls.md
+  - edge-function-security.md
+updated: 2026-10-18
+---
 # Deployment
 
 Up: [Wiki home](index.md) · [Platform](moc/platform.md)
@@ -183,3 +200,9 @@ is near-zero while the repo is private and nobody knows the function URLs, and b
 moment it is public. *(That moment has passed: the repo is public, and DSI-75's deploy was
 unblocked 2026-09-24 when DSI-55 closed. See [linear.md](../linear.md).)* See
 [edge-function-security.md](edge-function-security.md#verify_jwt-measured-rather-than-assumed).
+
+## Sources
+
+- [sprints/seo.md](../sprints/seo.md)
+- [sprints/design-audit-response.md](../sprints/design-audit-response.md)
+- [linear.md](../linear.md)

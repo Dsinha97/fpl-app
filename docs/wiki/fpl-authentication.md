@@ -1,3 +1,19 @@
+---
+title: "FPL authentication — why credential login is blocked"
+type: platform
+tags: [platform]
+aliases: [FPL login, PingOne]
+sources:
+  - sprints/sprint-14.md
+related:
+  - moc/platform.md
+  - database-and-rls.md
+  - transfer-engine.md
+  - frontend-conventions.md
+  - deadline-and-matchday.md
+  - squad-score-and-scenarios.md
+updated: 2026-10-18
+---
 # FPL authentication — why credential login is blocked
 
 Up: [Wiki home](index.md) · [Platform](moc/platform.md)
@@ -73,3 +89,7 @@ telling users to do the one thing guaranteed to 401. Fixed to walk the DevTools 
 See also: [database-and-rls.md](database-and-rls.md) (`fpl_sessions`' zero-policy shape),
 [squad-score-and-scenarios.md](squad-score-and-scenarios.md) (where an imported squad lands as a
 draft).
+
+## Sources
+
+- [sprints/sprint-14.md](../sprints/sprint-14.md)

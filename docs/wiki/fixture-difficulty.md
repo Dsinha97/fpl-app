@@ -1,3 +1,22 @@
+---
+title: "Fixture difficulty (FDR)"
+type: concept
+tags: [engines-and-model]
+aliases: [FDR]
+sources:
+  - sprints/sprint-31.md
+  - sprints/sprint-35.md
+  - sprints/gw8-check-in.md
+  - sprints/m9.md
+related:
+  - moc/engines-and-model.md
+  - glossary.md
+  - xp-model.md
+  - methodology.md
+  - blocked-and-data-gaps.md
+  - design-system.md
+updated: 2026-10-26
+---
 # Fixture difficulty (FDR)
 
 Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
@@ -154,3 +173,10 @@ changing it. The **Sort** control deliberately stays a `<select>`: one of its op
 conditionally disabled with a *"(not published yet)"* suffix that a segmented control has nowhere to
 put. See [design-system.md](design-system.md#the-settings-card-a-control-row-that-states-its-own-values).
 — [sprints/m9.md](../sprints/m9.md)
+
+## Sources
+
+- [sprints/sprint-31.md](../sprints/sprint-31.md)
+- [sprints/sprint-35.md](../sprints/sprint-35.md)
+- [sprints/gw8-check-in.md](../sprints/gw8-check-in.md)
+- [sprints/m9.md](../sprints/m9.md)

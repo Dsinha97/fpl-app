@@ -1,3 +1,20 @@
+---
+title: "Club tactical profiles"
+type: feature
+tags: [features-and-surfaces]
+aliases: [club tactics]
+sources:
+  - sprints/sprint-18.md
+  - sources/PL_Team_Manager_Intelligence_Patch_Plan.md
+  - sprints/sprint-12.md
+related:
+  - moc/features-and-surfaces.md
+  - manager-profile.md
+  - cold-start-priors.md
+  - methodology.md
+  - blocked-and-data-gaps.md
+updated: 2026-10-18
+---
 # Club tactical profiles
 
 Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
@@ -75,3 +92,9 @@ players underperform their prior rate early on" directly. — [sprint-18.md](../
 
 See also: [PL_Team_Manager_Intelligence_Patch_Plan.md](../sources/PL_Team_Manager_Intelligence_Patch_Plan.md)
 (the owner's source spec), [sprint-12.md §12.5](../sprints/sprint-12.md#sprint-125--pl-team-club-manager-intelligence-buildable-slice-built-2026-08-07).
+
+## Sources
+
+- [sprints/sprint-18.md](../sprints/sprint-18.md)
+- [sources/PL_Team_Manager_Intelligence_Patch_Plan.md](../sources/PL_Team_Manager_Intelligence_Patch_Plan.md)
+- [sprints/sprint-12.md](../sprints/sprint-12.md)

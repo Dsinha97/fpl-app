@@ -1,3 +1,25 @@
+---
+title: "Mini-league ownership"
+type: feature
+tags: [features-and-surfaces]
+sources:
+  - sprints/sprint-10.md
+  - sprints/sprint-21.md
+  - sprints/sprint-36.md
+related:
+  - moc/features-and-surfaces.md
+  - risk-scoring.md
+  - lineup-captain-bench.md
+  - transfer-engine.md
+  - methodology.md
+  - database-and-rls.md
+  - fpl-api-constraints.md
+  - deadline-and-matchday.md
+  - blocked-and-data-gaps.md
+  - edge-function-security.md
+  - data-pipeline.md
+updated: 2026-10-18
+---
 # Mini-league ownership
 
 Up: [Wiki home](index.md) · [Features and surfaces](moc/features-and-surfaces.md)
@@ -182,3 +204,9 @@ Verifying this is what uncovered that rivals had never been re-synced at all —
 pipeline faults, all of them invisible because they rendered as absence:
 [data-pipeline.md](data-pipeline.md#rivals-were-never-re-synced-found-and-fixed-2026-09-10).
 — [sprints/sprint-36.md](../sprints/sprint-36.md)
+
+## Sources
+
+- [sprints/sprint-10.md](../sprints/sprint-10.md)
+- [sprints/sprint-21.md](../sprints/sprint-21.md)
+- [sprints/sprint-36.md](../sprints/sprint-36.md)

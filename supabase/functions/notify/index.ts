@@ -201,49 +201,17 @@ interface PriceWatchAlert {
   anchorAt: string;
 }
 
-/** PostgREST caps every response at 1000 rows whatever `.limit()` asks. */
-const PAGE_ROWS = 1000;
-
-/**
- * Every row of a query, one `.range()` page at a time until a short page.
- * `page` must impose a total order or pages can overlap or skip rows. Serial
- * rather than concurrent: this is a cron job reading a few pages per user,
- * not a page load. Returns null (and logs) on any page error, so a caller
- * can skip rather than compute on a partial read.
- */
-async function readAllPages<T>(
-  page: (from: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-): Promise<T[] | null> {
-  const rows: T[] = [];
-  for (let from = 0; ; from += PAGE_ROWS) {
-    const { data, error } = await page(from);
-    if (error) {
-      console.error(`notify: paged read failed at offset ${from}: ${error.message}`);
-      return null;
-    }
-    rows.push(...(data ?? []));
-    if ((data?.length ?? 0) < PAGE_ROWS) return rows;
-  }
-}
-
 /**
  * Which of `codes` have net transfers past the flat threshold since their
  * last recorded price change — a fact-level crossing check, not the fitted
  * progress-to-threshold reading `lib/price-watch.ts` computes for the site.
- * Deliberately duplicates only the reset-aware accumulation
- * (`netTransfersSinceLastPriceChange` there), which is careful counter
- * handling rather than a fitted model — see that function's own comment for
- * why `transfers_in_event`/`transfers_out_event` can't simply be
- * differenced.
  *
- * Paged. This used to argue the 1000-row cap was out of play at "dozens of
- * players", but the row count is players × samples since the *earliest*
- * anchor, not players: for the owner's 15-player squad on 2026-09-24 the read
- * asked for 4,284 rows and the cap returned the oldest 1,000, so most
- * players' post-anchor samples were never seen and alerts ran on partial
- * windows. Same bug Sprint 38 fixed in `loadPriceProgress`. A failed page
- * returns no alerts for this user (logged) rather than alerts computed on
- * whatever arrived.
+ * Reads `price_watch` (DSI-187), which `refresh_price_watch` keeps current
+ * with the reset-aware accumulation. This function used to carry its own copy
+ * of that arithmetic over a paged read of the ownership history; the one
+ * implementation is now in SQL, tied to `netTransfersSinceLastPriceChange` by
+ * scripts/price-watch-parity.ts. A failed read returns no alerts for this
+ * user (logged) rather than alerts computed on whatever arrived.
  */
 async function priceWatchAlerts(
   db: Db,
@@ -252,84 +220,27 @@ async function priceWatchAlerts(
   threshold: number,
 ): Promise<PriceWatchAlert[]> {
   if (codes.size === 0) return [];
-  const codeList = [...codes];
 
-  const changes = await readAllPages<{ player_code: number; observed_at: string }>((from) =>
-    db
-      .from("player_price_history")
-      .select("player_code, observed_at")
-      .eq("season", season)
-      .in("player_code", codeList)
-      .order("observed_at", { ascending: false })
-      .order("player_code")
-      .range(from, from + PAGE_ROWS - 1),
-  );
-  if (changes === null) return [];
-  const anchorAt = new Map<number, string>();
-  for (const row of changes) {
-    const code = row.player_code as number;
-    if (!anchorAt.has(code)) anchorAt.set(code, row.observed_at as string);
-  }
-  if (anchorAt.size === 0) return [];
-
-  let earliestAnchor = "";
-  for (const at of anchorAt.values()) {
-    if (earliestAnchor === "" || at < earliestAnchor) earliestAnchor = at;
-  }
-
-  const anchored = [...anchorAt.keys()];
-  const samples = await readAllPages<{
-    player_code: number;
-    observed_at: string;
-    transfers_in_event: number | null;
-    transfers_out_event: number | null;
-  }>((from) =>
-    db
-      .from("player_ownership_history")
-      .select("player_code, observed_at, transfers_in_event, transfers_out_event")
-      .eq("season", season)
-      .in("player_code", anchored)
-      .gte("observed_at", earliestAnchor)
-      // (observed_at, player_code) is the table's own key: a total order, so
-      // consecutive offset pages can neither overlap nor skip a row.
-      .order("observed_at", { ascending: true })
-      .order("player_code")
-      .range(from, from + PAGE_ROWS - 1),
-  );
-  if (samples === null) return [];
-
-  const byPlayer = new Map<number, Array<{ in: number; out: number }>>();
-  for (const row of samples) {
-    const code = row.player_code as number;
-    const anchor = anchorAt.get(code);
-    if (!anchor || (row.observed_at as string) < anchor) continue;
-    const list = byPlayer.get(code) ?? [];
-    list.push({ in: (row.transfers_in_event as number | null) ?? 0, out: (row.transfers_out_event as number | null) ?? 0 });
-    byPlayer.set(code, list);
+  const { data, error } = await db
+    .from("price_watch")
+    .select("player_code, net_transfers, anchor_at")
+    .eq("season", season)
+    .in("player_code", [...codes])
+    .not("net_transfers", "is", null);
+  if (error) {
+    console.error(`notify: price_watch read failed: ${error.message}`);
+    return [];
   }
 
   const alerts: PriceWatchAlert[] = [];
-  for (const [code, list] of byPlayer) {
-    if (list.length < 2) continue;
-    // Reset-aware accumulation: transfers_in_event only ever increases within
-    // a gameweek, so a decrease between consecutive samples marks a deadline
-    // reset, and the new sample's own net *is* the accumulation since that
-    // reset rather than a delta from the pre-reset sample.
-    let total = 0;
-    for (let i = 1; i < list.length; i++) {
-      const prev = list[i - 1];
-      const cur = list[i];
-      const reset = cur.in < prev.in;
-      const netCur = cur.in - cur.out;
-      const netPrev = prev.in - prev.out;
-      total += reset ? netCur : netCur - netPrev;
-    }
+  for (const row of data ?? []) {
+    const total = Number(row.net_transfers);
     if (Math.abs(total) < threshold) continue;
     alerts.push({
-      code,
+      code: row.player_code as number,
       direction: total > 0 ? "rise" : "fall",
       netTransfers: total,
-      anchorAt: anchorAt.get(code)!,
+      anchorAt: row.anchor_at as string,
     });
   }
   return alerts;

@@ -1,3 +1,31 @@
+---
+title: "Data pipeline"
+type: platform
+tags: [platform]
+sources:
+  - architecture.md
+  - sprints/latency.md
+  - sprints/sprint-17a.md
+  - sprints/sprint-38.md
+  - sprints/sprint-40.md
+  - sprints/gw5-check-in.md
+  - sprints/sprint-39.md
+related:
+  - moc/platform.md
+  - deadline-and-matchday.md
+  - ownership-and-leagues.md
+  - xp-model.md
+  - fpl-authentication.md
+  - notifications-and-bot.md
+  - edge-function-security.md
+  - performance.md
+  - news-feed.md
+  - player-profile.md
+  - methodology.md
+  - fpl-api-constraints.md
+  - database-and-rls.md
+updated: 2026-10-18
+---
 # Data pipeline
 
 Up: [Wiki home](index.md) · [Platform](moc/platform.md)
@@ -436,3 +464,13 @@ something looked.
 See also: [fpl-api-constraints.md](fpl-api-constraints.md) (the FPL-side API quirks this pipeline
 absorbs), [database-and-rls.md](database-and-rls.md) (the schema and access rules on the other end),
 [edge-function-security.md](edge-function-security.md) (who may call these functions at all).
+
+## Sources
+
+- [architecture.md](../architecture.md)
+- [sprints/latency.md](../sprints/latency.md)
+- [sprints/sprint-17a.md](../sprints/sprint-17a.md)
+- [sprints/sprint-38.md](../sprints/sprint-38.md)
+- [sprints/sprint-40.md](../sprints/sprint-40.md)
+- [sprints/gw5-check-in.md](../sprints/gw5-check-in.md)
+- [sprints/sprint-39.md](../sprints/sprint-39.md)

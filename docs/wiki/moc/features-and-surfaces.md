@@ -1,3 +1,18 @@
+---
+title: "Features and surfaces (Map of Content)"
+type: moc
+tags: [features-and-surfaces]
+related:
+  - squad-score-and-scenarios.md
+  - hidden-gems.md
+  - manager-profile.md
+  - club-tactical-profiles.md
+  - deadline-and-matchday.md
+  - player-profile.md
+  - ownership-and-leagues.md
+  - decision-analytics.md
+updated: 2026-10-18
+---
 # Features and surfaces (Map of Content)
 
 Up: [Wiki home](../index.md)
@@ -14,3 +29,7 @@ What the owner sees and uses: the routes and cards, and the analytics they show.
 | [player-profile.md](../player-profile.md) | The three-tab full player card reachable from every page, and the owner-scoped shortlist |
 | [ownership-and-leagues.md](../ownership-and-leagues.md) | Exact mini-league effective ownership, the league-314 top-1k sample, and adding rivals from a league's standings |
 | [decision-analytics.md](../decision-analytics.md) | Season-wide scoring of decisions already made — captain success, transfer success, chip ROI, rank progression |
+
+## Sources
+
+No external source: this page maps or synthesises other wiki pages.

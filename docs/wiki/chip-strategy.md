@@ -1,3 +1,18 @@
+---
+title: "Chip strategy engine"
+type: concept
+tags: [engines-and-model]
+aliases: [chips, chip valuation]
+related:
+  - moc/engines-and-model.md
+  - lineup-captain-bench.md
+  - squad-optimizer.md
+  - design-system.md
+  - chip-plan.md
+  - deadline-and-matchday.md
+  - squad-score-and-scenarios.md
+updated: 2026-10-18
+---
 # Chip strategy engine
 
 Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
@@ -80,3 +95,7 @@ and forward transfer path this feeds), [deadline-and-matchday.md](deadline-and-m
 Spent chips: the engine takes `playedChips` and reports a spent half blocked, not valued, so the
 schedule, sequences and rankings leave it out while the next half stays open — see
 [chip-plan.md](chip-plan.md#a-spent-chip-is-spent-everywhere-2026-10-13).
+
+## Sources
+
+No external source: this page maps or synthesises other wiki pages.

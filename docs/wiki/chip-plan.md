@@ -1,3 +1,19 @@
+---
+title: "Chip strategy planning"
+type: concept
+tags: [engines-and-model]
+aliases: [chip planner, chip schedule]
+sources:
+  - sprints/sprint-18.md
+  - sprints/m9.md
+related:
+  - moc/engines-and-model.md
+  - chip-strategy.md
+  - transfer-engine.md
+  - hidden-gems.md
+  - frontend-conventions.md
+updated: 2026-10-18
+---
 # Chip strategy planning
 
 Up: [Wiki home](index.md) · [Engines and model](moc/engines-and-model.md)
@@ -248,3 +264,7 @@ The plan card's collapsed summary follows the same rule: a spent chip reads `pla
   `/team` as an estimate. Only the owner's own account (one hit-free chip week, no recorded hits beyond one in
   the 11 managers stored) exercises it, so it is thinly validated.
 
+## Sources
+
+- [sprints/sprint-18.md](../sprints/sprint-18.md)
+- [sprints/m9.md](../sprints/m9.md)

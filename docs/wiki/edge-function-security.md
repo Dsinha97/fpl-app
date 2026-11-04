@@ -1,3 +1,19 @@
+---
+title: "Edge Function security"
+type: platform
+tags: [platform]
+aliases: [verify_jwt, CORS]
+sources:
+  - sprints/sprint-39.md
+related:
+  - moc/platform.md
+  - data-pipeline.md
+  - database-and-rls.md
+  - methodology.md
+  - notifications-and-bot.md
+  - deployment.md
+updated: 2026-10-18
+---
 # Edge Function security
 
 Up: [Wiki home](index.md) · [Platform](moc/platform.md)
@@ -227,3 +243,7 @@ A posture nobody wrote down is a posture nobody decided. Both of this area's lon
 `verify_jwt` and `scratch-path-test` — existed because the state lived in deploy history rather than
 in a file. Writing it into `config.toml` did not fix either one, but it is what made them
 *reviewable*, and both were closed within two sprints of becoming visible.
+
+## Sources
+
+- [sprints/sprint-39.md](../sprints/sprint-39.md)

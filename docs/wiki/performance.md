@@ -1,3 +1,21 @@
+---
+title: "Performance"
+type: platform
+tags: [platform]
+sources:
+  - sources/website-optimization.md
+  - sprints/latency.md
+  - sprints/sprint-40.md
+related:
+  - moc/platform.md
+  - data-pipeline.md
+  - fpl-api-constraints.md
+  - deployment.md
+  - design-system.md
+  - frontend-conventions.md
+  - methodology.md
+updated: 2026-10-18
+---
 # Performance
 
 Up: [Wiki home](index.md) · [Platform](moc/platform.md)
@@ -152,3 +170,9 @@ See also: [data-pipeline.md](data-pipeline.md) (the `sync-manager`/`sync-claimed
 full), [deployment.md](deployment.md) (the static-export constraints these verdicts lean on),
 [methodology.md](methodology.md) (verify an external recommendation against this app's own
 measurements before adopting it).
+
+## Sources
+
+- [sources/website-optimization.md](../sources/website-optimization.md)
+- [sprints/latency.md](../sprints/latency.md)
+- [sprints/sprint-40.md](../sprints/sprint-40.md)

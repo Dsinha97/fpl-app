@@ -1,3 +1,23 @@
+---
+title: "FPL API constraints"
+type: platform
+tags: [platform]
+aliases: [FPL API]
+sources:
+  - sprints/sprint-29.md
+related:
+  - moc/platform.md
+  - data-pipeline.md
+  - blocked-and-data-gaps.md
+  - risk-scoring.md
+  - lineup-captain-bench.md
+  - methodology.md
+  - chip-plan.md
+  - xp-model.md
+  - chip-strategy.md
+  - fpl-authentication.md
+updated: 2026-10-18
+---
 # FPL API constraints
 
 Up: [Wiki home](index.md) · [Platform](moc/platform.md)
@@ -94,3 +114,7 @@ built instead.
 trusting a pattern. Several of the entries above exist precisely because a documented or
 widely-cited pattern (a Medium guide, a third-party write-up) turned out to be wrong when checked
 directly.
+
+## Sources
+
+- [sprints/sprint-29.md](../sprints/sprint-29.md)
