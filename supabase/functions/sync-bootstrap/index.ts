@@ -14,6 +14,7 @@ import { deriveSeason } from "../_shared/season.ts";
 import { jsonResponse, preflight, serviceClient, SyncRun } from "../_shared/sync.ts";
 import { bool, chunk, date, int, num, str, ts } from "../_shared/coerce.ts";
 import { verifyCron } from "../_shared/cron-auth.ts";
+import { diffAgainstStored } from "../_shared/diff-write.ts";
 
 const FUNCTION_NAME = "sync-bootstrap";
 
@@ -30,6 +31,28 @@ async function upsert(
     if (error) throw new Error(`${table}: ${error.message}`);
   }
   return rows.length;
+}
+
+/**
+ * Like `upsert`, but writes only rows that differ from the stored copy. For
+ * the three big churning reference tables (teams, gameweeks, players), whose
+ * 30-minute re-sends are overwhelmingly no-ops. Returns rows actually written.
+ * Keyed on `season,<rest>`; not for tables whose `updated_at` is a sample time
+ * (game_settings) — those stay on plain `upsert`.
+ */
+async function upsertChanged(
+  db: SupabaseClient,
+  table: string,
+  rows: Record<string, unknown>[],
+  onConflict: string,
+  chunkSize = 200,
+): Promise<number> {
+  if (rows.length === 0) return 0;
+  const keyCols = onConflict.split(",").filter((c) => c !== "season");
+  const { changed } = await diffAgainstStored(db, table, rows, keyCols, {
+    season: rows[0].season as string,
+  });
+  return await upsert(db, table, changed, onConflict, chunkSize);
 }
 
 Deno.serve(async (req) => {
@@ -55,7 +78,7 @@ Deno.serve(async (req) => {
     // ------------------------------------------------ teams and positions
     // Both must land before players, which carries FKs onto them.
 
-    counts.teams = await upsert(
+    counts.teams = await upsertChanged(
       db,
       "teams",
       boot.teams.map((t) => ({
@@ -108,7 +131,7 @@ Deno.serve(async (req) => {
 
     // ------------------------------------------------------------ gameweeks
 
-    counts.gameweeks = await upsert(
+    counts.gameweeks = await upsertChanged(
       db,
       "gameweeks",
       boot.events.map((e) => ({
@@ -142,7 +165,7 @@ Deno.serve(async (req) => {
 
     // -------------------------------------------------------------- players
 
-    counts.players = await upsert(
+    counts.players = await upsertChanged(
       db,
       "players",
       boot.elements.map((p) => ({

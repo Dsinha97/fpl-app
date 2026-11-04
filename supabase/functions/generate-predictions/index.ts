@@ -10,6 +10,7 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { currentSeason, jsonResponse, preflight, serviceClient, SyncRun } from "../_shared/sync.ts";
 import { chunk } from "../_shared/coerce.ts";
+import { diffAgainstStored } from "../_shared/diff-write.ts";
 import { verifyCron } from "../_shared/cron-auth.ts";
 import {
   applySquadScale,
@@ -595,20 +596,48 @@ Deno.serve(async (req) => {
     // version bump that deletes only its own rows would leave the previous
     // version's rows in place and double every player's horizon data. This
     // is the invariant that keeps that correct; see docs/roadmap.md.
-    const { error: deleteError } = await db
+    //
+    // Written as a diff, not delete-all + insert-all: the old shape rewrote
+    // ~20k rows every 30 minutes (93M tuple writes lifetime) and tripped
+    // Supabase's Disk IO budget warning. Other versions' rows go in one
+    // delete; this version's rows are upserted only where they changed, and
+    // rows whose fixture vanished are removed individually.
+    const { error: oldVersionError } = await db
       .from("player_predictions")
       .delete()
-      .eq("season", season);
-    if (deleteError) throw new Error(`clear predictions: ${deleteError.message}`);
+      .eq("season", season)
+      .neq("model_version", MODEL_VERSION);
+    if (oldVersionError) throw new Error(`clear old versions: ${oldVersionError.message}`);
 
-    for (const batch of chunk(rows, 500)) {
-      const { error } = await db.from("player_predictions").insert(batch);
+    const predictionKey = ["player_id", "fixture"];
+    const { changed, stale } = await diffAgainstStored(
+      db,
+      "player_predictions",
+      rows,
+      predictionKey,
+      { season, model_version: MODEL_VERSION },
+    );
+
+    for (const batch of chunk(changed, 500)) {
+      const { error } = await db
+        .from("player_predictions")
+        .upsert(batch, { onConflict: "season,model_version,player_id,fixture" });
       if (error) throw new Error(`player_predictions: ${error.message}`);
+    }
+    for (const r of stale) {
+      const { error } = await db
+        .from("player_predictions")
+        .delete()
+        .eq("season", season)
+        .eq("model_version", MODEL_VERSION)
+        .eq("player_id", r.player_id as number)
+        .eq("fixture", r.fixture as number);
+      if (error) throw new Error(`prune predictions: ${error.message}`);
     }
 
     // Archive the next gameweek's snapshot before it is overwritten by a
-    // future run. player_predictions holds no history — it is deleted and
-    // replaced wholesale every run (see the delete above) — so this is the
+    // future run. player_predictions holds no history — each run overwrites
+    // whatever changed (see the diff above) — so this is the
     // only surviving record of what the model said before a gameweek's
     // deadline, which is what an accuracy scoreboard needs to score against
     // once the gameweek is played. See the migration
@@ -629,7 +658,15 @@ Deno.serve(async (req) => {
       const archiveRows = rows
         .filter((r) => r.event === firstEvent)
         .map((r) => ({ ...r, deadline_time: firstEventDeadline }));
-      for (const batch of chunk(archiveRows, 500)) {
+      const { changed: archiveChanged } = await diffAgainstStored(
+        db,
+        "player_prediction_archive",
+        archiveRows,
+        ["player_id", "fixture"],
+        { season, event: firstEvent },
+        ["model_version"],
+      );
+      for (const batch of chunk(archiveChanged, 500)) {
         const { error } = await db
           .from("player_prediction_archive")
           .upsert(batch, { onConflict: "season,event,player_id,fixture" });

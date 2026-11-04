@@ -17,6 +17,7 @@ import {
 } from "../_shared/sync.ts";
 import { bool, chunk, int, num } from "../_shared/coerce.ts";
 import { verifyCron } from "../_shared/cron-auth.ts";
+import { diffAgainstStored } from "../_shared/diff-write.ts";
 
 const FUNCTION_NAME = "sync-live-gameweek";
 
@@ -123,7 +124,18 @@ Deno.serve(async (req) => {
       };
     });
 
-    for (const batch of chunk(rows, 200)) {
+    // Most elements are unchanged between two-minute polls; write only the
+    // ones that moved. observed_at is the polling time, so it never counts.
+    const { changed } = await diffAgainstStored(
+      db,
+      "player_live_stats",
+      rows,
+      ["player_id"],
+      { season, event: gw.id },
+      ["observed_at"],
+    );
+
+    for (const batch of chunk(changed, 200)) {
       const { error } = await db
         .from("player_live_stats")
         .upsert(batch, { onConflict: "season,event,player_id" });
@@ -133,7 +145,7 @@ Deno.serve(async (req) => {
     await run.finish("success", {
       season,
       rowsWritten: rows.length,
-      details: { event: gw.id, elements: rows.length },
+      details: { event: gw.id, elements: rows.length, written: changed.length },
     });
 
     return jsonResponse({ ok: true, season, event: gw.id, elements: rows.length });
