@@ -51,14 +51,17 @@ per sync tick (~0.4–0.8 s added to a tick).
   old. The parity run found no projection moving more than 0.02.
 - **A null `selected_by_percent` reads as 0**, as it did before (`Number(null)`); preserved, not fixed.
 
+## Closed 2026-11-04
+
+Both open checks passed. An ownership sample landed at 02:00:10 UTC (86 rows) and `price_watch.rate_computed_at`
+read exactly 02:00:10.606739, the same transaction, so the trigger fires in production. `notify` v9's first run
+(02:15:04) read `success`. DSI-187 is Done.
+
 ## Not done
 
-- **`notify` v9's first run was not seen.** The last run on v8 was 02:00 UTC; the first on v9 is the 02:15 tick.
-  It should read `success`; whether the price-watch alerts it detects match what v8 would have is only
-  indirectly covered (the stored nets equal the old arithmetic, and `anchor_at` is the same value the dedupe key
-  used, so no alert should re-fire).
-- **The trigger path in production is unverified until the next ownership sample** (the 2 h gate puts it near
-  03:30 UTC). The migration backfill and the rolled-back trigger test are what have run. Check that
-  `price_watch.rate_computed_at` moves after that sample.
+- **`notify` v9's alert logic has not fired on a real crossing.** Its first run (02:15 UTC) read `success` with
+  `detected: 0`, which is correct but uninformative: it says the read works, not that an alert is built right.
+  The stored nets equal the old arithmetic and `anchor_at` is the value the dedupe key used before, so none
+  should re-fire; that is reasoned, not observed.
 - **No browser cache layer** (the issue's third candidate). It is unneeded at ~670 rows.
 - `/transfers`, `/shortlist` and the profile modal were not opened; they call the same loader.

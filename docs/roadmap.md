@@ -92,10 +92,9 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 ## Next up
 
-**DSI-187 applied 2026-11-04**, see [sprints/dsi-187-price-watch.md](sprints/dsi-187-price-watch.md): the price-watch reading is
+**DSI-187 shipped and closed 2026-11-04**, see [sprints/dsi-187-price-watch.md](sprints/dsi-187-price-watch.md): the price-watch reading is
 precomputed into `price_watch` on every sample, so `/players` and `/transfers` read ~670 rows instead of 154k.
-Readings are identical to the old scan. `notify` deployed as v9. Owes: confirm the trigger on the next ownership sample
-and `notify`'s first v9 run.
+Readings are identical to the old scan. `notify` deployed as v9; the live trigger and notify's first v9 run were both seen.
 
 **GW9 read 2026-11-03** (the second archived v1.7.0 snapshot), see [sprints/gw9-check-in.md](sprints/gw9-check-in.md).
 Bias +0.020, MAE 1.151 (best on record), r 0.523; GW8's +0.084 was mostly the week, and the defensive-contribution
