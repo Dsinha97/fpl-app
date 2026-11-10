@@ -282,6 +282,14 @@ or `tsc --noEmit` breaks on Deno globals.
   tab. Fall back to `"auto"` when hidden (and when motion is reduced): motion must
   never be load-bearing for whether a control is reachable.
 
+## Agents
+
+Read-only subagents in `.claude/agents/`. For any multi-step build, run `wiki-retriever`
+(`docs/wiki/`), `history-retriever` (sprints, roadmap, Linear, git) and `code-retriever` (code, via
+graft) **in parallel**, then pass their results and the available skill list to `planner`, and
+execute its plan in the main session. Subagents cannot start subagents, so the session does the
+orchestration. The planner plans only; it does not invoke skills or edit files.
+
 ## Communication style
 
 **Keep responses concise.** Skip preamble and restating the request; lead with the answer
