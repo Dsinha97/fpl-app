@@ -18,7 +18,7 @@ derived-vs-**official** arm (§5). Bias is actual − predicted.
 - **Realised points were a little above prediction again** (1.367 vs 1.300); the played-cohort over-prediction
   (+0.752) is unchanged in kind. The no-show over-prediction keeps shrinking (−0.615, −0.574, −0.533).
 - **DSI-219's verification sample is now three weeks.** Nothing here is a fault; its closure is the owner's call
-  (see §6).
+  (see §6 for the version comparison, §8 for what is open).
 
 ## 2. Last-5 baseline on the same rows
 
@@ -95,9 +95,72 @@ call, only `fdr` differs), same 2,116 rows:
 - On 2026-27 the shuffled control at `priorGames=4` (MAE 2.297, r 0.224) is better than derived (2.306 / 0.216), so
   the within-season signal on this thin season is weak; the earlier seasons carry the case.
 
-## 6. Not done
+## 6. v1.7.0 against older versions
+
+`scripts/component-residuals.ts 2026-27` scores each archived gameweek by the version that was live
+(`player_prediction_archive`), then **replays** v1.7.0's rules on the older versions' own archived inputs, so the
+same rows are compared across versions and the week's difficulty drops out.
+
+As shipped (different weeks, so not like-for-like):
+
+| version | GWs | n | bias | MAE | r | Spearman |
+|---|---|---|---|---|---|---|
+| v1.5.0 | 2–6 | 3,254 | −0.082 | 1.348 | 0.488 | 0.623 |
+| v1.6.0 | 7 | 667 | −0.132 | 1.259 | 0.518 | 0.628 |
+| **v1.7.0** | **8–10** | **2,007** | **+0.057** | **1.209** | **0.517** | **0.652** |
+
+Same rows (v1.7.0 rules replayed on the older inputs):
+
+| rows | as shipped bias / MAE / r | v1.7.0 replay bias / MAE / r |
+|---|---|---|
+| GW2–6 (v1.5.0 inputs, n=3,254) | −0.082 / 1.348 / 0.488 | +0.103 / **1.281** / 0.493 |
+| GW7 (v1.6.0 inputs, n=667) | −0.132 / 1.259 / 0.518 | +0.045 / **1.205** / 0.510 |
+| GW8–10 (v1.7.0 inputs, n=2,007) | +0.057 / 1.209 / 0.517 | +0.014 / 1.225 / 0.516 |
+
+- **v1.7.0 is better on MAE on identical rows (−0.067 vs v1.5.0, −0.054 vs v1.6.0) and about level on r**
+  (+0.005 vs v1.5.0, −0.008 vs v1.6.0). It is an accuracy-in-level gain, not a ranking gain. Spearman is the
+  highest shipped (0.652), by 0.03.
+- **Bias flipped sign.** Older versions under-predicted by 0.08–0.13 on realised points; v1.7.0 over-predicts
+  by 0.01–0.10 on the same rows. `positionCalibration` going to 1.0 removed a ×1.22–1.27 inflation that
+  happened to net against missing components; the correction overshoots slightly. On the same GW2–6 rows
+  |bias| is no better (−0.082 shipped vs +0.103 replayed), so v1.7.0 trades an under-prediction for a mild
+  over-prediction rather than reducing the bias; the MAE gain is the real one.
+- **Components, as shipped, v1.5.0 → v1.7.0** (predicted / realised, all positions): defensive contribution
+  0.029 / 0.107 → 0.101 / 0.116 (fixed); appearance 0.730 / 0.790 → 0.733 / 0.771; goals 0.186 / 0.212 →
+  0.187 / 0.152 and assists 0.077 / 0.124 → 0.107 / 0.085 (both now **over**-predicted, as the GW9 check-in
+  found); clean sheet 0.184 / 0.209 → 0.179 / 0.250 (under-predicted more, a low-scoring GW8–10).
+  Goalkeeper appearance 0.705 / 0.559 → 0.561 / 0.543 (fixed).
+- **P(appear) calibration**: 0.2–0.4 bucket still under-predicts appearances (0.292 / 0.486); the 0.8–1.0
+  bucket now reads 0.974 / 0.926 on points 3.209 / 3.412.
+- **Caveats.** The versions ran on different weeks and different amounts of data (v1.5.0 on GW2–6 includes the
+  cold-start weeks; v1.6.0 is one gameweek). The replay reconstructs some inputs approximately (its header says
+  so): its v1.7.0-on-v1.7.0 row differs from the shipped row (assists 0.154 vs 0.107, saves 0.032 vs 0.019,
+  goals conceded −0.078 vs −0.060), so a replay's component lines are indicative only and its pooled bias
+  (+0.014 vs +0.057 shipped) is a replay level, not a deploy fault. No standard errors.
+- **The earlier walk-forward result still stands**: MAE, r and |bias| better than v1.6.0 in 4 of 4 seasons
+  ([sprint-43.md](sprint-43.md)).
+
+## 7. Sprint 43 deploy-time checks, re-run 2026-11-10
+
+On the live `player_predictions` (18,816 rows, 672 players, events 11–38, all `v1.7.0`):
+
+| Check | Result |
+|---|---|
+| `model_version` | `v1.7.0` on every row |
+| `appearance_probability` | 0 null, 0 outside 0–1, 0 below `start_probability` (18,816 rows) |
+| Keeper expected minutes per club fixture | **89.9–90.1** (560 club-fixtures) |
+| Outfield minutes per club fixture | 899.8–900.2 |
+| Start sums | keepers 1.000–1.001, outfield 9.998–10.003 |
+| `squad_consistency_violations` | **0** on the last three `generate-predictions` runs (v22 had 9) |
+| `prediction_models.params` for v1.7.0 | matches local `MODEL_PARAMS` key for key |
+
+All hold. `computed_at` reads 2026-11-08 19:05 while runs keep succeeding every 30 minutes; that is the "write only
+changed rows" change (`2a3b50b`), not a stalled job.
+
+## 8. Not done
 
 - No model change, no deploy, no refit. `scope=minutes` is the only candidate, and it needs the DSI-185 overlap
   question answered first.
-- The Sprint 43 integrity table and the component-residuals pooling for GW10 were not re-run.
+- `component-residuals.ts` still pools by version and position, not by played/no-show cohort, so the cohort
+  bias cannot be attributed to components directly. It also still takes a season, not a gameweek.
 - DSI-219 was not closed; that is the owner's decision.
