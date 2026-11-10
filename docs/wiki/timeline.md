@@ -63,7 +63,7 @@ related:
   - notifications-and-bot.md
   - blocked-and-data-gaps.md
   - player-profile.md
-updated: 2026-10-19
+updated: 2026-11-10
 ---
 # Timeline
 
@@ -142,6 +142,7 @@ See also: [blocked-and-data-gaps.md](blocked-and-data-gaps.md) for what's still 
 | 2026-10-13 | A chip already played is now left out everywhere: the transfer path stopped recommending a Wildcard after GW6, and the Chip timing tab, `/deadline`, `/scenarios` and `/builder` no longer value spent chips (next half stays open) | [chip-plan.md](chip-plan.md#a-spent-chip-is-spent-everywhere-2026-10-13) |
 | 2026-10-13 | Phone visual pass: translucent bottom tabs that hide on scroll down, a header that contracts on scroll, Builder xP moved left, Fixtures "Next GW" on one line, and a counts-only "at a glance" block on `/deadline` | [design-system.md](design-system.md#mobile-chrome-glass-tabs-that-hide-a-header-that-contracts-2026-10-13) |
 | 2026-10-19 | xP model v1.7.0 (Sprint 43): an external audit prompted a per-component check, which found defensive contribution, assists and keeper appearance wrong and a calibration scalar covering for them. Fixed at source and the scalar dropped; better than v1.6.0 on every walk-forward season | [xp-model.md](xp-model.md#v170-the-components-positioncalibration-was-hiding-sprint-43) |
+| 2026-11-09 | The GW10 model batch (GW9 read 2026-11-03 included). GW10 scored bias +0.067, MAE 1.196, r 0.543; v1.7.0 beats v1.5.0/v1.6.0 on MAE on identical rows with r level. The DSI-186 accuracy gate was **not met** (pooled tie with last-5; the model loses no-shows and goalkeepers), official FDR beat derived on 2026-27, and the `minutes` blend that cleared 4/4 was shown to add nothing on top of DSI-185. DSI-219 closed. `component-residuals.ts` gained a gameweek argument and a cohort split | [gw10-check-in.md](../sprints/gw10-check-in.md), [gw9-check-in.md](../sprints/gw9-check-in.md), [xp-model.md](xp-model.md#the-gw10-batch-2026-11-09), [fixture-difficulty.md](fixture-difficulty.md#the-gate-at-gw10-2026-11-09-official-wins) |
 
 ## Sources
 

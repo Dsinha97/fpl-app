@@ -7,6 +7,7 @@ sources:
   - sprints/sprint-31.md
   - sprints/sprint-35.md
   - sprints/gw8-check-in.md
+  - sprints/gw10-check-in.md
   - sprints/m9.md
 related:
   - moc/engines-and-model.md
@@ -15,7 +16,7 @@ related:
   - methodology.md
   - blocked-and-data-gaps.md
   - design-system.md
-updated: 2026-10-26
+updated: 2026-11-10
 ---
 # Fixture difficulty (FDR)
 
@@ -125,7 +126,8 @@ evidence would claim something the backtest never tested, so nothing is wired in
 `MODEL_VERSION` unchanged.
 
 **The gate that would justify shipping** is derived-vs-official on the *current* season, where
-official FDR is available in `fixtures`. At GW3 that is n=471 and far too thin. Re-run from ~GW10.
+official FDR is available in `fixtures`. At GW3 that was n=471 and far too thin; it was run at GW10, see
+[below](#the-gate-at-gw10-2026-11-09-official-wins).
 
 **A second follow-up if it clears:** `predict` collapses fixture difficulty into one `fdr` scalar
 with separate `attackAlpha`/`defenceAlpha` applied to it, and `phase-4-model.md` already records
@@ -146,10 +148,19 @@ carry a small look-ahead edge; the effect is about 0.6% of MAE with no standard 
 gameweeks. The same note checked whether FDR explained the GW8 bias and found it did not: v1.7.0 did not touch
 FDR, and the bias moved at every FDR level. — [sprints/gw8-check-in.md](../sprints/gw8-check-in.md) §4
 
+### The gate at GW10 (2026-11-09): official wins
+
+DSI-52 run in the walk-forward harness (a derived-vs-official arm, 2026-27 only, same `predict()` call with only
+`fdr` changed), 2,116 rows: neutral MAE 2.310 / r 0.218, **official 2.295 / 0.236**, derived 2.303–2.306 /
+0.216–0.219 at `priorGames` 2, 4 and 8. Derived does not beat official at any setting, and official beats neutral
+by more than derived does. Derived stays display-only and FPL's official FDR stays in `fdrRun`; `priorGames` was
+not tuned. Derived-vs-neutral still clears 4/4 seasons at `priorGames=2` (Sprint 35) but that was never the gate
+that matters. — [sprints/gw10-check-in.md](../sprints/gw10-check-in.md) §5
+
 ## The distinction worth keeping
 
 Generation 2 is **display-only forever** (no history to backtest against, ever). Generation 3 is
-**unshipped pending one specific measurement** that becomes possible around GW10. Those are
+**measured and not shipped**: at GW10 official FDR beat it on the current season. Those are
 different states, and [blocked-and-data-gaps.md](blocked-and-data-gaps.md) lists them separately.
 
 ## Reading the matrix: venue encoding and the settings card (M9, 2026-09-12/13)
@@ -179,4 +190,5 @@ put. See [design-system.md](design-system.md#the-settings-card-a-control-row-tha
 - [sprints/sprint-31.md](../sprints/sprint-31.md)
 - [sprints/sprint-35.md](../sprints/sprint-35.md)
 - [sprints/gw8-check-in.md](../sprints/gw8-check-in.md)
+- [sprints/gw10-check-in.md](../sprints/gw10-check-in.md)
 - [sprints/m9.md](../sprints/m9.md)
