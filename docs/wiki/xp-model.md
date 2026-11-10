@@ -18,6 +18,8 @@ sources:
   - sprints/gw6-check-in.md
   - sprints/gw7-check-in.md
   - sprints/gw8-check-in.md
+  - sprints/gw9-check-in.md
+  - sprints/gw10-check-in.md
   - sources/ml-model-audit.md
   - sprints/sprint-43.md
 related:
@@ -29,7 +31,7 @@ related:
   - fpl-api-constraints.md
   - lineup-captain-bench.md
   - cold-start-priors.md
-updated: 2026-10-26
+updated: 2026-11-10
 ---
 # The xP (Expected Points) model
 
@@ -400,10 +402,11 @@ players; it reads this season's games from gameweeks *before* the one being pred
 whose results have landed (an unwritten fixture reads as 22 no-shows). Availability and the squad
 reconciliation still apply afterwards. The first post-deploy run succeeded: every club's outfield start
 probabilities sum to 10.00 and goalkeepers to 1.00, reconciliation `ok` 60/60, consistency violations 13 → 9.
-**Open:** the GW7 and GW8 re-reads are done ([sprints/gw7-check-in.md](../sprints/gw7-check-in.md),
+**Open:** the GW7 to GW10 re-reads are done ([sprints/gw7-check-in.md](../sprints/gw7-check-in.md),
 [sprints/gw8-check-in.md](../sprints/gw8-check-in.md); GW8 is the first v1.7.0 row, see
-[below](#the-first-live-v170-read-gw8-2026-10-26)); the GW10 batch remains, and DSI-186 (accuracy claims) stays
-blocked on it. The population is the validated one only — cold-start and promoted-club players are not covered.
+[below](#the-first-live-v170-read-gw8-2026-10-26)), and the GW10 batch has run
+([below](#the-gw10-batch-2026-11-09)); DSI-186 (accuracy claims) stays blocked, its gate not met. The population is
+the validated one only — cold-start and promoted-club players are not covered.
 
 ### The coverage gate the check-in had to build first
 
@@ -446,7 +449,7 @@ On the walk-forward harness, v1.7.0 beats v1.6.0 on MAE, r and |bias| in all fou
 (2025-26: 2.547/0.153/−0.657 → 2.352/0.155/−0.229). A leave-one-season-out refit of the factors lost r
 in two seasons. A replay of archived production inputs agrees (GW2–6 MAE 1.348 → 1.281), with two
 small misses recorded. The model is still behind the last-5 baseline. Side finding for DSI-51: the
-minutes-scope current-season blend now clears 4/4 seasons. —
+minutes-scope current-season blend now clears 4/4 seasons (later shown redundant, [below](#the-gw10-batch-2026-11-09)). —
 [sprints/sprint-43.md](../sprints/sprint-43.md)
 
 P(appear) is stored as `appearance_probability`, so lineup bench odds read the model's figure
@@ -466,6 +469,36 @@ standing offset that one week cannot tell from noise. On identical rows the arch
 a dead heat when zeros count and ahead on MAE and r when only played games count; neither is an accuracy claim.
 The deploy-time integrity checks (keeper minutes 90 per club fixture, start sums 1 and 10, `v1.7.0` on every
 row) also hold on the 2026-10-26 run. — [sprints/gw8-check-in.md](../sprints/gw8-check-in.md)
+
+### GW9 (2026-11-03)
+
+Second archived v1.7.0 row: bias +0.020, MAE 1.151 (best on record), r 0.523. GW8's +0.084 was mostly the week
+(realised points fell back while the prediction level held), and the defensive-contribution gap closed. The
+last-5 baseline won both MAE and r in arm A (any-minutes) for the first time, and the model lost r in arm B
+(played-only), so "ahead every week" no longer held. — [sprints/gw9-check-in.md](../sprints/gw9-check-in.md)
+
+### The GW10 batch (2026-11-09)
+
+- **GW10 scoreboard:** n=670, bias +0.067, MAE 1.196, r 0.543 (the highest r on record). Three weeks of v1.7.0
+  (GW8–10, n=2,007) pool to bias +0.057, MAE 1.209, r 0.517, Spearman 0.652.
+- **Against older versions, on identical rows** (v1.7.0's rules replayed on each version's own archived
+  inputs): MAE is 0.067 lower than v1.5.0 and 0.054 lower than v1.6.0, and r is level (+0.005, −0.008). It is a
+  gain in level accuracy, not in ranking. Bias flipped from under- to mild over-prediction without shrinking
+  (GW2–6: −0.082 shipped, +0.103 replayed). Defensive contribution and keeper appearance are fixed; goals and
+  assists are now over-predicted and clean sheets under-predicted over GW8–10, a low-scoring stretch tracked
+  as a watch item (DSI-221, re-read ~GW14).
+- **DSI-186 gate not met.** Pooled GW6–10 against last-5 on archived xP is a tie (MAE +0.019 ± 0.021, r 0.506
+  vs 0.502). The model wins outfield players who appear (−0.153 ± 0.037) and loses no-shows and goalkeepers
+  (GK +0.283 ± 0.056). SEs are optimistic (players recur across weeks). No accuracy claim is supported.
+- **DSI-51:** the current-season blend sweep now has `scope=minutes` clearing 4/4 seasons, but layered on top of
+  the DSI-185 minutes model it adds 0.001–0.006 MAE: the 4/4 was measuring what DSI-185 already shipped, so it
+  is not shipped. **DSI-52:** official FDR beats derived on 2026-27 ([fixture-difficulty.md](fixture-difficulty.md)).
+- **Cohort bias, GW10 alone:** the played cohort's +0.752 is 62% appearance points, the no-show cohort a flat
+  −0.533. That split is by realised outcome and opposite-signed by construction, so it locates the error rather
+  than indicting the model.
+- Sprint 43's integrity checks were re-run on the live run (keeper minutes 89.9–90.1, start sums in band, 0
+  squad-consistency violations, params match) and hold; DSI-219 was closed on this evidence.
+— [sprints/gw10-check-in.md](../sprints/gw10-check-in.md)
 
 See also: [cold-start-priors.md](cold-start-priors.md) (what happens for players with thin or no PL
 evidence), [methodology.md](methodology.md) (the "drop, renormalise, disclose" and "verify with a
@@ -487,5 +520,7 @@ harness" rules this model was built under).
 - [sprints/gw6-check-in.md](../sprints/gw6-check-in.md)
 - [sprints/gw7-check-in.md](../sprints/gw7-check-in.md)
 - [sprints/gw8-check-in.md](../sprints/gw8-check-in.md)
+- [sprints/gw9-check-in.md](../sprints/gw9-check-in.md)
+- [sprints/gw10-check-in.md](../sprints/gw10-check-in.md)
 - [sources/ml-model-audit.md](../sources/ml-model-audit.md)
 - [sprints/sprint-43.md](../sprints/sprint-43.md)

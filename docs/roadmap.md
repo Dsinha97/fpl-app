@@ -74,7 +74,8 @@ reconciliation narrative: [sprints/additional-info.md](sprints/additional-info.m
 | 42 | Mobile redesign — Deadline, Transfers, Fixtures, Builder | **Built and shipped** 2026-10-08 (DSI-215, PR #44) — Sprint 41's primitives on the four routes it left: a HeroStat per page (deadline countdown, transfer Net xP, next GW, squad projection), the builder's stat grids as `StatStrip`s, card frames dropped below `sm`, squad/settings/FDR pickers and the transfer replacement picker as bottom sheets; `FilterDisclosure` is a bottom sheet on phones (so `/players` and the builder get it); profile `StatCell`s are hairline-divided rather than nested tiles, 11px floor. Fixed a ~4,800px-wide `/transfers` once a move was queued (result aside missing `min-w-0`) | [sprints/sprint-42.md](sprints/sprint-42.md) |
 | 43 | xP component fixes (v1.7.0) — what `positionCalibration` was hiding | **Built and deployed** 2026-10-19 (DSI-219, PR #59, `generate-predictions` v23), from an external model audit whose headline (bench minutes leakage) did not hold but whose instinct (the scalar hides errors) did. Scored per component: defensive contribution was ~3.5× low (a Poisson tail taken at *mean* minutes), assists low (FPL credits more than xA), keeper appearance high (keepers shared outfield minutes in the 990 water-fill), while goals/bonus/saves were already right and the ×1.22–1.27 scalar inflated them. Fixed at source — start/cameo minute states, NB DC tail, assists/xA, a 90-minute keeper budget — and `positionCalibration` dropped to 1.0. Walk-forward: MAE, r and |bias| all better than v1.6.0 in 4/4 seasons; an archive replay agrees on the production population, with two small misses recorded. Still well behind last-5; DSI-186 stays blocked. Side finding for DSI-51: the minutes-scope blend now clears 4/4 | [sprints/sprint-43.md](sprints/sprint-43.md) |
 
-Non-sprint work items, also in `sprints/`: [gw9-check-in.md](sprints/gw9-check-in.md)
+Non-sprint work items, also in `sprints/`: [gw10-check-in.md](sprints/gw10-check-in.md)
+(the GW10 model batch, 2026-11-09: DSI-186 gate not met, `scope=minutes` blend clears 4/4 but unshipped, official FDR beats derived), [gw9-check-in.md](sprints/gw9-check-in.md)
 (the second live v1.7.0 read, 2026-11-03: bias back to +0.020, MAE 1.151, and the first week a last-5 mean beats the model on MAE and r in arm A), [gw8-check-in.md](sprints/gw8-check-in.md)
 (the first live v1.7.0 read, 2026-10-26, with the last-5 comparison on archived xP and a derived-vs-official
 FDR preview), [gw7-check-in.md](sprints/gw7-check-in.md) (the GW7 read, 2026-10-20, the first on v1.6.0),
@@ -91,6 +92,12 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 [sprints/additional-info.md](sprints/additional-info.md).
 
 ## Next up
+
+**GW10 batch run 2026-11-09**, see [sprints/gw10-check-in.md](sprints/gw10-check-in.md). GW10: bias +0.067, MAE 1.196,
+r 0.543 (highest on record). DSI-186 gate **not met** (pooled tie with last-5; the model loses on no-shows and
+goalkeepers). DSI-51: `scope=minutes` clears 4/4 seasons but is not shipped: on top of DSI-185's minutes model it adds
+0.001–0.006 MAE, so the 4/4 was measuring what DSI-185 already shipped.
+DSI-52: official FDR beats derived on 2026-27; derived stays display-only.
 
 **DSI-187 shipped and closed 2026-11-04**, see [sprints/dsi-187-price-watch.md](sprints/dsi-187-price-watch.md): the price-watch reading is
 precomputed into `price_watch` on every sample, so `/players` and `/transfers` read ~670 rows instead of 154k.

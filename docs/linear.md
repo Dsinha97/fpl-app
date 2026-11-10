@@ -103,6 +103,7 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | GW6 check-in — fifth scoreboard read, first last-5 baseline on 2026-27 (n=234, baseline ahead); **DSI-50 closed 2026-10-13**, DSI-185 promoted to Todo/High | DSI-50, DSI-185 | M6 | [sprints/gw6-check-in.md](sprints/gw6-check-in.md) |
 | GW8 check-in — first live v1.7.0 read, last-5 comparison on archived xP, derived-vs-official FDR preview (DSI-52 gate unchanged, DSI-219 left In Progress) | DSI-219, DSI-52, DSI-186 | M7 | [sprints/gw8-check-in.md](sprints/gw8-check-in.md) |
 | GW9 check-in — second live v1.7.0 read, last-5 comparison (baseline wins arm A for the first time); DSI-219 and the GW10 batch unchanged | DSI-219 | M7 | [sprints/gw9-check-in.md](sprints/gw9-check-in.md) |
+| GW10 batch — scoreboard, last-5 arms, DSI-186 gate (not met), blend sweep (`minutes` 4/4, unshipped), derived vs official FDR (official wins) | DSI-51, DSI-52, DSI-186, DSI-219 | M7 | [sprints/gw10-check-in.md](sprints/gw10-check-in.md) |
 | Latency — the price-watch reading precomputed on write (`price_watch` table + triggers): `loadPriceProgress` 37 s to 0.65 s, readings identical to the old full scan; `notify` v9 reads it. Closed 2026-11-04 after the trigger and notify's first v9 run were both seen | DSI-187 | M8 | [sprints/dsi-187-price-watch.md](sprints/dsi-187-price-watch.md) |
 | `/deadline` transfer cards → one CTA; `/team` ledger full-width; countdowns drop seconds above 24h | — (owner request, same PR) | M6 | [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §4 |
 | 17 part 1 Historical decision analytics | DSI-66 | M8 | [sprints/sprint-36.md](sprints/sprint-36.md) §1 |
@@ -125,6 +126,9 @@ a reader's summary of [architecture.md](architecture.md) and [roadmap.md](roadma
 | 42 Mobile redesign — Deadline, Transfers, Fixtures, Builder (PR [#44](https://github.com/Dsinha97/fpl-app/pull/44), merged 2026-10-08) | DSI-215 | M8 | [sprints/sprint-42.md](sprints/sprint-42.md) |
 | Already-played chips respected in the transfer path, Chip timing, `/deadline`, `/scenarios` and `/builder` (PR [#50](https://github.com/Dsinha97/fpl-app/pull/50), merged 2026-10-13) | DSI-217 | M8 | [wiki/chip-plan.md](wiki/chip-plan.md#a-spent-chip-is-spent-everywhere-2026-10-13) |
 | Sprint 32 leftovers closed (2026-10-13): `verify_jwt` flipped and live on `sync-news`/`generate-predictions` (2026-09-14), `scratch-path-test` deleted, and the 429's HTTP render proved live with `max_calls` temporarily 2 (two 200s, then 429; restored to 30) | DSI-59 | M8 | [sprints/sprint-32.md](sprints/sprint-32.md) §5c, [sprints/sprint-36.md](sprints/sprint-36.md) §4 |
+| 43 xP component fixes, v1.7.0 (`generate-predictions` v23, 2026-10-19), closed 2026-11-09 on the GW10 batch: MAE 0.05–0.07 better than v1.5.0/v1.6.0 on identical rows, r level, integrity checks holding | DSI-219 | M7 | [sprints/sprint-43.md](sprints/sprint-43.md), [sprints/gw10-check-in.md](sprints/gw10-check-in.md) §6–8 |
+| GW10: current-season blend sweep re-run. `scope=minutes` clears 4/4 seasons but adds 0.001–0.006 MAE on top of DSI-185's minutes model; not shipped (2026-11-09) | DSI-51 | M7 | [sprints/gw10-check-in.md](sprints/gw10-check-in.md) §4 |
+| GW10: derived vs official FDR on 2026-27 (n=2,116). Official wins; derived stays display-only (2026-11-09) | DSI-52 | M7 | [sprints/gw10-check-in.md](sprints/gw10-check-in.md) §5 |
 
 ## Canceled
 
@@ -139,10 +143,8 @@ Closed without being built. The reason stays with the row, since the issue itsel
 
 | Issue | Item | Milestone | Gate / blocker |
 |---|---|---|---|
-| DSI-219 | Sprint 43 — xP component fixes (v1.7.0): fix what `positionCalibration` is hiding. **In Progress** | M7 | Built and deployed 2026-10-19 (`generate-predictions` v23); held open because its verification is live rows that are not yet clearly good or bad. GW8 was the first live read (bias +0.084, not a fault); GW9 is the second. Closes on the GW10 batch. See [sprints/sprint-43.md](sprints/sprint-43.md), [sprints/gw8-check-in.md](sprints/gw8-check-in.md) |
 | DSI-218 | Captain score double-counts fixture and minutes already inside xP | — | Gate: a historical captain-pick backtest, current score vs EV rule (xP_c + P(no-show)·xP_v) on the same squads, reported whether or not it passes. Low priority, no milestone. Raised by the ML-model audit (2026-10-19, `docs/sources/ml-model-audit.md`) |
-| DSI-51 | Re-run the current-season blend sweep | M7 | GW10 scored. `scope=all` and `scope=minutes` each clear 2 of 4 seasons today |
-| DSI-52 | Derived FDR vs **official** FDR | M7 | GW10 scored. Sprint 35 measured vs *neutral* only; n=471 at GW3 was far too thin |
+| DSI-221 | Watch: v1.7.0 goals/assists over-predicted, clean sheet under-predicted | — | A watch item, no fix planned. Re-read at ~GW14 (`component-residuals.ts 2026-27 8-14 --cohort`); act only if the same-sign gap persists pooled and on the harness. Opened 2026-11-09. See [sprints/gw10-check-in.md](sprints/gw10-check-in.md) §6 |
 | DSI-54 | Price-change prediction step 3 — **falls half run 2026-09-21; gate FAILS. Ship the heuristic** | M7 | Walk-forward over 36 nights: no budget shows a significant win (best p=0.18 at K=40). An earlier run of the same gate appeared to pass at K=10/K=20 — that was a broken feature (gameweek-reset differencing) handicapping the baseline, which shares the same input. Corrected, the baseline gains far more than the model. Nothing wired in; `priceProgress` remains the reading. Re-run once more history accumulates **and** the ownership-scaled threshold (sprint-38 §2b) is settled. See [sprints/sprint-38.md](sprints/sprint-38.md) §3 |
 | DSI-62 | Sprint 6 gap — EO column on `/players` | M8 | None — Sprint 10's engine exists. Opportunistic |
 | DSI-63 | Cloudflare Access gating | M8 | Weigh against `/settings` → Pipeline being deliberately public |

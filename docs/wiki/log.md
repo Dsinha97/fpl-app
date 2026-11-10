@@ -2,6 +2,8 @@
 
 One line per entry, most recent first.
 
+- 2026-11-10 — GW9 and GW10 check-ins ingested ([gw9-check-in.md](../sprints/gw9-check-in.md), [gw10-check-in.md](../sprints/gw10-check-in.md)). **`xp-model.md`**: GW9 and "The GW10 batch" subsections (scoreboard, v1.7.0 vs older versions on identical rows, DSI-186 gate not met, `minutes` blend redundant after DSI-185, cohort split, integrity re-run) and the stale "GW10 batch remains" line. **`fixture-difficulty.md`**: the DSI-52 result (official beats derived) and the "unshipped pending GW10" line. **`blocked-and-data-gaps.md`**: the two rows that said "testable from ~GW10" now state the result. **`timeline.md`**: 2026-11-09 row. `dsi-187-price-watch.md` in `.pending-ingest` is not wiki material beyond what its roadmap row says; cleared.
+
 - 2026-10-28 — Frontmatter (title, type, tags, aliases, sources, related, updated) and a generated `## Sources` section added to every topic page; `.manifest.json` created for `docs/sources/` (ml-model-audit and website-optimization marked `generated`, the rest `primary`). Dated-claim markers evaluated: no blanket marker. Retro run: no recurring corrections found, no rule changes. `check_vault.py` lint and hash: no findings.
 - 2026-10-28 — Audited against the updated second-brain skill. **`AGENTS.md`**: added the v2 stamp, a pointer to load the skill, the Answer footer rule, a "Deliberate differences" section (inline attribution instead of `## Sources`, no frontmatter/manifest yet, evidence levels, short log lines) and the lint step in TIDY. Cleared `.pending-ingest` (its entries were covered by the 10-26 ingest).
 

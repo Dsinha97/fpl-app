@@ -49,6 +49,9 @@ yarn-error.log*
 .claude/*
 # project workflow definitions, versioned with the code they describe
 !.claude/skills/
+# read-only planning/retrieval subagents that CLAUDE.md's "Agents" section and
+# the plan-build skill depend on — without these a fresh clone has a dangling reference
+!.claude/agents/
 # how to start this project's dev server — repo content, not machine state
 !.claude/launch.json
 
