@@ -440,6 +440,24 @@ async function main() {
     );
     console.error(`  fixture results reconstructed: ${seasonResults.length} (2 per fixture)`);
 
+    // DSI-52: official FDR exists only for the current season (`fixtures` holds
+    // no history), so derived-vs-official is measured on 2026-27 alone.
+    type Resid = { pred: number; actual: number; positionCode: string; minutes: number };
+    const officialFdrByFixture = new Map<number, { h: number; a: number }>();
+    if (archiveSeason === "2026-27") {
+      const fx = await fetchAll<{ id: number; team_h_difficulty: number | null; team_a_difficulty: number | null }>(
+        "fixtures", "id,team_h_difficulty,team_a_difficulty", "", "id",
+      );
+      for (const f of fx) {
+        if (f.team_h_difficulty !== null && f.team_a_difficulty !== null) {
+          officialFdrByFixture.set(f.id, { h: f.team_h_difficulty, a: f.team_a_difficulty });
+        }
+      }
+    }
+    const officialArm: Resid[] = [];
+    const officialNeutral: Resid[] = [];
+    const officialDerived = new Map<number, Resid[]>(FDR_PRIOR_GAMES.map((pg) => [pg, []]));
+
     // Rates per player, trained on strictly-prior season_history rows only.
     const ratesByCode = new Map<number, ReturnType<typeof deriveRates>>();
     for (const [code, rows] of historyByCode) {
@@ -594,6 +612,24 @@ async function main() {
           }
         }
 
+        // DSI-52 arm: official FDR vs derived, scored on exactly the rows that
+        // have both. Same predict() call, only `fdr` differs.
+        const off = officialFdrByFixture.get(row.fixture);
+        if (off && row.event !== null && row.opponent_team !== null) {
+          const offFdr = row.was_home ? off.h : off.a;
+          const key = `${row.opponent_team}:${row.was_home ? "A" : "H"}`;
+          const derivedByPg = FDR_PRIOR_GAMES.map((pg) => [pg, fdrTableFor(row.event!, pg).get(key)] as const);
+          if (derivedByPg.every(([, d]) => d !== undefined)) {
+            const po = predict(playerInput, rates, { fdr: offFdr, isHome: row.was_home ?? true }, scoring, seasonParams);
+            officialArm.push({ pred: po.xp, actual, positionCode: posCode, minutes: row.minutes ?? 0 });
+            officialNeutral.push(entry);
+            for (const [pg, d] of derivedByPg) {
+              const pd = predict(playerInput, rates, { fdr: d!, isHome: row.was_home ?? true }, scoring, seasonParams);
+              officialDerived.get(pg)!.push({ pred: pd.xp, actual, positionCode: posCode, minutes: row.minutes ?? 0 });
+            }
+          }
+        }
+
         if (pointsHistory.length >= 5) {
           const last5 = mean(pointsHistory.slice(-5));
           const list = last5ResidualsByCode.get(code) ?? [];
@@ -694,6 +730,20 @@ async function main() {
       fdrResults.push({ priorGames: pg, neutral: neutralStats, derived: derivedStats, shuffledControl: shuffledStats, clearsGate: clears });
     }
     fdrResultsBySeason.set(archiveSeason, fdrResults);
+
+    if (officialArm.length > 0) {
+      const o = stats(officialArm);
+      const nn = stats(officialNeutral);
+      console.error(`
+  -- DSI-52: derived vs OFFICIAL FDR (same ${o.n} rows) --`);
+      console.error(`  neutral  bias=${nn.bias.toFixed(3)} mae=${nn.mae.toFixed(3)} r=${nn.r.toFixed(3)}`);
+      console.error(`  official bias=${o.bias.toFixed(3)} mae=${o.mae.toFixed(3)} r=${o.r.toFixed(3)}`);
+      for (const pg of FDR_PRIOR_GAMES) {
+        const d = stats(officialDerived.get(pg)!);
+        const clears = d.mae < o.mae && d.r > o.r && Math.abs(d.bias) <= Math.abs(o.bias) + 0.01;
+        console.error(`  derived pg=${pg} bias=${d.bias.toFixed(3)} mae=${d.mae.toFixed(3)} r=${d.r.toFixed(3)}  ${clears ? "BEATS official" : "does not beat official"}`);
+      }
+    }
 
     results.push({
       season: archiveSeason,
