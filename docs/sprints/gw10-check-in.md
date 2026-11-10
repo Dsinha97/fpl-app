@@ -18,7 +18,7 @@ derived-vs-**official** arm (§5). Bias is actual − predicted.
 - **Realised points were a little above prediction again** (1.367 vs 1.300); the played-cohort over-prediction
   (+0.752) is unchanged in kind. The no-show over-prediction keeps shrinking (−0.615, −0.574, −0.533).
 - **DSI-219's verification sample is now three weeks.** Nothing here is a fault; its closure is the owner's call
-  (see §6 for the version comparison, §8 for what is open).
+  (see §6 for the version comparison, §8 for GW10 by cohort, §9 for what is open).
 
 ## 2. Last-5 baseline on the same rows
 
@@ -71,6 +71,23 @@ Pooled GW6–10, arm A (n=3,216), paired per-row |error| difference (model − l
 - The harness labels these SHIPPABLE. **Nothing was shipped.** The harness predates v1.6.0's in-season minutes
   estimator (DSI-185), which already blends current-season minutes in production; whether the harness's `minutes`
   scope adds anything on top of it is untested. That needs its own decision, not a flag flip.
+- **Follow-up, same day: does the `minutes` blend add anything on top of DSI-185's minutes model?** No, not
+  in any amount that matters. New harness arm (`scripts/backtest-walkforward.ts`): prior-only rates plus
+  `applyMinutesModel` (the production layering), against the same with the `minutes`-scope blend underneath.
+
+  | season | minutes model applied to | prior-only + model MAE / r | + minutes blend (w=1.0) MAE / r |
+  |---|---|---|---|
+  | 2023-24 | 4,158 of 4,396 rows | 1.939 / 0.413 | 1.938 / 0.413 |
+  | 2024-25 | 5,457 of 5,769 | 1.943 / 0.407 | 1.942 / 0.408 |
+  | 2025-26 | 6,452 of 6,826 | 2.007 / 0.379 | 2.006 / 0.380 |
+  | 2026-27 | 1,643 of 2,113 | 1.990 / 0.414 | 1.984 / 0.419 |
+
+  The gate technically reads "adds" everywhere, but by 0.001–0.006 MAE and ≤0.005 r. **The 4/4 was measuring
+  the thing DSI-185 already shipped**: the minutes model covers 78–95% of the rows and overrides the two fields
+  the `minutes` scope touches. Verdict: do not ship the `minutes` blend. (The minutes model alone takes 2026-27
+  MAE from 2.313 to 1.990 in this harness, but its coefficients are the pooled fit over all four seasons
+  including the one scored, so that is an in-sample figure; the model's own per-season gate is
+  `scripts/minutes-model-gate.ts`.)
 - The bias-correction sweep still finds no scope/weight that clears 4/4 — do not ship.
 - `positionCalibration` arms: unit factors (production) vs leave-one-season-out. On 2026-27 loso lowers MAE
   (2.326 to 2.278) and bias, r unchanged. Not a gate; recorded.
@@ -157,10 +174,35 @@ On the live `player_predictions` (18,816 rows, 672 players, events 11–38, all 
 All hold. `computed_at` reads 2026-11-08 19:05 while runs keep succeeding every 30 minutes; that is the "write only
 changed rows" change (`2a3b50b`), not a stalled job.
 
-## 8. Not done
+## 8. GW10 alone, by cohort
 
-- No model change, no deploy, no refit. `scope=minutes` is the only candidate, and it needs the DSI-185 overlap
-  question answered first.
-- `component-residuals.ts` still pools by version and position, not by played/no-show cohort, so the cohort
-  bias cannot be attributed to components directly. It also still takes a season, not a gameweek.
-- DSI-219 was not closed; that is the owner's decision.
+`scripts/component-residuals.ts` now takes a gameweek (`2026-27 10`) and `--cohort`, so GW10 is read directly
+rather than derived by subtraction (it reproduces §1 exactly: n=670, bias +0.067, MAE 1.196, r 0.543). Mean
+predicted / realised points per player-fixture, as shipped:
+
+| component | all (670) | played (313) | no-show (357) |
+|---|---|---|---|
+| appearance | 0.732 / 0.772 | 1.182 / 1.652 | 0.337 / 0.000 |
+| goals | 0.186 / 0.203 | 0.335 / 0.435 | 0.055 / 0 |
+| clean sheet | 0.181 / 0.199 | 0.305 / 0.425 | 0.073 / 0 |
+| defensive contribution | 0.099 / 0.119 | 0.163 / 0.256 | 0.043 / 0 |
+| assists | 0.107 / 0.099 | 0.189 / 0.211 | 0.035 / 0 |
+| bonus | 0.094 / 0.096 | 0.163 / 0.204 | 0.033 / 0 |
+| **total bias** | **+0.067** | **+0.752** | **−0.533** |
+
+- **Of the played cohort's +0.752, appearance is 0.47 (62%)**, then clean sheet 0.12, goals 0.10, defensive
+  contribution 0.09, bonus 0.04. These are the components that scale with minutes, which is exactly what a
+  forecast that spreads a player's probability over "plays" and "doesn't" must get wrong in each cohort.
+- **This split is by realised outcome, so it is opposite-signed by construction** (the no-show cohort is a flat
+  −0.533 from a 0.337 appearance forecast plus the rest). It locates the error; it does not say the model is
+  biased. The pooled +0.067 is the number that carries information, and GW10 shows assists and goals on the
+  pooled line near level (0.107/0.099, 0.186/0.203), unlike the three-week pool in §6.
+- GW10 alone corrects the GW9 check-in's by-subtraction derivation only in method; its figures are not redone.
+- The replay's cohort lines show the same split with its approximations (assists 0.274 vs 0.189 shipped on the
+  played cohort), so use the shipped lines.
+
+## 9. Not done
+
+- No model change, no deploy, no refit.
+- The cohort split is by realised minutes only, not by position or by predicted P(appear) bucket.
+- DSI-219 was closed on this evidence on 2026-11-09 (see `docs/linear.md`).

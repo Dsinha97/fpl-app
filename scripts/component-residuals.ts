@@ -31,7 +31,15 @@
 // Not replayed: the in-season minutes model for GW2-6 (those rows predate it).
 //
 // Read-only, publishable key. Usage:
-//   set -a; . ./.env.local; set +a; npx tsx scripts/component-residuals.ts [season]
+//   npx tsx --env-file=.env.local scripts/component-residuals.ts [season] [gw|from-to] [--cohort]
+//
+//   gw / from-to  keep only those gameweeks (e.g. `10` or `8-10`), so one week can be read
+//                 directly instead of derived by subtracting pooled figures.
+//   --cohort      also report each group split by what the player actually did, `played`
+//                 (minutes > 0) and `no-show` (minutes = 0), so a cohort bias can be
+//                 attributed to components. The split is by the realised outcome, which is
+//                 opposite-signed for any honest forecast (docs/sprints/dsi-185-minutes-model.md
+//                 section 1): it says where the error sits, not that the model is wrong.
 
 import {
   calibrationByBucket,
@@ -57,7 +65,21 @@ import {
   solveWeightedWaterFill,
 } from "../supabase/functions/_shared/xp-model.ts";
 
-const season = process.argv[2] ?? "2026-27";
+const args = process.argv.slice(2);
+const flags = new Set(args.filter((a) => a.startsWith("--")));
+const positional = args.filter((a) => !a.startsWith("--"));
+const season = positional[0] ?? "2026-27";
+const splitByCohort = flags.has("--cohort");
+/** Inclusive gameweek range from `10` or `8-10`, or null for every gameweek. */
+const gwRange: [number, number] | null = (() => {
+  const raw = positional[1];
+  if (!raw) return null;
+  const m = /^(\d+)(?:-(\d+))?$/.exec(raw);
+  if (!m) throw new Error(`gameweek must be N or N-M, got "${raw}"`);
+  const lo = Number(m[1]);
+  return [lo, m[2] ? Number(m[2]) : lo];
+})();
+const cohortOf = (minutes: number) => (minutes > 0 ? "played" : "no-show");
 
 /**
  * Archive column per model component. The select strings above spell the same
@@ -132,6 +154,7 @@ async function main() {
     const actual = actualByKey.get(`${p.player_code}:${p.fixture}`);
     const position = positions.get(p.player_code as number) as PositionShort | undefined;
     if (!actual || !position) continue;
+    if (gwRange && ((p.event as number) < gwRange[0] || (p.event as number) > gwRange[1])) continue;
     joined.push({
       p,
       position,
@@ -158,13 +181,19 @@ async function main() {
   const byVersion = new Map<string, Group>();
   for (const { p, line, position } of joined) {
     const predicted = Object.fromEntries(COMPONENTS.map((c) => [c, num(p[ARCHIVE_COLUMN[c]])])) as ComponentPoints;
-    groupFor(byVersion, p.model_version as string).add(p.event as number, {
+    const row = {
       position,
       predicted,
       predictedXp: num(p.xp),
       realised: realisedComponents(line, position, rules),
       actualTotal: line.total_points,
-    }, Math.min(1, num(p.expected_minutes) / LEGACY_APPEARANCE_MINUTES), num(p.p60), line.minutes);
+    };
+    const pAppear = Math.min(1, num(p.expected_minutes) / LEGACY_APPEARANCE_MINUTES);
+    groupFor(byVersion, p.model_version as string).add(p.event as number, row, pAppear, num(p.p60), line.minutes);
+    if (splitByCohort) {
+      groupFor(byVersion, `${p.model_version} · ${cohortOf(line.minutes)}`)
+        .add(p.event as number, row, pAppear, num(p.p60), line.minutes);
+    }
   }
   for (const [version, g] of [...byVersion.entries()].sort()) {
     report(`${season} · ${version} as shipped`, g,
@@ -232,13 +261,19 @@ async function main() {
       cards: num(p.xp_cards) * ratio,
     };
     const raw = COMPONENTS.reduce((sum, c) => sum + predicted[c], 0);
-    groupFor(replayed, `${MODEL_VERSION} replayed on ${p.model_version} inputs`).add(p.event as number, {
+    const replayRow = {
       position,
       predicted,
       predictedXp: raw * (MODEL_PARAMS.positionCalibration[position] ?? 1),
       realised: realisedComponents(line, position, rules),
       actualTotal: line.total_points,
-    }, pAny, p60, line.minutes);
+    };
+    const replayLabel = `${MODEL_VERSION} replayed on ${p.model_version} inputs`;
+    groupFor(replayed, replayLabel).add(p.event as number, replayRow, pAny, p60, line.minutes);
+    if (splitByCohort) {
+      groupFor(replayed, `${replayLabel} · ${cohortOf(line.minutes)}`)
+        .add(p.event as number, replayRow, pAny, p60, line.minutes);
+    }
   }
   for (const [label, g] of [...replayed.entries()].sort()) {
     report(`${season} · ${label}`, g, "P(appear) here is the replayed start + cameo states (minuteStates)");

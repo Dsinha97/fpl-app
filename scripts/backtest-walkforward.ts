@@ -31,8 +31,10 @@
 // Usage: npx tsx scripts/backtest-walkforward.ts
 
 import {
+  applyMinutesModel,
   deriveDcEligibleSeasons,
   deriveRates,
+  inSeasonStartForm,
   deriveRatesWithPrior,
   fitAssistsPerXa,
   fitRatePriors,
@@ -41,6 +43,7 @@ import {
   predict,
   priceBandOf,
   type FitRow,
+  type InSeasonRow,
   type ModelParams,
   type PlayerInput,
   type SeasonRow,
@@ -814,6 +817,14 @@ async function main() {
       }
 
       const priorOnlyResiduals: BlendResidual[] = [];
+      // DSI-185 overlap arm (post-GW10 follow-up to DSI-51): production runs the
+      // in-season minutes model on top of the rates, so the question for the
+      // `minutes` blend is whether it adds anything *after* that model, not
+      // whether it beats prior-only. mm0 = prior-only + minutes model;
+      // mm1[w] = `minutes`-scope blend at weight w + minutes model.
+      const mm0Residuals: BlendResidual[] = [];
+      const mm1Residuals = new Map<number, BlendResidual[]>(CURRENT_SEASON_WEIGHTS.map((w) => [w, [] as BlendResidual[]]));
+      let mmApplied = 0, mmRows = 0;
       const blendedResidualsByWeight = new Map<string, BlendResidual[]>(
         BLEND_SCOPES.flatMap((scope) =>
           CURRENT_SEASON_WEIGHTS.map((w) => [blendKey(scope, w), [] as BlendResidual[]] as const),
@@ -846,6 +857,9 @@ async function main() {
         // Running totals of *strictly prior* events in this season, rebuilt
         // fresh before each event so nothing leaks the event being predicted.
         let games = 0, minutes = 0, starts = 0, xg = 0, xa = 0, xgc = 0, cs = 0, bonus = 0, saves = 0, dc = 0, yellow = 0;
+        const seenGames: InSeasonRow[] = [];
+        const rawPrior = ratesByCode.get(code) ?? null;
+        const isGk = posCode === "GKP";
 
         for (const row of rows) {
           // Predict this event using ONLY events strictly before it —
@@ -887,6 +901,33 @@ async function main() {
             }
           }
 
+          if (games > 0 && priorOnly) {
+            const form = inSeasonStartForm(seenGames);
+            const base = applyMinutesModel(priorOnly.rates, rawPrior, form, isGk);
+            mmRows += 1;
+            if (base.applied) mmApplied += 1;
+            const p0 = predict(playerInput, base.rates, { fdr: 3, isHome: row.was_home ?? true }, scoring, seasonParams);
+            mm0Residuals.push({ pred: p0.xp, actual: row.total_points ?? 0, positionCode: posCode });
+            const currentRow: SeasonRow = {
+              season_name: BLEND_SEASON_NAME,
+              minutes, starts, expected_goals: xg, expected_assists: xa,
+              expected_goals_conceded: xgc, clean_sheets: cs, bonus, saves,
+              defensive_contribution: dc, yellow_cards: yellow, games,
+            };
+            for (const w of CURRENT_SEASON_WEIGHTS) {
+              const blended = deriveRatesWithPrior({
+                rows: priorRows, positionId, priceBand, priors,
+                dcEligibleSeasons: blendDcEligibleSeasons,
+                currentSeasonRow: currentRow, currentSeasonWeight: w, currentSeasonScope: "minutes",
+              });
+              if (!blended) continue;
+              const layered = applyMinutesModel(blended.rates, rawPrior, form, isGk);
+              const p1 = predict(playerInput, layered.rates, { fdr: 3, isHome: row.was_home ?? true }, scoring, seasonParams);
+              mm1Residuals.get(w)!.push({ pred: p1.xp, actual: row.total_points ?? 0, positionCode: posCode });
+            }
+          }
+          seenGames.push({ event: row.event!, fixture: row.fixture, minutes: row.minutes, starts: row.starts });
+
           // Now fold this event into the running totals, for the *next* iteration.
           games += 1;
           minutes += row.minutes ?? 0;
@@ -927,6 +968,17 @@ async function main() {
         console.error(`  blended scope=${scope.padEnd(7)} wCur=${w}  n=${s.n} bias=${s.bias.toFixed(3)} mae=${s.mae.toFixed(3)} r=${s.r.toFixed(3)}  ${clears ? "CLEARS gate" : "does not clear"}`);
         blendResults.push({ scope, currentSeasonWeight: w, ...s, clearsGate: clears });
       }
+      }
+      {
+        const m0 = stats(mm0Residuals);
+        console.error(`
+  -- minutes blend ON TOP of the in-season minutes model (DSI-185 overlap; minutes model applied to ${mmApplied} of ${mmRows} rows) --`);
+        console.error(`  prior-only + minutes model     n=${m0.n} bias=${m0.bias.toFixed(3)} mae=${m0.mae.toFixed(3)} r=${m0.r.toFixed(3)}`);
+        for (const w of CURRENT_SEASON_WEIGHTS) {
+          const m1 = stats(mm1Residuals.get(w)!);
+          const adds = m1.n > 0 && m1.mae < m0.mae && m1.r > m0.r && Math.abs(m1.bias) <= Math.abs(m0.bias) + 0.01;
+          console.error(`  minutes blend w=${w} + model   n=${m1.n} bias=${m1.bias.toFixed(3)} mae=${m1.mae.toFixed(3)} r=${m1.r.toFixed(3)}  ${adds ? "ADDS to minutes model" : "adds nothing"}`);
+        }
       }
       for (const check of mpgCheck) {
         console.error(`    mpg check code=${check.code} event=${check.event}: before=${check.mpgBefore.toFixed(1)} after(w=0.6)=${check.mpgAfterByWeight[0.6]?.toFixed(1)}`);

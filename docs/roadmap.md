@@ -95,7 +95,8 @@ v1.2.0, phase 2 v1.3.0, both built). Ops log and small finished items:
 
 **GW10 batch run 2026-11-09**, see [sprints/gw10-check-in.md](sprints/gw10-check-in.md). GW10: bias +0.067, MAE 1.196,
 r 0.543 (highest on record). DSI-186 gate **not met** (pooled tie with last-5; the model loses on no-shows and
-goalkeepers). DSI-51: `scope=minutes` clears 4/4 seasons but is not shipped (overlaps DSI-185's in-season minutes).
+goalkeepers). DSI-51: `scope=minutes` clears 4/4 seasons but is not shipped: on top of DSI-185's minutes model it adds
+0.001–0.006 MAE, so the 4/4 was measuring what DSI-185 already shipped.
 DSI-52: official FDR beats derived on 2026-27; derived stays display-only.
 
 **DSI-187 shipped and closed 2026-11-04**, see [sprints/dsi-187-price-watch.md](sprints/dsi-187-price-watch.md): the price-watch reading is
