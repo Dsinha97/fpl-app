@@ -32,7 +32,7 @@ function PercentileBar({ score, label }: { score: number; label: string }) {
           style={{ width: `${score}%` }}
         />
       </div>
-      <span className="w-10 shrink-0 text-right text-xs tabular-nums text-zinc-500">
+      <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
         {score.toFixed(0)}
       </span>
     </div>
@@ -52,7 +52,7 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Career Percentile Profile
         </h3>
         <span
@@ -66,13 +66,13 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div>
-          <div className="text-xs text-zinc-500">Tier (career median)</div>
+          <div className="text-xs text-muted-foreground">Tier (career median)</div>
           <div className="mt-0.5 text-lg font-semibold text-purple-900 dark:text-primary">
             {profile.tier}
           </div>
         </div>
         <div>
-          <div className="text-xs text-zinc-500">Seasons of record</div>
+          <div className="text-xs text-muted-foreground">Seasons of record</div>
           <div className="mt-0.5 text-lg font-semibold text-purple-900 dark:text-primary">
             {profile.seasons}
           </div>
@@ -81,21 +81,21 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
 
       <dl className="mt-4 space-y-2 text-sm">
         <div>
-          <div className="mb-1 flex items-baseline justify-between text-xs text-zinc-500">
+          <div className="mb-1 flex items-baseline justify-between text-xs text-muted-foreground">
             <span>Best — {profile.bestSeason}</span>
             <span className="tabular-nums">{profile.best.toFixed(0)}</span>
           </div>
           <PercentileBar score={profile.best} label="Best season" />
         </div>
         <div>
-          <div className="mb-1 flex items-baseline justify-between text-xs text-zinc-500">
+          <div className="mb-1 flex items-baseline justify-between text-xs text-muted-foreground">
             <span>Median</span>
             <span className="tabular-nums">{profile.median.toFixed(1)}</span>
           </div>
           <PercentileBar score={profile.median} label="Median season" />
         </div>
         <div>
-          <div className="mb-1 flex items-baseline justify-between text-xs text-zinc-500">
+          <div className="mb-1 flex items-baseline justify-between text-xs text-muted-foreground">
             <span>Worst — {profile.worstSeason}</span>
             <span className="tabular-nums">{profile.worst.toFixed(0)}</span>
           </div>
@@ -109,7 +109,7 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
             <dt>
               <TapToReveal
                 label="What is Spread?"
-                triggerClassName="text-[10px] uppercase tracking-wide text-zinc-500 underline decoration-dotted underline-offset-2"
+                triggerClassName="text-[10px] uppercase tracking-wide text-muted-foreground underline decoration-dotted underline-offset-2"
                 trigger="Spread"
               >
                 <p>
@@ -126,7 +126,7 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
             <dt>
               <TapToReveal
                 label="What is Std dev?"
-                triggerClassName="text-[10px] uppercase tracking-wide text-zinc-500 underline decoration-dotted underline-offset-2"
+                triggerClassName="text-[10px] uppercase tracking-wide text-muted-foreground underline decoration-dotted underline-offset-2"
                 trigger="Std dev"
               >
                 <p>
@@ -143,7 +143,7 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
             <dt>
               <TapToReveal
                 label="What is Trend?"
-                triggerClassName="text-[10px] uppercase tracking-wide text-zinc-500 underline decoration-dotted underline-offset-2"
+                triggerClassName="text-[10px] uppercase tracking-wide text-muted-foreground underline decoration-dotted underline-offset-2"
                 trigger="Trend"
               >
                 <p>
@@ -167,7 +167,7 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
           </div>
         </dl>
       ) : (
-        <p className="mt-4 border-t border-zinc-100 pt-3 text-xs text-zinc-500 dark:border-purple-900/40">
+        <p className="mt-4 border-t border-zinc-100 pt-3 text-xs text-muted-foreground dark:border-purple-900/40">
           {profile.confidenceReason}
         </p>
       )}
@@ -178,7 +178,7 @@ export function ManagerProfileCard({ profile }: { profile: ManagerProfile }) {
 /** A gap that may not exist yet (no career record on one side, or no gameweeks played) — never fabricated as 0. */
 function GapCell({ gap, decimals = 1 }: { gap: number | null; decimals?: number }) {
   if (gap === null) {
-    return <DataCell className="py-1.5 text-zinc-400" numeric>—</DataCell>;
+    return <DataCell className="py-1.5 text-muted-foreground" numeric>—</DataCell>;
   }
   return (
     <DataCell
@@ -188,7 +188,7 @@ function GapCell({ gap, decimals = 1 }: { gap: number | null; decimals?: number 
           ? "text-emerald-700 dark:text-emerald-400"
           : gap < 0
             ? "text-amber-700 dark:text-amber-400"
-            : "text-zinc-500"
+            : "text-muted-foreground"
       }`}
     >
       {gap > 0 ? "+" : ""}
@@ -214,7 +214,7 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-purple-900/40 dark:bg-card">
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Rivals</h3>
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rivals</h3>
         <SegmentedControl
           label="Rival comparison period"
           size="sm"
@@ -240,7 +240,7 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
             wrapperClassName="mt-3 rounded-none border-0 bg-transparent"
           >
             <thead>
-              <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+              <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-muted-foreground dark:border-purple-900/40">
                 <DataHeadCell className="py-1.5">Manager</DataHeadCell>
                 <DataHeadCell className="py-1.5" numeric>GW pts</DataHeadCell>
                 <DataHeadCell className="py-1.5" numeric>Total</DataHeadCell>
@@ -271,16 +271,16 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
                         <DataCell className="py-1.5 text-zinc-800 dark:text-zinc-200" numeric>
                           {r.season.lastEventPoints}
                         </DataCell>
-                        <DataCell className="py-1.5 text-zinc-500" numeric>
+                        <DataCell className="py-1.5 text-muted-foreground" numeric>
                           {r.season.totalPoints}
                         </DataCell>
-                        <DataCell className="py-1.5 text-zinc-500" numeric>
+                        <DataCell className="py-1.5 text-muted-foreground" numeric>
                           {r.season.overallRank?.toLocaleString() ?? "—"}
                         </DataCell>
                         <GapCell gap={r.season.pointsGap} decimals={0} />
                       </>
                     ) : (
-                      <DataCell colSpan={4} className="py-1.5 text-xs text-zinc-400" numeric>
+                      <DataCell colSpan={4} className="py-1.5 text-xs text-muted-foreground" numeric>
                         No gameweeks played yet
                       </DataCell>
                     )}
@@ -289,21 +289,21 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
             </tbody>
           </DataTable>
         ) : (
-          <p className="mt-3 text-xs text-zinc-500">
+          <p className="mt-3 text-xs text-muted-foreground">
             Nobody has played a gameweek yet — this-season comparisons appear once GW1 results
             are in.
           </p>
         )
       ) : (
         <>
-          <p className="mt-1 text-xs text-zinc-500">Full career records, oldest to newest.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Full career records, oldest to newest.</p>
           <DataTable
             minWidth="34rem"
             label="Rivals career records"
             wrapperClassName="mt-3 rounded-none border-0 bg-transparent"
           >
             <thead>
-              <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+              <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-muted-foreground dark:border-purple-900/40">
                 <DataHeadCell className="py-1.5">Manager</DataHeadCell>
                 <DataHeadCell className="py-1.5" numeric>Seasons</DataHeadCell>
                 <DataHeadCell className="py-1.5" numeric>Median</DataHeadCell>
@@ -332,22 +332,22 @@ export function RivalTable({ rivals }: { rivals: RivalRow[] }) {
                     <DataCell className="py-1.5 text-zinc-800 dark:text-zinc-200">{r.teamName}</DataCell>
                     {r.career ? (
                       <>
-                        <DataCell className="py-1.5 text-zinc-500" numeric>
+                        <DataCell className="py-1.5 text-muted-foreground" numeric>
                           {r.career.seasons}
                         </DataCell>
                         <DataCell className="py-1.5 text-zinc-800 dark:text-zinc-200" numeric>
                           {r.career.median.toFixed(1)}
                         </DataCell>
-                        <DataCell className="py-1.5 text-zinc-500" numeric>
+                        <DataCell className="py-1.5 text-muted-foreground" numeric>
                           {r.career.best.toFixed(0)}
                         </DataCell>
-                        <DataCell className="py-1.5 text-zinc-500" numeric>
+                        <DataCell className="py-1.5 text-muted-foreground" numeric>
                           {r.career.worst.toFixed(0)}
                         </DataCell>
                         <GapCell gap={r.career.gap} />
                       </>
                     ) : (
-                      <DataCell colSpan={5} className="py-1.5 text-xs text-zinc-400" numeric>
+                      <DataCell colSpan={5} className="py-1.5 text-xs text-muted-foreground" numeric>
                         First season
                       </DataCell>
                     )}

@@ -125,7 +125,7 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
   };
 
   if (events.length === 0) {
-    return <p className="mt-6 text-sm text-zinc-500">No fixtures have been published yet.</p>;
+    return <p className="mt-6 text-sm text-muted-foreground">No fixtures have been published yet.</p>;
   }
 
   /**
@@ -190,12 +190,12 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
                     says Completed — it only earns its place on a finished round
                     still sitting up top (one mid-play, or the last of the season). */}
                 {meta?.finished && !compact && (
-                  <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] uppercase tracking-wide text-zinc-500 dark:bg-surface-3">
+                  <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] uppercase tracking-wide text-muted-foreground dark:bg-surface-3">
                     complete
                   </span>
                 )}
               </span>
-              <span className="flex items-center gap-3 text-xs text-zinc-500">
+              <span className="flex items-center gap-3 text-xs text-muted-foreground">
                 {/* A deadline that has already passed is spent information. */}
                 {meta && !compact && (
                   <span className="hidden sm:inline">
@@ -224,7 +224,7 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
                   return (
                     <div key={f.id}>
                       {showDay && (
-                        <div className="bg-surface-1 px-4 py-1.5 text-center text-xs font-medium uppercase tracking-widest text-zinc-500">
+                        <div className="bg-surface-1 px-4 py-1.5 text-center text-xs font-medium uppercase tracking-widest text-muted-foreground">
                           {formatDay(f.kickoff_time!)}
                         </div>
                       )}
@@ -244,9 +244,9 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
 
       {completed.length > 0 && (
         <section className="pt-3">
-          <h3 className="px-1 pb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          <h3 className="px-1 pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Completed{" "}
-            <span className="font-normal normal-case tracking-normal text-zinc-400">
+            <span className="font-normal normal-case tracking-normal text-muted-foreground">
               · {completed.length} gameweek{completed.length === 1 ? "" : "s"}, newest first
             </span>
           </h3>
@@ -311,7 +311,7 @@ function FixtureRow({
       <div className="shrink-0">
         {complete ? (
           <span className="flex min-w-[4.5rem] items-center justify-center gap-1.5 rounded border border-zinc-300 px-2 py-1 font-semibold tabular-nums text-zinc-900 dark:border-purple-800/60 dark:text-zinc-100">
-            {f.team_h_score} <span className="text-zinc-400">–</span> {f.team_a_score}
+            {f.team_h_score} <span className="text-muted-foreground">–</span> {f.team_a_score}
           </span>
         ) : provisionalFT ? (
           <span
@@ -319,9 +319,9 @@ function FixtureRow({
             title="Full time — bonus points not yet confirmed by FPL"
           >
             <span>
-              {f.team_h_score} <span className="text-zinc-400">–</span> {f.team_a_score}
+              {f.team_h_score} <span className="text-muted-foreground">–</span> {f.team_a_score}
             </span>
-            <span className="text-[11px] font-normal uppercase tracking-wide text-zinc-500">FT · bonus tbc</span>
+            <span className="text-[11px] font-normal uppercase tracking-wide text-muted-foreground">FT · bonus tbc</span>
           </span>
         ) : live ? (
           <span className="flex min-w-[4.5rem] items-center justify-center gap-1.5 rounded border border-emerald-500/60 bg-emerald-50 px-2 py-1 font-semibold tabular-nums text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
@@ -362,7 +362,7 @@ function FixtureRow({
         </span>
       </div>
 
-      <span className="hidden w-10 shrink-0 text-right text-[11px] uppercase text-zinc-400 sm:block">
+      <span className="hidden w-10 shrink-0 text-right text-[11px] uppercase text-muted-foreground sm:block">
         GW{f.event}
       </span>
       {expandable && <ExpandToggle expanded={expanded} interactive={false} size="sm" />}

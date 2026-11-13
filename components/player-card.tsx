@@ -200,7 +200,7 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
         <span
           role="img"
           aria-label="Vice-captain"
-          className="absolute -left-1 -top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-100 text-[9px] font-extrabold text-zinc-900 shadow-md ring-2 ring-card"
+          className="absolute -left-1 -top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-100 text-[10px] font-extrabold text-zinc-900 shadow-md ring-2 ring-card"
         >
           VC
         </span>
@@ -240,7 +240,7 @@ export function PlayerCard({ player, onSelect, isBenchSlot = false, benchIndex }
           <KitFallback />
         )}
         {isBenchSlot && benchIndex !== undefined && (
-          <span className="absolute bottom-0 right-0 rounded border border-purple-700 bg-purple-950/90 px-1 font-mono text-[9px] text-purple-200">
+          <span className="absolute bottom-0 right-0 rounded border border-purple-700 bg-purple-950/90 px-1 font-mono text-[10px] text-purple-200">
             {benchIndex === 0 ? "GK" : `${benchIndex}`}
           </span>
         )}

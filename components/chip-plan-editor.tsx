@@ -116,7 +116,7 @@ export function ChipPlanEditor({
 
   return (
     <CollapsibleCard title="Chip plan" summary={summary} tier="primary" className={className}>
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted-foreground">
         {totalCount === 0
           ? "No chips planned. The optimiser is treating every gameweek the same."
           : `${appliedCount} of ${totalCount} planned chip${totalCount === 1 ? "" : "s"} applied${
@@ -125,7 +125,7 @@ export function ChipPlanEditor({
       </p>
 
       {!historyKnown && (
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-muted-foreground">
           This draft isn&apos;t linked to a manager, so chips you&apos;ve already played can&apos;t be
           excluded — check them against your FPL history.
         </p>

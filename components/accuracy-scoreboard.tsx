@@ -128,7 +128,7 @@ export function AccuracyScoreboard() {
   return (
     <section className="mt-8">
       <div className="flex items-center gap-2">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
           Model accuracy
         </h2>
         <InfoTooltip label="How is model accuracy measured?">
@@ -144,7 +144,7 @@ export function AccuracyScoreboard() {
         </InfoTooltip>
       </div>
 
-      {loading && <p className="mt-3 text-sm text-zinc-500">Scoring the archive…</p>}
+      {loading && <p className="mt-3 text-sm text-muted-foreground">Scoring the archive…</p>}
 
       {error && (
         <p className="mt-3 text-sm text-red-600 dark:text-red-400">
@@ -153,7 +153,7 @@ export function AccuracyScoreboard() {
       )}
 
       {state && !loading && state.report.events.length === 0 && (
-        <p className="mt-3 text-sm text-zinc-500">
+        <p className="mt-3 text-sm text-muted-foreground">
           Nothing to score yet — no archived gameweek has results to join against.
         </p>
       )}
@@ -189,7 +189,7 @@ export function AccuracyScoreboard() {
                       {row.stats.n.toLocaleString()}
                     </DataCell>
                     <DataCell className="px-3 py-2" numeric>{num(row.stats.bias)}</DataCell>
-                    <DataCell className="px-3 py-2 text-zinc-500">{biasPhrase(row.stats.bias)}</DataCell>
+                    <DataCell className="px-3 py-2 text-muted-foreground">{biasPhrase(row.stats.bias)}</DataCell>
                     <DataCell className="px-3 py-2" numeric>{num(row.stats.mae)}</DataCell>
                     <DataCell className="px-3 py-2" numeric>{num(row.stats.rmse)}</DataCell>
                     <DataCell className="px-3 py-2" numeric>{num(row.stats.r)}</DataCell>
@@ -198,7 +198,7 @@ export function AccuracyScoreboard() {
               </tbody>
             </DataTable>
 
-          <p className="mt-3 text-xs text-zinc-500">
+          <p className="mt-3 text-xs text-muted-foreground">
             {state.report.events.length < 5 && (
               <>
                 {state.report.events.length} scored gameweek

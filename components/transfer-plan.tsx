@@ -96,7 +96,7 @@ export function TransferPlan({
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             What should I do in GW{event}?
           </h2>
-          <p className="mt-0.5 text-xs text-zinc-500">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             Every option scored over {horizonLabel(horizon)} by the same simulator as the basket
             below.
           </p>
@@ -160,7 +160,7 @@ export function TransferPlan({
       </div>
 
       {loading && (
-        <p role="status" className="mt-3 flex items-center gap-2 text-sm text-zinc-500">
+        <p role="status" className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner /> Searching transfer baskets…
         </p>
       )}
@@ -259,12 +259,12 @@ function BranchRow({
         </span>
 
         {blocked ? (
-          <span className="text-xs text-zinc-500">{branch.blocked}</span>
+          <span className="text-xs text-muted-foreground">{branch.blocked}</span>
         ) : (
           <span className="flex items-baseline gap-2">
             {/* The arithmetic in full: the hit and the news assumption are each
                 their own term, so neither hides inside the net. */}
-            <span className="text-[11px] tabular-nums text-zinc-500">
+            <span className="text-[11px] tabular-nums text-muted-foreground">
               {signed(branch.xpGain)} xP
               {(() => {
                 const terms = branch.simulation?.after.chipAdjustment?.terms;
@@ -299,7 +299,7 @@ function BranchRow({
       </div>
 
       {!blocked && branch.explanation.length > 0 && (
-        <ul className="mt-1 space-y-0.5 text-[11px] text-zinc-500">
+        <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
           {branch.explanation.map((line) => (
             <li key={line}>{line}</li>
           ))}

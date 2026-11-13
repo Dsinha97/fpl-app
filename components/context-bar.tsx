@@ -125,7 +125,7 @@ export function ContextBar() {
         {!hasSquad && (
           <Link
             href="/team"
-            className="rounded font-semibold text-purple-800 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-primary"
+            className="rounded py-2.5 -my-2.5 font-semibold text-purple-800 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-primary"
           >
             Import your FPL team →
           </Link>

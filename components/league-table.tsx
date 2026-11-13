@@ -34,10 +34,10 @@ const FORM_NOTE =
  * the only channel — the letter stays inside each pip.
  */
 function FormRun({ form }: { form: string | null }) {
-  if (!form) return <span className="text-zinc-500">—</span>;
+  if (!form) return <span className="text-muted-foreground">—</span>;
 
   const results = [...form].filter((c) => c === "W" || c === "D" || c === "L");
-  if (results.length === 0) return <span className="text-zinc-500">—</span>;
+  if (results.length === 0) return <span className="text-muted-foreground">—</span>;
 
   const tone: Record<string, string> = {
     W: "bg-emerald-600 text-white dark:bg-emerald-500 dark:text-slate-950",
@@ -55,7 +55,7 @@ function FormRun({ form }: { form: string | null }) {
         <span
           key={i}
           aria-hidden="true"
-          className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold leading-none ${tone[r]}`}
+          className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold leading-none ${tone[r]}`}
         >
           {r}
         </span>
@@ -134,7 +134,7 @@ export function LeagueTable({
         </Alert>
       )}
       {!fplPublished && !noFixturesStarted && (
-        <p className="mb-2 text-xs text-zinc-500">
+        <p className="mb-2 text-xs text-muted-foreground">
           Standings computed from {derived?.live ? "match results, including matches in play" : "finished match results"}
           <ModelNote label="Why these standings are computed">
             <span className="block">
@@ -177,7 +177,7 @@ export function LeagueTable({
               const position = fplPublished ? (team.position ?? i + 1) : (d?.position ?? i + 1);
               return (
                 <DataRow key={team.id}>
-                  <DataCell sticky className="px-2 py-1.5 text-center tabular-nums text-zinc-500">
+                  <DataCell sticky className="px-2 py-1.5 text-center tabular-nums text-muted-foreground">
                     {noFixturesStarted ? "—" : position}
                   </DataCell>
                   <DataCell className="sticky left-8 z-10 flex items-center gap-1.5 whitespace-nowrap bg-card px-2 py-1.5 font-medium text-zinc-800 dark:text-zinc-200">

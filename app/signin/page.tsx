@@ -99,7 +99,7 @@ export default function SignInPage() {
       <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
         Sign in
       </h1>
-      <p className="mt-2 text-sm text-zinc-500">No password to set or remember.</p>
+      <p className="mt-2 text-sm text-muted-foreground">No password to set or remember.</p>
 
       <Button
         type="button"
@@ -130,7 +130,7 @@ export default function SignInPage() {
         {googleBusy ? "Redirecting…" : "Continue with Google"}
       </Button>
 
-      <div className="mt-5 flex items-center gap-3 text-xs text-zinc-400">
+      <div className="mt-5 flex items-center gap-3 text-xs text-muted-foreground">
         <span className="h-px flex-1 bg-zinc-200 dark:bg-purple-900/40" />
         or use email
         <span className="h-px flex-1 bg-zinc-200 dark:bg-purple-900/40" />

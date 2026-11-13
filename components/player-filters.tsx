@@ -178,7 +178,7 @@ export function PlayerFilters({
               <Button
                 onClick={() => onChange({ ...value, price: priceBounds })}
                 variant="link"
-                className="h-auto p-0 text-xs text-zinc-500 underline hover:text-purple-700 dark:hover:text-primary"
+                className="h-auto p-0 text-xs text-muted-foreground underline hover:text-purple-700 dark:hover:text-primary"
               >
                 reset
               </Button>
@@ -186,7 +186,7 @@ export function PlayerFilters({
           </label>
 
           <span className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-zinc-200 pt-3 sm:gap-y-1 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-3 dark:border-purple-900/40">
-            <span className="w-full text-xs uppercase tracking-wide text-zinc-500 sm:w-auto">Special</span>
+            <span className="w-full text-xs uppercase tracking-wide text-muted-foreground sm:w-auto">Special</span>
             {/* Toggle pills, not a checkbox list (DSI-126). These are six
                 mutually-compatible filters that get flipped on and off
                 repeatedly, and a 14px checkbox is both a small target and the

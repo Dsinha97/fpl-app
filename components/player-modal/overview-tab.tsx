@@ -209,7 +209,7 @@ export function OverviewTab({
                   ? "text-emerald-600 dark:text-primary"
                   : priceProgress.direction === "fall"
                     ? "text-red-600 dark:text-red-400"
-                    : "text-zinc-500"
+                    : "text-muted-foreground"
               }`}
             >
               {priceVerdictLabel(priceProgress.verdict, priceProgress.direction)}
@@ -461,7 +461,7 @@ export function OverviewTab({
                 >
                   {h.title}
                 </a>
-                <div className="text-[11px] text-zinc-500">
+                <div className="text-[11px] text-muted-foreground">
                   {sourceBadge(h)} · {ago(h.published_at)}
                 </div>
               </li>

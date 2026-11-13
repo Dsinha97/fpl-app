@@ -576,7 +576,7 @@ export function ChipTiming({
             <ModelNote label="What do these numbers assume?">{result.note}</ModelNote>
           )}
         </h2>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Which gameweek is each chip worth the most — and how much better than the alternative.
         </p>
       </div>
@@ -600,14 +600,14 @@ export function ChipTiming({
         </p>
       )}
       {loading && (
-        <p role="status" className="mt-6 flex items-center gap-2 text-sm text-zinc-500">
+        <p role="status" className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner /> Loading player data…
         </p>
       )}
 
       {!loading && drafts.length === 0 && (
         <div className="mt-6 rounded-lg border border-zinc-200 bg-card p-6 text-center dark:border-purple-900/40">
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted-foreground">
             No saved squads yet. Build one in the{" "}
             <Link
               href="/builder"
@@ -701,7 +701,7 @@ export function ChipTiming({
               {presets.length > 0 && (
                 <section className="rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40">
                   <div className="flex items-center gap-1.5">
-                    <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Chip sequences
                     </h2>
                     <ModelNote label="About chip sequences">Starting points for a planned sequence, not a recommendation — pin one, then
@@ -726,7 +726,7 @@ export function ChipTiming({
                               </InfoTooltip>
                             )}
                           </span>
-                          <p className="mt-0.5 text-xs text-zinc-500">{preset.note}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{preset.note}</p>
                         </div>
                         <Button
                           variant="outline"
@@ -753,7 +753,7 @@ export function ChipTiming({
                   className="rounded-xl border border-purple-300 bg-card p-4 dark:border-primary/40"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Chip schedule · {half.label}
                     </h2>
                     {(half.oneOff || half.wildcard) && (
@@ -789,7 +789,7 @@ export function ChipTiming({
                               <span className="font-medium text-zinc-800 dark:text-zinc-200">
                                 {CHIP_LABELS[e.chip]}
                               </span>
-                              <span className="text-zinc-500">GW{e.event}</span>
+                              <span className="text-muted-foreground">GW{e.event}</span>
                               {/* "this GW" beside the number (DSI-125). These
                                   sit alongside a Wildcard reading +297.4, and
                                   the only thing that made +20.5 comparable was
@@ -798,20 +798,20 @@ export function ChipTiming({
                                   matching half. */}
                               <span className="tabular-nums text-purple-800 dark:text-primary">
                                 {signed(e.gain)}
-                                <span className="ml-1 text-[10px] font-normal text-zinc-500">this GW</span>
+                                <span className="ml-1 text-[10px] font-normal text-muted-foreground">this GW</span>
                               </span>
                               <Button
                                 onClick={() => pinChip(e.chip, e.event)}
                                 title={`Pin ${CHIP_LABELS[e.chip]} to GW${e.event}`}
                                 aria-label={`Pin ${CHIP_LABELS[e.chip]} to GW${e.event} in this plan`}
-                                variant="ghost" size="icon-xs" className="ml-1 text-zinc-400 hover:text-purple-700 dark:hover:text-primary"
+                                variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground hover:text-purple-700 dark:hover:text-primary"
                               >
                                 <Pin className="h-3.5 w-3.5" aria-hidden />
                               </Button>
                             </div>
                           ))}
                       </div>
-                      <p className="mt-2 text-xs text-zinc-500">
+                      <p className="mt-2 text-xs text-muted-foreground">
                         Bench Boost + Triple Captain + Free Hit total {signed(half.oneOff.total)} xP.{" "}
                         {half.oneOff.margin < 1
                           ? `The next-best combination of gameweeks is within ${half.oneOff.margin.toFixed(1)} points — treat this as illustrative, not a recommendation.`
@@ -827,7 +827,7 @@ export function ChipTiming({
                     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3 dark:border-purple-900/40">
                       <div className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-2.5 py-1.5 text-sm dark:border-purple-900/40">
                         <span className="font-medium text-zinc-800 dark:text-zinc-200">Wildcard</span>
-                        <span className="text-zinc-500">GW{half.wildcard.event}</span>
+                        <span className="text-muted-foreground">GW{half.wildcard.event}</span>
                         <span className="tabular-nums text-purple-800 dark:text-primary">
                           {signed(half.wildcard.gain)}
                         </span>
@@ -835,19 +835,19 @@ export function ChipTiming({
                           onClick={() => pinChip("wildcard", half.wildcard!.event)}
                           title={`Pin Wildcard to GW${half.wildcard.event}`}
                           aria-label={`Pin Wildcard to GW${half.wildcard.event} in this plan`}
-                          variant="ghost" size="icon-xs" className="ml-1 text-zinc-400 hover:text-purple-700 dark:hover:text-primary"
+                          variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground hover:text-purple-700 dark:hover:text-primary"
                         >
                           <Pin className="h-3.5 w-3.5" aria-hidden />
                         </Button>
                       </div>
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-muted-foreground">
                         cumulative through GW{half.stopEvent} — not added to the total above
                       </span>
                     </div>
                   )}
 
                   {half.spent.length > 0 && (
-                    <p className="mt-2 text-xs text-zinc-500">
+                    <p className="mt-2 text-xs text-muted-foreground">
                       Already played this half:{" "}
                       {half.spent.map((s) => `${CHIP_LABELS[s.chip]} (GW${s.event})`).join(", ")} — left out of the
                       schedule.
@@ -855,7 +855,7 @@ export function ChipTiming({
                   )}
 
                   {!half.oneOff && !half.wildcard && (
-                    <p className="mt-2 text-xs text-zinc-500">
+                    <p className="mt-2 text-xs text-muted-foreground">
                       {half.spent.length > 0
                         ? "Nothing left to schedule in this half."
                         : "Nothing evaluable in this half yet."}
@@ -892,11 +892,11 @@ export function ChipTiming({
                     key={chip}
                     className="rounded-xl border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border"
                   >
-                    <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       {CHIP_LABELS[chip]}
                     </h3>
                     {top.length === 0 ? (
-                      <p className="mt-2 text-xs text-zinc-500">
+                      <p className="mt-2 text-xs text-muted-foreground">
                         {window ? "Nothing evaluable in this window yet." : "No open window this season."}
                       </p>
                     ) : (
@@ -919,7 +919,7 @@ export function ChipTiming({
                                 onClick={() => pinChip(chip, v.event)}
                                 title={`Pin ${CHIP_LABELS[chip]} to GW${v.event}`}
                                 aria-label={`Pin ${CHIP_LABELS[chip]} to GW${v.event} in this plan`}
-                                variant="ghost" size="icon-xs" className="text-zinc-400 hover:text-purple-700 dark:hover:text-primary"
+                                variant="ghost" size="icon-xs" className="text-muted-foreground hover:text-purple-700 dark:hover:text-primary"
                               >
                                 <Pin className="h-3.5 w-3.5" aria-hidden />
                               </Button>
@@ -936,7 +936,7 @@ export function ChipTiming({
                       </p>
                     )}
                     {top[0]?.explanation.map((line, i) => (
-                      <p key={i} className="mt-2 text-[11px] text-zinc-500">
+                      <p key={i} className="mt-2 text-[11px] text-muted-foreground">
                         {line}
                       </p>
                     ))}
@@ -948,7 +948,7 @@ export function ChipTiming({
                         className="mt-2"
                       >
                         {blockedWindows.map((w) => (
-                          <p key={`${w.startEvent}-${w.stopEvent}`} className="text-[11px] text-zinc-500">
+                          <p key={`${w.startEvent}-${w.stopEvent}`} className="text-[11px] text-muted-foreground">
                             GW{w.startEvent}–{w.stopEvent}: {w.blocked}
                           </p>
                         ))}
@@ -970,7 +970,7 @@ export function ChipTiming({
             <div className="overflow-x-auto">
             <table className="w-full min-w-[420px] text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 text-left text-[10px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+                <tr className="border-b border-zinc-200 text-left text-[10px] uppercase tracking-wide text-muted-foreground dark:border-purple-900/40">
                   <DataHeadCell className="py-1.5 pr-2">GW</DataHeadCell>
                   {CHIP_ORDER.map((chip) => (
                     <DataHeadCell key={chip} className="py-1.5 pr-2" numeric>
@@ -982,7 +982,7 @@ export function ChipTiming({
               <tbody>
                 {events.map((event) => (
                   <DataRow key={event} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-                    <DataCell className="py-1 pr-2 text-zinc-500">{event}</DataCell>
+                    <DataCell className="py-1 pr-2 text-muted-foreground">{event}</DataCell>
                     {CHIP_ORDER.map((chip) => {
                       const v = byChipEvent.get(chip)?.get(event);
                       return (

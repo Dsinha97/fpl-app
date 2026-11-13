@@ -71,7 +71,7 @@ export function DraftTimeline({
       <div className="flex items-start justify-between gap-2">
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           {draftName} · timeline
-          <span className="ml-2 font-normal text-xs text-zinc-500">
+          <span className="ml-2 font-normal text-xs text-muted-foreground">
             {entries.length} save{entries.length === 1 ? "" : "s"} recorded
           </span>
         </h2>
@@ -80,14 +80,14 @@ export function DraftTimeline({
           aria-label="Close timeline"
           variant="ghost"
           size="icon-xs"
-          className="shrink-0 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
+          className="shrink-0 text-muted-foreground hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
         >
           ×
         </Button>
       </div>
 
       {entries.length === 0 ? (
-        <p className="mt-3 text-xs text-zinc-500">
+        <p className="mt-3 text-xs text-muted-foreground">
           Nothing recorded yet. History starts from the next save — earlier saves predate the
           timeline.
         </p>
@@ -98,7 +98,7 @@ export function DraftTimeline({
             const change = diff(entries[i + 1], entry);
             return (
               <li key={`${entry.at}-${i}`} className="flex gap-3 text-xs">
-                <span className="w-28 shrink-0 tabular-nums text-zinc-500">
+                <span className="w-28 shrink-0 tabular-nums text-muted-foreground">
                   {formatWhen(entry.at)}
                 </span>
                 <span className="flex-1">
@@ -106,9 +106,9 @@ export function DraftTimeline({
                     {entry.size} players · {money(entry.spent)}
                   </span>
                   {change === null ? (
-                    <span className="ml-2 text-zinc-400">first recorded save</span>
+                    <span className="ml-2 text-muted-foreground">first recorded save</span>
                   ) : (
-                    <span className="ml-2 text-zinc-500">
+                    <span className="ml-2 text-muted-foreground">
                       {change.added.length === 0 && change.removed.length === 0 ? (
                         change.captainChanged ? (
                           "armband changed"

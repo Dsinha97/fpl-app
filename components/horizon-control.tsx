@@ -44,7 +44,7 @@ export function HorizonControl({
     // can never engage, and six segments push the page body wider than the
     // viewport on a phone — 395px inside 375px, measured.
     <div className={`flex min-w-0 items-center gap-2 ${className ?? ""}`}>
-      {showLabel && <span className="shrink-0 text-xs text-zinc-500">{label}</span>}
+      {showLabel && <span className="shrink-0 text-xs text-muted-foreground">{label}</span>}
       <SegmentedControl
         className="min-w-0"
         label={label}

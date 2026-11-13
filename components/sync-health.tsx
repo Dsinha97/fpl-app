@@ -75,7 +75,7 @@ export function SyncHealthPanel() {
   return (
     <section className="mt-8">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">Sync health</h2>
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Sync health</h2>
         <InfoTooltip label="What this panel means">{SYNC_HEALTH_NOTE}</InfoTooltip>
       </div>
 
@@ -93,7 +93,7 @@ export function SyncHealthPanel() {
         <div className="mt-3 space-y-4">
           {/* ---------------------------------------- tracked managers */}
           <div className="rounded-lg border border-zinc-200 bg-card p-4 dark:border-purple-900/40">
-            <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Tracked managers
             </h3>
 
@@ -155,7 +155,7 @@ export function SyncHealthPanel() {
 
           {/* --------------------------------------------- failed runs */}
           <div className="rounded-lg border border-zinc-200 bg-card p-4 dark:border-purple-900/40">
-            <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Failed and partial runs · last {health.failureWindowHours}h
             </h3>
             {health.failures.length === 0 ? (

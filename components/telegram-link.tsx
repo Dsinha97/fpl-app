@@ -217,7 +217,7 @@ export function TelegramLink({ variant = "full" }: { variant?: "compact" | "full
 
       {variant === "full" && (
         <div className="mt-4">
-          <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             What to send
           </h3>
           {!linked && (

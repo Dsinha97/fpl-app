@@ -131,7 +131,7 @@ export function GameweekReviewPanel({
                           ? "text-green-700 dark:text-green-400"
                           : review.history.overallRank > review.previousHistory.overallRank
                           ? "text-red-700 dark:text-red-400"
-                          : "text-zinc-500"
+                          : "text-muted-foreground"
                       }
                     >
                       {" "}

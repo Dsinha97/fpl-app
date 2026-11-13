@@ -120,7 +120,7 @@ export default function HomeClient() {
           You&apos;ll just need the numeric Manager ID from your team&apos;s URL.{" "}
           <TapToReveal
             label="Where do I find my Manager ID?"
-            triggerClassName="font-medium text-purple-800 underline underline-offset-2 dark:text-primary"
+            triggerClassName="font-medium text-purple-800 underline underline-offset-2 before:-inset-y-3.5 dark:text-primary"
             trigger="Where do I find it?"
           >
             <p className="font-semibold text-zinc-900 dark:text-zinc-100">Your Manager ID</p>
@@ -143,7 +143,7 @@ export default function HomeClient() {
             for it. */}
         <LandingPreview />
 
-        <p className="mt-4 text-xs text-zinc-400" role="status">
+        <p className="mt-4 text-xs text-muted-foreground" role="status">
           {pipeline.state === "checking" && "Checking data…"}
           {pipeline.state === "error" && (
             <span className="text-danger">Data pipeline unreachable — projections may be stale.</span>
