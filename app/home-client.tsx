@@ -120,7 +120,7 @@ export default function HomeClient() {
           You&apos;ll just need the numeric Manager ID from your team&apos;s URL.{" "}
           <TapToReveal
             label="Where do I find my Manager ID?"
-            triggerClassName="font-medium text-purple-800 underline underline-offset-2 dark:text-primary"
+            triggerClassName="font-medium text-purple-800 underline underline-offset-2 before:-inset-y-3.5 dark:text-primary"
             trigger="Where do I find it?"
           >
             <p className="font-semibold text-zinc-900 dark:text-zinc-100">Your Manager ID</p>
