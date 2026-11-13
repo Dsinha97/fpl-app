@@ -692,7 +692,7 @@ export default function ScenariosPage() {
               <FdrLegendContent />
             </InfoTooltip>
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Every draft in this browser, ranked by SquadScore. Pick up to {MAX_COMPARE} to compare
             side by side.
           </p>
@@ -706,7 +706,7 @@ export default function ScenariosPage() {
               justify introducing one — SegmentedControl exists now, and this is
               the same "pick a side" shape as the horizon beside it. */}
           <div className="flex items-center gap-2">
-            <span className="text-zinc-500">Show</span>
+            <span className="text-muted-foreground">Show</span>
             <SegmentedControl
               label="Show"
               semantics="radio"
@@ -736,7 +736,7 @@ export default function ScenariosPage() {
       {/* Replaces the `title=` the disabled "Points scored" button used to
           carry: a disabled control that never says why is just a dead end. */}
       {!hasActuals && (
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-muted-foreground">
           No gameweek has finished yet this season, so there are no points scored to show.
         </p>
       )}
@@ -779,7 +779,7 @@ export default function ScenariosPage() {
             e.target.value = "";
           }}
         />
-        <span className="text-zinc-400">
+        <span className="text-muted-foreground">
           Drafts live in this browser only — export a backup before switching devices or clearing
           site data.
         </span>
@@ -836,7 +836,7 @@ export default function ScenariosPage() {
 
       {drafts.length === 0 && !loading && (
         <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 text-center dark:border-purple-900/40 dark:bg-card">
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted-foreground">
             No drafts saved yet. Build a squad in the{" "}
             <Link
               href="/builder"
@@ -934,7 +934,7 @@ export default function ScenariosPage() {
                         {draft.name}
                       </button>
                     )}
-                    <p className="mt-0.5 text-[11px] text-zinc-500">
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
                       #{rank + 1} · saved {formatWhen(draft.updatedAt)}
                       {draft.pinned && (
                         <Badge
@@ -978,7 +978,7 @@ export default function ScenariosPage() {
                         The label already wraps both box and word, so padding
                         it turns the whole "☐ compare" pair into one target
                         (DSI-123). */}
-                    <label className="-m-1 flex cursor-pointer items-center gap-1.5 rounded p-1 text-[11px] text-zinc-500 transition-colors hover:bg-zinc-100 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring dark:hover:bg-purple-950/50">
+                    <label className="-m-1 flex cursor-pointer items-center gap-1.5 rounded p-1 text-[11px] text-muted-foreground transition-colors hover:bg-zinc-100 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring dark:hover:bg-purple-950/50">
                       <Checkbox
                         checked={picked}
                         onChange={() => toggleSelect(draft.draftId)}
@@ -992,7 +992,7 @@ export default function ScenariosPage() {
                 {/* score */}
                 <div className="mt-3 flex items-end gap-3">
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-zinc-500">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                       SquadScore
                     </div>
                     <div className="text-2xl font-extrabold tabular-nums text-purple-900 dark:text-primary">
@@ -1004,7 +1004,7 @@ export default function ScenariosPage() {
                       best
                     </span>
                   )}
-                  <div className="mb-1 text-[11px] text-zinc-500">
+                  <div className="mb-1 text-[11px] text-muted-foreground">
                     {view === "actual"
                       ? actuals && actuals.lastEvent !== null
                         ? `${actuals.lastEvent} pts GW${actualsSource?.latestEvent} · ${actuals.seasonToDate} season`
@@ -1027,7 +1027,7 @@ export default function ScenariosPage() {
                     {validation.isLegal ? "✓ Legal" : "Incomplete"} · {draft.players.length}/
                     {rules.squadSize}
                   </span>
-                  <span className="text-zinc-500">{money(validation.budgetRemaining)} left</span>
+                  <span className="text-muted-foreground">{money(validation.budgetRemaining)} left</span>
                   {score && score.missing > 0 && (
                     <span className="text-amber-700 dark:text-amber-400">
                       {score.missing} without xP
@@ -1153,7 +1153,7 @@ export default function ScenariosPage() {
               aria-label="Close comparison"
               variant="ghost"
               size="icon-sm"
-              className="ml-auto shrink-0 text-xl leading-none text-zinc-500"
+              className="ml-auto shrink-0 text-xl leading-none text-muted-foreground"
             >
               ×
             </Button>
@@ -1174,7 +1174,7 @@ export default function ScenariosPage() {
                   <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                     {i + 1}. {r.draft.name}
                   </span>
-                  <span className="text-xs tabular-nums text-zinc-500">
+                  <span className="text-xs tabular-nums text-muted-foreground">
                     SquadScore {r.total.toFixed(1)}
                   </span>
                 </div>
@@ -1193,7 +1193,7 @@ export default function ScenariosPage() {
           <div className="mt-3 max-h-[70vh] overflow-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-zinc-500">
+                <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <DataHeadCell className="sticky top-0 z-10 border-b border-zinc-200 bg-white px-3 py-2 dark:border-purple-900/40 dark:bg-card">
                     Metric
                   </DataHeadCell>
@@ -1223,7 +1223,7 @@ export default function ScenariosPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
+          <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
             Bench Boost and Triple Captain above are for the next gameweek only. Free Hit and
             Wildcard are full-squad rebuilds, valued for every playable gameweek on the{" "}
             <Link
@@ -1238,7 +1238,7 @@ export default function ScenariosPage() {
       </SlideOver>
 
       {chosen.length === 1 && (
-        <p className="mt-6 text-sm text-zinc-500">
+        <p className="mt-6 text-sm text-muted-foreground">
           Select one more draft to compare — a single squad has nothing to be measured against.
         </p>
       )}
@@ -1447,7 +1447,7 @@ function ComparisonRows({
               : Math.min(...comparable);
         return (
           <DataRow key={row.label} className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
-            <DataHeadCell className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
+            <DataHeadCell className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
               {/* AnnotatedLabel rather than a hand-rolled TapToReveal trigger
                   (DSI-123). These labels really do open a note, but this call
                   site drew the dotted underline without the cursor-help that
@@ -1486,7 +1486,7 @@ function ComparisonRows({
                   className={`px-3 py-2 ${wins ? "bg-primary/[0.06]" : ""}`}
                 >
                   <span className={wins ? "font-semibold text-foreground" : ""}>
-                    {spent ? <span className="text-zinc-500">{spent}</span> : row.format(v)}
+                    {spent ? <span className="text-muted-foreground">{spent}</span> : row.format(v)}
                     {wins && (
                       <span
                         aria-label={row.dir === "low" ? "lowest, best" : "highest, best"}
@@ -1503,13 +1503,13 @@ function ComparisonRows({
         );
       })}
       <DataRow className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
-        <DataHeadCell className="px-3 py-2 text-left text-xs font-medium text-zinc-500">
+        <DataHeadCell className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
           Unique to this draft
         </DataHeadCell>
         {uniquePlayers.map((ids, i) => (
           <DataCell key={i} className="px-3 py-2 text-xs">
             {ids.length === 0 ? (
-              <span className="text-zinc-400">none — identical squads</span>
+              <span className="text-muted-foreground">none — identical squads</span>
             ) : (
               <span className="text-zinc-600 dark:text-zinc-300">
                 {ids.length} ·{" "}

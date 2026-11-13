@@ -151,7 +151,7 @@ export function FdrMatrix({
     <>
         <div className="flex flex-col gap-4 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-3">
           <span className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 text-zinc-500">Window</span>
+            <span className="shrink-0 text-muted-foreground">Window</span>
             {/* A window is a parameter, not a view, so `radio` rather than
                 `tabs` — "tab" would be a lie to a screen reader here. */}
             <SegmentedControl
@@ -219,7 +219,7 @@ export function FdrMatrix({
         </div>
 
         {sort === "position" && !positionsKnown && (
-          <p className="mt-3 text-xs text-zinc-500">
+          <p className="mt-3 text-xs text-muted-foreground">
             FPL hasn&apos;t published table positions yet — showing GW1 order instead.
           </p>
         )}
@@ -236,7 +236,7 @@ export function FdrMatrix({
         onClick={() => setSheetOpen(true)}
         className="mt-4 flex min-h-11 w-full items-center gap-2 border-y border-zinc-200 text-left text-sm sm:hidden dark:border-purple-900/40"
       >
-        <SlidersHorizontal aria-hidden="true" className="size-4 shrink-0 text-zinc-500" />
+        <SlidersHorizontal aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-zinc-600 dark:text-zinc-300">{settingsSummary}</span>
         <span className="shrink-0 font-medium text-purple-700 dark:text-primary">Edit</span>
       </button>
@@ -265,7 +265,7 @@ export function FdrMatrix({
       </CollapsibleCard>
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-zinc-500">{sortCaption}</p>
+        <p className="text-xs text-muted-foreground">{sortCaption}</p>
         {/* The legend was six swatches and a ring sample rendered permanently,
             for a scale you learn once. As a link it is still one tap away and
             reachable on touch, which a hover tooltip would not be. */}
@@ -283,7 +283,7 @@ export function FdrMatrix({
           </span>
           {/* One swatch, not two: only away is marked now, so a "home" swatch
               would be a picture of the absence of a thing. */}
-          <span className="mt-3 flex items-center gap-1.5 text-zinc-500">
+          <span className="mt-3 flex items-center gap-1.5 text-muted-foreground">
             <span className={`inline-block h-3 w-3 rounded bg-zinc-300 dark:bg-purple-900 ${venueRing(false)}`} />
             ring = away
           </span>
@@ -293,7 +293,7 @@ export function FdrMatrix({
       <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
         <table className="w-full min-w-[36rem] border-collapse text-xs">
           <thead>
-            <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+            <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-muted-foreground dark:border-purple-900/40">
               <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 dark:bg-card">Team</DataHeadCell>
               <DataHeadCell className="px-2 py-2 text-center">Avg</DataHeadCell>
               {gwCols.map((g) => (
@@ -309,7 +309,7 @@ export function FdrMatrix({
                 <DataCell className="sticky left-0 z-10 bg-white px-3 py-1.5 font-medium text-zinc-800 dark:bg-card dark:text-zinc-200">
                   {team.short_name}
                 </DataCell>
-                <DataCell className="px-2 py-1.5 text-center tabular-nums text-zinc-500">
+                <DataCell className="px-2 py-1.5 text-center tabular-nums text-muted-foreground">
                   {avg !== null ? avg.toFixed(1) : "—"}
                 </DataCell>
                 {gwCols.map((g) => {
@@ -351,7 +351,7 @@ export function FdrMatrix({
             ))}
             {rows.length === 0 && (
               <DataRow>
-                <DataCell colSpan={gwCols.length + 2} className="px-3 py-6 text-center text-zinc-500">
+                <DataCell colSpan={gwCols.length + 2} className="px-3 py-6 text-center text-muted-foreground">
                   No team matches &quot;{search}&quot;.
                 </DataCell>
               </DataRow>
@@ -368,7 +368,7 @@ export function FdrMatrix({
           and stays plain: collapsing a one-liner adds a click and hides
           nothing. */}
       {source === "official" ? (
-        <p className="mt-4 text-xs text-zinc-400">
+        <p className="mt-4 text-xs text-muted-foreground">
           Uses FPL&apos;s own published difficulty rating for each fixture.
         </p>
       ) : (

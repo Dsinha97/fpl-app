@@ -69,7 +69,7 @@ export function ManagerLeagues({ leagues, onSelect, selectedLeagueId }: ManagerL
   return (
     <div>
       {prePublished && (
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-muted-foreground">
           Ranks show once FPL publishes standings, after the first gameweek is scored.
         </p>
       )}
@@ -81,7 +81,7 @@ export function ManagerLeagues({ leagues, onSelect, selectedLeagueId }: ManagerL
           if (rows.length === 0) return null;
           return (
             <div key={type}>
-              <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">{title}</h3>
+              <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</h3>
               <ul className="mt-1.5 divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-card dark:divide-purple-900/30 dark:border-purple-900/40">
                 {rows.map((l) => {
                   const move = movement(l);
@@ -89,7 +89,7 @@ export function ManagerLeagues({ leagues, onSelect, selectedLeagueId }: ManagerL
                   const content = (
                     <>
                       <span className="truncate text-zinc-800 dark:text-zinc-200">{l.name}</span>
-                      <span className="flex shrink-0 items-center gap-1 tabular-nums text-zinc-500">
+                      <span className="flex shrink-0 items-center gap-1 tabular-nums text-muted-foreground">
                         {rankLabel(l)}
                         {move !== null && move !== 0 && (
                           <TapToReveal
@@ -138,7 +138,7 @@ export function ManagerLeagues({ leagues, onSelect, selectedLeagueId }: ManagerL
                           <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
                             {content}
                           </span>
-                          <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden="true" />
+                          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                         </button>
                       ) : (
                         <div className="flex items-center justify-between gap-2 px-3 py-2 text-sm">{content}</div>

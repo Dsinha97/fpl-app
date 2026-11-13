@@ -48,7 +48,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
         PL Club Tactics
         <ModelNote label="What is this?">{TACTICAL_PROFILE_NOTE}</ModelNote>
       </h2>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-muted-foreground">
         Each club&apos;s head coach — formation, buildup style, pressing intensity — shown as
         context, not folded into any projection.
       </p>
@@ -73,7 +73,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                     <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                       {teamName}
                     </p>
-                    <p className="truncate text-xs text-zinc-500">{profile.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{profile.name}</p>
                   </div>
                   <ExpandToggle expanded={open} interactive={false} size="sm" />
                 </div>
@@ -81,7 +81,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                 <dl className="mt-2.5 space-y-1 text-xs">
                   {profile.preferredFormation && (
                     <div className="flex justify-between gap-2">
-                      <dt className="shrink-0 text-zinc-500">Formation</dt>
+                      <dt className="shrink-0 text-muted-foreground">Formation</dt>
                       <dd
                         className="min-w-0 truncate text-right text-zinc-700 dark:text-zinc-300"
                         title={profile.preferredFormation}
@@ -92,7 +92,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                   )}
                   {profile.buildupStyle && (
                     <div className="flex justify-between gap-2">
-                      <dt className="shrink-0 text-zinc-500">Buildup</dt>
+                      <dt className="shrink-0 text-muted-foreground">Buildup</dt>
                       <dd
                         className="min-w-0 truncate text-right text-zinc-700 dark:text-zinc-300"
                         title={buildupStyleLabel(profile.buildupStyle) ?? undefined}
@@ -116,7 +116,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                   {profile.pressingIntensity && (
                     <dl className="text-xs">
                       <div className="flex justify-between gap-2">
-                        <dt className="shrink-0 text-zinc-500">Pressing</dt>
+                        <dt className="shrink-0 text-muted-foreground">Pressing</dt>
                         <dd className="min-w-0 truncate text-right capitalize text-zinc-700 dark:text-zinc-300">
                           {profile.pressingIntensity}
                         </dd>
@@ -125,7 +125,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                   )}
 
                   {Object.keys(profile.tacticalTraits).length > 0 && (
-                    <ul className="mt-2.5 space-y-1 border-t border-zinc-100 pt-2 text-[11px] text-zinc-500 dark:border-purple-900/40">
+                    <ul className="mt-2.5 space-y-1 border-t border-zinc-100 pt-2 text-[11px] text-muted-foreground dark:border-purple-900/40">
                       {Object.entries(profile.tacticalTraits).map(([group, trait]) => {
                         // Different position groups use different fields in the
                         // source data — wingers/fullbacks carry role + xp_impact,
@@ -172,7 +172,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                       >
                         <span>
                           {analysisOpen.has(teamId) ? "Hide" : "Show"} full analysis
-                          <span className="font-normal text-zinc-500">
+                          <span className="font-normal text-muted-foreground">
                             {" "}· {profile.analysis.length} sections
                           </span>
                         </span>
@@ -190,7 +190,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                           <h3 className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
                             {section.heading}
                           </h3>
-                          <ul className="mt-1 space-y-1 text-zinc-500">
+                          <ul className="mt-1 space-y-1 text-muted-foreground">
                             {section.points.map((point) => (
                               <li key={point.label} className="min-w-0 break-words">
                                 <span className="font-medium text-zinc-600 dark:text-zinc-400">
@@ -211,7 +211,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                   {(profile.modifiers.lowBlockFdrModifier !== null ||
                     profile.modifiers.highPressFdrModifier !== null ||
                     profile.modifiers.setPieceBias !== null) && (
-                    <p className="mt-2 border-t border-zinc-100 pt-2 text-[11px] text-zinc-400 dark:border-purple-900/40">
+                    <p className="mt-2 border-t border-zinc-100 pt-2 text-[11px] text-muted-foreground dark:border-purple-900/40">
                       {/* "not applied to xP" sat immediately above three
                           multipliers, which reads as a contradiction rather than
                           a disclaimer (DSI-127). Lead with what they are. */}
@@ -224,7 +224,7 @@ export function ClubTacticsGrid({ clubs }: { clubs: ClubTactics[] }) {
                   )}
 
                   {profile.sourceFile && (
-                    <p className="mt-1.5 truncate text-[10px] text-zinc-500" title={profile.sourceFile}>
+                    <p className="mt-1.5 truncate text-[10px] text-muted-foreground" title={profile.sourceFile}>
                       Source: {profile.sourceFile}
                     </p>
                   )}

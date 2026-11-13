@@ -230,7 +230,7 @@ export default function LeaguesPage() {
     return (
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
         <h1 className="text-2xl font-bold">Leagues</h1>
-        <p className="mt-4 text-sm text-zinc-500">
+        <p className="mt-4 text-sm text-muted-foreground">
           Connect your FPL team on{" "}
           <a href="/team/" className="underline-offset-2 hover:underline">
             My Team
@@ -244,7 +244,7 @@ export default function LeaguesPage() {
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
       <h1 className="text-2xl font-bold">Leagues</h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-muted-foreground">
         Real effective ownership for your mini-leagues — exact for the league, not the game.
       </p>
 
@@ -252,7 +252,7 @@ export default function LeaguesPage() {
         {leaguesLoading ? (
           <Spinner />
         ) : leagues.length === 0 ? (
-          <p className={`${cardSupporting} text-sm text-zinc-500`}>
+          <p className={`${cardSupporting} text-sm text-muted-foreground`}>
             No leagues found for this entry yet — leagues sync automatically when you connect on{" "}
             <a href="/team/" className="underline-offset-2 hover:underline">
               My Team
@@ -270,7 +270,7 @@ export default function LeaguesPage() {
             <div>
               <h2 className="text-lg font-semibold">{selectedLeague?.name ?? `League ${selectedLeagueId}`}</h2>
               {currentEvent && (
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-muted-foreground">
                   Gameweek {currentEvent} picks
                   {selectedLeague?.rank_count
                     ? ` · top ${standings.length.toLocaleString()} of ${selectedLeague.rank_count.toLocaleString()} entries`
@@ -299,7 +299,7 @@ export default function LeaguesPage() {
             </Button>
           </div>
 
-          {syncMessage && <p className="mt-2 text-xs text-zinc-500">{syncMessage}</p>}
+          {syncMessage && <p className="mt-2 text-xs text-muted-foreground">{syncMessage}</p>}
           {dataError && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{dataError}</p>}
 
           {dataLoading ? (
@@ -307,7 +307,7 @@ export default function LeaguesPage() {
               <Spinner />
             </div>
           ) : standings.length === 0 ? (
-            <p className="mt-4 text-sm text-zinc-500">
+            <p className="mt-4 text-sm text-muted-foreground">
               This league&apos;s picks haven&apos;t been synced yet. Sync above to pull standings and every
               member&apos;s gameweek {currentEvent} picks — this can take a little while for a large league.
             </p>
@@ -315,13 +315,13 @@ export default function LeaguesPage() {
             // Standings can be synced (from manager_leagues' own sync) without picks ever having
             // been pulled for this specific gameweek — a blank table with headers and no rows
             // reads as broken, not as "nothing to show yet" (CLAUDE.md: empty result sets say so).
-            <p className="mt-4 text-sm text-zinc-500">
+            <p className="mt-4 text-sm text-muted-foreground">
               Standings are in, but nobody&apos;s gameweek {currentEvent} picks have been synced yet.
               Sync above to pull every member&apos;s picks and compute effective ownership.
             </p>
           ) : (
             <>
-              <p className="mt-3 text-xs text-zinc-500">
+              <p className="mt-3 text-xs text-muted-foreground">
                 <ModelNote label="What does effective ownership mean here?">{OWNERSHIP_MODEL_NOTE}</ModelNote>{" "}
                 Effective ownership (EO) counts a captain twice and a bench pick zero — it can exceed 100% if
                 several members captain the same player.{" "}
@@ -331,7 +331,7 @@ export default function LeaguesPage() {
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+                    <tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-muted-foreground dark:border-purple-900/40">
                       <DataHeadCell className="py-2 pr-2">Player</DataHeadCell>
                       <DataHeadCell className="px-2 py-2">Team</DataHeadCell>
                       <DataHeadCell className="px-2 py-2">Pos</DataHeadCell>
@@ -349,8 +349,8 @@ export default function LeaguesPage() {
                     {eoRows.map((row) => (
                       <DataRow key={row.element} className="border-b border-zinc-100 text-zinc-800 last:border-0 dark:border-purple-900/30 dark:text-zinc-200">
                         <DataCell className="py-1.5 pr-2 font-medium">{row.meta?.webName ?? `#${row.element}`}</DataCell>
-                        <DataCell className="px-2 py-1.5 text-zinc-500">{row.meta?.teamShort ?? "—"}</DataCell>
-                        <DataCell className="px-2 py-1.5 text-zinc-500">
+                        <DataCell className="px-2 py-1.5 text-muted-foreground">{row.meta?.teamShort ?? "—"}</DataCell>
+                        <DataCell className="px-2 py-1.5 text-muted-foreground">
                           {row.meta ? POSITIONS[row.meta.elementType] : "—"}
                         </DataCell>
                         <DataCell className="px-2 py-1.5 tabular-nums">

@@ -119,7 +119,7 @@ export function LandingPreview() {
               <span className="truncate text-sm font-semibold text-foreground">{p.name}</span>
               <span className="shrink-0 text-[11px] text-muted-foreground">{p.team}</span>
               {i === 0 && (
-                <span className="shrink-0 rounded bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                <span className="shrink-0 rounded bg-primary px-1 text-[10px] font-bold text-primary-foreground">
                   C
                 </span>
               )}

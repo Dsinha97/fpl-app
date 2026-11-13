@@ -215,7 +215,7 @@ export function ComparePanel({
     <>
       {/* ranking */}
       <section>
-        <h2 className="flex items-center gap-1.5 text-sm font-medium uppercase tracking-wide text-zinc-500">
+        <h2 className="flex items-center gap-1.5 text-sm font-medium uppercase tracking-wide text-muted-foreground">
           Ranking over {horizonLabel(horizon)}
         
           <ModelNote label="How is this ranking calculated?" align="right">
@@ -234,7 +234,7 @@ export function ComparePanel({
                   {i + 1}. {r.player.webName}
                 </span>
                 <span
-                  className="text-xs tabular-nums text-zinc-500"
+                  className="text-xs tabular-nums text-muted-foreground"
                   title="Weighted comparison score"
                 >
                   score {r.score.toFixed(3)}
@@ -283,7 +283,7 @@ export function ComparePanel({
           </colgroup>
           <thead>
             <tr className="border-b border-zinc-200 dark:border-purple-900/40">
-              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-card">
+              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs uppercase tracking-wide text-muted-foreground dark:bg-card">
                 Metric
               </DataHeadCell>
               {chosen.map((p) => {
@@ -310,12 +310,12 @@ export function ComparePanel({
                         aria-label={`Remove ${p.webName}`}
                         variant="ghost"
                         size="icon-xs"
-                        className="ml-auto shrink-0 text-zinc-400 hover:text-red-500"
+                        className="ml-auto shrink-0 text-muted-foreground hover:text-red-500"
                       >
                         ×
                       </Button>
                     </div>
-                    <div className="text-xs font-normal text-zinc-500">
+                    <div className="text-xs font-normal text-muted-foreground">
                       {p.teamShort} · {POSITIONS[p.elementType]}
                     </div>
                   </DataHeadCell>
@@ -329,7 +329,7 @@ export function ComparePanel({
               const { best, contested } = winnerOf(values, m.dir);
               return (
                 <DataRow key={m.label} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-                  <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-1.5 text-left text-xs font-medium text-zinc-500 dark:bg-card">
+                  <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-1.5 text-left text-xs font-medium text-muted-foreground dark:bg-card">
                     <span className="flex items-center gap-1">
                       {m.label}
                       {m.hint && <InfoTooltip label={m.hint}>{m.hint}</InfoTooltip>}
@@ -383,7 +383,7 @@ export function ComparePanel({
 
             {/* set-piece roles — informational only, no winner to highlight */}
             <DataRow className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-card">
+              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-muted-foreground dark:bg-card">
                 Set pieces
               </DataHeadCell>
               {chosen.map((p) => {
@@ -404,7 +404,7 @@ export function ComparePanel({
                         size="w-3.5 h-3.5"
                       />
                     ) : (
-                      <span className="text-zinc-500">—</span>
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </DataCell>
                 );
@@ -413,7 +413,7 @@ export function ComparePanel({
 
             {/* fixture runs */}
             <DataRow className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
-              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-500 dark:bg-card">
+              <DataHeadCell className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-medium text-muted-foreground dark:bg-card">
                 <span className="flex items-center gap-1">
                   Fixtures
                   <InfoTooltip>

@@ -940,6 +940,17 @@ PR `feat/mobile-visual-polish`.
 
 — [deadline-and-matchday.md](deadline-and-matchday.md#at-a-glance-above-the-pitch-2026-10-13)
 
+## Contrast sweep and touch targets (2026-11-13)
+
+Design-HQ audit of `/`, `/players`, `/fixtures` and `/deadline`, measured with a pasted probe at 1440 and 375.
+
+- **Muted text is `text-muted-foreground`, not a zinc literal.** `text-zinc-500` measured 3.91:1 on the dark card and 4.2:1 on the dark page (about 300 nodes on `/players`, 46 on `/fixtures` at 375); `text-zinc-400` measured 2.62:1 on white. About 280 unpaired literals were moved to the token, which already has a dark value (above 6.5:1 on every dark surface). A literal is fine only when paired with a `dark:text-` colour.
+- **Light `--muted-foreground` went from #71717b to #676771.** The old value was 4.39:1 on `--muted` (#f4f4f5) and 4.07:1 on the #efeaf2 chip. The new one is 5.09 and 4.72.
+- **Touch targets, on a coarse pointer only.** `SegmentedControl` items are `min-h-11` (the sm pill was 24px). The context-bar import link has a 10px vertical halo (16px tall before). The audit's "16px checkbox" was a probe artefact: `/players` already wraps each `Checkbox` in a 44px `<label>`, and a halo built into `Checkbox` itself double-toggles inside that label (the wrapper click and the label's own activation both click the input), so it was tried and reverted.
+- **9px text became 10px** in badges, the pitch chip and the brand mark. The 8px and 9px text in `devtools-walkthrough.tsx` is SVG scaled with its viewBox, so it was left.
+- **Radius vocabulary, recorded not rewritten.** The app uses bare `rounded` (4px, table cells and chips), `rounded-md`, `rounded-lg` (controls), `rounded-xl` (cards) and `rounded-full`. That is five steps with distinct jobs, inside the dashboard archetype's 3-10px range. Not collapsed: a mechanical swap with no visual-regression suite is the trade this page already rejected for hex literals.
+- **`window.confirm` removed** from `/builder`'s draft switch; it is a bottom `SlideOver` with Keep editing / Discard and switch.
+
 ## Sources
 
 - [sprints/design-audit-response.md](../sprints/design-audit-response.md)

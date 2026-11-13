@@ -243,7 +243,7 @@ const PAGE_ROWS = 1000;
 
 const cardSupporting =
   "rounded-lg border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border";
-const supportingHeading = "text-xs font-medium uppercase tracking-wide text-zinc-500";
+const supportingHeading = "text-xs font-medium uppercase tracking-wide text-muted-foreground";
 
 // --------------------------------------------------------- gw summary
 
@@ -315,7 +315,7 @@ function GameweekSummary({
         />
       </div>
 
-      <p className="mt-2 text-xs tabular-nums text-zinc-500">
+      <p className="mt-2 text-xs tabular-nums text-muted-foreground">
         {score.startersRaw} XI
         {score.captain && score.captain.added !== 0
           ? ` + ${score.captain.added} armband (${captainName} ×${score.captain.multiplier})`
@@ -324,7 +324,7 @@ function GameweekSummary({
       </p>
 
       {score.missing.length > 0 && (
-        <p className="mt-1.5 text-xs text-zinc-500">
+        <p className="mt-1.5 text-xs text-muted-foreground">
           {score.missing.length} pick{score.missing.length === 1 ? "" : "s"} had no stats recorded
           for this gameweek and count as 0 above.
         </p>
@@ -1470,11 +1470,11 @@ export default function TeamPage() {
           <h1 className="text-xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
             Connect your FPL team
           </h1>
-          <p className="mx-auto mt-1.5 max-w-md text-sm text-zinc-500">
+          <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
             Enter your Manager ID to sync your live squad. It&apos;s the number in your team&apos;s
             URL on fantasy.premierleague.com:
           </p>
-          <p className="mt-2 break-all font-mono text-xs text-zinc-400">
+          <p className="mt-2 break-all font-mono text-xs text-muted-foreground">
             fantasy.premierleague.com/entry/<span className="text-primary">1234567</span>/event/1
           </p>
           <div className="mt-4 flex justify-center [&>form]:justify-center">{connectForm}</div>
@@ -1549,7 +1549,7 @@ export default function TeamPage() {
               </div>
             </div>
             {data && data.picks.length > 0 && (
-              <p className="mt-1.5 text-xs text-zinc-500">
+              <p className="mt-1.5 text-xs text-muted-foreground">
                 Import opens this squad in the Builder as a new, independent draft.
               </p>
             )}
@@ -1660,7 +1660,7 @@ export default function TeamPage() {
                   </div>
 
                   {pickedEvents.length === 0 && (
-                    <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-card">
+                    <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-muted-foreground dark:border-purple-800/50 dark:bg-card">
                       No squad to show yet — FPL publishes picks after the first deadline.{" "}
                       <a
                         href="/settings/?tab=import"
@@ -1677,7 +1677,7 @@ export default function TeamPage() {
                       {pointsError}
                     </p>
                   )}
-                  {pointsLoading && <p className="mt-3 text-sm text-zinc-500">Loading points…</p>}
+                  {pointsLoading && <p className="mt-3 text-sm text-muted-foreground">Loading points…</p>}
                   {!pointsLoading && gwLayout && (
                     <PitchView
                       squad={gwCards}
@@ -1695,7 +1695,7 @@ export default function TeamPage() {
                       for the old "Current squad" mode: a short or absent squad
                       with no error is worse than an error. */}
                   {!pointsLoading && !pointsError && !gwLayout && pickedEvents.length > 0 && (
-                    <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-purple-800/50 dark:bg-card">
+                    <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-muted-foreground dark:border-purple-800/50 dark:bg-card">
                       No squad to show for GW{selectedEvent} — FPL hasn&apos;t published picks for
                       it, or they haven&apos;t synced yet. Try <strong>Refresh</strong> above, or
                       pick another gameweek.
@@ -1788,7 +1788,7 @@ export default function TeamPage() {
                   },
                 ].map((tile) => (
                   <div key={tile.label} className="min-w-0 bg-card-supporting px-2.5 py-2">
-                    <div className="truncate text-[11px] text-zinc-500" title={tile.label}>
+                    <div className="truncate text-[11px] text-muted-foreground" title={tile.label}>
                       {tile.label}
                     </div>
                     {/* DSI-120: every tile in this 2x3 grid was primary-green —
@@ -1844,7 +1844,7 @@ export default function TeamPage() {
                     </select>
                   </label>
                   {data && data.gwHistory.length > 0 && (
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-muted-foreground">
                       {(() => {
                         const through = Math.max(...data.gwHistory.map((g) => g.event));
                         const est = estimateFreeTransfers(data.gwHistory, through);
@@ -1934,7 +1934,7 @@ export default function TeamPage() {
                           ? chipLabel(chip)
                           : null;
                     const list = (
-                      <ul className="space-y-0.5 text-xs text-zinc-500">
+                      <ul className="space-y-0.5 text-xs text-muted-foreground">
                         {rows.map((t, i) => (
                           <li key={i}>
                             {data?.players.get(t.elementOut)?.web_name ?? `#${t.elementOut}`} →{" "}
@@ -1947,7 +1947,7 @@ export default function TeamPage() {
                       <li key={event} className="min-w-0 text-sm">
                         <p>
                           <span className="font-medium text-zinc-700 dark:text-zinc-300">GW{event}</span>{" "}
-                          <span className="text-zinc-500">
+                          <span className="text-muted-foreground">
                             {rows.length} transfer{rows.length === 1 ? "" : "s"}
                             {note ? ` · ${note}` : ""}
                           </span>
@@ -1968,7 +1968,7 @@ export default function TeamPage() {
                     );
                   })}
               </ul>
-              <p className="mt-3 text-[11px] text-zinc-400">
+              <p className="mt-3 text-[11px] text-muted-foreground">
                 From FPL&apos;s own transfer record. Only appears once a transfer has been
                 synced — see Refresh above if a recent change is missing.
               </p>
@@ -2014,7 +2014,7 @@ export default function TeamPage() {
               <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-card dark:border-purple-900/40">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+                    <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-muted-foreground dark:border-purple-900/40">
                       <DataHeadCell className="px-3 py-2">GW</DataHeadCell>
                       <DataHeadCell className="px-3 py-2">Points</DataHeadCell>
                       <DataHeadCell className="px-3 py-2">Total</DataHeadCell>
@@ -2051,7 +2051,7 @@ export default function TeamPage() {
               <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-card dark:border-purple-900/40">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+                    <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-muted-foreground dark:border-purple-900/40">
                       <DataHeadCell className="px-3 py-2">Season</DataHeadCell>
                       <DataHeadCell className="px-3 py-2">Points</DataHeadCell>
                       <DataHeadCell className="px-3 py-2">Rank</DataHeadCell>
@@ -2123,7 +2123,7 @@ export default function TeamPage() {
                 {data.profile ? (
                   <ManagerProfileCard profile={data.profile} />
                 ) : (
-                  <div className="rounded-lg border border-zinc-200 bg-card p-4 text-sm text-zinc-500 dark:border-purple-900/40">
+                  <div className="rounded-lg border border-zinc-200 bg-card p-4 text-sm text-muted-foreground dark:border-purple-900/40">
                     First season — no career record yet. A career percentile profile needs at
                     least one completed season.
                   </div>
@@ -2267,7 +2267,7 @@ export default function TeamPage() {
                                   aria-label={`Remove ${label} as a rival`}
                                   variant="ghost"
                                   size="icon-xs"
-                                  className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
+                                  className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                                 >
                                   ×
                                 </Button>
@@ -2278,7 +2278,7 @@ export default function TeamPage() {
                       )}
                     </div>
                   ) : (
-                    <p className="mt-3 text-xs text-zinc-400">
+                    <p className="mt-3 text-xs text-muted-foreground">
                       Sign in to add rivals to compare against.
                     </p>
                   )}
@@ -2287,7 +2287,7 @@ export default function TeamPage() {
             </section>
           )}
 
-          <p className="mt-8 text-xs text-zinc-400">
+          <p className="mt-8 text-xs text-muted-foreground">
             {/* last_success_at, not synced_at: the latter is stamped when the
                 managers row is written, which happens before the rest of the
                 sync can fail, so it would claim a completeness it can't. */}

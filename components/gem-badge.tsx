@@ -31,7 +31,7 @@ export function GemBadge({
   return (
     <TapToReveal
       label={`Hidden gem: ${GEM_ARCHETYPE_LABELS[verdict.archetype]}`}
-      triggerClassName={`inline-flex shrink-0 items-center whitespace-nowrap rounded border px-1 py-px text-[9px] font-medium uppercase tracking-wide ${STYLE[verdict.archetype]} ${className}`}
+      triggerClassName={`inline-flex shrink-0 items-center whitespace-nowrap rounded border px-1 py-px text-[10px] font-medium uppercase tracking-wide ${STYLE[verdict.archetype]} ${className}`}
       trigger={SHORT[verdict.archetype]}
     >
       <p className="font-semibold text-zinc-900 dark:text-zinc-100">

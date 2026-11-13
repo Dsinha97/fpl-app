@@ -254,7 +254,7 @@ export function PlayerDetail({
             aria-label="Close"
             variant="ghost"
             size="icon-xs"
-            className="-mr-1 -mt-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
+            className="-mr-1 -mt-1 text-muted-foreground hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-purple-950/60 dark:hover:text-zinc-200"
           >
             ×
           </Button>
@@ -270,7 +270,7 @@ export function PlayerDetail({
       */}
       {live && (
         <div className="mt-3 border-t border-zinc-100 pt-2.5 dark:border-purple-900/40">
-          <div className="text-[11px] uppercase tracking-wide text-zinc-500">
+          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
             Live points this gameweek
           </div>
           <table className="mt-1 w-full text-xs">
@@ -278,7 +278,7 @@ export function PlayerDetail({
               {player.live_breakdown!.map((line) => (
                 <DataRow key={line.identifier} className="border-b border-zinc-100 last:border-0 dark:border-purple-900/30">
                   <DataCell className="py-1 text-zinc-600 dark:text-zinc-400">{liveStatLabel(line.identifier)}</DataCell>
-                  <DataCell className="py-1 text-zinc-500" numeric>{line.value}</DataCell>
+                  <DataCell className="py-1 text-muted-foreground" numeric>{line.value}</DataCell>
                   <DataCell className="py-1 font-semibold text-zinc-900 dark:text-zinc-100" numeric>
                     {line.points}
                   </DataCell>

@@ -21,7 +21,7 @@ const TIER_CLASS: Record<Tier, string> = {
 
 const HEADING_CLASS: Record<Tier, string> = {
   primary: "text-sm font-semibold text-zinc-900 dark:text-zinc-100",
-  supporting: "text-xs font-medium uppercase tracking-wide text-zinc-500",
+  supporting: "text-xs font-medium uppercase tracking-wide text-muted-foreground",
   amber: "text-xs font-medium text-amber-800 dark:text-amber-300",
   section: "text-base font-semibold text-zinc-950 dark:text-zinc-50",
 };
@@ -116,7 +116,7 @@ export function CollapsibleCard({
       >
         <span className={`${HEADING_CLASS[tier]} shrink-0`}>{title}</span>
         {summary && (
-          <span className={`min-w-0 flex-1 text-xs text-zinc-500 ${isOpen ? "" : "truncate"}`}>
+          <span className={`min-w-0 flex-1 text-xs text-muted-foreground ${isOpen ? "" : "truncate"}`}>
             {summary}
           </span>
         )}

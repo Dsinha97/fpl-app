@@ -125,7 +125,7 @@ function AccountTab() {
         </h2>
 
         {teamName && !profileLoading && (
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Currently linked to <span className="font-medium text-zinc-800 dark:text-zinc-200">{teamName}</span>.
           </p>
         )}
@@ -422,7 +422,7 @@ function ImportTab() {
         </div>
       )}
 
-      <p className="mt-4 text-xs text-zinc-400">
+      <p className="mt-4 text-xs text-muted-foreground">
         This creates a new, independent draft — your other drafts are untouched.
       </p>
     </div>

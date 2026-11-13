@@ -143,7 +143,7 @@ export default function HomeClient() {
             for it. */}
         <LandingPreview />
 
-        <p className="mt-4 text-xs text-zinc-400" role="status">
+        <p className="mt-4 text-xs text-muted-foreground" role="status">
           {pipeline.state === "checking" && "Checking data…"}
           {pipeline.state === "error" && (
             <span className="text-danger">Data pipeline unreachable — projections may be stale.</span>

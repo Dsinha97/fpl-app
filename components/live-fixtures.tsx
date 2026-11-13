@@ -100,7 +100,7 @@ export function FixtureStatBreakdown({
     );
 
   if (lines.length === 0) {
-    return <p className="text-xs text-zinc-500">No match events yet.</p>;
+    return <p className="text-xs text-muted-foreground">No match events yet.</p>;
   }
 
   const nameOf = (element: number) => playersById.get(element)?.webName ?? `#${element}`;
@@ -108,7 +108,7 @@ export function FixtureStatBreakdown({
 
   const side = (entries: FixtureStatLine["h"], identifier: string) =>
     entries.length === 0 ? (
-      <li className="text-zinc-400">—</li>
+      <li className="text-muted-foreground">—</li>
     ) : (
       entries.map((e) => (
         <li
@@ -136,7 +136,7 @@ export function FixtureStatBreakdown({
       )}
       {lines.map(({ id, line }) => (
         <div key={id}>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             <span aria-hidden="true">{STAT_LABELS[id].icon}</span> {STAT_LABELS[id].label}
             {id === "bonus" && provisional && (
               <Badge tone="warning" variant="solid" size="sm" className="ml-1.5 normal-case">

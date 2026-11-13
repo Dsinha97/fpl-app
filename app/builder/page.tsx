@@ -789,6 +789,12 @@ export default function BuilderPage() {
     setSavedTeam(isStored ? next : null);
   };
 
+  /** A draft the user picked while the current one has unsaved edits; set
+   *  until they confirm or cancel in the sheet below. Replaces window.confirm,
+   *  which is unstyled, blocks the thread, and is suppressed in some in-app
+   *  browsers. */
+  const [pendingSwitch, setPendingSwitch] = useState<TeamState | null>(null);
+
   const onSave = () => {
     const stored = saveDraft(team);
     setTeam(stored);
@@ -1426,7 +1432,7 @@ export default function BuilderPage() {
           size="icon-sm"
           onClick={stopAdding}
           aria-label="Close the player picker"
-          className="text-zinc-500"
+          className="text-muted-foreground"
         >
           ✕
         </Button>
@@ -1483,7 +1489,7 @@ export default function BuilderPage() {
                       size="w-3.5 h-3.5"
                     />
                   </span>
-                  <span className="block truncate text-[11px] text-zinc-500">
+                  <span className="block truncate text-[11px] text-muted-foreground">
                     {teamShort.get(p.team_id)} · £{((p.now_cost ?? 0) / 10).toFixed(1)}m
                     {reason ? ` · ${reason}` : ""}
                   </span>
@@ -1497,7 +1503,7 @@ export default function BuilderPage() {
           );
         })}
         {filtered.length === 0 && (
-          <li className="px-2 py-6 text-center text-sm text-zinc-500">
+          <li className="px-2 py-6 text-center text-sm text-muted-foreground">
             No eligible players match these filters.
           </li>
         )}
@@ -1662,7 +1668,7 @@ export default function BuilderPage() {
   if (loading) {
     return (
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-        <p role="status" className="flex items-center gap-2 text-sm text-zinc-500">
+        <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner /> Loading player pool…
         </p>
       </main>
@@ -1702,7 +1708,7 @@ export default function BuilderPage() {
       {/* Budget */}
       <div>
         <div className="flex items-baseline justify-between text-xs">
-          <span className="text-zinc-500">
+          <span className="text-muted-foreground">
             {money(validation.spent)} of {money(rules.totalSpend)} · {team.players.length}/
             {rules.squadSize} players
           </span>
@@ -1760,12 +1766,12 @@ export default function BuilderPage() {
               actually needs to carry when collapsed is what is still wrong,
               not a second copy of what is fine. */}
           {!validation.isLegal && (
-            <span className="text-zinc-500">
+            <span className="text-muted-foreground">
               {team.players.length}/{rules.squadSize} selected
             </span>
           )}
-          <span className="ml-auto text-zinc-400 group-open:hidden">show requirements ▾</span>
-          <span className="ml-auto hidden text-zinc-400 group-open:inline">hide ▴</span>
+          <span className="ml-auto text-muted-foreground group-open:hidden">show requirements ▾</span>
+          <span className="ml-auto hidden text-muted-foreground group-open:inline">hide ▴</span>
         </summary>
 
         <div className="mt-2 flex flex-wrap gap-1">
@@ -1795,7 +1801,7 @@ export default function BuilderPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
             Team Builder
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Build or optimise a squad and project it with the xP model. Drafts are saved in this
             browser.
           </p>
@@ -1829,6 +1835,34 @@ export default function BuilderPage() {
               optimiser. The XI/captain panel stays on the next gameweek. */}
           <HorizonControl value={horizon} onValueChange={setHorizon} />
 
+          <SlideOver
+            open={pendingSwitch !== null}
+            onClose={() => setPendingSwitch(null)}
+            side="bottom"
+            label="Discard unsaved changes?"
+          >
+            <div className="space-y-3 p-4">
+              <p className="text-sm font-semibold">Discard unsaved changes?</p>
+              <p className="text-sm text-muted-foreground">
+                Switch to &ldquo;{pendingSwitch?.name}&rdquo;? Unsaved changes to &ldquo;{team.name}&rdquo; will be lost.
+              </p>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button variant="outline" onClick={() => setPendingSwitch(null)}>
+                  Keep editing
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (pendingSwitch) switchTeam(pendingSwitch, true);
+                    setPendingSwitch(null);
+                  }}
+                >
+                  Discard and switch
+                </Button>
+              </div>
+            </div>
+          </SlideOver>
+
           {drafts.length > 0 && (
             <select
               value={team.draftId}
@@ -1839,12 +1873,8 @@ export default function BuilderPage() {
                 // Switching drafts discards any unsaved edits to the current
                 // one with no way back — the one navigation this page can't
                 // let happen silently.
-                if (
-                  isDirty &&
-                  !window.confirm(
-                    `Switch to "${found.name}"? Unsaved changes to "${team.name}" will be lost.`,
-                  )
-                ) {
+                if (isDirty) {
+                  setPendingSwitch(found);
                   return;
                 }
                 switchTeam(found, true);
@@ -1891,7 +1921,7 @@ export default function BuilderPage() {
               onClick={() => setRenaming(true)}
               aria-label={`Rename draft "${team.name}"`}
               title="Rename this draft"
-              className="text-zinc-500"
+              className="text-muted-foreground"
             >
               <Pencil className="size-3.5" aria-hidden />
             </Button>
@@ -1963,7 +1993,7 @@ export default function BuilderPage() {
             ]}
           />
           {saved && (
-            <span role="status" className="text-xs text-zinc-500">
+            <span role="status" className="text-xs text-muted-foreground">
               {saved}
             </span>
           )}
@@ -1986,7 +2016,7 @@ export default function BuilderPage() {
                   title={horizon === "season" ? seasonHorizonNote(seasonWindow) : undefined}
                   value={projection.total.toFixed(1)}
                 />
-                <div className="flex min-w-0 flex-col items-end pt-1 text-right text-xs text-zinc-500">
+                <div className="flex min-w-0 flex-col items-end pt-1 text-right text-xs text-muted-foreground">
                   {team.captain !== null ? (
                     <span className="flex max-w-full items-center gap-1.5">
                       <span className="min-w-0 truncate" title={captainName ?? undefined}>{captainName ?? "Captain set"}</span>
@@ -2021,7 +2051,7 @@ export default function BuilderPage() {
             <div className="flex flex-wrap items-end gap-6 max-sm:hidden">
               <div>
                 <div
-                  className="text-xs uppercase tracking-wide text-zinc-500"
+                  className="text-xs uppercase tracking-wide text-muted-foreground"
                   title={horizon === "season" ? seasonHorizonNote(seasonWindow) : undefined}
                 >
                   {horizon === "season"
@@ -2034,13 +2064,13 @@ export default function BuilderPage() {
               </div>
               {horizon !== 1 && (
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-zinc-500">Next GW</div>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">Next GW</div>
                   <div className="text-3xl font-bold tabular-nums text-purple-800 dark:text-primary/80">
                     {projectionGw.total.toFixed(1)}
                   </div>
                 </div>
               )}
-              <div className="ml-auto text-right text-xs text-zinc-500">
+              <div className="ml-auto text-right text-xs text-muted-foreground">
                 {/* Keyed on whether a captain is set, not on the bonus being
                     positive — captaining a player the model declined to
                     project gives a 0.0 bonus, which is informative rather
@@ -2079,7 +2109,7 @@ export default function BuilderPage() {
             )}
             {cheapChips && (
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-zinc-100 pt-2.5 text-xs dark:border-purple-900/40">
-                <span className="text-zinc-500">
+                <span className="text-muted-foreground">
                   GW{effectiveEvent} chips
                 </span>
                 <TapToReveal
@@ -2180,7 +2210,7 @@ export default function BuilderPage() {
           {lineup && effectiveEvent !== null && (
             <div className="rounded-xl border border-zinc-200 bg-white p-4 max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:dark:bg-transparent max-sm:px-0 max-sm:pb-0 max-sm:pt-4 dark:border-purple-900/40 dark:bg-card">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Gameweek lineup
                   <select
                     value={effectiveEvent}
@@ -2265,7 +2295,7 @@ export default function BuilderPage() {
                   ["Armband bonus", `${(eventProjection?.captainBonus ?? 0).toFixed(1)} xP`],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-2">
-                    <dt className="text-zinc-500">{label}</dt>
+                    <dt className="text-muted-foreground">{label}</dt>
                     <dd className="font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
                       {value}
                     </dd>
@@ -2290,7 +2320,7 @@ export default function BuilderPage() {
               {lineup.captain && (
                 <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-purple-900/40">
                   <div className="flex items-baseline justify-between">
-                    <span className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-zinc-500">
+                    <span className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
                       Recommended captain
                       {/* DSI-121: CAPTAIN_MODEL_NOTE was a bare grey footnote
                           under the reasons list — internal weighting detail
@@ -2343,12 +2373,12 @@ export default function BuilderPage() {
 
           {/* optimizer */}
           <div className="rounded-xl border border-zinc-200 bg-white p-4 max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:dark:bg-transparent max-sm:px-0 max-sm:pb-0 max-sm:pt-4 dark:border-purple-900/40 dark:bg-card">
-            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Optimise squad
             </h2>
             <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
               <label className="flex flex-col gap-1">
-                <span className="text-zinc-500">Strategy</span>
+                <span className="text-muted-foreground">Strategy</span>
                 <select
                   value={strategy}
                   onChange={(e) => setStrategy(e.target.value as Strategy)}
@@ -2362,7 +2392,7 @@ export default function BuilderPage() {
                 </select>
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-zinc-500">Risk</span>
+                <span className="text-muted-foreground">Risk</span>
                 <select
                   value={risk}
                   onChange={(e) => setRisk(e.target.value as RiskLevel)}
@@ -2401,7 +2431,7 @@ export default function BuilderPage() {
               </Button>
             </div>
             <div className="mt-2 flex items-start justify-between gap-2 text-[11px]">
-              <p className="text-zinc-500">
+              <p className="text-muted-foreground">
                 {optimizeNote ??
                   `Optimising over ${horizonLabel(horizon)} — “Fill remaining” keeps your picks, “Rebuild” starts empty.`}
               </p>
@@ -2432,9 +2462,9 @@ export default function BuilderPage() {
               className="scroll-mt-4 rounded-xl border border-purple-300 bg-card p-4 max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:px-0 max-sm:pb-0 max-sm:pt-4 max-sm:border-purple-300 dark:border-primary/40"
             >
               <div className="flex items-start justify-between gap-2">
-                <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Replace {scoredById.get(replaceFor)?.webName}{" "}
-                  <span className="font-normal normal-case text-zinc-400">
+                  <span className="font-normal normal-case text-muted-foreground">
                     · {horizonLabel(horizon)}
                   </span>
                 </h2>
@@ -2453,7 +2483,7 @@ export default function BuilderPage() {
                     aria-label="Close"
                     variant="ghost"
                     size="icon-xs"
-                    className="size-5 text-zinc-400"
+                    className="size-5 text-muted-foreground"
                   >
                     ×
                   </Button>
@@ -2560,7 +2590,7 @@ export default function BuilderPage() {
               </div>
 
               {replacements.length === 0 ? (
-                <p className="mt-2 text-xs text-zinc-500">
+                <p className="mt-2 text-xs text-muted-foreground">
                   No legal, affordable candidate is available for this slot.
                 </p>
               ) : (
@@ -2582,7 +2612,7 @@ export default function BuilderPage() {
                         <div className="min-w-0">
                           <p className="flex items-center gap-1.5 font-medium text-zinc-900 dark:text-zinc-100">
                             {r.player.webName}
-                            <span className="font-normal text-zinc-500">
+                            <span className="font-normal text-muted-foreground">
                               {r.player.teamShort} · £{(r.player.price / 10).toFixed(1)}m
                             </span>
                             <GemBadge verdict={gemsById.get(r.player.id)} />
@@ -2630,13 +2660,13 @@ export default function BuilderPage() {
                               exposes each note's `kind`, so this filters on
                               meaning rather than on the wording of a string
                               built in lib/scoring.ts. */}
-                          <p className="mt-0.5 text-[11px] text-zinc-500">
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
                             {r.rationale
                               .filter((n) => n.kind !== "xp" && n.kind !== "price")
                               .map((n) => n.text)
                               .join(" · ")}
                           </p>
-                          <p className="mt-0.5 text-[11px] tabular-nums text-zinc-400">
+                          <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">
                             risk {r.riskDelta >= 0 ? "+" : ""}
                             {r.riskDelta} · fit {r.teamFit.toFixed(1)}
                             {r.exitRoutes !== undefined && (
@@ -2673,20 +2703,20 @@ export default function BuilderPage() {
                 </>
               )}
               {seriesLoading && (
-                <p className="mt-2 text-[11px] text-zinc-400">
+                <p className="mt-2 text-[11px] text-muted-foreground">
                   Loading the week-by-week signal for SquadBalance…
                 </p>
               )}
               <details className="group mt-2">
-                <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] text-zinc-500">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] text-muted-foreground">
                   <span>How TeamFit is scored</span>
-                  <span className="text-zinc-400 group-open:hidden">▸</span>
-                  <span className="hidden text-zinc-400 group-open:inline">▾</span>
+                  <span className="text-muted-foreground group-open:hidden">▸</span>
+                  <span className="hidden text-muted-foreground group-open:inline">▾</span>
                 </summary>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
+                <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
                   {REPLACEMENT_MODEL_NOTE}
                 </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-zinc-400">
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                   {RISK_MODEL_NOTE}
                 </p>
               </details>
@@ -2773,7 +2803,7 @@ export default function BuilderPage() {
                   <col className="w-9" />
                 </colgroup>
                 <thead>
-                  <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+                  <tr className="border-b border-zinc-200 text-left uppercase tracking-wide text-muted-foreground dark:border-purple-900/40">
                     <DataHeadCell className="py-1.5 pl-1">Player</DataHeadCell>
                     <DataHeadCell className="py-1.5">£</DataHeadCell>
                     <DataHeadCell className="py-1.5">{sortColumnLabel(sortKey, horizon)}</DataHeadCell>
@@ -2824,7 +2854,7 @@ export default function BuilderPage() {
                                 size="w-3.5 h-3.5"
                               />
                             </span>
-                            <span className="block truncate text-[11px] text-zinc-500">
+                            <span className="block truncate text-[11px] text-muted-foreground">
                               {teamShort.get(p.team_id)} · {POSITIONS[p.element_type]}
                               {/* Full name, so a hit on a hidden field doesn't look like a bug. */}
                               {fullName(p) ? ` · ${fullName(p)}` : ""}
@@ -2857,7 +2887,7 @@ export default function BuilderPage() {
                             }
                           })()}
                         </DataCell>
-                        <DataCell className="py-1 tabular-nums text-zinc-500">
+                        <DataCell className="py-1 tabular-nums text-muted-foreground">
                           {scoredById.has(p.id)
                             ? riskScore(scoredById.get(p.id)!, horizon, seasonWindow)
                             : "—"}
@@ -2893,7 +2923,7 @@ export default function BuilderPage() {
                   })}
                   {visible.length === 0 && (
                     <DataRow>
-                      <DataCell colSpan={5} className="py-6 text-center text-zinc-500">
+                      <DataCell colSpan={5} className="py-6 text-center text-muted-foreground">
                         {replaceFor !== null && eligibleCount === 0
                           ? `No legal replacement for ${metaById.get(replaceFor)?.webName ?? "this player"} at £${(replaceEligibility!.priceCeiling / 10).toFixed(1)}m or less.`
                           : "No players match these filters."}

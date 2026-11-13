@@ -74,7 +74,7 @@ export function TransferPath({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Transfer path</h2>
-          <p className="mt-0.5 text-xs text-zinc-500">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {hasChipPlan
               ? "What to do between now and your last planned chip — not just this deadline."
               : "No chips planned, so this only covers a couple of gameweeks. Pin a chip on the Chip timing tab or above to see a real path."}
@@ -166,7 +166,7 @@ export function TransferPath({
       {result && (
         <>
           {result.paths.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-500">
+            <p className="mt-3 text-sm text-muted-foreground">
               No legal path found — the squad may already be at the edge of what the search can move.
             </p>
           ) : (
@@ -175,7 +175,7 @@ export function TransferPath({
                 <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                   {signed(result.recommended?.total ?? 0)} xP
                 </span>{" "}
-                <span className="text-xs text-zinc-500">
+                <span className="text-xs text-muted-foreground">
                   over holding today&rsquo;s squad unchanged through GW{result.recommended?.steps.at(-1)?.event ?? "?"}
                   {result.runnerUp
                     ? ` — ${result.margin.toFixed(1)} points clear of the next path`
@@ -200,7 +200,7 @@ export function TransferPath({
               )}
 
               {result.recommended && (
-                <p className="mt-2 text-[11px] tabular-nums text-zinc-500">
+                <p className="mt-2 text-[11px] tabular-nums text-muted-foreground">
                   {signed(result.recommended.terms.eventXp)} xP
                   {result.recommended.terms.chipBonus > 0 ? ` + ${result.recommended.terms.chipBonus.toFixed(1)} chip bonus` : ""}
                   {result.recommended.terms.decisionMargin > 0
@@ -254,7 +254,7 @@ function StepRow({
               risk term joins it for the same reason the headline carries one:
               a net that includes a term the reader cannot see does not add up
               on the page. */}
-          <span className="text-[11px] tabular-nums text-zinc-500">
+          <span className="text-[11px] tabular-nums text-muted-foreground">
             {signed(step.eventXp)} xP
             {step.chipBonus > 0 ? ` + ${step.chipBonus.toFixed(1)} chip` : ""}
             {step.decisionMargin > 0 ? ` + ${step.decisionMargin.toFixed(1)} waiting` : ""}
@@ -282,7 +282,7 @@ function StepRow({
         </p>
       )}
       {step.explanation.length > 0 && (
-        <ul className="mt-1 space-y-0.5 text-[11px] text-zinc-500">
+        <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
           {step.explanation.map((line) => (
             <li key={line}>{line}</li>
           ))}

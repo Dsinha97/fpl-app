@@ -90,10 +90,10 @@ export default function AuthCallbackPage() {
         </>
       ) : (
         <>
-          <p className="text-sm text-zinc-500">Signing you in…</p>
+          <p className="text-sm text-muted-foreground">Signing you in…</p>
           {stalled && (
             <>
-              <p className="mt-2 text-sm text-zinc-500">Taking longer than usual — try again.</p>
+              <p className="mt-2 text-sm text-muted-foreground">Taking longer than usual — try again.</p>
               <a
                 href="/signin/"
                 className="mt-2 text-sm text-purple-800 underline dark:text-primary"

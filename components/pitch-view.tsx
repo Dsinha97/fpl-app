@@ -273,7 +273,7 @@ export function PitchView({
                         // DSI-121: "64% used" was read as ownership or as
                         // effective minutes. It is the chance an auto-sub
                         // brings this slot on, so it says so.
-                        className="text-[9px] tabular-nums text-purple-300"
+                        className="text-[10px] tabular-nums text-purple-300"
                         title="Probability this bench slot is used by an auto-sub"
                         aria-label={`${Math.round(used * 100)} percent chance of being auto-subbed on`}
                       >

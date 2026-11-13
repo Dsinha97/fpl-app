@@ -825,7 +825,7 @@ export default function PlayersPage() {
     const q = filters.search.trim();
     const otherFilters = filtersActive && (q === "" || filters.position !== 0 || filters.team !== 0 || filters.special.size > 0);
     return (
-      <div className="space-y-2 text-sm text-zinc-500">
+      <div className="space-y-2 text-sm text-muted-foreground">
         <p className="font-medium text-zinc-800 dark:text-zinc-200">
           {q ? <>No players match &ldquo;{q}&rdquo;</> : "No players match these filters"}
         </p>
@@ -966,7 +966,7 @@ export default function PlayersPage() {
               it is actually needed — and one of them ("green ring = home") had
               silently gone stale when the venue encoding changed, which is the
               failure mode of explaining a column somewhere other than at it. */}
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             {sorted.length} players
             {historySeason ? ` · season stats from ${shortSeason(historySeason)}` : ""}
           </p>
@@ -1035,10 +1035,10 @@ export default function PlayersPage() {
             >
               <ArrowDownUp aria-hidden="true" className="size-4" />
               {SORT_LABEL[sortKey]}
-              <span className="text-zinc-500">{sortDesc ? "↓" : "↑"}</span>
+              <span className="text-muted-foreground">{sortDesc ? "↓" : "↑"}</span>
             </Button>
             {selected.length > 0 && (
-              <span className="text-xs text-zinc-500">{selected.length} to compare</span>
+              <span className="text-xs text-muted-foreground">{selected.length} to compare</span>
             )}
           </div>
           {visible.length === 0 ? (
@@ -1124,7 +1124,7 @@ export default function PlayersPage() {
                 turns this into an inner-scrolling table; that is a layout
                 decision for the /players pass, not a class to sprinkle on. */}
             <thead>
-              <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500 dark:border-purple-900/40">
+              <tr className="border-b border-zinc-200 text-left text-xs text-muted-foreground dark:border-purple-900/40">
                 {/* Sticky so the player being scanned stays visible while
                     scrolling the rest of a wide table horizontally on
                     mobile — the checkbox lives in this same cell (see the
@@ -1257,8 +1257,8 @@ export default function PlayersPage() {
                         <GemBadge verdict={gemsById.get(p.id)} />
                       </span>
                     </DataCell>
-                    <DataCell className="px-2 py-1.5 text-zinc-500">{teamShort.get(p.team_id)}</DataCell>
-                    <DataCell className="px-2 py-1.5 text-zinc-500">{POSITIONS[p.element_type]}</DataCell>
+                    <DataCell className="px-2 py-1.5 text-muted-foreground">{teamShort.get(p.team_id)}</DataCell>
+                    <DataCell className="px-2 py-1.5 text-muted-foreground">{POSITIONS[p.element_type]}</DataCell>
                     <DataCell className="px-2 py-1.5" numeric>
                       £{((p.now_cost ?? 0) / 10).toFixed(1)}m
                     </DataCell>
@@ -1324,7 +1324,7 @@ export default function PlayersPage() {
                         <>
                           <DataCell
                             numeric
-                            className={`px-2 py-1.5 ${thin ? "text-zinc-400" : ""}`}
+                            className={`px-2 py-1.5 ${thin ? "text-muted-foreground" : ""}`}
                             title={
                               thin && p.expected_goals !== null
                                 ? `${p.expected_goals.toFixed(2)} xG in ${p.minutes ?? 0} min`
@@ -1335,7 +1335,7 @@ export default function PlayersPage() {
                           </DataCell>
                           <DataCell
                             numeric
-                            className={`px-2 py-1.5 ${thin ? "text-zinc-400" : ""}`}
+                            className={`px-2 py-1.5 ${thin ? "text-muted-foreground" : ""}`}
                             title={
                               thin && p.expected_assists !== null
                                 ? `${p.expected_assists.toFixed(2)} xA in ${p.minutes ?? 0} min`
@@ -1361,9 +1361,9 @@ export default function PlayersPage() {
                     <DataCell className="px-2 py-1.5" numeric>
                       {p.selected_by_percent !== null ? `${p.selected_by_percent}%` : "—"}
                     </DataCell>
-                    <DataCell className="px-2 py-1.5 text-zinc-500" numeric>{h?.total_points ?? "—"}</DataCell>
-                    <DataCell className="px-2 py-1.5 text-zinc-500" numeric>{h?.expected_goals ?? "—"}</DataCell>
-                    <DataCell className="px-2 py-1.5 text-zinc-500" numeric>{h?.expected_assists ?? "—"}</DataCell>
+                    <DataCell className="px-2 py-1.5 text-muted-foreground" numeric>{h?.total_points ?? "—"}</DataCell>
+                    <DataCell className="px-2 py-1.5 text-muted-foreground" numeric>{h?.expected_goals ?? "—"}</DataCell>
+                    <DataCell className="px-2 py-1.5 text-muted-foreground" numeric>{h?.expected_assists ?? "—"}</DataCell>
                     <DataCell className="px-2 py-1.5">
                       {/* Wraps to at most 3 rows and grows sideways instead of
                           down — the table already scrolls horizontally, so a
@@ -1387,7 +1387,7 @@ export default function PlayersPage() {
               })}
               {visible.length === 0 && (
                 <DataRow>
-                  <DataCell colSpan={20} className="px-3 py-6 text-center text-zinc-500">
+                  <DataCell colSpan={20} className="px-3 py-6 text-center text-muted-foreground">
                     {noMatches()}
                   </DataCell>
                 </DataRow>
@@ -1526,7 +1526,7 @@ export default function PlayersPage() {
               <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
                 Comparison
               </h2>
-              <p className="mt-0.5 text-xs text-zinc-500">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Best value per row is highlighted. Horizon follows the page — {horizonLabel(horizon)}.
               </p>
             </div>
@@ -1535,14 +1535,14 @@ export default function PlayersPage() {
               aria-label="Close comparison"
               variant="ghost"
               size="icon-sm"
-              className="shrink-0 text-xl leading-none text-zinc-500"
+              className="shrink-0 text-xl leading-none text-muted-foreground"
             >
               ×
             </Button>
           </div>
 
           {chosen.length === 0 ? (
-            <p className="py-12 text-center text-sm text-zinc-500">
+            <p className="py-12 text-center text-sm text-muted-foreground">
               Tick players in the table to compare them. Nothing is selected.
             </p>
           ) : (

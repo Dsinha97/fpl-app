@@ -170,7 +170,7 @@ export function PipelineStatus() {
       </div>
 
       <section className="mt-6">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
           Last run per function
         </h2>
         <DataTable minWidth="44rem" wrapperClassName="mt-3" label="Last run per sync function">
@@ -195,17 +195,17 @@ export function PipelineStatus() {
                       {r.status}
                     </span>
                   </DataCell>
-                  <DataCell className="px-3 py-2 text-zinc-500">{ago(r.started_at)}</DataCell>
-                  <DataCell className="px-3 py-2 text-zinc-500" numeric>{duration(r)}</DataCell>
+                  <DataCell className="px-3 py-2 text-muted-foreground">{ago(r.started_at)}</DataCell>
+                  <DataCell className="px-3 py-2 text-muted-foreground" numeric>{duration(r)}</DataCell>
                   <DataCell className="px-3 py-2" numeric>{r.rows_written.toLocaleString()}</DataCell>
-                  <DataCell className="px-3 py-2 max-w-xs truncate text-xs text-zinc-500">
+                  <DataCell className="px-3 py-2 max-w-xs truncate text-xs text-muted-foreground">
                     {r.error ?? (r.details ? JSON.stringify(r.details) : "")}
                   </DataCell>
                 </DataRow>
               ))}
               {runs.length === 0 && !loading && (
                 <tr>
-                  <DataCell colSpan={6} className="px-3 py-6 text-center text-zinc-500">
+                  <DataCell colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                     No sync runs recorded yet.
                   </DataCell>
                 </tr>
@@ -216,7 +216,7 @@ export function PipelineStatus() {
 
       {counts && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
             Warehouse contents
           </h2>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -239,7 +239,7 @@ export function PipelineStatus() {
                 key={c.label}
                 className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-purple-900/40 dark:bg-card"
               >
-                <div className="text-xs text-zinc-500">{c.label}</div>
+                <div className="text-xs text-muted-foreground">{c.label}</div>
                 <div className="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-50">
                   {c.value.toLocaleString()}
                 </div>
@@ -256,7 +256,7 @@ export function PipelineStatus() {
 
       <AccuracyScoreboard />
 
-      <p className="mt-8 text-xs text-zinc-400">
+      <p className="mt-8 text-xs text-muted-foreground">
         Bootstrap every 30 min · fixtures hourly · player history every 10 min (self-gating, one
         full pass per day) · live gameweek every 2 min (only while matches are in progress).
       </p>

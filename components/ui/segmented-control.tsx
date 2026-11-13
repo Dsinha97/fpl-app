@@ -168,7 +168,11 @@ export function SegmentedControl<T extends string>({
   };
 
   const pad = size === "sm" ? "p-0.5" : "p-1";
-  const item = size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm";
+  // `pointer-coarse:min-h-11` — the 44px touch target. The sm pill measured
+  // 24px tall on a phone (WCAG 2.2 AA floor is 24, this library's target 44).
+  // Gated on a coarse pointer so desktop keeps its compact strip.
+  const item =
+    (size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm") + " pointer-coarse:min-h-11";
   // Drawn in the track's own colour, so it reads as pills sliding under the
   // edge rather than as a shadow laid over them.
   const fade = "pointer-events-none absolute inset-y-0 z-20 w-8 from-muted to-muted/0";

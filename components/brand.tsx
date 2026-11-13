@@ -36,7 +36,7 @@ export function Wordmark({ subtitle = false }: { subtitle?: boolean }) {
         FPL <span className="text-purple-700 dark:text-primary">DECISION</span>
       </span>
       {subtitle && (
-        <span className="mt-0.5 text-[9px] font-semibold tracking-[0.15em] text-purple-800 dark:text-purple-400">
+        <span className="mt-0.5 text-[10px] font-semibold tracking-[0.15em] text-purple-800 dark:text-purple-400">
           ANALYTICS HUB
         </span>
       )}

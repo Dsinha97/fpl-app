@@ -125,7 +125,7 @@ const flatOnPhone =
   "max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:px-0 max-sm:pb-0 max-sm:pt-4";
 const card = `rounded-lg border border-zinc-200 bg-card p-4 dark:border-purple-900/40 ${flatOnPhone}`;
 const cardSupporting = `rounded-lg border border-zinc-200 bg-card-supporting p-3 dark:border-card-supporting-border ${flatOnPhone}`;
-const supportingHeading = "text-xs font-medium uppercase tracking-wide text-zinc-500";
+const supportingHeading = "text-xs font-medium uppercase tracking-wide text-muted-foreground";
 
 interface NextFixture {
   opponent_short_name: string;
@@ -1054,7 +1054,7 @@ export default function DeadlinePage() {
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
             Deadline Hub
           </h1>
-          <p className="mt-1 hidden text-sm text-zinc-500 sm:block">
+          <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
             Everything to decide before the deadline, in one place.
           </p>
         </div>
@@ -1098,15 +1098,15 @@ export default function DeadlinePage() {
               className="flex min-h-11 w-full items-center justify-between gap-2 border-y border-zinc-200 text-left text-sm dark:border-purple-900/40"
             >
               <span className="min-w-0 truncate">
-                <span className="text-zinc-500">Squad </span>
+                <span className="text-muted-foreground">Squad </span>
                 <span className="font-medium text-zinc-900 dark:text-zinc-100">
                   {drafts.find((d) => d.draftId === draftId)?.name ?? "Choose"}
                 </span>
               </span>
-              <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-zinc-500" />
+              <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
             </button>
           ) : (
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-muted-foreground">
               Squad <span className="font-medium text-zinc-900 dark:text-zinc-100">{drafts[0].name}</span>
             </p>
           )}
@@ -1127,7 +1127,7 @@ export default function DeadlinePage() {
 
       {!loading && drafts.length === 0 && (
         <div className={`mt-6 ${card} text-center`}>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted-foreground">
             No saved squads yet. Build one in the{" "}
             <Link href="/builder" className="font-medium text-purple-700 underline-offset-2 hover:underline dark:text-primary">
               Team Builder
@@ -1159,7 +1159,7 @@ export default function DeadlinePage() {
             >
               {countdown?.text}
             </p>
-            <p className="text-xs text-zinc-500 sm:hidden">
+            <p className="text-xs text-muted-foreground sm:hidden">
               Deadline{" "}
               {new Date(ctx.deadlineTime).toLocaleString(undefined, {
                 weekday: "short",
@@ -1169,7 +1169,7 @@ export default function DeadlinePage() {
                 minute: "2-digit",
               })}
             </p>
-            <p className="hidden text-xs text-zinc-500 sm:block">
+            <p className="hidden text-xs text-muted-foreground sm:block">
               {new Date(ctx.deadlineTime).toLocaleString(undefined, {
                 weekday: "long",
                 day: "numeric",
@@ -1188,7 +1188,7 @@ export default function DeadlinePage() {
               </Badge>
             )}
             {team.source === "fpl" && (
-              <span className="flex items-center gap-1 text-xs text-zinc-500">
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 Imported squad
                 <InfoTooltip label="About this imported squad">
                   Imported from your real FPL team. {IMPORTED_SQUAD_NOTE}
@@ -1254,7 +1254,7 @@ export default function DeadlinePage() {
                       <p className="text-sm text-red-700 dark:text-red-300">{gwStateError}</p>
                     )}
                     {!gwStateLoading && !gwStateError && !gwState && (
-                      <p className="text-sm text-zinc-500">
+                      <p className="text-sm text-muted-foreground">
                         No picks recorded for this manager for GW{liveEvent.event} yet.
                       </p>
                     )}
@@ -1400,7 +1400,7 @@ export default function DeadlinePage() {
                       ))}
                     </ul>
                   )}
-                  <p className="mt-2 text-xs text-zinc-500">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     <Link href="/news" className="underline-offset-2 hover:underline">
                       See every change, not just this squad
                     </Link>
@@ -1423,7 +1423,7 @@ export default function DeadlinePage() {
                           : `${newsRows.length} headline${newsRows.length === 1 ? "" : "s"}`
                   }
                 >
-                  <p className="text-[11px] text-zinc-500">
+                  <p className="text-[11px] text-muted-foreground">
                     Third-party reporting, not verified data — see{" "}
                     <Link href="/news" className="underline-offset-2 hover:underline">
                       every source
@@ -1444,7 +1444,7 @@ export default function DeadlinePage() {
                               >
                                 {row.title}
                               </a>
-                              <span className="shrink-0 text-xs text-zinc-400">{ago(row.published_at)}</span>
+                              <span className="shrink-0 text-xs text-muted-foreground">{ago(row.published_at)}</span>
                             </div>
                             <span className="mt-0.5 inline-block rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                               {sourceBadge(row)}
@@ -1540,7 +1540,7 @@ export default function DeadlinePage() {
                       </Alert>
                     )}
                     {predsLoading && (
-                      <p role="status" className="mb-2 flex items-center gap-2 text-xs text-zinc-500">
+                      <p role="status" className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
                         <Spinner /> Calculating expected points…
                       </p>
                     )}
@@ -1572,7 +1572,7 @@ export default function DeadlinePage() {
                       }
                       onOpenProfile={openProfile}
                     />
-                    <p className="mt-2 text-xs text-zinc-500">
+                    <p className="mt-2 text-xs text-muted-foreground">
                       {team.name}
                       {team.source === "fpl" ? " · imported from FPL" : ""}
                       {squadLayout && team.startingXI.length !== 11
@@ -1639,7 +1639,7 @@ export default function DeadlinePage() {
                           <AvailabilityBadge status={p.status} chanceOfPlaying={p.chance_of_playing_next_round} news={p.news} />
                           <span>
                             <span className="font-medium text-zinc-800 dark:text-zinc-200">{p.web_name}</span>
-                            {p.news && <span className="ml-1.5 text-zinc-500">{p.news}</span>}
+                            {p.news && <span className="ml-1.5 text-muted-foreground">{p.news}</span>}
                           </span>
                         </li>
                       ))}
@@ -1661,7 +1661,7 @@ export default function DeadlinePage() {
                       <Skeleton className="h-4 w-1/2" />
                     </div>
                   ) : !lineup ? (
-                    <p className="mt-2 text-sm text-zinc-500">Not enough data to recommend a lineup yet.</p>
+                    <p className="mt-2 text-sm text-muted-foreground">Not enough data to recommend a lineup yet.</p>
                   ) : (
                     <>
                       <p className="mt-2 text-sm">
@@ -1674,12 +1674,12 @@ export default function DeadlinePage() {
                           {lineup.captain?.webName ?? "—"}
                         </span>
                         {lineup.captain && (
-                          <span className="ml-1.5 text-xs text-zinc-500">
+                          <span className="ml-1.5 text-xs text-muted-foreground">
                             {Math.round(lineup.captain.confidence * 100)}% confidence
                           </span>
                         )}
                         {lineup.vice && (
-                          <span className="ml-2 text-xs text-zinc-500">Vice: {lineup.vice.webName}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">Vice: {lineup.vice.webName}</span>
                         )}
                       </p>
                       {/* DSI-119: this comparison is the actionable part of the
@@ -1710,7 +1710,7 @@ export default function DeadlinePage() {
                       )}
 
                       {lineup.captain && lineup.captain.reasons.length > 0 && (
-                        <ul className="mt-1 space-y-0.5 text-[11px] text-zinc-500">
+                        <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
                           {lineup.captain.reasons.map((r) => (
                             <li key={r}>{r}</li>
                           ))}
@@ -1802,16 +1802,16 @@ export default function DeadlinePage() {
                             )}
                           </div>
                           {v.chip === activeChip && v.blocked === null && (
-                            <p className="mt-1 text-xs text-zinc-500">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               Already played this gameweek — worth {signed(v.gain)} xP, and counted
                               in the projection above.
                             </p>
                           )}
                           {v.blocked ? (
-                            <p className="mt-1 text-xs text-zinc-500">{v.blocked}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{v.blocked}</p>
                           ) : (
                             v.explanation.map((line) => (
-                              <p key={line} className="mt-1 text-xs text-zinc-500">
+                              <p key={line} className="mt-1 text-xs text-muted-foreground">
                                 {line}
                               </p>
                             ))
@@ -1820,7 +1820,7 @@ export default function DeadlinePage() {
                       ) : null,
                     )}
                   </div>
-                  <p className="mt-2 text-xs text-zinc-500">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     These are this gameweek&apos;s values, not a recommendation to play —{" "}
                     <Link
                       href={`/transfers/?tab=chips&draft=${team.draftId}`}
@@ -1882,7 +1882,7 @@ export default function DeadlinePage() {
               >
                 <span className="min-w-0 truncate">
                   {d.name}
-                  {d.source === "fpl" && <span className="ml-1.5 text-sm font-normal text-zinc-500">imported</span>}
+                  {d.source === "fpl" && <span className="ml-1.5 text-sm font-normal text-muted-foreground">imported</span>}
                 </span>
                 {d.draftId === draftId && <Check aria-hidden="true" className="size-5 shrink-0" />}
               </button>

@@ -115,13 +115,13 @@ export function GameweeksTab({
                 >
                   <span className="tabular-nums font-medium">{line.event}</span>
                   <span className="min-w-0 truncate">
-                    {opponent} <span className="text-zinc-400">({line.was_home ? "H" : "A"})</span>
+                    {opponent} <span className="text-muted-foreground">({line.was_home ? "H" : "A"})</span>
                   </span>
                   <span className="truncate text-right tabular-nums text-zinc-500 dark:text-zinc-400">{score}</span>
                   <span className="text-right tabular-nums font-semibold">{line.total_points}</span>
                   <ChevronDown
                     aria-hidden
-                    className={`size-3.5 text-zinc-400 transition-transform duration-[var(--duration-fast)] motion-reduce:transition-none ${
+                    className={`size-3.5 text-muted-foreground transition-transform duration-[var(--duration-fast)] motion-reduce:transition-none ${
                       isOpen ? "rotate-180" : ""
                     }`}
                   />
@@ -145,7 +145,7 @@ export function GameweeksTab({
                         </p>
                         <table className="w-full min-w-0 text-xs">
                           <thead>
-                            <tr className="text-[10px] uppercase tracking-wide text-zinc-400">
+                            <tr className="text-[10px] uppercase tracking-wide text-muted-foreground">
                               <th className="pb-1 text-left font-medium">Statistic</th>
                               <th className="pb-1 text-right font-medium">Value</th>
                               <th className="pb-1 text-right font-medium">Points</th>

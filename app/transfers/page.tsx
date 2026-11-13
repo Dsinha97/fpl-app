@@ -807,7 +807,7 @@ export default function TransfersPage() {
   const pickerBody = pickingFor === null ? null : (
     <>
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Replacing {scoredById.get(pickingFor)?.webName}
         </h3>
         <Button
@@ -816,7 +816,7 @@ export default function TransfersPage() {
           aria-label="Cancel"
           variant="ghost"
           size="icon-xs"
-          className="text-zinc-400 hover:text-zinc-600 max-lg:size-11 dark:hover:text-zinc-200"
+          className="text-muted-foreground hover:text-zinc-600 max-lg:size-11 dark:hover:text-zinc-200"
         >
           ×
         </Button>
@@ -829,7 +829,7 @@ export default function TransfersPage() {
         className="mt-2 min-h-11 w-full rounded-md border border-input bg-surface-3 px-2 py-1 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-0"
       />
       {candidates.length === 0 ? (
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-muted-foreground">
           {search.trim().length >= 2
             ? "No player of that position matches."
             : "Nothing available improves on this pick."}
@@ -863,7 +863,7 @@ export default function TransfersPage() {
                   <span className="font-medium text-zinc-800 dark:text-zinc-200">
                     {player.webName}
                   </span>
-                  <span className="ml-1.5 text-xs text-zinc-500">
+                  <span className="ml-1.5 text-xs text-muted-foreground">
                     {player.teamShort} · {money(player.price)}
                   </span>
                   {/* Badges, not one grey run-on (DSI-124). "-1.2 xP — a
@@ -896,7 +896,7 @@ export default function TransfersPage() {
                       <TapToReveal
                         label="What is an exit route?"
                         wrapperClassName="relative block"
-                        triggerClassName="text-[11px] text-zinc-400"
+                        triggerClassName="text-[11px] text-muted-foreground"
                         trigger={`${exitRoutes} exit route${exitRoutes === 1 ? "" : "s"}`}
                       >
                         <p>
@@ -1047,7 +1047,7 @@ export default function TransfersPage() {
               <FdrLegendContent />
             </InfoTooltip>
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Queue transfers against a saved draft and see what they buy after the hit.
           </p>
         </div>
@@ -1083,7 +1083,7 @@ export default function TransfersPage() {
         onClick={() => setSettingsSheetOpen(true)}
         className="mt-3 flex min-h-11 w-full items-center gap-2 border-y border-zinc-200 text-left text-sm sm:hidden dark:border-purple-900/40"
       >
-        <SlidersHorizontal aria-hidden="true" className="size-4 shrink-0 text-zinc-500" />
+        <SlidersHorizontal aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-zinc-600 dark:text-zinc-300">{settingsSummary}</span>
         <span className="shrink-0 font-medium text-purple-700 dark:text-primary">Edit</span>
       </button>
@@ -1147,14 +1147,14 @@ export default function TransfersPage() {
         </p>
       )}
       {loading && (
-        <p role="status" className="mt-6 flex items-center gap-2 text-sm text-zinc-500">
+        <p role="status" className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner /> Loading player data…
         </p>
       )}
 
       {!loading && drafts.length === 0 && (
         <div className="mt-6 rounded-lg border border-zinc-200 bg-card p-6 text-center dark:border-purple-900/40">
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted-foreground">
             No saved squads yet. Build one in the{" "}
             <Link
               href="/builder"
@@ -1206,13 +1206,13 @@ export default function TransfersPage() {
           {/* Supporting tier (Sprint 19, Stage 4a) — this is the browsing/basket
               mechanism, not the answer; the simulation result in the aside is. */}
           <section className="min-w-0 rounded-xl border border-zinc-200 bg-card-supporting p-3 max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:px-0 max-sm:pb-0 max-sm:pt-4 dark:border-card-supporting-border">
-            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {team.name} · {team.players.length} players
             </h2>
             <div className="mt-2 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-zinc-500 dark:border-purple-900/40">
+                <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wide text-muted-foreground dark:border-purple-900/40">
                   <DataHeadCell className="sticky left-0 z-10 bg-card-supporting px-2 py-1.5 max-sm:bg-background">
                     Player
                   </DataHeadCell>
@@ -1270,7 +1270,7 @@ export default function TransfersPage() {
                           <span
                             className={`min-w-0 truncate ${
                               move
-                                ? "text-zinc-400 line-through"
+                                ? "text-muted-foreground line-through"
                                 : "font-medium text-zinc-800 dark:text-zinc-200"
                             }`}
                             title={row ? (fullName(row) ?? undefined) : undefined}
@@ -1311,10 +1311,10 @@ export default function TransfersPage() {
                           )}
                         </span>
                       </DataCell>
-                      <DataCell className="hidden px-2 py-1.5 text-xs text-zinc-500 sm:table-cell">
+                      <DataCell className="hidden px-2 py-1.5 text-xs text-muted-foreground sm:table-cell">
                         {POSITIONS[s?.elementType ?? 0] ?? "—"}
                       </DataCell>
-                      <DataCell className="hidden px-2 py-1.5 text-xs tabular-nums text-zinc-500 sm:table-cell">
+                      <DataCell className="hidden px-2 py-1.5 text-xs tabular-nums text-muted-foreground sm:table-cell">
                         {money(pick.purchasePrice)}
                       </DataCell>
                       <DataCell
@@ -1335,7 +1335,7 @@ export default function TransfersPage() {
                       >
                         {s ? xpFor(s, horizon).toFixed(1) : "—"}
                       </DataCell>
-                      <DataCell className="px-1.5 py-1.5 tabular-nums text-zinc-500">
+                      <DataCell className="px-1.5 py-1.5 tabular-nums text-muted-foreground">
                         {s ? riskScore(s, horizon, seasonWindow) : "—"}
                       </DataCell>
                       {/* Tighter left padding than the stat columns — this is
@@ -1347,7 +1347,7 @@ export default function TransfersPage() {
                           <Button
                             variant="link"
                             size="xs"
-                            className="text-zinc-500"
+                            className="text-muted-foreground"
                             onClick={() => setMoves((prev) => prev.filter((m) => m.outId !== move.outId))}
                           >
                             undo
@@ -1410,7 +1410,7 @@ export default function TransfersPage() {
 
             {simulation && moves.length === 0 && (
               <div className="rounded-xl border border-zinc-200 bg-card-supporting p-3 max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent max-sm:px-0 max-sm:pb-0 max-sm:pt-0 dark:border-card-supporting-border">
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-muted-foreground">
                   Choose a player to transfer out. Nothing is committed until you apply, and applying
                   writes a new draft rather than changing this one.
                 </p>
@@ -1448,7 +1448,7 @@ export default function TransfersPage() {
                     sit beside it on the left, never folded into it. */}
                 <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {simulation.cost.transfers} transfer
                   {simulation.cost.transfers === 1 ? "" : "s"} · {horizonLabel(horizon)}
                   {wildcardMode && (
@@ -1462,7 +1462,7 @@ export default function TransfersPage() {
                 <div className="mt-1.5">
                   {/* The hit is shown as its own term, never folded silently into
                       the net figure. */}
-                  <p className="mt-0.5 text-xs text-zinc-500">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     {signed(simulation.xpDelta)} xP
                     {simulation.cost.pointsCost > 0
                       ? ` − ${simulation.cost.pointsCost} hit`
@@ -1472,7 +1472,7 @@ export default function TransfersPage() {
                       : ""}
                   </p>
                   {simulation.cost.hits > 0 && (
-                    <p className="mt-1 text-[11px] text-zinc-500">
+                    <p className="mt-1 text-[11px] text-muted-foreground">
                       {simulation.cost.transfers} transfers, {simulation.cost.freeTransfers} free →{" "}
                       {simulation.cost.hits} hit{simulation.cost.hits === 1 ? "" : "s"}
                     </p>
@@ -1561,7 +1561,7 @@ export default function TransfersPage() {
                       <span className="text-zinc-700 dark:text-zinc-300">
                         {m.outName} → {m.inName}
                       </span>
-                      <span className="ml-1.5 text-zinc-500">
+                      <span className="ml-1.5 text-muted-foreground">
                         {signed(m.xpDelta)} xP · {m.cashFreed >= 0 ? "frees" : "costs"}{" "}
                         {money(Math.abs(m.cashFreed))}
                         {Math.abs(m.riskDelta) >= 1 ? ` · risk ${signed(m.riskDelta, 0)}` : ""}
@@ -1621,7 +1621,7 @@ function Row({
 
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <dt className="text-xs text-zinc-500">{label}</dt>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="tabular-nums text-zinc-800 dark:text-zinc-200">
         {value}
         {show && (

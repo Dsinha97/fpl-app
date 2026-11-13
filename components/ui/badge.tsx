@@ -44,7 +44,7 @@ const badgeVariants = cva(
       },
       size: {
         /** The existing badge shell — 9px uppercase. */
-        xs: "px-1 py-px text-[9px] uppercase",
+        xs: "px-1 py-px text-[10px] uppercase",
         /** Sentence-case, for a badge carrying words rather than a token. */
         sm: "px-1.5 py-0.5 text-[10px]",
       },

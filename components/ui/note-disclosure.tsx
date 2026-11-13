@@ -40,7 +40,7 @@ export function NoteDisclosure({
       >
         <span
           aria-hidden="true"
-          className={`shrink-0 text-zinc-400 transition-transform ${open ? "" : "rotate-180"}`}
+          className={`shrink-0 text-muted-foreground transition-transform ${open ? "" : "rotate-180"}`}
         >
           ⌃
         </span>
