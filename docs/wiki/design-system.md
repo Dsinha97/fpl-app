@@ -31,7 +31,7 @@ related:
   - blocked-and-data-gaps.md
   - performance.md
   - fixture-difficulty.md
-updated: 2026-10-18
+updated: 2026-11-13
 ---
 # Design system
 
