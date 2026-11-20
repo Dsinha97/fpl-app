@@ -23,10 +23,10 @@ detection, so each user must fetch and paste their own `my-team` JSON — see
 [wiki/fpl-authentication.md](wiki/fpl-authentication.md). The rest of "personal" is scope,
 not capability: one Supabase project sized for one owner's usage, a single Telegram bot, a
 static export doing the heavy optimiser work in each visitor's browser, and a navigation
-model built around the owner's own three questions. The model is also only validated
-in-sample (out-of-sample it trails a naive last-5 baseline — see
-[ml-explainer.md](ml-explainer.md)), which is a reason to keep this a decision-support tool
-for an informed owner rather than advice for a wide audience.
+model built around the owner's own three questions. The model's accuracy is also not
+established: live, it ties a naive last-5 baseline pooled and loses to it on whether players
+play (see [ml-explainer.md](ml-explainer.md)), which is a reason to keep this a decision-support
+tool for an informed owner rather than advice for a wide audience.
 
 Signed-out visitors see a marketing splash (`/`) with two calls to action — import your
 squad, or browse players. Signed-in visitors skip the splash entirely and land on

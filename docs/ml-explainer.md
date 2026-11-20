@@ -1,7 +1,7 @@
 # ML explainer — how the predictions work
 
 What the app's "ML" is, what it is not, and how each number is produced, adjusted and judged
-(model v1.6.0, 2026-10-19). Companion to [site-explainer.md](site-explainer.md); the method,
+(model v1.7.0, deployed 2026-10-19; results as of the GW10 batch, 2026-11-09). Companion to [site-explainer.md](site-explainer.md); the method,
 calibration history and backtests in full are in [phase-4-model.md](phase-4-model.md), and the
 code is [`supabase/functions/_shared/xp-model.ts`](../supabase/functions/_shared/xp-model.ts).
 
@@ -9,8 +9,9 @@ code is [`supabase/functions/_shared/xp-model.ts`](../supabase/functions/_shared
 
 There are **no neural networks and no gradient-trained models**. The xP engine is a hand-built
 statistical model: per-90 rates blended from prior seasons, shrunk toward a fitted position × price
-prior (empirical Bayes), converted to points through Poisson tail probabilities and FDR/venue
-multipliers, then level-corrected per position. One small logistic regression (start probability)
+prior (empirical Bayes), converted to points through Poisson and negative-binomial tail probabilities
+and FDR/venue multipliers. Since v1.7.0 there is no per-position level scalar: the component errors it
+used to hide are fixed at source. One small logistic regression (start probability)
 is the only fitted regression. Every parameter is a closed-form estimate from the history table, a
 one-off fit gated on a backtest, or a fixed FPL rule. Everything else the app "predicts" is
 derived client-side from xP.
@@ -23,8 +24,8 @@ player_season_history (3 prior seasons)
   → shrink toward position × price prior     fitRatePriors, deriveRatesWithPrior
   → in-season start/minutes model (v1.6.0)   applyMinutesModel (logistic)
   → squad reconciliation                     11 starters, 990 minutes per club
-  → predict() per player per fixture         Poisson components × FDR/venue
-  → × positionCalibration
+  → predict() per player per fixture         start/cameo minute states, components × FDR/venue
+                                             (positionCalibration = 1.0 since v1.7.0)
   → player_predictions (+ archive) → player_xp_horizons view (1/3/5/8/season)
 ```
 
@@ -76,7 +77,10 @@ beats a plain last-5 rate (0.1475). Coefficients are the pooled fit from
 per-player rates do not sum to that. An exact water-fill, `Σ min(ceiling_i, λ·p_i) = target`,
 fixes it, with ceilings set by availability. v1.3.0 weights the correction by prior share so an
 established starter moves less than a fringe player. Known cost: starters at deep squads can be
-pulled down more than their record supports; disclosed in `COLD_START_MODEL_NOTE`.
+pulled down more than their record supports; disclosed in `COLD_START_MODEL_NOTE`. Since v1.7.0
+minutes are split like starts, 90 for the keeper and 900 for the outfield, because pooling them in one
+990 budget let a backup keeper absorb outfield minutes (keepers' expected minutes summed to 116.7
+against 88.2 played).
 
 ## `predict()` — turning rates into points
 
@@ -85,17 +89,19 @@ Per player per fixture; every component is its own column.
 | Component | How |
 |---|---|
 | Availability | `chance_of_playing / 100` scales expected minutes (not a trailing scalar) |
-| Appearance | `p60 = startProb × 0.92`; `p(any) = minutes / 72`; long/short play points |
+| Minute states | expected minutes split into a start state (P = start probability) and a cameo state (~18.7 min); threshold components (DC, saves, goals conceded) are averaged over the states, because half the chance of a full match is not the tail of half a match |
+| Appearance | `p60 = startProb × 0.92`; P(appear) is the two states' total (not `minutes / 72`); long/short play points |
 | Fixture multipliers | attack `(1+0.09·(3−FDR))×venue`, defence `(1+0.14·(3−FDR))×venue`; home/away 1.05/0.95 attack, 1.06/0.94 defence |
-| Goals, assists | `rate × minuteShare × attackMult × points` |
+| Goals, assists | `rate × minuteShare × attackMult × points`; assists also × FPL assists per xA (DEF 1.27, MID 1.34, FWD 2.40, GKP 1) |
 | Clean sheet | `min(cs90 × defMult, 0.85) × p60 × points` |
 | Goals conceded, saves | `E[floor(X/2)]`, `E[floor(X/3)]` under Poisson, not `λ/d` |
-| Defensive contribution | Poisson tail `P(X ≥ 10 DEF / 12 MID,FWD)` × 2 points |
+| Defensive contribution | negative-binomial tail `P(X ≥ 10 DEF / 12 MID,FWD)` × 2 points (dispersion r = 20 DEF, 31 MID/FWD; fitted on 2025-26 only) |
 | Bonus | `bonus90 × minuteShare × mean(attackMult, defMult)` |
 | Cards | `yellow90 × minuteShare × points` |
 
-Sum × `positionCalibration` (GKP 1.265, DEF 1.2241, MID 1.2238, FWD 1.2576). Points values come
-from the `scoring_rules` table, never hardcoded. The `xp_lower`/`xp_upper` band re-runs `predict`
+The sum is used as is: `positionCalibration` was ×1.22–1.27 through v1.6.0 and is 1.0 from v1.7.0,
+once the components it was compensating for were fixed ([sprints/sprint-43.md](sprints/sprint-43.md)).
+Points values come from the `scoring_rules` table, never hardcoded. The `xp_lower`/`xp_upper` band re-runs `predict`
 at ±1.28 posterior sd — a rate-uncertainty band, **not** a prediction interval (it ignores
 match-to-match Poisson noise).
 
@@ -114,7 +120,7 @@ Only xP is generated server-side. The rest is client-side, derived from xP:
 | Chips | `lib/chips.ts`, `chip-plan.ts` | value = xP with chip − xP without, per gameweek |
 | Hidden gems | `lib/hidden-gems.ts` | percentile filters on the live pool; "low"-reliability players excluded |
 | Price watch | `lib/price-watch.ts` | **progress toward FPL's price threshold, not a prediction** — falls `3,577 + 31,870/1% owned` (R²=0.81), rises flat ~378k (R²=0.02); crossing is followed by a change only ~10% (falls) / ~22% (rises) of the time |
-| Derived FDR | `lib/fdr-derived.ts` | team attack/defence from results; beat a neutral baseline in 4 seasons, **not shipped** (untested vs official FDR; gate ~GW10 on 2026-27) |
+| Derived FDR | `lib/fdr-derived.ts` | team attack/defence from results; beat a neutral baseline in 4 seasons but **does not beat official FDR** on 2026-27 (GW10, n=2,116), so it stays display-only |
 
 Where a formula needs a field FPL zeroes, the term is dropped, weights are renormalised and a
 `*_NOTE` is shown beside the number. Missing quantities that cannot be dropped become documented,
@@ -130,15 +136,15 @@ user-set inputs (`decisionMargin`).
 - **Does not adapt:** the scoring rates (`xg90`, `xa90`, bonus, cs, dc). They come only from
   `player_season_history`, which FPL fills from completed seasons, so a striker's hot or cold
   streak does not move his xG rate this season. The current-season blend exists
-  (`currentSeasonRow`, `currentSeasonScope`) but is **dormant**: it improved MAE and r in every
-  season and failed the bias gate in 2024-25 and 2026-27. Re-run the sweep at 8–10 scored 2026-27
-  gameweeks.
-- **Refit by hand, gated on a backtest, not on a schedule:** `positionCalibration` (v1.0.0, 1.1.0,
-  1.4.0), minutes coefficients (`scripts/minutes-model-gate.ts`), price thresholds
-  (`scripts/price-window-probe.ts`), Championship factors (one-shot).
-  [sprints/gw5-check-in.md](sprints/gw5-check-in.md) §2 advises against the planned GW10
-  `positionCalibration` refit: live error is a −0.714 non-appearance cohort cancelling a +0.627
-  appearance one, which a multiplicative factor cannot express.
+  (`currentSeasonRow`, `currentSeasonScope`) but is **dormant**. Re-run at the GW10 batch, the
+  `minutes` scope cleared all four seasons but added only 0.001–0.006 MAE on top of the minutes
+  model already shipped, so it was not adopted ([sprints/gw10-check-in.md](sprints/gw10-check-in.md) §4).
+- **Refit by hand, gated on a backtest, not on a schedule:** minutes coefficients
+  (`scripts/minutes-model-gate.ts`), DC dispersion and assists-per-xA
+  (`scripts/component-params-fit.ts`), price thresholds (`scripts/price-window-probe.ts`),
+  Championship factors (one-shot). `positionCalibration` was refit three times (v1.0.0, 1.1.0, 1.4.0)
+  and then retired: the GW5 check-in showed a −0.714 non-appearance cohort cancelling a +0.627
+  appearance one, which a multiplicative factor cannot express, so v1.7.0 fixed the components instead.
 - **Monitoring only:** `player_prediction_archive` keeps the last pre-deadline snapshot per
   gameweek; `lib/prediction-accuracy.ts` scores it against results (bias, MAE, Pearson r). It
   does not feed back into the model.
@@ -147,11 +153,20 @@ user-set inputs (`decisionMargin`).
 
 - **In-sample** (2025/26, weighted 0.6 in its own blend): MAE ≈ 0.41, r ≈ 0.83–0.85 per gameweek.
   This shows the points arithmetic is right, nothing more; bias → 0 is by construction.
-- **Walk-forward, out-of-sample:** per-gameweek r ≈ 0.15–0.23 and MAE ≈ 2.3–2.5, **worse than a
-  naive last-5-gameweeks baseline in every season** (r ≈ 0.34–0.37, MAE ≈ 2.04)
-  ([sprints/sprint-17a.md](sprints/sprint-17a.md)).
-- Every attempt to close that gap (current-season blend, bias correction, narrow scope) was gated
-  on MAE, r and bias across all seasons and **did not ship**; the null results are the findings.
+- **Walk-forward harness, out-of-sample (v1.7.0):** MAE 2.20–2.35 and r 0.16–0.24 across the four
+  target seasons, an improvement of 0.11–0.20 MAE on v1.6.0 in every season
+  ([sprints/sprint-43.md](sprints/sprint-43.md) §5). The harness is the harsh comparison (neutral
+  start inputs, no minutes model), and there it is still **worse than a last-5 baseline**: on 2026-27,
+  MAE 2.303 / r 0.176 against 1.973 / 0.381.
+- **Live, on the xP production actually emits (GW6–10, n=3,216):** a statistical tie with last-5
+  pooled (MAE 1.237 vs 1.218, r 0.506 vs 0.502). The model is clearly better for outfield players who
+  appear (MAE −0.153) and clearly worse on whether players play: no-shows (+0.122) and goalkeepers
+  (+0.283). GW10 alone had the highest r on record, 0.543
+  ([sprints/gw10-check-in.md](sprints/gw10-check-in.md) §1–3).
+- **The accuracy-claims gate (DSI-186) was not met**, so the app makes no accuracy claim.
+- Attempts to close the gap by adding a current-season blend, a bias correction or a narrower scope
+  were gated on MAE, r and bias across all seasons and **did not ship**; the null results are the
+  findings. The one gap that closed was found by scoring each component separately (v1.7.0).
 - Sign convention: walk-forward bias is `mean(actual − predicted)`, so negative means the model
   predicts more than is scored. The §2 table in phase-4-model.md predates that and uses the
   opposite sign.
@@ -348,11 +363,13 @@ against live data in a harness before trusting the UI, and keep the harness out 
 
 - Everything downstream (captain, chips, transfers, gems) inherits xP's error.
 - Risk and captain weights come from the build plan, hand-set rather than fitted.
-- `positionCalibration` ×1.22–1.27 is large; it absorbs finishing above xG, penalties and
-  over-dispersed counts.
-- Official FDR is the fixture signal; the walk-forward harness pins FDR to 3, so that layer has
-  never been exercised out of sample.
+- With the scalar gone, the level shows through: v1.7.0 over-predicts goals and assists and
+  under-predicts clean sheets on 2026-27 (GW8–10). It is tracked as a watch item (DSI-221), to be
+  re-read around GW14 and acted on only if the same-sign gap persists.
+- Official FDR is the fixture signal. At GW10 it beat both neutral FDR and the results-derived rating
+  on 2026-27 (MAE 2.295 vs 2.310 and 2.303–2.306).
 - `dc90` applies one aggregate count against two different FPL rules (CBIT vs CBIRT).
-- Next step with the best evidence behind it: gate the current-season blend for the minutes-scoped
-  quantities at GW10+, before any bigger model class — the binding constraint is thin per-player
-  data and a frozen season-long scoring rate, not model capacity.
+- The binding constraint is thin per-player data and a frozen season-long scoring rate, not model
+  capacity, so a bigger model class is not the next step. The current-season blend for the
+  minutes-scoped quantities was the candidate and has now been run: it adds nothing measurable on top
+  of the minutes model.
