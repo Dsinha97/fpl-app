@@ -290,6 +290,20 @@ graft) **in parallel**, then pass their results and the available skill list to 
 execute its plan in the main session. Subagents cannot start subagents, so the session does the
 orchestration. The planner plans only; it does not invoke skills or edit files.
 
+After `planner`, run `worker` per ticket and `reviewer` after every worker; coding briefs may go to
+Antigravity. Rules: AGENTS.md.
+
+## Decisions and learning
+
+Jobs: DECISIONS and RETRO. Detail: `plans-private/Decisions/CONVENTIONS.md` (gitignored; the repo is public).
+
+- A decision or gotcha is only registered after the user's verdict. A choice made unasked is
+  logged `Decision (Claude): ...` in `docs/wiki/log.md` and stays `pending` until acknowledged.
+- The scanner reads `docs/wiki/log.md` and proposes candidates in a local inbox. It never
+  promotes anything and never edits CLAUDE.md.
+- RETRO: turn recurring corrections into one-line rules, show the diff, wait for a yes.
+- The "Gotchas that have bitten" list stays here; copies go to `gotchas.md` with line citations.
+
 ## Communication style
 
 **Keep responses concise.** Skip preamble and restating the request; lead with the answer
