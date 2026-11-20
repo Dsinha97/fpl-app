@@ -680,7 +680,7 @@ def provision(root, brief_path, hashed_folders=(), dry_run=False, out=print):
         if not any(path_matches(d + "/x", t) for t in brief["may_touch"]) and not (d + "/").startswith(LANE_ROOT + "/"):
             raise SetupError("hashed folder %s is not inside the brief's May touch or the lane folder" % d)
         folders.append(d)
-    steps = ["git -C <main repo> clone --no-hardlinks --no-tags --single-branch --branch main . %s" % target,
+    steps = ["git -C <main repo> clone -c core.autocrlf=false --no-hardlinks --no-tags --single-branch --branch main . %s" % target,
              "git -C %s remote remove origin" % target,
              "git -C %s switch -c %s" % (target, code),
              "git -C %s branch %s" % (target, lane),
@@ -702,7 +702,10 @@ def provision(root, brief_path, hashed_folders=(), dry_run=False, out=print):
         out("WARN  .worktrees/ is not in .git/info/exclude")
     target.parent.mkdir(exist_ok=True)
     try:
-        git(root, "clone", "--no-hardlinks", "--no-tags", "--single-branch", "--branch", "main", ".", str(target))
+        # autocrlf=false at clone time, not after: a later config change would not rewrite the checkout, and
+        # a CRLF checkout changes every frozen input's sha256 against the brief's (found in the lane smoke test)
+        git(root, "clone", "-c", "core.autocrlf=false", "--no-hardlinks", "--no-tags", "--single-branch",
+            "--branch", "main", ".", str(target))
         _git_in_new_clone(target, "remote", "remove", "origin")  # first, so a later failure leaves no remote
         _git_in_new_clone(target, "switch", "-c", code)
         _git_in_new_clone(target, "branch", lane)
