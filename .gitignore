@@ -126,3 +126,6 @@ supabase/.temp/
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
+
+# Local agent runs, decisions and gotchas: never committed (repo is public)
+plans-private/
