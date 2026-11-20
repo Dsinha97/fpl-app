@@ -129,6 +129,27 @@ class Provision(Base):
         self.assertTrue(any("PASS  clone config" in x for x in self.out))
         self.assertFalse(any(x.startswith("FAIL") for x in self.out))
 
+    def test_clone_checkout_is_not_crlf_converted(self):
+        # a global core.autocrlf=true would otherwise check the clone out with CRLF and change every
+        # frozen input's hash against the brief's
+        gc = os.path.join(self.root, "..", "fplh-global-%d.cfg" % os.getpid())
+        with open(gc, "w", encoding="utf-8", newline="") as fh:
+            fh.write("[core]\n\tautocrlf = true\n")
+        self.addCleanup(os.remove, gc)
+        env = {"GIT_CONFIG_GLOBAL": gc}
+        old = {k: os.environ.get(k) for k in env}
+        os.environ.update(env)
+        try:
+            self.assertEqual(self.provision(), 0)
+        finally:
+            for k, v in old.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        self.assertNotIn(b"\r", (self.clone / "app" / "page.tsx").read_bytes())
+        self.assertEqual(sh(self.clone, "config", "--local", "core.autocrlf").strip(), "false")
+
     def test_refuses_second_run_and_bad_hashed_folder(self):
         self.provision()
         with self.assertRaises(H.SetupError):
