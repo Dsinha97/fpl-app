@@ -31,7 +31,7 @@ related:
   - blocked-and-data-gaps.md
   - performance.md
   - fixture-difficulty.md
-updated: 2026-11-13
+updated: 2026-11-20
 ---
 # Design system
 
@@ -950,6 +950,19 @@ Design-HQ audit of `/`, `/players`, `/fixtures` and `/deadline`, measured with a
 - **9px text became 10px** in badges, the pitch chip and the brand mark. The 8px and 9px text in `devtools-walkthrough.tsx` is SVG scaled with its viewBox, so it was left.
 - **Radius vocabulary, recorded not rewritten.** The app uses bare `rounded` (4px, table cells and chips), `rounded-md`, `rounded-lg` (controls), `rounded-xl` (cards) and `rounded-full`. That is five steps with distinct jobs, inside the dashboard archetype's 3-10px range. Not collapsed: a mechanical swap with no visual-regression suite is the trade this page already rejected for hex literals.
 - **`window.confirm` removed** from `/builder`'s draft switch; it is a bottom `SlideOver` with Keep editing / Discard and switch.
+
+## Second Design-HQ pass: skip link, 320px, labels (2026-11-20)
+
+Audit of the live site against Design-HQ 0.2.0, which adds states-and-flows and accessibility-baseline checks. Contrast was already clean; the new checks found:
+
+- **No skip link.** `components/skip-link.tsx` is the first tab stop in `app/layout.tsx`. It moves focus to the route's `<main>` in a click handler rather than a `#id` anchor, because no route's `<main>` carries an id.
+- **`/builder` overflowed at 320px** (scrollWidth 360). The filter row in `components/player-filters.tsx` is a flex item whose automatic minimum width was the search input's intrinsic width plus the Filter button (344px). `min-w-0 max-w-full` on the row fixes it; the `min-w-0` rule above applies a fourth time. 375px passed on every route, which is why an earlier pass missed it.
+- **The player search box had only a placeholder** for a name; it now has `aria-label`.
+- **Touch targets** use the `pointer-coarse:` variant: the logo link and account button 44px, fixture gameweek headers `min-h-11`.
+- **Scroll boxes with no focusable child** (the `/players` table, a labelled `DataTable`) are now `tabIndex=0` `role="region"` with a label and a focus ring. `SegmentedControl` was left alone: its buttons are focusable.
+- **Rival removal** on `/team` dropped the Supabase result, so a failed delete looked like a success. It now sets `rivalError`.
+- **An empty builder draft** shows an em dash for the projection and drops the Next GW and Armband terms instead of showing `0.0` (the missing-data rule: drop, don't zero).
+- **Tooling:** Design-HQ's `audit-probe.js` throws on this site because Chrome returns `oklch()`/`color()` computed colours. A canvas-based colour parse worked around it locally.
 
 ## Sources
 
