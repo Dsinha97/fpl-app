@@ -129,3 +129,10 @@ supabase/.temp/
 
 # Local agent runs, decisions and gotchas: never committed (repo is public)
 plans-private/
+
+# project-brain
+plans/Decisions/private/
+.worktrees/
+.council/
+.pb/
+__pycache__/
