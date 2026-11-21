@@ -6,6 +6,7 @@ import { DraftSyncProvider } from "@/components/draft-sync-provider";
 import { Monogram, Wordmark } from "@/components/brand";
 import { DesktopNav } from "@/components/nav-links";
 import { AccountMenu } from "@/components/account-menu";
+import { SkipLink } from "@/components/skip-link";
 import { ContextBar } from "@/components/context-bar";
 import { HeaderScrollState } from "@/components/header-scroll-state";
 import { BottomTabs } from "@/components/bottom-tabs";
@@ -74,10 +75,11 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <AuthProvider>
+          <SkipLink />
           <DraftSyncProvider />
           <header id="site-header" className="group sticky top-0 z-40 border-b pt-[env(safe-area-inset-top)] border-zinc-200 bg-white dark:border-purple-900/40 dark:bg-card">
             <nav className="mx-auto flex h-14 group-data-[scrolled]:h-11 w-full max-w-6xl items-center gap-3 px-4 sm:gap-6">
-              <Link href="/" className="flex shrink-0 items-center gap-2.5">
+              <Link href="/" className="flex shrink-0 items-center gap-2.5 pointer-coarse:min-h-11">
                 {/* The animated cue is this transform; the bar's own height
                     swap is instant (animating layout properties is off the
                     composite-only path). */}

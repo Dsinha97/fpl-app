@@ -64,7 +64,7 @@ export function AccountMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-label={user ? "Account menu" : "Sign in and theme menu"}
         aria-expanded={open}
-        className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-300 text-xs font-semibold text-zinc-600 transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:border-primary dark:hover:text-primary"
+        className="flex h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 items-center justify-center rounded-full border border-zinc-300 text-xs font-semibold text-zinc-600 transition-colors hover:border-purple-700 hover:text-purple-700 dark:border-purple-800/50 dark:text-zinc-300 dark:hover:border-primary dark:hover:text-primary"
       >
         {initials ?? <PersonIcon />}
       </button>

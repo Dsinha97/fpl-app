@@ -123,9 +123,13 @@ export function PlayerFilters({
     // Below `sm` the search box takes the row and everything else lives in
     // FilterDisclosure's bottom sheet (Sprint 42), stacked one control per
     // line at a 44px height — the same controls, laid out on one axis.
-    <div className="flex items-start gap-3 text-sm sm:flex-wrap">
+    // `min-w-0 max-w-full`: in a flex-wrap parent this row's automatic minimum is the
+    // search input's intrinsic width plus the Filter button (344px), which pushed
+    // /builder 40px past a 320px viewport.
+    <div className="flex min-w-0 max-w-full items-start gap-3 text-sm sm:flex-wrap">
       <input
         type="search"
+        aria-label="Search players"
         value={value.search}
         onChange={(e) => onChange({ ...value, search: e.target.value })}
         placeholder="Search player…"
