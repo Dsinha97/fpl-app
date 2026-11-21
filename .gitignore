@@ -136,3 +136,6 @@ plans/Decisions/private/
 .council/
 .pb/
 __pycache__/
+
+# project-brain: plugin copy, not tracked (CodeQL flags its audit printing)
+tools/pb.py
