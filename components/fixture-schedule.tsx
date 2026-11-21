@@ -171,7 +171,7 @@ export function FixtureSchedule({ fixtures, teams, gameweeks, nextGw, playersByI
                 })
               }
               aria-expanded={open}
-              className={`group flex w-full items-center justify-between gap-3 px-4 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-purple-950/40 ${
+              className={`group flex w-full items-center justify-between gap-3 px-4 text-left transition-colors pointer-coarse:min-h-11 hover:bg-zinc-50 dark:hover:bg-purple-950/40 ${
                 compact ? "py-1.5" : "py-3"
               }`}
             >

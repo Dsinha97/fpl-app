@@ -51,8 +51,11 @@ export function DataTable({
   return (
     <div
       style={maxHeight ? { maxHeight } : undefined}
+      // A scroll box with no focusable child cannot be scrolled by keyboard;
+      // a label makes it a named, focusable region.
+      {...(label ? { tabIndex: 0, role: "region", "aria-label": `${label}, scrolls sideways` } : {})}
       className={cn(
-        "overflow-x-auto rounded-lg border border-border bg-card",
+        "overflow-x-auto rounded-lg border border-border bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         maxHeight && "overflow-y-auto",
         wrapperClassName,
       )}

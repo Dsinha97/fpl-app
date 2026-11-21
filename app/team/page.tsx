@@ -1404,9 +1404,22 @@ export default function TeamPage() {
     async (entryId: number) => {
       if (!user || !savedId) return;
       setRivalBusy(true);
+      setRivalError(null);
       try {
-        await supabase.from("manager_rivals").delete().eq("user_id", user.id).eq("entry_id", entryId);
+        const { error } = await supabase
+          .from("manager_rivals")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("entry_id", entryId);
+        // The result used to be dropped, so a failed delete looked like a
+        // successful one: the rival simply stayed in the table.
+        if (error) {
+          setRivalError(`Could not remove that rival: ${error.message}`);
+          return;
+        }
         await connect(savedId);
+      } catch (err) {
+        setRivalError(`Could not remove that rival: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
         setRivalBusy(false);
       }

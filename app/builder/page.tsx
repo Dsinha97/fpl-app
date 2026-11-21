@@ -2014,7 +2014,7 @@ export default function BuilderPage() {
                   align="start"
                   label={horizon === "season" ? "xP · season*" : `xP · ${horizon} GW${horizon === 1 ? "" : "s"}`}
                   title={horizon === "season" ? seasonHorizonNote(seasonWindow) : undefined}
-                  value={projection.total.toFixed(1)}
+                  value={team.players.length === 0 ? "—" : projection.total.toFixed(1)}
                 />
                 <div className="flex min-w-0 flex-col items-end pt-1 text-right text-xs text-muted-foreground">
                   {team.captain !== null ? (
@@ -2036,8 +2036,14 @@ export default function BuilderPage() {
               <div className="mt-3">
                 <StatStrip
                   items={[
-                    ...(horizon !== 1 ? [{ label: "Next GW", value: projectionGw.total.toFixed(1) }] : []),
-                    { label: "Armband", value: team.captain !== null ? `+${projection.captainBonus.toFixed(1)}` : "—" },
+                    // An empty draft has nothing to project: drop the zeroed
+                    // terms rather than show "0.0" as if it were a result.
+                    ...(horizon !== 1 && team.players.length > 0
+                      ? [{ label: "Next GW", value: projectionGw.total.toFixed(1) }]
+                      : []),
+                    ...(team.players.length > 0
+                      ? [{ label: "Armband", value: team.captain !== null ? `+${projection.captainBonus.toFixed(1)}` : "—" }]
+                      : []),
                     { label: "Players", value: `${team.players.length}/${rules.squadSize}` },
                   ]}
                 />
@@ -2059,10 +2065,10 @@ export default function BuilderPage() {
                     : `Projected · next ${horizon} GW${horizon === 1 ? "" : "s"}`}
                 </div>
                 <div className="text-4xl font-extrabold tabular-nums text-purple-900 dark:text-primary">
-                  {projection.total.toFixed(1)}
+                  {team.players.length === 0 ? "—" : projection.total.toFixed(1)}
                 </div>
               </div>
-              {horizon !== 1 && (
+              {horizon !== 1 && team.players.length > 0 && (
                 <div>
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">Next GW</div>
                   <div className="text-3xl font-bold tabular-nums text-purple-800 dark:text-primary/80">

@@ -1113,7 +1113,12 @@ export default function PlayersPage() {
           )}
         </div>
 
-        <div className="mt-4 hidden overflow-x-auto rounded-lg border border-zinc-200 bg-white sm:block dark:border-purple-900/40 dark:bg-card">
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Players table, scrolls sideways"
+          className="mt-4 hidden overflow-x-auto rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border border-zinc-200 bg-white sm:block dark:border-purple-900/40 dark:bg-card"
+        >
           <table className="w-full min-w-[56rem] text-sm">
             {/* NOT sticky, deliberately. `overflow-x-auto` on the wrapper above
                 computes `overflow-y: auto` too, which makes that wrapper the
