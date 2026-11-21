@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "comment": "Commands that need the user's approval. Edit freely; the built-in rule that stops agents approving themselves cannot be removed here. Actions are approved with: python tools/gate.py approve <action>",
+  "rules": [
+    {
+      "action": "push",
+      "pattern": "\\bgit\\s+(?:-C\\s+\\S+\\s+)?push\\b",
+      "message": "git push needs the user's approval."
+    },
+    {
+      "action": "delete",
+      "pattern": "(?:^|[;&|(]\\s*|\\s)(?:rm|rmdir|unlink|del|erase|Remove-Item)\\s|\\bgit\\s+(?:rm|clean|worktree\\s+remove)\\b",
+      "message": "Deleting files needs the user's approval."
+    },
+    {
+      "action": "move",
+      "pattern": "(?:^|[;&|(]\\s*|\\s)(?:mv|move|ren|rename|Move-Item|Rename-Item)\\s|\\bgit\\s+mv\\b",
+      "message": "Moving or renaming files needs the user's approval."
+    },
+    {
+      "action": "discard",
+      "pattern": "\\bgit\\s+(?:reset\\s+--hard|branch\\s+-D\\b|checkout\\s+--\\s|restore\\s)",
+      "case_sensitive": true,
+      "message": "Discarding work needs the user's approval."
+    }
+  ]
+}
